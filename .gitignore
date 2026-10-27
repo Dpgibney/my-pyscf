@@ -1,0 +1,19 @@
+# Upstream clones: each is its own git repo, tracked in place (see NOTES.md for pinned SHAs)
+/pyscf/
+/pyscf-base/
+/libcint/
+/qcint/
+/libxc/
+/OpenBLAS/
+# Build products and environments
+/install/
+/build/
+/.venv/
+/.venv-wheel/
+/scratch/
+__pycache__/
+*.pyc
+*.chk
+*.h5
+# regenerable reference caches (validate.py / kernels.py)
+/bench/results/ref/
