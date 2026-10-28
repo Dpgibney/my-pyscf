@@ -237,3 +237,17 @@ Q = qcint, unmodified code; P4 = + It4; P5 = + It5a. All three use the same qcin
   - f_xc kernel tests (LDA/PBE/B3LYP/r2SCAN, 3 non-symmetric trial DMs) match the reference to ≤ 7e-16.
   - TDA, TDDFT, both benzene Hessians and all nine Hessian-path cases pass `validate.py`.
 - **Validation rule fix:** tight RPA-TDDFT (`conv_tol=1e-8`) does not converge on unmodified master either. `validate.py` now requires the candidate to converge wherever the *reference* did, instead of everywhere.
+
+**It5b timings** (`results/20261027-213023_it5b-fxc-batch.json`, P5 = It5a vs P6 = It5b).
+P6 ran 0.2–0.4 GHz slower than P5 in every pair (see below), so these gains are understated by about 5–10%.
+
+| case | P5 (s) | P6 (s) | speedup | `xc_kernels` |
+|---|---|---|---|---|
+| benzene TDA | 9.12 | 8.74 | 1.04× | 3.09 → 2.79 s |
+| benzene TDDFT (RPA) | 24.98 | 22.82 | 1.09× | 8.33 → 6.58 s |
+| caffeine TDA | 133.1 | 127.2 | 1.05× | 27.6 → 18.6 s |
+| PBE Hessian | 31.8 | 29.7 | 1.07× | 6.68 → 5.01 s |
+| B3LYP Hessian | 36.5 | 34.1 | 1.07× | 7.37 → 5.53 s |
+
+- **Caffeine TDA is now J/K-bound:** 64 of 127 s goes to recomputing the 4-center integrals in every Davidson iteration, because nao = 246 does not fit in memory at the default `max_memory=4000`.
+- **Methodology fix: ABAB → ABBA.** With boost clocks, the config that always runs second sees a hotter chip and lower clocks. `run_bench.py` now alternates the order every repetition.

@@ -5,7 +5,8 @@ Usage: run_bench.py [--suite quick|full|micro] [--cases a,b] [--reps N] [--threa
   run_bench.py --tag it0 A=wheel B=pyscf-base:OPENBLAS_CORETYPE=Barcelona
 
 Each measurement is a fresh worker process (warm-up excluded from timing). Configurations are
-interleaved within each repetition (ABAB...) so slow thermal or frequency drift hits all of them equally.
+interleaved within each repetition, in alternating order (ABBA...), so thermal and frequency drift
+hits all of them equally.
 """
 import argparse
 import json
@@ -41,7 +42,9 @@ def main():
     path = RESULTS / f'{time.strftime("%Y%m%d-%H%M%S")}_{args.tag}.json'
     for name in names:
         for rep in range(args.reps):
-            for cfg in configs:
+            # ABBA: alternate the order so no config always runs right after another
+            # (with boost clocks, a run that follows another sees a hotter, slower chip)
+            for cfg in (configs if rep % 2 == 0 else configs[::-1]):
                 rec = run_worker(name, cfg, args.threads)
                 rec.update(config=cfg.label, rep=rep)
                 out['runs'].append(rec)
