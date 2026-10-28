@@ -61,15 +61,12 @@ cd bench
 - **Don't launch python from the workspace root.** `pkgutil.extend_path` then adds the clone root `my-pyscf/pyscf/` to `pyscf.__path__`. It is harmless, but noisy. The harness runs workers from `scratch/`.
 - **Thread binding is not set by default.** `OMP_PROC_BIND` pins Python's main thread to one core, and pthread pools created afterwards (numpy/scipy OpenBLAS) inherit that mask. Binding is part of the It3 sweep.
 - **Machine:** 4× Zen 5 (CPUs 0–7, up to 5.09 GHz) + 6× Zen 5c (CPUs 8–19, up to 3.32 GHz).
-- **The firmware caps every core at the 2.0 GHz base clock, with no boost, even on AC.**
+- **The firmware clamps the clocks, and not consistently.** `scaling_max_freq` reads 2.0 GHz on every core, even on AC.
   - `sudo cpupower -c all frequency-set -u 5.1GHz` ran (confirmed in the sudo log), but `scaling_max_freq` stayed at 2.0 GHz.
-  - Measured `cpuinfo_avg_freq` under load is about 2.0 GHz on all cores.
   - Not thermal: every Processor cooling device is at state 0, and the hottest zone was 55 °C.
   - Likely the HP firmware (`hp-wmi`) applying a platform limit: an underpowered or unrecognized adapter, or a BIOS power/turbo setting.
+  - It1 ran entirely at the 2.0 GHz clamp. From It2 on, the machine toggled between the clamp and boost (see "Power state is not constant" below), so every run records its measured clocks.
   - This slows all of the user's computations, not just this project.
-- **Benchmarks therefore run at a uniform, fixed 2.0 GHz** (`check_power.sh` mode=capped).
-  - This is low-noise and matches how the laptop runs today.
-  - It hides Zen 5/5c load imbalance, so re-run the key comparisons if the cap is ever lifted.
 - `perf` needs `kernel.perf_event_paranoid` ≤ 2 (currently 4); use `py-spy record --native` instead.
 - **Build flags as found:**
   - PySCF stock: `-msse3 -O2 -g`.
@@ -296,9 +293,85 @@ P6 = `perf` with stock flags; N = the same code with `-DBUILD_MARCH_NATIVE=ON`; 
   - They fail identically on unmodified `pyscf-base`.
 - **No regressions.**
 
+## Final comparison against the wheel as used today (`results/20261027-225626_final.json`)
+
+- **A20** is the user's current setup: the pip wheel 2.12.1 with `OMP_NUM_THREADS` unset, so 20 threads.
+- **A** is the same wheel at 10 threads.
+- **B** is unmodified master with our OpenBLAS and stock libcint.
+- **F** is `perf` (`8fc5eca4e`, qcint).
+- **FM** is F with `PYSCF_MAX_MEMORY=20000`, which is what `scripts/pyscf-env.sh` sets.
+- Runs used boost clocks (Zen 5 at 2.7–4.5 GHz depending on the case), 2 reps in ABBA order; spreads are ≤ 2%.
+- Speedup = A20 time / config time.
+
+| workload | A20 (s) | A | B | F | FM |
+|---|---|---|---|---|---|
+| caffeine/SVP PBE SCF | 46.0 | 1.31× | 1.39× | 1.51× | **3.06×** |
+| caffeine/SVP B3LYP SCF | 45.3 | 1.29× | 1.37× | 1.46× | **2.62×** |
+| caffeine/SVP r2SCAN SCF | 52.2 | 1.22× | 1.38× | 1.60× | **2.69×** |
+| caffeine/TZVP DF-PBE SCF | 48.3 | 1.20× | 1.45× | 1.47× | 1.47× |
+| caffeine⁺/SVP UKS B3LYP SCF | 87.6 | 1.30× | 1.42× | 1.50× | **2.24×** |
+| benzene/SVP B3LYP gradient | 2.84 | 1.11× | 1.05× | 1.39× | 1.40× |
+| caffeine/SVP B3LYP gradient | 13.5 | 0.91× | 0.90× | 1.18× | 1.18× |
+| benzene/SVP B3LYP TDA, 5 states | 13.0 | 1.29× | 1.40× | 1.51× | 1.52× |
+| benzene/SVP B3LYP TDDFT, 5 states | 36.8 | 1.31× | 1.47× | 1.59× | 1.61× |
+| benzene/SVP B3LYP Hessian | 61.5 | 1.14× | 1.20× | **1.79×** | 1.79× |
+| direct grid pipeline, caffeine/SVP | 7.04 | 1.31× | 1.72× | **2.00×** | 1.97× |
+
+**Where the gain comes from** (each step relative to the previous column):
+- **20 → 10 threads:** 1.20–1.31×. Gradients are the exception (0.91×), see below.
+- **Master with a current BLAS:** 1.00–1.31×. This holds even though master integrates 19% more grid points.
+- **`perf` code and qcint:** 1.01–1.49×.
+  - Per workload, F vs B: SCF 1.07× (PBE, B3LYP), 1.16× (r2SCAN), 1.05× (UKS), 1.01× (DF); gradients 1.31–1.33×; TDA/TDDFT 1.08×; Hessian 1.49×; direct grid 1.16×.
+- **In-memory ERIs:** up to 2.0× more, for conventional (non-DF) SCF with nao ≲ 370.
+
+**Accuracy** (default convergence, every recorded value):
+- F and FM vs B: ≤ 8e-12 (energies, gradients, excitations, Hessian elements, grid checksums).
+- **Wheel vs master: 1–4e-10 Eh in energies and excitations.** This is the grid-pruning default (#3192). With `small_rho_cutoff=1e-7`, master reproduces the wheel's benzene energy to 1e-13.
+- **Wheel vs master: 5.2e-7 in Hessian elements.** This is master's CPHF fix "Prevent premature Krylov termination" (#3334, `ba2474364`).
+  - With 2.12.1's `_qr`/`krylov` calls patched back in, master reproduces the wheel's Hessian to 3.7e-12 (benzene/SVP B3LYP, tight SCF).
+  - So 2.12.1's CPHF stops early, and master's Hessians are the better-converged ones.
+
+**Large cases** (1 rep each; `results/20261028-000210_final-large-tda.json`, `results/20261028-001636_final-large-alkane.json`):
+
+| workload | A20 (s) | A | B | F | FM |
+|---|---|---|---|---|---|
+| caffeine/SVP B3LYP TDA, 5 states | 177.1 | 1.17× | 1.33× | 1.39× | 1.59× |
+| n-C20H42/SVP B3LYP SCF (62 atoms, nao 490) | 86.1 | 1.06× | 1.05× | 1.04× | (= F; ERIs would need 58 GB) |
+
+- **The 62-atom alkane gains almost nothing.** Its cost is direct-SCF J/K (46 s) and the XC work (27 s), and that XC work runs in PySCF's own sparse kernels (`nr_numint_sparse.c`), not in BLAS.
+  - None of the changes so far touch those kernels, and qcint does not speed up its J/K (47 vs 46 s).
+  - SMT does help this J/K (A20 40 s vs A 46 s), but the XC kernels lose more than that at 20 threads.
+  - **The dense/sparse switch is not the problem.** `NumInt.nr_rks` with B3LYP, `perf` tree, best of 3:
+
+    | system | default | forced dense | forced sparse |
+    |---|---|---|---|
+    | C20H42/SVP (nao 490, 694k points, 34% of shell×block screen entries nonzero) | 3.04 s | 3.01 s | 3.10 s |
+    | caffeine/SVP (63% nonzero) | 0.55 s | 0.50 s | 1.40 s |
+
+  - Upstream's switch is right for both. To make the alkane's XC cheaper, the sparse path needs BLAS-efficient sparsity, not a different threshold.
+- **Gradients and threads** (`results/20261027-235822_grad-threads.json`):
+  - The wheel's gradient is 1.10× faster at 20 threads (SSE2 libcint derivative integrals are latency-bound).
+  - The `perf` build gains nothing from 20 threads (caffeine 11.16 vs 11.17 s) and loses 8% on benzene.
+  - So 10 threads stays the default for every workload.
+
+**Notes:**
+- **DF-PBE/TZVP gets nothing from the code changes (F = B).**
+  - Its cost is the GGA XC GEMM (13.4 of 33 s), DF-J (8.5 s) and AO evaluation (5.1 s).
+  - GGA's `ao₀ᵀ·aow` product is not symmetric, so the dsyrk path does not apply.
+  - PySCF already does one GEMM plus `hermi_sum`, which is the minimum flop count for that term.
+- **With in-memory ERIs, the XC part is now 75% of caffeine PBE SCF:** XC GEMMs 5.8 s, AO evaluation 2.9 s and XC kernels 2.3 s, out of 15 s.
+
 ## Next iterations (by measured remaining cost)
+0. **Sparse XC for medium/large molecules (n-C20H42 and up), with BLAS-efficient kernels.**
+   - The XC work is a third of the 62-atom alkane SCF (27 of 82 s). `nr_numint_sparse.c` computes each AO pair as a dot product over grid points, with no register blocking, compiled `-msse3`.
+   - Its flop savings from screening (34% nonzero) are eaten by a much lower flop rate than OpenBLAS, so it only ties the dense path.
+   - Exact alternative: per grid sub-block, gather the AO columns that are nonzero (exactly zero elsewhere, as `eval_ao` leaves them), then do the products with BLAS (`dgemm`/`dsyrk`) on the compacted matrices and scatter-add into V. GPU4PySCF works the same way.
+   - Estimate for C20H42/SVP: 3.0 → about 1.2 s per `nr_rks` call, roughly 20 s of 82 s per SCF. The gain grows with molecule size.
 1. **J/K when ERIs don't fit in memory.**
    - With qcint and 10 threads, direct-SCF J/K is still about 55% of caffeine/SVP SCF time, and 50% of caffeine TDA, where every Davidson iteration recomputes integrals.
+   - For C20H42/SVP it is 46 of 82 s.
+     - qcint does not help there (47 s vs libcint's 46 s).
+     - SMT helps that J/K by 13% but slows everything else.
    - Exact options:
      - better screening in `vhf/nr_direct.c` (dm-weighted, incremental);
      - load balance (`AO_BLOCK_SIZE`) — needs uncapped clocks to evaluate;

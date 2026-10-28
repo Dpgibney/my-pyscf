@@ -1,6 +1,6 @@
 # Upstream clones: each is its own git repo, tracked in place (see NOTES.md for pinned SHAs)
 /pyscf/
-/pyscf-base/
+/pyscf-*/
 /libcint/
 /qcint/
 /libxc/
