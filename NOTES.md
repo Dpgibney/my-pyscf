@@ -68,6 +68,9 @@ cd bench
   - It1 ran entirely at the 2.0 GHz clamp. From It2 on, the machine toggled between the clamp and boost (see "Power state is not constant" below), so every run records its measured clocks.
   - This slows all of the user's computations, not just this project.
 - `perf` needs `kernel.perf_event_paranoid` ≤ 2 (currently 4); use `py-spy record --native` instead.
+- **TD `conv_tol` is a residual-norm tolerance** (`tdscf/_lr_eig.py`), and the solver drops corrections shorter than sqrt(`lindep`) = 1e-6. With the default `lindep`, residuals below ~1e-7 are out of reach, so a smaller `conv_tol` silently runs to `max_cycle` (It6).
+- **Direct-SCF energies drift once the density is stationary**, by ~1e-10 Eh per cycle on n-C20H42/def2-TZVP. Each cycle adds the J/K of the density change to the previous one, and the screening error accumulates. Tight validation of that case rebuilds J/K every cycle (`bench/cases.py:_full_jk_rebuild`) (It6).
+- **qcint fails two SGX gradient tests.** Translational invariance is 7.1e-12 against a 5e-12 tolerance (libcint: 1e-14) (It6).
 - **Build flags as found:**
   - PySCF stock: `-msse3 -O2 -g`.
   - libcint stock: `-O3` with no `-march`.
@@ -295,6 +298,8 @@ P6 = `perf` with stock flags; N = the same code with `-DBUILD_MARCH_NATIVE=ON`; 
 
 ## Final comparison against the wheel as used today (`results/20261027-225626_final.json`)
 
+This is the state before It6. The It6 section below compares against it and against A20.
+
 - **A20** is the user's current setup: the pip wheel 2.12.1 with `OMP_NUM_THREADS` unset, so 20 threads.
 - **A** is the same wheel at 10 threads.
 - **B** is unmodified master with our OpenBLAS and stock libcint.
@@ -338,7 +343,7 @@ P6 = `perf` with stock flags; N = the same code with `-DBUILD_MARCH_NATIVE=ON`; 
 | caffeine/SVP B3LYP TDA, 5 states | 177.1 | 1.17× | 1.33× | 1.39× | 1.59× |
 | n-C20H42/SVP B3LYP SCF (62 atoms, nao 490) | 86.1 | 1.06× | 1.05× | 1.04× | (= F; ERIs would need 58 GB) |
 
-- **The 62-atom alkane gains almost nothing.** Its cost is direct-SCF J/K (46 s) and the XC work (27 s), and that XC work runs in PySCF's own sparse kernels (`nr_numint_sparse.c`), not in BLAS.
+- **Before It6, the 62-atom alkane gains almost nothing.** Its cost is direct-SCF J/K (46 s) and the XC work (27 s), and that XC work runs in PySCF's own sparse kernels (`nr_numint_sparse.c`), not in BLAS.
   - None of the changes so far touch those kernels, and qcint does not speed up its J/K (47 vs 46 s).
   - SMT does help this J/K (A20 40 s vs A 46 s), but the XC kernels lose more than that at 20 threads.
   - **The dense/sparse switch is not the problem.** `NumInt.nr_rks` with B3LYP, `perf` tree, best of 3:
@@ -361,34 +366,145 @@ P6 = `perf` with stock flags; N = the same code with `-DBUILD_MARCH_NATIVE=ON`; 
   - PySCF already does one GEMM plus `hermi_sum`, which is the minimum flop count for that term.
 - **With in-memory ERIs, the XC part is now 75% of caffeine PBE SCF:** XC GEMMs 5.8 s, AO evaluation 2.9 s and XC kernels 2.3 s, out of 15 s.
 
-## Next iterations (by measured remaining cost)
-0. **Sparse XC for medium/large molecules (n-C20H42 and up), with BLAS-efficient kernels.**
-   - The XC work is a third of the 62-atom alkane SCF (27 of 82 s). `nr_numint_sparse.c` computes each AO pair as a dot product over grid points, with no register blocking, compiled `-msse3`.
-   - Its flop savings from screening (34% nonzero) are eaten by a much lower flop rate than OpenBLAS, so it only ties the dense path.
-   - Exact alternative: per grid sub-block, gather the AO columns that are nonzero (exactly zero elsewhere, as `eval_ao` leaves them), then do the products with BLAS (`dgemm`/`dsyrk`) on the compacted matrices and scatter-add into V. GPU4PySCF works the same way.
-   - Estimate for C20H42/SVP: 3.0 → about 1.2 s per `nr_rks` call, roughly 20 s of 82 s per SCF. The gain grows with molecule size.
-1. **J/K when ERIs don't fit in memory.**
-   - With qcint and 10 threads, direct-SCF J/K is still about 55% of caffeine/SVP SCF time, and 50% of caffeine TDA, where every Davidson iteration recomputes integrals.
-   - For C20H42/SVP it is 46 of 82 s.
-     - qcint does not help there (47 s vs libcint's 46 s).
-     - SMT helps that J/K by 13% but slows everything else.
-   - Exact options:
-     - better screening in `vhf/nr_direct.c` (dm-weighted, incremental);
-     - load balance (`AO_BLOCK_SIZE`) — needs uncapped clocks to evaluate;
-     - batching all trial DMs of a Davidson step through one integral pass. Check whether `_vhf.direct`/`incore` already do this.
-2. **In-memory J/K with many DMs** (caffeine TDA with `max_memory=20000`: `jk` is still 46 s).
-   - Checked: `CVHFnrs8_incore_drv` already reuses each ERI row (L2-resident) for all DMs, so memory bandwidth is not the cost.
-   - The cost is the per-DM contraction kernels (`CVHFics8_tridm_vj`/`vk`): about npair²/2 ≈ 4.6e8 integral visits per DM, with scattered K updates.
-   - SIMD-friendly K contraction across several DMs at once is the lever. That is a deeper libcvhf change.
+## It6: sparse XC with BLAS (gather → `dgemm`/`dsyrk` → scatter), 2026-10-28
+
+`pyscf` `perf` commits `21d1e9b48` (A), `7e6ca19c5` (B), `c2c1caa76` (C), `3ecf507dc` (D); harness `67c0978`.
+
+**Why.** For molecules large enough that `block_loop` takes the screened path (n-C20H42/def2-SVP: nao 490, 34% of the shell × 56-point-block screen index nonzero; always when nao > 800), the XC work ran in `nr_numint_sparse.c`, which computes every AO pair as a dot product over grid points (8-wide accumulators, `-msse3`).
+- `NumInt.nr_rks` (B3LYP) on the alkane took 3.07 s per call: `_dot_ao_ao_sparse` 1.64 s, `_dot_ao_dm_sparse` 0.55 s, AO evaluation 0.60 s, contractions and scaling 0.24 s, LibXC 0.02 s.
+- **Sparsity is spatially compact.** Each 56-point block has on average 154 of the 490 AOs unscreened (max 196). Groups of 2/4/8/16 consecutive blocks have 156/159/161/164, because the grids are sorted into boxes. Gathered dense products therefore need only 0.10–0.12 of the dense flops.
+
+**Change** (four commits):
+- **A** `VXCdot_aow_ao_sparse_gemm`, `VXCdot_ao_dm_sparse_gemm`:
+  - Per group of 4 blocks (224 points), gather the AOs of the shells unscreened on any of the 4 blocks into contiguous buffers. Values on screened blocks are gathered as zeros, so only unscreened entries are read, as before.
+  - Multiply with `dgemm`, or with `dsyrk` for symmetric products (points split by the sign of the weight), then scatter-add.
+  - Thread-private accumulation with a static round-robin schedule, reproducible for a given thread count.
+  - `_dot_ao_ao_sparse`/`_dot_ao_dm_sparse` call them.
+- **B** fused kernels:
+  - `VXCeval_rho_sparse_gemm`: ρ, ∇ρ, τ of a symmetric dm (`eval_rho1` with hermi=1).
+  - `VXCdot_ao_aow_sparse_gemm`: `_dot_ao_aow_sparse` replaces `_scale_ao_sparse` + `_dot_ao_ao_sparse` at 14 call sites.
+  - `VXCdot_ao_wv_ao_sparse_gemm`: the meta-GGA τ term as one `dsyrk` over the three components.
+- **C** `_dot_ao_ao`/`_dot_ao_dm` take the gather kernels when given a screen index for the whole molecule (gradients, Hessians, `eval_rho2`), with the new rectangular `VXCdot_ao_mo_sparse_gemm`. Before, they multiplied the full dense matrices for nao < 800, and above that used 56 × 56 × 56 GEMMs per AO box (`VXCdot_ao_ao`, `omp critical`).
+- **D** `block_loop` takes the screened path while less than 90% of the screen index is nonzero, instead of 50% (`dft_numint_sparse_threshold`). This moves medium molecules onto the new kernels.
+
+**Exactness.** The new kernels drop only exact zeros. Upstream's sparse kernels also drop products estimated below 1e-13 (`nbins`, `pair_mask`), so the new sparse path is *closer* to the dense result.
+- PBE, MO-tagged density, alkane, level-2 grid: upstream sparse vs its own dense path 7.8e-13 (Vxc) and 1.1e-12 (gradient XC term); new sparse vs dense 7.4e-16 and 1.3e-15.
+- `bench/kernels.py` now has 22 sparse-path entries on the alkane (LDA/PBE/r2SCAN RKS and UKS Vxc, f_xc, MO-tagged densities, gradient XC term). All are within 1.1e-12 of `pyscf-base`; the largest are the PBE MO-density cases above.
+- Kernel micro-checks with NaN written into every screened block: never read.
+- **Tight validation** (FULL + the new SPARSE suite, 19 cases, vs `pyscf-base`): energies ≤ 5.5e-12 Eh, gradients ≤ 1.0e-10, Hessians ≤ 2e-11, excitation energies ≤ 1.8e-13 Eh.
+
+**Kernel timings** (one 67 200-point block of the alkane, 10 threads):
+- `ao^T·aow` 107 → 19 ms (dense `dgemm` 78 ms); `ao·dm` 63 → 28 ms (dense 108 ms).
+- Group size 2/4/8 blocks: no difference.
+- Schedule for the XC matrix: static contiguous 19.4–20.3 ms, static round-robin 18.5–18.8 ms, dynamic 17.3–17.6 ms (Zen 5 / Zen 5c speed difference). Round robin kept for reproducibility.
+
+**Per call on n-C20H42/def2-SVP** (10 threads, MO-tagged density as in SCF; F = before It6, then after each commit):
+
+| | F | A | B | C |
+|---|---|---|---|---|
+| `nr_rks` B3LYP | 3.08 s | 1.36 s | 1.11 s | 1.16 s |
+| `nr_rks` r2SCAN | 6.35 s | 2.43 s | 2.40 s | 1.97 s |
+| gradient XC term (`grad.rks.get_vxc`), B3LYP | 10.9 s | 10.8 s | 10.5 s | 6.13 s |
+| same, r2SCAN | 19.5 s | 20.1 s | 20.2 s | 8.67 s |
+
+**The 90% switch (D).** B3LYP, 10 threads at the 2.0 GHz cap, every block forced dense → screened, interleaved, best of 3:
+
+| system | nao | nonzero | `nr_rks` | `nr_rks_fxc` (10 dms) | gradient XC |
+|---|---|---|---|---|---|
+| water/SVP | 24 | 0.95 | 1.04× | 1.46× | 0.96× |
+| benzene/SVP | 114 | 0.82 | 1.20× | 1.55× | 0.98× |
+| benzene/TZVP | 222 | 0.77 | 1.14× | 1.48× | 0.96× |
+| n-C8H18/SVP | 202 | 0.66 | 1.41× | 2.16× | 1.13× |
+| caffeine/SVP | 246 | 0.63 | 1.16× | 2.05× | 1.15× |
+| caffeine/TZVP | 494 | 0.58 | 1.36× | 1.94× | 1.25× |
+| n-C12H26/SVP | 298 | 0.51 | 1.77× | 3.09× | 1.42× |
+
+- Water stays on the dense path.
+- Between 0.75 and 0.9 nonzero, the gradient XC term is 2–4% slower on the screened path. It is a small part of a gradient, where the derivative integrals dominate.
+- Caffeine/SVP is the median of three runs (`nr_rks` 1.13–1.21×). An earlier, non-interleaved session gave 1.50×.
+
+**Benchmarks** (`results/20261028-112117_it6-medium.json`, 2 reps ABBA; `results/20261028-114255_it6-alkane.json`, 1 rep):
+- **F** is `perf` before It6 (`8fc5eca4e`, worktree `pyscf-f`); **G** is `3ecf507dc`. Both use qcint and `PYSCF_MAX_MEMORY=20000`, so ERIs are in memory where they fit.
+- Boost clocks (Zen 5 at 2.8–4.6 GHz, recorded per run). The **A20** column is the user's original setup (2.12.1 wheel, 20 threads), taken from the final comparison above. F reproduces that comparison's FM timings to within 2%, so the cross-session ratio holds.
+
+| workload | A20 (s) | F (s) | G (s) | G vs F | G vs A20 |
+|---|---|---|---|---|---|
+| caffeine/SVP PBE SCF | 46.0 | 15.16 | 11.83 | 1.28× | **3.9×** |
+| caffeine/SVP B3LYP SCF | 45.3 | 16.98 | 13.98 | 1.21× | **3.2×** |
+| caffeine/SVP r2SCAN SCF | 52.2 | 19.36 | 14.02 | 1.38× | **3.7×** |
+| caffeine/TZVP DF-PBE SCF | 48.3 | 32.95 | 26.77 | 1.23× | 1.8× |
+| caffeine⁺/SVP UKS B3LYP SCF | 87.6 | 38.70 | 31.48 | 1.23× | 2.8× |
+| benzene/SVP B3LYP gradient | 2.84 | 2.06 | 2.12 | 0.97× | 1.3× |
+| caffeine/SVP B3LYP gradient | 13.5 | 11.23 | 11.03 | 1.02× | 1.2× |
+| benzene/SVP B3LYP TDA, 5 states | 13.0 | 8.44 | 5.75 | 1.47× | 2.3× |
+| benzene/SVP B3LYP TDDFT, 5 states | 36.8 | 22.79 | 15.73 | 1.45× | 2.3× |
+| caffeine/SVP B3LYP TDA, 5 states | 177.1 | 111.61 | 74.98 | 1.49× | 2.4× |
+| benzene/SVP B3LYP Hessian | 61.5 | 34.38 | 29.05 | 1.18× | 2.1× |
+| direct grid pipeline, caffeine/SVP | 7.04 | 3.63 | 3.55 | 1.02× | 2.0× |
+| n-C20H42/SVP B3LYP SCF | 86.1 | 82.66 | 62.19 | 1.33× | 1.4× |
+| n-C20H42/TZVP PBE SCF | – | 346.2 | 314.2 | 1.10× | |
+| n-C20H42/SVP r2SCAN SCF | – | 121.7 | 69.8 | **1.74×** | |
+| n-C20H42/SVP B3LYP gradient | – | 46.65 | 41.63 | 1.12× | |
+| n-C20H42/SVP PBE TDA, 5 states | – | 228.9 | 96.6 | **2.37×** | |
+
+- Every computed value agrees with F to ≤ 4.7e-12 (default convergence).
+- G's runs often had lower clocks than F's (alkane TDA 3.1 vs 3.8 GHz, 1 rep), so the ratios understate the gain rather than overstate it.
+- **Where the XC time went:**
+  - Caffeine TDA: the XC response work fell from 62 to 26 s, and in-memory J/K (46 s) is now 61% of the run.
+  - Alkane PBE TDA: XC fell from 164 to 33 s.
+  - DF-PBE/TZVP had gained nothing from the earlier iterations. It now takes the screened path (58% nonzero), and its GGA XC GEMM (13.5 s) is gone.
+- **Unchanged, as expected:**
+  - Gradients: derivative integrals are 80–85% of them.
+  - The direct grid pipeline: it calls `eval_ao`/`eval_rho` without a screen index, so it stays on the dense path.
+- The worker's cost categories missed the new wrappers in these runs: `_dot_ao_aow_sparse` and `_eval_rho_sparse` appear under "other". They are now counted as XC kernels.
+
+**Upstream tests:** dft scf df grad hessian tdscf sgx on `3ecf507dc`: **853 passed, 6 failed**, the same failures as before D.
+- The 4 xcfun tests, as before.
+- `sgx/test/test_dm_screening.py::{test_rhf,test_uhf}_dm_screening`: the SGX gradient with grid response is translationally invariant to 7.08e-12, against a 5e-12 tolerance (upstream with libcint: 1e-14).
+  - **Caused by qcint, not by this iteration.** Unmodified master built with qcint (`pyscf-qcint`) and the previous `perf` state fail identically.
+  - sgx was not in the earlier test selection.
+
+**Three harness problems found while validating** (fixed in `67c0978`):
+- **TD `conv_tol` is a residual-norm tolerance.** In this PySCF the eigensolver (`tdscf/_lr_eig.py`) also drops corrections shorter than sqrt(lindep) = 1e-6.
+  - On caffeine the residual stalls near 1.5e-7 in both builds, so the tight setting of 1e-8 never converged. The unmodified build ran 85 min, adding 20 trial vectors per iteration.
+  - The response operator itself is linear and symmetric to 1e-13 in both builds. With `lindep=1e-16` the same run reaches 1e-8 in 12 iterations.
+  - Tight TD runs now use 1e-6, which leaves the excitation energies converged to ~1e-11 Eh.
+- **Direct-SCF energies drift once the density is stationary.** `dft/rks.py:get_veff` adds the J/K of each density change to the previous cycle's, and the screening error of these updates accumulates.
+  - On n-C20H42/def2-TZVP PBE the energy falls by ~1e-10 Eh per cycle from about cycle 13, so conv_tol=1e-11 is never met. After 100 cycles both builds had drifted by 1.4e-8 Eh.
+  - With J/K rebuilt from the full density every cycle, unmodified PySCF converges in 18 cycles, within 2e-11 Eh of the energy before the drift.
+  - This is likely also why the SVP alkane converges erratically at conv_tol=1e-12 (14–100 cycles, energies spread over 1e-10).
+- **A reference that never converged passed the gate.** `validate.py` only required the candidate to converge where the reference did. It now fails the case.
+- Outside the harness: PySCF's default TD `conv_tol=1e-5` is the same residual tolerance, which converges excitation energies to about 1e-9 Eh. Long direct-SCF runs on large molecules carry the drift in their reported energies.
+
+## Next iterations (by measured remaining cost, after It6)
+1. **J/K is now the largest cost in every workload measured.**
+   - Caffeine/SVP TDA with in-memory ERIs: 46 of 75 s.
+   - n-C20H42 SCF: 76% (SVP B3LYP) to 89% (TZVP PBE).
+   - Gradients: the derivative integrals are 80–85%.
+   - **Direct J/K** (ERIs that don't fit in memory):
+     - qcint does not help the alkane (47 s vs libcint's 46 s). SMT speeds that J/K up by 13% but slows everything else.
+     - Exact options: better screening in `vhf/nr_direct.c` (dm-weighted, incremental); load balance (`AO_BLOCK_SIZE`), which needs uncapped clocks to evaluate; one integral pass for all trial DMs of a Davidson step (check whether `_vhf.direct` already does this).
+   - **In-memory J/K with many DMs** (caffeine TDA):
+     - Checked: `CVHFnrs8_incore_drv` already reuses each ERI row (L2-resident) for all DMs, so memory bandwidth is not the cost.
+     - The cost is the per-DM contraction kernels (`CVHFics8_tridm_vj`/`vk`): about npair²/2 ≈ 4.6e8 integral visits per DM, with scattered K updates.
+     - A SIMD-friendly K contraction over several DMs at once is the lever. That is a deeper libcvhf change.
+2. **Remaining screened-path XC costs.** `nr_rks` (B3LYP) on n-C20H42/SVP is now ~1.1 s per call.
+   - **AO evaluation** is about 0.6 s of that. `eval_ao` writes the full (ncomp, nao, ngrids) array, zeroing the screened blocks that the new kernels never read. Measure the zero-fill share before changing anything (scratch `eval_ao_cost.py`).
+   - **Gradient XC term:** `_make_dR_dao_w` builds 12 full-array `_scale_ao` temporaries. A fused gather kernel would remove that traffic, but the term is only about 15% of an alkane gradient (6 of 42 s).
 3. **Extend It5b batching to the remaining f_xc paths:**
    - `nr_uks_fxc` (UKS TDDFT/CPHF);
    - the meta-GGA τ term (per-DM `dsyrk`);
    - `nr_rks_fxc_st` for triplets already goes through `nr_rks_fxc`.
 4. **Hessian `_get_vxc_deriv1`** (h1ao for the CPHF right-hand side): natm×3 XC matrices built with per-atom GEMMs. These are needed as matrices, but could be batched like It5b.
-5. **AO evaluation** (`eval_gto`, 5–10%): `-march=native` alone did not help. Look at the `GTOval` loops and the grid block size.
+5. **AO evaluation on the dense path** (`eval_gto`, 5–10%): `-march=native` alone did not help. Look at the `GTOval` loops and the grid block size.
 6. **Upstream:**
-   - The 6 `perf` commits are PR candidates. Add unit tests mirroring `bench/kernels.py` and the Hessian-path cases.
+   - The 10 `perf` commits are PR candidates: six from It4/It5 and four from It6.
+     - Add unit tests mirroring `bench/kernels.py` and the Hessian-path cases.
+     - `lib/dft/test/test_sparse_dot.py` already covers the It6 kernels (15 tests, with NaN in every screened block).
    - Report the LibXC 7.1.2 r2SCAN kxc regression to LibXC.
+   - Possible PySCF issues:
+     - Direct SCF's incremental J/K drift on large molecules. A periodic full rebuild would remove it.
+     - A TD `conv_tol` below the `lindep` floor silently runs to `max_cycle`.
 7. **Hardware:**
    - The firmware 2 GHz clamp and boost toggling (HP, probably adapter power) is outside software, but it decides benchmark reliability.
    - Once fixed, re-run the load-balance experiments: dynamic schedules for the mixed Zen 5 / Zen 5c cores.
