@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-VERSION = 4  # bump when dump() changes, so that cached reference dumps are regenerated
+VERSION = 5  # bump when dump() changes, so that cached reference dumps are regenerated
 
 
 def dump(path):
@@ -55,6 +55,7 @@ def dump(path):
     eri = mol.intor('int2e', aosym='s8')
     out['vj_incore_t'], out['vk_incore_t'] = _vhf.incore(eri, dm_t, hermi=0)
     out['vj_incore_s'], out['vk_incore_s'] = _vhf.incore(eri, dm_s, hermi=1)
+    out['vj_incore_1'], out['vk_incore_1'] = _vhf.incore(eri, dm, hermi=1)   # SCF: one symmetric dm
     del eri
     vhfopt = scf.RHF(mol).init_direct_scf()
     out['vj_direct_t'], out['vk_direct_t'] = scf.hf.get_jk(mol, dm_t, 0, vhfopt)

@@ -41,3 +41,4 @@ Run them in a configuration's pinned environment:
 | `incore_batch_check.py`, `direct_batch_check.py` | batched vs per-dm J/K: differences and timings | It7: A, B |
 | `td_conv_sensitivity.py`, `td_jk_operator_diff.py`, `td_operator_dump.py`, `td_vind_internals.py`, `td_fixed_scf.py`, `scf_endpoint_spread.py` | a TDA validation failure traced to the scatter of the tight SCF endpoint | It7: harness |
 | `dfj_cost.py` | DF J of a pure functional by `df_jk.get_j` vs from `_cderi` | It7 |
+| `scf_jk_one_dm.py` | one SCF density through direct J/K: per-dm kernels vs the batched driver | It7: C |
