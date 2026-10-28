@@ -251,3 +251,25 @@ P6 ran 0.2–0.4 GHz slower than P5 in every pair (see below), so these gains ar
 
 - **Caffeine TDA is now J/K-bound:** 64 of 127 s goes to recomputing the 4-center integrals in every Davidson iteration, because nao = 246 does not fit in memory at the default `max_memory=4000`.
 - **Methodology fix: ABAB → ABBA.** With boost clocks, the config that always runs second sees a hotter chip and lower clocks. `run_bench.py` now alternates the order every repetition.
+
+### It3: compile flags and memory configuration (`results/20261027-215849_it3-flags-mem.json`)
+
+P6 = `perf` with stock flags; N = the same code with `-DBUILD_MARCH_NATIVE=ON`; M = P6 with `PYSCF_MAX_MEMORY=20000`.
+
+| case | P6 (s) | N | M | `jk` P6 → M |
+|---|---|---|---|---|
+| caffeine PBE SCF | 29.9 | 0.98× | **1.96×** | 16.8 → 2.1 s |
+| caffeine B3LYP SCF | 30.9 | 1.01× | **1.79×** | 18.2 → 4.6 s |
+| caffeine r2SCAN SCF | 32.7 | 1.02× | **1.67×** | 15.2 → 1.9 s |
+| caffeine TDA | 127.2 | 0.98× | 1.14× | 63.9 → 46.3 s |
+| benzene gradient, TDA, Hessian; direct grid | — | 0.93–1.01× | 0.97–1.03× | already in memory or unaffected |
+
+- **`-march=native` for PySCF's own C code: no net gain, so the stock flags stay.**
+  - The XC kernel passes get 20–35% faster in SCF.
+  - But J/K (libcvhf contraction code) is 4–6% slower and benzene TDA 7% slower.
+- **In-memory ERIs are the biggest exact win available by configuration.**
+  - PySCF keeps the s8 ERIs in memory when nao⁴/1e6 MB + RSS < 0.95·max_memory. The default 4000 MB misses caffeine/SVP (nao = 246, 3.7 GB) by a hair.
+  - With 20000 MB on this 30 GB machine, every nao ≲ 370 qualifies.
+  - Energies agree to 2e-12.
+  - `scripts/pyscf-env.sh` sets this.
+  - The TDA gain is smaller because each trial vector makes a full bandwidth-bound pass over the stored integrals.

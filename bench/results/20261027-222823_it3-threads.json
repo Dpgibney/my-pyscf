@@ -1,0 +1,200 @@
+{
+ "meta": {
+  "tag": "it3-threads",
+  "time": "2026-10-27 22:28:22",
+  "reps": 2,
+  "threads": 10,
+  "cases": [
+   "scf_caffeine_svp_pbe",
+   "scf_caffeine_svp_r2scan",
+   "tda_benzene_svp_b3lyp",
+   "grid_caffeine_svp",
+   "hess_benzene_svp_b3lyp"
+  ],
+  "machine_start": {
+   "ac": "1",
+   "profile": "performance",
+   "scaling_max_freq": {
+    "0": "2000000",
+    "8": "2000000"
+   },
+   "epp": "performance",
+   "loadavg": "4.81 9.08 10.15 2/2184 223601",
+   "benchmark_ready": true
+  },
+  "shas": {
+   "workspace": "dd5c9f353e-dirty",
+   "pyscf": "8fc5eca4eb",
+   "pyscf-base": "44313dfb45",
+   "libcint": "42ec76d6b5",
+   "qcint": "cdda2892fc",
+   "libxc": "f1eb21e8d6",
+   "OpenBLAS": "e0166008be"
+  },
+  "configs": {
+   "T10": {
+    "tree": "pyscf",
+    "env": {},
+    "variant": "cint=qcint-stock xc=libxc-stock blas=openblas"
+   },
+   "T8": {
+    "tree": "pyscf",
+    "env": {
+     "OMP_NUM_THREADS": "8"
+    },
+    "variant": "cint=qcint-stock xc=libxc-stock blas=openblas"
+   },
+   "T20": {
+    "tree": "pyscf",
+    "env": {
+     "OMP_NUM_THREADS": "20"
+    },
+    "variant": "cint=qcint-stock xc=libxc-stock blas=openblas"
+   },
+   "T20M": {
+    "tree": "pyscf",
+    "env": {
+     "OMP_NUM_THREADS": "20",
+     "PYSCF_MAX_MEMORY": "20000"
+    },
+    "variant": "cint=qcint-stock xc=libxc-stock blas=openblas"
+   },
+   "T10M": {
+    "tree": "pyscf",
+    "env": {
+     "PYSCF_MAX_MEMORY": "20000"
+    },
+    "variant": "cint=qcint-stock xc=libxc-stock blas=openblas"
+   }
+  },
+  "machine_end": {
+   "ac": "1",
+   "profile": "performance",
+   "scaling_max_freq": {
+    "0": "2000000",
+    "8": "2000000"
+   },
+   "epp": "performance",
+   "loadavg": "9.48 9.83 10.37 1/2181 223846",
+   "benchmark_ready": true
+  }
+ },
+ "runs": [
+  {
+   "case": "scf_caffeine_svp_pbe",
+   "tight": false,
+   "wall": 29.50843441699908,
+   "values": {
+    "e_tot": -679.0403707170111,
+    "cycles": 16,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.6746466740000002,
+    "linalg": 0.5428682570000001,
+    "blas": 6.0516961490000005,
+    "ints1e": 0.03159507400000001,
+    "ao_eval": 2.943247038,
+    "jk": 16.132411163,
+    "grids": 0.13315729,
+    "xc_post": 0.048923185,
+    "libxc": 0.228949374,
+    "xc_kernels": 2.399394424,
+    "numpy": 0.31732225800000013
+   },
+   "top": [
+    [
+     "scf/_vhf.py:505(nr_direct_drv)",
+     16.1273,
+     18
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     6.0517,
+     493
+    ],
+    [
+     "gto/eval_gto.py:32(eval_gto)",
+     2.9432,
+     90
+    ],
+    [
+     "dft/numint.py:740(_scale_ao)",
+     1.105,
+     72
+    ],
+    [
+     "dft/numint.py:898(_dot_ao_ao_sparse)",
+     0.6843,
+     90
+    ],
+    [
+     "dft/numint.py:784(_contract_rho)",
+     0.5546,
+     360
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.5419,
+     34
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.2289,
+     90
+    ],
+    [
+     "<method 'argsort' of 'numpy.ndarray' objects>",
+     0.1552,
+     19
+    ],
+    [
+     "gto/mole.py:2097(get_overlap_cond)",
+     0.1276,
+     36
+    ],
+    [
+     "dft/numint.py:1195(block_loop)",
+     0.1153,
+     108
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.1107,
+     24
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-stock/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 928.26171875,
+   "freq": {
+    "zen5_ghz": 3.713887863247863,
+    "zen5c_ghz": 3.2376195726495727,
+    "zen5_ghz_min": 2.0979,
+    "zen5_ghz_max": 4.796696
+   },
+   "battery_start": {
+    "status": "Charging",
+    "capacity": "97",
+    "power_now": "8945000"
+   },
+   "battery_end": {
+    "status": "Charging",
+    "capacity": "97",
+    "power_now": "8945000"
+   },
+   "config": "T10",
+   "rep": 0
+  }
+ ]
+}
