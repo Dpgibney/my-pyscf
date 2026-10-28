@@ -18,26 +18,44 @@ def case(name, suites):
     return deco
 
 
-def make_ks(mol, xc, tight, density_fit=False):
+# Tight SCF settings use conv_tol=1e-12, except for molecules with more than LARGE_NATM atoms: on the
+# 62-atom alkane |dE| < 1e-12 (a few ULPs of ~800 Eh) is met erratically in every build, unmodified
+# upstream included (14-100 cycles, converged energies spread over 1e-10), as direct J/K are summed in
+# dynamic thread order and updated incrementally (see _full_jk_rebuild).
+LARGE_NATM = 40
+
+
+def _full_jk_rebuild(mf):
+    '''Build J/K from the full density in every SCF cycle. Direct SCF (dft/rks.py get_veff) adds the J/K
+    of each density change to the previous cycle's, and the screening error of these updates accumulates:
+    on n-C20H42/def2-TZVP the energy drifts by ~1e-10 Eh per cycle once the density is stationary, so
+    conv_tol=1e-11 is never met (100 cycles and 1.4e-8 Eh of drift, in every build).'''
+    get_veff = mf.get_veff
+    mf.get_veff = lambda mol=None, dm=None, dm_last=0, vhf_last=0, hermi=1: get_veff(mol, dm, hermi=hermi)
+
+
+def make_ks(mol, xc, tight, density_fit=False, full_jk=False):
     from pyscf import dft
     mf = dft.RKS(mol, xc=xc) if mol.spin == 0 else dft.UKS(mol, xc=xc)
     mf.chkfile = None
     if tight:
-        mf.conv_tol = 1e-12
+        mf.conv_tol = 1e-12 if mol.natm <= LARGE_NATM else 1e-11
         mf.conv_tol_grad = 1e-8
         mf.max_cycle = 100
+        if full_jk:
+            _full_jk_rebuild(mf)
     if density_fit:
         mf = mf.density_fit()
     return mf
 
 
-def scf_case(atom, basis, xc, charge=0, spin=0, density_fit=False):
+def scf_case(atom, basis, xc, charge=0, spin=0, density_fit=False, full_jk=False):
     def setup(tight):
         from pyscf import gto
         mol = gto.M(atom=atom, basis=basis, charge=charge, spin=spin, verbose=0)
 
         def run():
-            mf = make_ks(mol, xc, tight, density_fit)
+            mf = make_ks(mol, xc, tight, density_fit, full_jk)
             mf.kernel()
             return {'e_tot': mf.e_tot, 'cycles': mf.cycles, 'converged': bool(mf.converged)}
         return run
@@ -72,7 +90,11 @@ def td_case(atom, basis, xc, method, nstates=5):
             td = getattr(mf, method)()
             td.nstates = nstates
             if tight:
-                td.conv_tol = 1e-8
+                # conv_tol is the residual-norm tolerance of the eigensolver (tdscf/_lr_eig.py), which drops
+                # preconditioned corrections shorter than sqrt(lindep) = 1e-6. On caffeine the residuals then
+                # stall near 1.5e-7 (the excitation energies have converged to 1e-13 Eh by then), so 1e-8 ran
+                # to max_cycle. At 1e-6 the energies are converged to ~1e-11 Eh.
+                td.conv_tol = 1e-6
                 td.max_cycle = 200
             td.kernel()
             return {'e_tot': mf.e_tot, 'excitations': np.asarray(td.e).tolist(),
@@ -178,6 +200,7 @@ def micro_libxc():
 
 
 QUICK, FULL, MICRO = 'quick', 'full', 'micro'
+SPARSE = 'sparse'  # large molecules, which take the screened (sparse) grid path
 C20H42 = n_alkane(20)
 
 case('scf_caffeine_svp_pbe', (QUICK, FULL))(scf_case(CAFFEINE, 'def2-svp', 'PBE'))
@@ -204,8 +227,11 @@ case('hess_water+_svp_pbe_uks_df', (HESS,))(hess_case(WATER, 'def2-svp', 'PBE', 
 case('scf_benzene+_svp_r2scan_uks', (FULL,))(scf_case(BENZENE, 'def2-svp', 'r2SCAN', charge=1, spin=1))
 case('grad_caffeine_svp_b3lyp', (FULL,))(grad_case(CAFFEINE, 'def2-svp', 'B3LYP'))
 case('tda_caffeine_svp_b3lyp', (FULL,))(td_case(CAFFEINE, 'def2-svp', 'B3LYP', 'TDA'))
-case('scf_c20h42_svp_b3lyp', (FULL,))(scf_case(C20H42, 'def2-svp', 'B3LYP'))
-case('scf_c20h42_tzvp_pbe', (FULL,))(scf_case(C20H42, 'def2-tzvp', 'PBE'))
+case('scf_c20h42_svp_b3lyp', (FULL, SPARSE))(scf_case(C20H42, 'def2-svp', 'B3LYP'))
+case('scf_c20h42_tzvp_pbe', (FULL, SPARSE))(scf_case(C20H42, 'def2-tzvp', 'PBE', full_jk=True))
+case('scf_c20h42_svp_r2scan', (SPARSE,))(scf_case(C20H42, 'def2-svp', 'r2SCAN'))
+case('grad_c20h42_svp_b3lyp', (SPARSE,))(grad_case(C20H42, 'def2-svp', 'B3LYP'))
+case('tda_c20h42_svp_pbe', (SPARSE,))(td_case(C20H42, 'def2-svp', 'PBE', 'TDA'))
 
 case('micro_gemm', (MICRO,))(micro_gemm())
 case('micro_libxc', (MICRO,))(micro_libxc())

@@ -76,8 +76,11 @@ def main():
         r = reference(name, ref, args.threads)
         c = run_worker(name, cand, args.threads, tight=True)
         ok, rows = compare(c['values'], r['values'])
+        # an unconverged reference checks nothing: fix the case's settings and delete the cached file
+        ref_conv = bool(np.all(r['values'].get('converged', True)))
+        ok &= ref_conv
         all_ok &= ok
-        print(f'{"PASS" if ok else "FAIL"}  {name}')
+        print(f'{"PASS" if ok else "FAIL"}  {name}' + ('' if ref_conv else '  (reference did not converge)'))
         for key, diff, tol, status in rows:
             if status != 'ok' or key in ABS_TOL:
                 print(f'      {key:22s} max|d|={diff:>10s} tol={tol:>6s} {status}')

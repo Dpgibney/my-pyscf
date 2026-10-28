@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+VERSION = 3  # bump when dump() changes, so that cached reference dumps are regenerated
 
 
 def dump(path):
@@ -45,6 +46,37 @@ def dump(path):
         out[f'rho_mgga{tag}'] = numint.eval_rho(mol, ao, d, xctype='MGGA', with_lapl=False)
     out['vj'], out['vk'] = scf.hf.get_jk(mol, dm)
     out['vj_df'] = dft.RKS(mol).density_fit().get_j(mol, dm)
+
+    # A molecule large enough for the screened (sparse) grid kernels of block_loop
+    from molecules import n_alkane
+    mol = gto.M(atom=n_alkane(20), basis='def2-svp', verbose=0)
+    grids = dft.gen_grid.Grids(mol)
+    grids.level = 2
+    grids.build(with_non0tab=True)
+    assert numint._sparse_enough(grids.non0tab)
+    dm = dft.RKS(mol).get_init_guess(key='minao')
+    for xc in ('LDA,VWN', 'PBE', 'r2SCAN'):
+        nelec, exc, vmat = ni.nr_rks(mol, grids, xc, dm)
+        out[f'sparse_vxc_rks_{xc}'] = vmat
+        out[f'sparse_exc_rks_{xc}'] = np.array([nelec, exc])
+    for xc in ('PBE', 'r2SCAN'):
+        nelec, exc, vmat = ni.nr_uks(mol, grids, xc, (dm * .6, dm * .4))
+        out[f'sparse_vxc_uks_{xc}'] = vmat
+        out[f'sparse_exc_uks_{xc}'] = np.array([*nelec, exc])
+    dm1 = rng.standard_normal((2,) + dm.shape) * 1e-2
+    for xc in ('LDA,VWN', 'PBE', 'r2SCAN'):
+        out[f'sparse_fxc_rks_{xc}'] = ni.nr_rks_fxc(mol, grids, xc, dm, dm1, hermi=0)
+    # MO-tagged density as in SCF iterations (LDA and meta-GGA take eval_rho2 here) and the XC
+    # term of the nuclear gradient
+    from pyscf.grad import rks as rks_grad
+    mf = dft.RKS(mol)
+    mo_e, mo_c = mf.eig(mf.get_hcore(), mf.get_ovlp())
+    dm_mo = mf.make_rdm1(mo_c, mf.get_occ(mo_e, mo_c))
+    for xc in ('LDA,VWN', 'PBE', 'r2SCAN'):
+        nelec, exc, vmat = ni.nr_rks(mol, grids, xc, dm_mo)
+        out[f'sparse_vxc_rks_mo_{xc}'] = vmat
+        out[f'sparse_exc_rks_mo_{xc}'] = np.array([nelec, exc])
+        out[f'sparse_grad_vxc_{xc}'] = rks_grad.get_vxc(ni, mol, grids, xc, dm_mo)[1]
     np.savez(path, **out)
 
 
@@ -60,7 +92,7 @@ def main():
 
     env = '-'.join(f'{k}={v}' for k, v in sorted(ref.env.items())) or 'default'
     variant = ref.variant().replace(' ', '_').replace('=', '-')
-    ref_path = RESULTS / 'ref' / (f'kernels__{ref.tree}@{repo_shas().get(ref.tree)}__{variant}'
+    ref_path = RESULTS / 'ref' / (f'kernels{VERSION}__{ref.tree}@{repo_shas().get(ref.tree)}__{variant}'
                                   f'__{env}__t{args.threads}.npz')
     if not ref_path.exists():
         ref_path.parent.mkdir(parents=True, exist_ok=True)
@@ -78,7 +110,7 @@ def main():
         rel = float(np.max(np.abs(a - b))) / scale if a.shape == b.shape else np.inf
         good = rel <= args.rtol
         ok &= good
-        print(f'  {"ok  " if good else "FAIL"} {key:18s} max|d|/scale = {rel:.2e}')
+        print(f'  {"ok  " if good else "FAIL"} {key:24s} max|d|/scale = {rel:.2e}')
     print('ALL PASS' if ok else 'SOME FAILED')
     sys.exit(0 if ok else 1)
 
