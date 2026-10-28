@@ -6,7 +6,7 @@ correctness comparisons; timing runs use PySCF defaults. pyscf is imported insid
 worker picks up whichever tree PYTHONPATH selects.
 """
 import numpy as np
-from molecules import CAFFEINE, BENZENE, n_alkane
+from molecules import CAFFEINE, BENZENE, WATER, n_alkane
 
 CASES = {}  # name -> (setup, suites)
 
@@ -44,10 +44,10 @@ def scf_case(atom, basis, xc, charge=0, spin=0, density_fit=False):
     return setup
 
 
-def converged_ks(atom, basis, xc, tight):
+def converged_ks(atom, basis, xc, tight, charge=0, spin=0, density_fit=False):
     from pyscf import gto
-    mol = gto.M(atom=atom, basis=basis, verbose=0)
-    mf = make_ks(mol, xc, tight)
+    mol = gto.M(atom=atom, basis=basis, charge=charge, spin=spin, verbose=0)
+    mf = make_ks(mol, xc, tight, density_fit)
     mf.kernel()
     assert mf.converged
     return mf
@@ -81,9 +81,9 @@ def td_case(atom, basis, xc, method, nstates=5):
     return setup
 
 
-def hess_case(atom, basis, xc):
+def hess_case(atom, basis, xc, charge=0, spin=0, density_fit=False):
     def setup(tight):
-        mf = converged_ks(atom, basis, xc, tight)
+        mf = converged_ks(atom, basis, xc, tight, charge, spin, density_fit)
 
         def run():
             h = mf.Hessian().kernel()
@@ -191,6 +191,17 @@ case('scf_caffeine_tzvp_dfpbe', (FULL,))(scf_case(CAFFEINE, 'def2-tzvp', 'PBE', 
 case('scf_caffeine+_svp_b3lyp_uks', (FULL,))(scf_case(CAFFEINE, 'def2-svp', 'B3LYP', charge=1, spin=1))
 case('tddft_benzene_svp_b3lyp', (FULL,))(td_case(BENZENE, 'def2-svp', 'B3LYP', 'TDDFT'))
 case('hess_benzene_svp_b3lyp', (FULL,))(hess_case(BENZENE, 'def2-svp', 'B3LYP'))
+case('hess_benzene_svp_pbe', (FULL,))(hess_case(BENZENE, 'def2-svp', 'PBE'))
+# Hessian code paths: LDA/MGGA, range-separated hybrids, UKS, density fitting ('hessian' suite)
+HESS = 'hessian'
+for _xc in ('LDA,VWN', 'r2SCAN', 'CAM-B3LYP'):
+    case(f'hess_water_svp_{_xc}', (HESS,))(hess_case(WATER, 'def2-svp', _xc))
+for _xc in ('LDA,VWN', 'PBE', 'r2SCAN', 'wB97X'):
+    case(f'hess_water+_svp_{_xc}_uks', (HESS,))(hess_case(WATER, 'def2-svp', _xc, charge=1, spin=1))
+case('hess_water_svp_b3lyp_df', (HESS,))(hess_case(WATER, 'def2-svp', 'B3LYP', density_fit=True))
+case('hess_water+_svp_pbe_uks_df', (HESS,))(hess_case(WATER, 'def2-svp', 'PBE', charge=1, spin=1,
+                                                      density_fit=True))
+case('scf_benzene+_svp_r2scan_uks', (FULL,))(scf_case(BENZENE, 'def2-svp', 'r2SCAN', charge=1, spin=1))
 case('grad_caffeine_svp_b3lyp', (FULL,))(grad_case(CAFFEINE, 'def2-svp', 'B3LYP'))
 case('tda_caffeine_svp_b3lyp', (FULL,))(td_case(CAFFEINE, 'def2-svp', 'B3LYP', 'TDA'))
 case('scf_c20h42_svp_b3lyp', (FULL,))(scf_case(C20H42, 'def2-svp', 'B3LYP'))

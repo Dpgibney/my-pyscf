@@ -29,15 +29,20 @@ def dump(path):
         nelec, exc, vmat = ni.nr_rks(mol, grids, xc, dm)
         out[f'vxc_rks_{xc}'] = vmat
         out[f'exc_rks_{xc}'] = np.array([nelec, exc])
-    nelec, exc, vmat = ni.nr_uks(mol, grids, 'PBE', (dm * .6, dm * .4))
-    out['vxc_uks_PBE'] = vmat
-    out['exc_uks_PBE'] = np.array([*nelec, exc])
-    dm1 = np.random.default_rng(7).standard_normal((3,) + dm.shape) * 1e-2
-    for xc in ('PBE', 'B3LYP'):
+    for xc in ('LDA,VWN', 'PBE', 'r2SCAN'):
+        nelec, exc, vmat = ni.nr_uks(mol, grids, xc, (dm * .6, dm * .4))
+        out[f'vxc_uks_{xc}'] = vmat
+        out[f'exc_uks_{xc}'] = np.array([*nelec, exc])
+    rng = np.random.default_rng(7)
+    dm1 = rng.standard_normal((3,) + dm.shape) * 1e-2
+    for xc in ('LDA,VWN', 'PBE', 'B3LYP', 'r2SCAN'):
         out[f'fxc_rks_{xc}'] = ni.nr_rks_fxc(mol, grids, xc, dm, dm1, hermi=0)
     ao = numint.eval_ao(mol, grids.coords[:20000], deriv=1)
-    out['rho_gga'] = numint.eval_rho(mol, ao, dm, xctype='GGA')
-    out['rho_mgga'] = numint.eval_rho(mol, ao, dm, xctype='MGGA', with_lapl=False)
+    dm_asym = dm + rng.standard_normal(dm.shape) * 1e-2   # exercises the hermi=0 paths
+    for tag, d in (('', dm), ('_asym', dm_asym)):
+        out[f'rho_lda{tag}'] = numint.eval_rho(mol, ao[0], d, xctype='LDA')
+        out[f'rho_gga{tag}'] = numint.eval_rho(mol, ao, d, xctype='GGA')
+        out[f'rho_mgga{tag}'] = numint.eval_rho(mol, ao, d, xctype='MGGA', with_lapl=False)
     out['vj'], out['vk'] = scf.hf.get_jk(mol, dm)
     out['vj_df'] = dft.RKS(mol).density_fit().get_j(mol, dm)
     np.savez(path, **out)

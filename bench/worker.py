@@ -80,6 +80,61 @@ def blas_core(libs):
     return None
 
 
+class FreqSampler:
+    '''Samples each core type's actual clock (APERF/MPERF via cpuinfo_avg_freq) during the timed run.
+    This laptop's firmware switches between a 2.0 GHz clamp and boost while scaling_max_freq stays
+    unchanged, so the measured clock is the only way to tell which state a run saw.'''
+    ZEN5, ZEN5C = range(0, 8), range(8, 20)
+
+    def __init__(self, interval=0.25):
+        import threading
+        self.interval = interval
+        self.samples = []
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+    @staticmethod
+    def _read(cpus):
+        vals = []
+        for c in cpus:
+            try:
+                with open(f'/sys/devices/system/cpu/cpu{c}/cpufreq/cpuinfo_avg_freq') as f:
+                    vals.append(int(f.read()) / 1e6)
+            except (OSError, ValueError):
+                pass
+        return max(vals) if vals else float('nan')
+
+    def _run(self):
+        while not self._stop.wait(self.interval):
+            self.samples.append((self._read(self.ZEN5), self._read(self.ZEN5C)))
+
+    def __enter__(self):
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        self._stop.set()
+        self._thread.join()
+
+    def summary(self):
+        if not self.samples:
+            return {}
+        z5, z5c = zip(*self.samples)
+        return {'zen5_ghz': sum(z5) / len(z5), 'zen5c_ghz': sum(z5c) / len(z5c),
+                'zen5_ghz_min': min(z5), 'zen5_ghz_max': max(z5)}
+
+
+def battery():
+    out = {}
+    for key in ('status', 'capacity', 'power_now'):
+        try:
+            with open(f'/sys/class/power_supply/BAT0/{key}') as f:
+                out[key] = f.read().strip()
+        except OSError:
+            pass
+    return out
+
+
 def warmup():
     '''Import the modules and load the libraries the cases use, so they are not charged to the timing.'''
     from pyscf import gto, dft, grad, tdscf, hessian, df  # noqa: F401
@@ -99,11 +154,13 @@ def main():
     setup, _ = cases.CASES[name]
     run = setup(tight)
     prof = cProfile.Profile()
-    t0 = time.perf_counter()
-    prof.enable()
-    values = run()
-    prof.disable()
-    wall = time.perf_counter() - t0
+    bat0 = battery()
+    with FreqSampler() as freq:
+        t0 = time.perf_counter()
+        prof.enable()
+        values = run()
+        prof.disable()
+        wall = time.perf_counter() - t0
     stats = pstats.Stats(prof)
     libs = loaded_libs()
     record = {
@@ -112,6 +169,7 @@ def main():
         'pyscf_file': pyscf.__file__, 'pyscf_version': pyscf.__version__,
         'omp_threads': lib.num_threads(), 'libs': libs, 'blas_core': blas_core(libs),
         'max_rss_mb': __import__('resource').getrusage(0).ru_maxrss / 1024,
+        'freq': freq.summary(), 'battery_start': bat0, 'battery_end': battery(),
     }
     print(MARK + json.dumps(record))
 

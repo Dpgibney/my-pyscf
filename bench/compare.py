@@ -65,9 +65,9 @@ def main():
         base_cats = {cat: statistics.median(r['categories'].get(cat, 0.) for r in runs[(case, base)])
                      for cat in cats}
         shown = sorted(base_cats, key=lambda c: -base_cats[c])[:6]
-        print('| config | wall (s) | min–max | speedup | cycles | max Δvalue | '
+        print('| config | wall (s) | min–max | speedup | cycles | max Δvalue | Zen5 GHz | '
               + ' | '.join(shown) + ' |')
-        print('|---' * (6 + len(shown)) + '|')
+        print('|---' * (7 + len(shown)) + '|')
         for label in labels:
             rs = runs.get((case, label))
             if not rs:
@@ -76,9 +76,11 @@ def main():
             t = statistics.median(walls)
             cyc = rs[0]['values'].get('cycles', '-')
             delta = max(max_delta(r['values'], ref_vals) for r in rs)
+            ghz = [r['freq']['zen5_ghz'] for r in rs if r.get('freq')]
+            ghz = f'{min(ghz):.1f}–{max(ghz):.1f}' if ghz else '-'
             catcells = [f'{statistics.median(r["categories"].get(c, 0.) for r in rs):.2f}' for c in shown]
             print(f'| {label} | {t:.2f} | {min(walls):.2f}–{max(walls):.2f} | {t_base / t:.2f}x | {cyc} | '
-                  f'{delta:.1e} | ' + ' | '.join(catcells) + ' |')
+                  f'{delta:.1e} | {ghz} | ' + ' | '.join(catcells) + ' |')
 
 
 if __name__ == '__main__':
