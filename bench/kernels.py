@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-VERSION = 3  # bump when dump() changes, so that cached reference dumps are regenerated
+VERSION = 4  # bump when dump() changes, so that cached reference dumps are regenerated
 
 
 def dump(path):
@@ -46,6 +46,19 @@ def dump(path):
         out[f'rho_mgga{tag}'] = numint.eval_rho(mol, ao, d, xctype='MGGA', with_lapl=False)
     out['vj'], out['vk'] = scf.hf.get_jk(mol, dm)
     out['vj_df'] = dft.RKS(mol).density_fit().get_j(mol, dm)
+    # J/K of several dms (TDDFT/CPHF trial densities, UKS), from ERIs in memory and direct with the
+    # SCF screening. Separate generator, so that the inputs of the other entries stay as they were.
+    from pyscf.scf import _vhf
+    rng2 = np.random.default_rng(11)
+    dm_t = rng2.standard_normal((5,) + dm.shape) * 1e-2   # non-symmetric
+    dm_s = np.array([dm * .6, dm * .4])
+    eri = mol.intor('int2e', aosym='s8')
+    out['vj_incore_t'], out['vk_incore_t'] = _vhf.incore(eri, dm_t, hermi=0)
+    out['vj_incore_s'], out['vk_incore_s'] = _vhf.incore(eri, dm_s, hermi=1)
+    del eri
+    vhfopt = scf.RHF(mol).init_direct_scf()
+    out['vj_direct_t'], out['vk_direct_t'] = scf.hf.get_jk(mol, dm_t, 0, vhfopt)
+    out['vj_direct_s'], out['vk_direct_s'] = scf.hf.get_jk(mol, dm_s, 1, vhfopt)
 
     # A molecule large enough for the screened (sparse) grid kernels of block_loop
     from molecules import n_alkane

@@ -5,6 +5,8 @@ JSON-serializable values used by validate.py. ``tight=True`` selects convergence
 correctness comparisons; timing runs use PySCF defaults. pyscf is imported inside the functions so the
 worker picks up whichever tree PYTHONPATH selects.
 """
+import os
+
 import numpy as np
 from molecules import CAFFEINE, BENZENE, WATER, n_alkane
 
@@ -63,11 +65,26 @@ def scf_case(atom, basis, xc, charge=0, spin=0, density_fit=False, full_jk=False
 
 
 def converged_ks(atom, basis, xc, tight, charge=0, spin=0, density_fit=False):
+    '''A converged KS object for the post-SCF cases. In validation the reference writes its SCF solution to
+    BENCH_SCF_OUT and the candidate starts from it (BENCH_SCF_IN) instead of its own SCF: the endpoint of a
+    tight direct SCF scatters between runs of any build, because it stops at a cycle that depends on the
+    summation order of J/K (caffeine/B3LYP: 24-27 cycles, densities up to 6e-9 apart), and that moves TD
+    excitation energies by ~2e-9 Eh. Post-SCF cases thus compare post-SCF code on the same orbitals; the
+    scf_ cases cover the SCF.'''
     from pyscf import gto
     mol = gto.M(atom=atom, basis=basis, charge=charge, spin=spin, verbose=0)
     mf = make_ks(mol, xc, tight, density_fit)
+    if os.environ.get('BENCH_SCF_IN'):
+        s = np.load(os.environ['BENCH_SCF_IN'])
+        mf.mo_coeff, mf.mo_occ, mf.mo_energy = s['mo_coeff'], s['mo_occ'], s['mo_energy']
+        mf.e_tot = float(s['e_tot'])
+        mf.converged = True
+        return mf
     mf.kernel()
     assert mf.converged
+    if os.environ.get('BENCH_SCF_OUT'):
+        np.savez(os.environ['BENCH_SCF_OUT'], mo_coeff=mf.mo_coeff, mo_occ=mf.mo_occ,
+                 mo_energy=mf.mo_energy, e_tot=mf.e_tot)
     return mf
 
 
@@ -79,6 +96,7 @@ def grad_case(atom, basis, xc):
             g = mf.nuc_grad_method().kernel()
             return {'e_tot': mf.e_tot, 'grad': g.tolist()}
         return run
+    setup.post_scf = True  # starts from converged_ks, see there
     return setup
 
 
@@ -100,6 +118,7 @@ def td_case(atom, basis, xc, method, nstates=5):
             return {'e_tot': mf.e_tot, 'excitations': np.asarray(td.e).tolist(),
                     'converged': np.asarray(td.converged).tolist()}
         return run
+    setup.post_scf = True  # starts from converged_ks, see there
     return setup
 
 
@@ -111,6 +130,7 @@ def hess_case(atom, basis, xc, charge=0, spin=0, density_fit=False):
             h = mf.Hessian().kernel()
             return {'e_tot': mf.e_tot, 'hessian': h.tolist()}
         return run
+    setup.post_scf = True  # starts from converged_ks, see there
     return setup
 
 

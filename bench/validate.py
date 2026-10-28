@@ -20,16 +20,20 @@ REF_DEFAULT = 'ref=pyscf-base'
 
 
 def reference(name, cfg, threads):
+    '''The cached reference record, and for post-SCF cases the reference's SCF solution (see
+    cases.converged_ks), which the candidate starts from.'''
     sha = repo_shas().get(cfg.tree, cfg.tree)
     env = '-'.join(f'{k}={v}' for k, v in sorted(cfg.env.items())) or 'default'
     variant = cfg.variant().replace(' ', '_').replace('=', '-')
     path = RESULTS / 'ref' / f'{name}__{cfg.tree}@{sha}__{variant}__{env}__t{threads}.json'
-    if path.exists():
-        return json.loads(path.read_text())
-    rec = run_worker(name, cfg, threads, tight=True)
+    scf_path = path.with_suffix('.scf.npz') if getattr(CASES[name][0], 'post_scf', False) else None
+    if path.exists() and (scf_path is None or scf_path.exists()):
+        return json.loads(path.read_text()), scf_path
+    run_cfg = cfg if scf_path is None else Config(cfg.label, cfg.tree, {**cfg.env, 'BENCH_SCF_OUT': str(scf_path)})
     path.parent.mkdir(parents=True, exist_ok=True)
+    rec = run_worker(name, run_cfg, threads, tight=True)
     path.write_text(json.dumps(rec))
-    return rec
+    return rec, scf_path
 
 
 def compare(cand, ref):
@@ -73,8 +77,10 @@ def main():
     print(f'candidate {cand.label}: {cand.tree} {cand.env} [{cand.variant()}]')
     print(f'reference {ref.label}: {ref.tree} {ref.env} [{ref.variant()}]')
     for name in names:
-        r = reference(name, ref, args.threads)
-        c = run_worker(name, cand, args.threads, tight=True)
+        r, scf_path = reference(name, ref, args.threads)
+        cand_cfg = cand if scf_path is None else \
+            Config(cand.label, cand.tree, {**cand.env, 'BENCH_SCF_IN': str(scf_path)})
+        c = run_worker(name, cand_cfg, args.threads, tight=True)
         ok, rows = compare(c['values'], r['values'])
         # an unconverged reference checks nothing: fix the case's settings and delete the cached file
         ref_conv = bool(np.all(r['values'].get('converged', True)))

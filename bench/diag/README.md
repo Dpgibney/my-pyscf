@@ -34,3 +34,10 @@ Run them in a configuration's pinned environment:
 | `td_residual_trace.py` | TDA eigensolver residuals per iteration, optionally with another `lindep` | It6: harness problems |
 | `td_operator_noise.py` | linearity and symmetry of the TDA response operator in a build | It6: harness problems |
 | `eval_ao_cost.py` | zero-fill share of `eval_ao` on the screened path (not yet run) | Next iterations |
+| `jk_profile.py` | J, K and J+K build times, in memory and direct, 1–20 dms | It7: where J/K time went |
+| `jk_native_profile.py`, `grad_jk_native.py` | leaf functions of one J/K build, energy or gradient (py-spy `--native`, 1 thread) | It7: where J/K time went |
+| `jk_scaling.py` | thread scaling of a direct J+K build | It7: where J/K time went |
+| `td_jk_calls.py` | the J/K calls of a TDA run: number of dms, hermi, time | It7: where J/K time went |
+| `incore_batch_check.py`, `direct_batch_check.py` | batched vs per-dm J/K: differences and timings | It7: A, B |
+| `td_conv_sensitivity.py`, `td_jk_operator_diff.py`, `td_operator_dump.py`, `td_vind_internals.py`, `td_fixed_scf.py`, `scf_endpoint_spread.py` | a TDA validation failure traced to the scatter of the tight SCF endpoint | It7: harness |
+| `dfj_cost.py` | DF J of a pure functional by `df_jk.get_j` vs from `_cderi` | It7 |
