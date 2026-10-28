@@ -16,6 +16,7 @@ Every upstream clone has `origin` = upstream and a local branch `perf` (one comm
 |---|---|---|---|
 | `pyscf/` | github.com/pyscf/pyscf | master `44313dfb45` (2026-10-26) | working tree, all PySCF changes |
 | `pyscf-base/` | worktree of `pyscf/` | `44313dfb45`, detached | unmodified reference build "B" |
+| `pyscf-g/` | worktree of `pyscf/` | `3ecf507dc`, detached | `perf` before It7 (G in the It7 benchmarks) |
 | `pyscf-f/`, `pyscf-prev/` | worktrees of `pyscf/` | `8fc5eca4e`, `ca881ddc3`, detached | `perf` before It6 and before It5b, for before/after runs |
 | `pyscf-native/` | worktree of `pyscf/` | `8fc5eca4e`, detached | `BUILD_MARCH_NATIVE=ON` build (It3) |
 | `pyscf-qcint/`, `pyscf-qcint-avx2/` | worktrees of `pyscf/` | `44313dfb45`, detached | unmodified master on qcint AVX-512 / AVX2 (It2, It6 SGX check) |
@@ -485,35 +486,130 @@ This is the state before It6. The It6 section below compares against it and agai
 - **A reference that never converged passed the gate.** `validate.py` only required the candidate to converge where the reference did. It now fails the case.
 - Outside the harness: PySCF's default TD `conv_tol=1e-5` is the same residual tolerance, which converges excitation energies to about 1e-9 Eh. Long direct-SCF runs on large molecules carry the drift in their reported energies.
 
-## Next iterations (by measured remaining cost, after It6)
-1. **J/K is now the largest cost in every workload measured.**
-   - Caffeine/SVP TDA with in-memory ERIs: 46 of 75 s.
-   - n-C20H42 SCF: 76% (SVP B3LYP) to 89% (TZVP PBE).
-   - Gradients: the derivative integrals are 80–85%.
-   - **Direct J/K** (ERIs that don't fit in memory):
-     - qcint does not help the alkane (47 s vs libcint's 46 s). SMT speeds that J/K up by 13% but slows everything else.
-     - Exact options: better screening in `vhf/nr_direct.c` (dm-weighted, incremental); load balance (`AO_BLOCK_SIZE`), which needs uncapped clocks to evaluate; one integral pass for all trial DMs of a Davidson step (check whether `_vhf.direct` already does this).
-   - **In-memory J/K with many DMs** (caffeine TDA):
-     - Checked: `CVHFnrs8_incore_drv` already reuses each ERI row (L2-resident) for all DMs, so memory bandwidth is not the cost.
-     - The cost is the per-DM contraction kernels (`CVHFics8_tridm_vj`/`vk`): about npair²/2 ≈ 4.6e8 integral visits per DM, with scattered K updates.
-     - A SIMD-friendly K contraction over several DMs at once is the lever. That is a deeper libcvhf change.
-2. **Remaining screened-path XC costs.** `nr_rks` (B3LYP) on n-C20H42/SVP is now ~1.1 s per call.
-   - **AO evaluation** is about 0.6 s of that. `eval_ao` writes the full (ncomp, nao, ngrids) array, zeroing the screened blocks that the new kernels never read. Measure the zero-fill share before changing anything (`bench/diag/eval_ao_cost.py`).
-   - **Gradient XC term:** `_make_dR_dao_w` builds 12 full-array `_scale_ao` temporaries. A fused gather kernel would remove that traffic, but the term is only about 15% of an alkane gradient (6 of 42 s).
-3. **Extend It5b batching to the remaining f_xc paths:**
-   - `nr_uks_fxc` (UKS TDDFT/CPHF);
-   - the meta-GGA τ term (per-DM `dsyrk`);
-   - `nr_rks_fxc_st` for triplets already goes through `nr_rks_fxc`.
-4. **Hessian `_get_vxc_deriv1`** (h1ao for the CPHF right-hand side): natm×3 XC matrices built with per-atom GEMMs. These are needed as matrices, but could be batched like It5b.
-5. **AO evaluation on the dense path** (`eval_gto`, 5–10%): `-march=native` alone did not help. Look at the `GTOval` loops and the grid block size.
+## It7: J/K, 2026-10-28
+
+`pyscf` `perf` commits `971adcac5` (A), `d4c2a25b0` (B), `f80cf77b2` (C), `8abbb1834` (D), `e904d7d84` (E); harness `98bdc34`, `f7d7d19`.
+
+**Where J/K time went** (2 GHz cap, 10 threads; `bench/diag/jk_profile.py`, `jk_native_profile.py`, `grad_jk_native.py`, `jk_scaling.py`, `td_jk_calls.py`):
+
+| build | 1 dm (SCF) | 20 dms (TDA step) |
+|---|---|---|
+| caffeine/SVP, ERIs in memory, J+K | 0.16 s | 5.9 s (J 1.8, K 4.5) |
+| caffeine/SVP, direct, J+K | 1.26 s | 7.6 s |
+| n-C20H42/SVP, direct, J+K | 5.2 s | 18.2 s (10 dms) |
+
+- **One dm, direct:** integral evaluation (qcint) is 79% of a build at 1 thread, the contraction 17% and screening 1%.
+- **Many dms, both paths:** the contraction dominates, because each dm is contracted separately by scalar kernels. In memory, J for 20 dms cost 40× J for one dm.
+- **Gradient J/K** (caffeine, 1 thread): the derivative integrals are 84%, the contraction 14%.
+- **Caffeine TDA, 5 states:** 10 in-memory J/K calls of up to 20 dms (hermi=0) took 47 of 76 s.
+- **Thread scaling** of direct J+K (caffeine): 1/2/4/10 threads take 7.16/3.72/2.05/1.08 s.
+  - Pinned to 4 Zen 5c cores it is 21% slower than on 4 Zen 5 cores at the same 2 GHz cap (2.58 vs 2.13 s), so 10 threads reach ~88% of the machine's capacity.
+  - Blocks of 32 or 16 AOs instead of 64 gain 3–5%; thread binding gains nothing.
+
+**A: in-memory J/K of several dms** (`nr_incore_batch.c`, from 2 dms).
+- **K:** each packed ERI row (ij|kl), kl ≤ ij, read as a symmetric matrix M[k,l], yields all 8 index permutations of its integrals with two `dsymm` calls, M·Y[j] → Z[i] and M·Y[i] → Z[j].
+  - Y holds rows i and j of all dms and of their transposes; Z accumulates K and Kᵀ.
+  - The (ij|ij) element appears in both products and is halved. Symmetric dms need half the work, with K = Z + Zᵀ.
+- **J:** packed rows in 64 × 1024 tiles, vj[rows] += P·dm[cols] and vj[cols] += Pᵀ·dm[rows] with `dgemm`.
+- **Reproducibility:** static schedule and fixed-order reduction, so the result is bitwise reproducible for a given thread count.
+- **Timings** (caffeine/SVP, 20 dms): 5.7 → 0.71 s (hermi=0) and 4.4 → 0.53 s (hermi=1). K runs at ~270 GFLOP/s, near this machine's peak at 2 GHz.
+- **Gotcha:** with hermi=1 the per-dm kernel returns the lower triangle of K for *any* dm, and an upstream test (`test_uhf.py::test_energy_tot`) passes random non-symmetric dms with hermi=1. The symmetric formulations are therefore used only for dms symmetric to 1e-13; others take the general one and mirror its lower triangle.
+
+**B: direct J/K of several dms** (`nr_direct_batch.c`).
+- Each shell quartet is contracted with all dms in one pass. The dms and the thread-private sums are stored as [p,q,n], taken 4 dms at a time as vectors held in registers.
+- The kernels are compiled for AVX2/FMA and generically, chosen at run time; PySCF itself builds with `-msse3`.
+- **Screening:** the same per-quartet prescreen as `CVHFnr_direct_drv`, after a bound with max(dm_cond) that skips quartets the prescreen would reject.
+- The thread-private sums use huge pages (`MADV_HUGEPAGE`): 5% on the alkane, nothing on caffeine.
+- **Timings:** caffeine/SVP J+K for 20 dms 8.2 → 2.8 s (hermi=0) and 5.8 → 2.3 s (hermi=1); alkane J only for 20 dms 12.1 → 6.4 s.
+- A first version with the dm loops in memory under the stock `-msse3` flags gave only 1.8×. The register-held 4-wide chunks gave the rest.
+- **Upstream bug seen on the way:** `CVHFnrs8_vj_prescreen_block` tests `q_kl > 4*cutoff/rho` where the per-quartet J test implies `cutoff/(4*rho)`. Blocks are therefore skipped 16× too eagerly for J-only quartets. The effect is below 1e-12 here, and the batched driver does not use block screening.
+
+**C: a single dm through the batched direct driver** (a scalar variant of the kernels).
+- On a single SCF density: caffeine J+K 1.01 → 0.90 s and J only 0.92 → 0.85 s; alkane J+K 4.92 → 4.49 s and J only 4.31 → 3.93 s, i.e. 1.09–1.12×.
+- Every direct SCF cycle now takes this path.
+
+**D: DF J-only builds from an in-memory 3-center tensor.**
+- For pure functionals, `df_jk.get_jk` called `get_j`, which evaluates the 3-center integrals twice in every call. It now builds `_cderi` once when `DF.build` would keep it in memory.
+- It does so only for a Cholesky-decomposable metric. Both paths then fit with the same factorization; otherwise `cholesky_eri` would fall back to an eigendecomposition with a linear-dependency cutoff.
+- **Timings** (caffeine/TZVP, 0.78 GB tensor built in 0.58 s): J 0.35 s → 0.035 s per call; the DF-PBE SCF 25.7 → 19.0 s in the same 16 cycles, energies 3e-12 Eh apart.
+
+**E: in-memory J/K of a single symmetric dm in one pass** (`CVHFnrs8_incore_jk_1dm`).
+- **What was slow:** the per-dm K kernel summed its dot products into elements of vk. The compiler must reload and store those at every step because they may alias the other updates, and the kernel also read and wrote along columns.
+- **Change:** the formulation of A for one symmetric dm, reading the packed row in place, with J in the same pass. The inner loops are contiguous with 4-wide vector sums (AVX2/FMA and generic).
+- **Timings** (caffeine/SVP): J+K 0.159 → 0.056 s, about the time it takes to stream the 3.7 GB of ERIs once. J alone stays at 0.043 s; K alone goes from 0.13 to 0.051 s.
+
+**Exactness.**
+- **Kernel tests** (`bench/kernels.py` v5): 13 J/K entries against `pyscf-base`, including in-memory and direct with 5 non-symmetric, 2 symmetric and 1 symmetric dm. All are within 6e-14; the difference comes from the integral library (qcint vs libcint).
+- **Against the per-dm kernels of the same tree:** rounding level.
+  - In memory: ≤ 6e-15.
+  - Direct: ≤ 1e-12 relative for 20 dms. On the same input, upstream's own direct and in-memory J/K differ by 2.5e-12.
+- **Tight validation:** SCF energies ≤ 7.7e-12 Eh (direct, and in memory at 20 GB); TDA excitations ≤ 2e-15 Eh with the shared SCF (below); Hessians ≤ 1.5e-10; DF-PBE 2.3e-12 Eh.
+- **Upstream tests:** dft scf df grad hessian tdscf sgx give 856 passed and the known 6 failed (4 xcfun, 2 qcint SGX). There are new tests in `scf/test/test_vhf.py` (batched in-memory and direct, single dm, all hermi cases) and `df/test/test_df_jk.py`.
+
+**Harness problem found while validating B: the tight SCF endpoint scatters between runs.**
+- **Symptom:** the caffeine TDA case failed, with excitations 2.2e-9 Eh from the reference.
+- **What it wasn't:** the batched J/K matched the old path to 1e-17 Eh on every Davidson call. From one fixed SCF solution, the TDA results of the old and new paths agreed to 3e-15.
+- **Cause:** a tight direct SCF stops after 24–27 cycles depending on the summation order of its J/K, in base, G and It7 alike. The converged densities differ by up to 6e-9, which the energy does not show but excitation energies do.
+- **Fix** (`98bdc34`): post-SCF cases (gradients, TD, Hessians) start from the reference's SCF solution, cached next to the reference. The caffeine TDA then agrees to 1e-15.
+
+**Benchmarks** (`results/20261028-165620_it7-medium.json`, 2 reps ABBA; `…171459_it7-alkane.json` and `…173757_it7-direct-tda.json`, 1 rep).
+- **G** is `perf` before It7 (`3ecf507dc`, worktree `pyscf-g`); **H** is `e904d7d84`. Both use qcint and `PYSCF_MAX_MEMORY=20000` unless noted.
+- **Clocks:** boost. H's runs averaged 0–15% higher clocks than G's (shorter runs heat less), so the wall-time ratios overstate the gains a little. The J/K column (cProfile, J/K functions) shows the part It7 changed.
+- **Cycles:** SCF cycle counts are identical in every pair.
+- The A20 column is the user's original setup, from the final comparison above.
+
+| workload | G (s) | H (s) | H vs G | J/K G → H (s) | H vs A20 |
+|---|---|---|---|---|---|
+| caffeine/SVP PBE SCF | 12.40 | 12.24 | 1.01× | 2.0 → 2.1 | 3.8× |
+| caffeine/SVP B3LYP SCF | 14.01 | 11.71 | **1.20×** | 4.7 → 2.5 | 3.9× |
+| caffeine/SVP r2SCAN SCF | 13.96 | 13.84 | 1.01× | 2.0 → 2.0 | 3.8× |
+| caffeine/TZVP DF-PBE SCF | 26.73 | 18.92 | **1.41×** (1.35× at a fixed 2 GHz) | 8.7 → 0.3, plus the tensor build | 2.6× |
+| caffeine⁺/SVP UKS B3LYP SCF | 31.24 | 26.95 | **1.16×** | 10.9 → 6.7 | 3.3× |
+| benzene/SVP B3LYP gradient | 1.95 | 2.05 | 0.95× (noise) | 1.5 → 1.6 | 1.4× |
+| caffeine/SVP B3LYP gradient | 11.22 | 11.09 | 1.01× | 9.4 → 9.3 | 1.2× |
+| benzene/SVP B3LYP TDA, 5 states | 5.75 | 4.61 | **1.25×** | 1.34 → 0.18 | 2.8× |
+| benzene/SVP B3LYP TDDFT, 5 states | 15.91 | 12.74 | **1.25×** | 3.6 → 0.5 | 2.9× |
+| caffeine/SVP B3LYP TDA, 5 states | 75.95 | 35.24 | **2.16×** | 47.0 → 6.1 | **5.0×** |
+| same with direct ERIs (`PYSCF_MAX_MEMORY=4000`) | 96.98 | 52.91 | **1.83×** | 67.8 → 23.5 | |
+| benzene/SVP B3LYP Hessian | 29.59 | 27.70 | 1.07× | 16.9 → 15.0 | 2.2× |
+| benzene/SVP PBE Hessian | 25.10 | 24.61 | 1.02× | 13.4 → 12.9 | |
+| direct grid pipeline | 3.68 | 3.50 | 1.05× (noise) | – | 2.0× |
+| n-C20H42/SVP B3LYP SCF | 62.83 | 59.07 | 1.06× | 47.7 → 44.3 | 1.5× |
+| n-C20H42/TZVP PBE SCF | 319.0 | 297.7 | 1.07× | 284 → 263 | |
+| n-C20H42/SVP r2SCAN SCF | 70.82 | 66.25 | 1.07× | 45.3 → 40.9 | |
+| n-C20H42/SVP B3LYP gradient | 42.52 | 42.33 | 1.00× | 35.8 → 35.6 | |
+| n-C20H42/SVP PBE TDA, 5 states | 98.65 | 72.05 | **1.37×** | 60.0 → 33.4 | |
+
+- **Unchanged, as expected:**
+  - SCFs that need only J with the ERIs in memory (PBE, r2SCAN): J was already bound by memory bandwidth.
+  - Gradients: derivative integrals.
+  - The integral part of direct SCF: the alkane SCFs gain only C's contraction savings.
+- **Where the time is now:**
+  - Caffeine TDA: J/K is 6 of 35 s, and the XC response (26 s) dominates.
+  - Alkane SCFs: J/K is still 75–88%, nearly all of it integral evaluation.
+
+## Next iterations (by measured remaining cost, after It7)
+1. **Integral evaluation is what remains of J/K.**
+   - Where it is: ~80% of a direct SCF J/K build, 84% of gradient J/K, and most of Hessian J/K (the second-derivative integral passes).
+   - The alkane SCFs are still 75–88% J/K.
+   - Exact levers left:
+     - **Gradients:** fewer derivative integrals. The s2kl loop evaluates 4 `int2e_ip1` quartets per s8 orbit. With translational invariance, 3 per orbit suffice (−25%), but the gradient must then be contracted inside the integral loop, a new driver.
+     - **Faster integral kernels:** qcint's `CINTgout2e`/Rys code, which is outside PySCF.
+     - **SMT for the direct J/K only:** 13% in It3; a run configuration choice, not a code change.
+2. **Remaining XC costs.**
+   - The XC response is now the largest part of the caffeine TDA (26 of 35 s).
+   - Screened-path `nr_rks`: AO evaluation is ~0.6 of 1.1 s on the alkane. Measure the zero-fill share first (`bench/diag/eval_ao_cost.py`).
+   - The gradient XC temporaries in `_make_dR_dao_w`.
+3. **Extend It5b batching** to `nr_uks_fxc` (UKS TDDFT/CPHF) and the meta-GGA τ term.
+4. **Hessian `_get_vxc_deriv1`** (h1ao for the CPHF right-hand side): batch it like It5b.
+5. **AO evaluation on the dense path** (`eval_gto`, 5–10%).
 6. **Upstream:**
-   - The 10 `perf` commits are PR candidates: six from It4/It5 and four from It6.
-     - Add unit tests mirroring `bench/kernels.py` and the Hessian-path cases.
-     - `lib/dft/test/test_sparse_dot.py` already covers the It6 kernels (15 tests, with NaN in every screened block).
+   - The 15 `perf` commits are PR candidates: six from It4/It5, four from It6, five from It7. All of It7's have unit tests.
    - Report the LibXC 7.1.2 r2SCAN kxc regression to LibXC.
    - Possible PySCF issues:
-     - Direct SCF's incremental J/K drift on large molecules. A periodic full rebuild would remove it.
+     - Direct SCF's incremental J/K drift on large molecules.
      - A TD `conv_tol` below the `lindep` floor silently runs to `max_cycle`.
+     - `CVHFnrs8_vj_prescreen_block` tests `q_kl > 4*cutoff/rho`, 16× stricter than its per-quartet J test.
 7. **Hardware:**
-   - The firmware 2 GHz clamp and boost toggling (HP, probably adapter power) is outside software, but it decides benchmark reliability.
-   - Once fixed, re-run the load-balance experiments: dynamic schedules for the mixed Zen 5 / Zen 5c cores.
+   - The firmware 2 GHz clamp and boost toggling decide benchmark reliability.
+   - Faster code runs at higher average boost clocks, which skews wall-time ratios (It7).
