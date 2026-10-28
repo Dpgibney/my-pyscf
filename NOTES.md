@@ -288,3 +288,10 @@ P6 = `perf` with stock flags; N = the same code with `-DBUILD_MARCH_NATIVE=ON`; 
   - BLAS and XC kernels slow down;
   - scipy `eigh` goes from 0.4 to 3.0 s, from thread-pool contention.
 - **The user's shell does not set `OMP_NUM_THREADS`**, so their PySCF runs use 20 threads. `scripts/pyscf-env.sh` now defaults it to 10.
+
+### Upstream tests on the final `perf` tree (`scripts/run_tests.sh pyscf`)
+- dft, scf, df, grad, hessian and tdscf, with upstream's `-k "not _high_cost and not _skip"`: **839 passed, 4 failed, 57 skipped** in 5 min.
+- All four failures are `AttributeError: module 'pyscf.dft' has no attribute 'xcfun'`, because the workspace builds with `ENABLE_XCFUN=OFF`:
+  - `test_tdrks.py::{test_custom_rsh, test_tda_b3lyp_xcfun, test_tda_lda_xcfun, test_tddft_b3lyp_xcfun}`.
+  - They fail identically on unmodified `pyscf-base`.
+- **No regressions.**
