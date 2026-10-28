@@ -303,7 +303,10 @@ P6 = `perf` with stock flags; N = the same code with `-DBUILD_MARCH_NATIVE=ON`; 
      - better screening in `vhf/nr_direct.c` (dm-weighted, incremental);
      - load balance (`AO_BLOCK_SIZE`) — needs uncapped clocks to evaluate;
      - batching all trial DMs of a Davidson step through one integral pass. Check whether `_vhf.direct`/`incore` already do this.
-2. **In-memory J/K with many DMs** (caffeine TDA with `max_memory=20000`: `jk` is still 46 s). Check whether `_vhf.incore` streams the 3.7 GB ERI array once per DM. If so, contract all DMs per integral block.
+2. **In-memory J/K with many DMs** (caffeine TDA with `max_memory=20000`: `jk` is still 46 s).
+   - Checked: `CVHFnrs8_incore_drv` already reuses each ERI row (L2-resident) for all DMs, so memory bandwidth is not the cost.
+   - The cost is the per-DM contraction kernels (`CVHFics8_tridm_vj`/`vk`): about npair²/2 ≈ 4.6e8 integral visits per DM, with scattered K updates.
+   - SIMD-friendly K contraction across several DMs at once is the lever. That is a deeper libcvhf change.
 3. **Extend It5b batching to the remaining f_xc paths:**
    - `nr_uks_fxc` (UKS TDDFT/CPHF);
    - the meta-GGA τ term (per-DM `dsyrk`);
