@@ -40,7 +40,8 @@ def compare(cand, ref):
             rows.append((key, f'{cv} vs {rv}', '', 'warn' if cv != rv else 'ok'))
             continue
         if key == 'converged':
-            good = bool(np.all(cv))
+            # the candidate must converge wherever the reference did
+            good = bool(np.all(np.asarray(cv) | ~np.asarray(rv, dtype=bool)))
             ok &= good
             rows.append((key, str(cv), '', 'ok' if good else 'FAIL'))
             continue

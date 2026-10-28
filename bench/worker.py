@@ -21,6 +21,8 @@ MARK = '@@RESULT@@'
 CATEGORY_RULES = [
     ('jk', '_vhf.py', '*'), ('jk', 'moleintor.py', 'getints4c'), ('jk', 'moleintor.py', 'getints3c'),
     ('blas', 'numpy_helper.py', '_dgemm'), ('blas', 'numpy_helper.py', '_zgemm'),
+    ('blas', 'numint.py', '_dot_ao_wv_ao_hermi'),
+    ('xc_kernels', 'numint.py', '_contract_rho_batch'), ('xc_kernels', 'numint.py', '_scale_ao_batch'),
     ('ao_eval', 'eval_gto.py', 'eval_gto'),
     ('xc_kernels', 'numint.py', '_scale_ao'), ('xc_kernels', 'numint.py', '_contract_rho'),
     ('xc_kernels', 'numint.py', '_scale_ao_sparse'), ('xc_kernels', 'numint.py', '_contract_rho_sparse'),
@@ -80,41 +82,46 @@ def blas_core(libs):
     return None
 
 
+_SAMPLER = '''
+import sys, time
+def read(cpus):
+    vals = []
+    for c in cpus:
+        try:
+            with open(f"/sys/devices/system/cpu/cpu{c}/cpufreq/cpuinfo_avg_freq") as f:
+                vals.append(int(f.read()) / 1e6)
+        except (OSError, ValueError):
+            pass
+    return max(vals) if vals else float("nan")
+while True:
+    time.sleep(float(sys.argv[1]))
+    print(read(range(0, 8)), read(range(8, 20)), flush=True)
+'''
+
+
 class FreqSampler:
     '''Samples each core type's actual clock (APERF/MPERF via cpuinfo_avg_freq) during the timed run.
     This laptop's firmware switches between a 2.0 GHz clamp and boost while scaling_max_freq stays
-    unchanged, so the measured clock is the only way to tell which state a run saw.'''
-    ZEN5, ZEN5C = range(0, 8), range(8, 20)
+    unchanged, so the measured clock is the only way to tell which state a run saw.
+    Runs in a separate process: a sampler thread in this process corrupts cProfile's attribution
+    (main-thread C calls show up as _thread.lock.acquire).'''
 
     def __init__(self, interval=0.25):
-        import threading
         self.interval = interval
         self.samples = []
-        self._stop = threading.Event()
-        self._thread = threading.Thread(target=self._run, daemon=True)
-
-    @staticmethod
-    def _read(cpus):
-        vals = []
-        for c in cpus:
-            try:
-                with open(f'/sys/devices/system/cpu/cpu{c}/cpufreq/cpuinfo_avg_freq') as f:
-                    vals.append(int(f.read()) / 1e6)
-            except (OSError, ValueError):
-                pass
-        return max(vals) if vals else float('nan')
-
-    def _run(self):
-        while not self._stop.wait(self.interval):
-            self.samples.append((self._read(self.ZEN5), self._read(self.ZEN5C)))
 
     def __enter__(self):
-        self._thread.start()
+        import subprocess
+        self._proc = subprocess.Popen([sys.executable, '-I', '-c', _SAMPLER, str(self.interval)],
+                                      stdout=subprocess.PIPE, text=True)
         return self
 
     def __exit__(self, *exc):
-        self._stop.set()
-        self._thread.join()
+        self._proc.terminate()
+        out = self._proc.communicate()[0]
+        for line in out.splitlines():
+            z5, z5c = line.split()
+            self.samples.append((float(z5), float(z5c)))
 
     def summary(self):
         if not self.samples:

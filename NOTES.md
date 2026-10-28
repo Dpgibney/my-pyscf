@@ -207,3 +207,33 @@ Four commits on `perf`, one per change:
 - **Speed on benzene/SVP** (prototype vs original, same tree): PBE 17.6 → 2.2 s, B3LYP 17.5 → 1.8 s, r2SCAN 28.0 → 3.3 s, LDA 3.9 → 0.7 s.
 - **Agreement** with the original contraction is 1–4e-15 relative for RKS and UKS, across LDA/GGA/MGGA/hybrid.
 - **Range-separated hybrids:** `partial_hess_elec` now starts the long-range K terms from zero and adds the precontracted XC part.
+
+### It4 + It5a timings (`results/20261027-205222_it4-it5a.json`, boosted clocks)
+
+Q = qcint, unmodified code; P4 = + It4; P5 = + It5a. All three use the same qcint/BLAS build.
+
+| case | Q (s) | P4 | P5 | notes |
+|---|---|---|---|---|
+| r2SCAN SCF | 35.2 @3.6 GHz | 32.7 @3.35 GHz (1.08×) | 32.3 | τ dsyrk; P4 ran at about 7% lower clock |
+| direct-grid pipeline | 3.98 | 3.63 (1.10×) | 3.57 | `eval_rho` symmetrization |
+| UKS r2SCAN SCF | 6.14 | 5.69 (1.08×) | 5.74 | τ dsyrk via `nr_uks` |
+| PBE Hessian | 41.8 | 40.7 (1.03×, `with_k`) | **32.1 (1.30×)** | |
+| B3LYP Hessian | 45.2 | 45.0 | **36.8 (1.23×)** | |
+| PBE SCF, TDA | — | unchanged | unchanged | as expected |
+
+- **dsyrk vs dgemm:** the τ dsyrk kernel is 1.6× faster than 3× (scale + dgemm) on the realistic shape (3 components, 246 AOs, 67,200 points): 57 vs 94 ms. That is below the ideal 2× because of the gather pass and dsyrk efficiency. Chunk size (256 / 1024 / 4096) makes no difference.
+- **Profiler pitfall:** a `FreqSampler` *thread* corrupted cProfile attribution in Python 3.12, showing main-thread C calls as `_thread.lock.acquire`. Sampling now runs in a separate process.
+
+### It5b: batched f_xc contraction (`8fc5eca4e`)
+- **The problem:** `nr_rks_fxc` (used by TDA/TDDFT and by the CPHF of Hessians/response) handled each trial DM separately on every grid block. That is two GEMMs plus contraction and scaling passes, each re-streaming the AO block. After It1, these bandwidth-bound passes cost as much as the GEMMs.
+- **`_rks_fxc_batch`** (LDA/GGA, real DMs, dense blocks) instead does:
+  - one GEMM for `dm_k·ao₀ᵀ` over all k;
+  - `VXC_dcontract_rho_batch`, which computes ρ₁[k,c,g] reading each AO value once;
+  - `VXC_dscale_ao_batch`, which forms `aow[k]` reading each AO value once;
+  - one accumulating GEMM for all V_k.
+- **Unchanged paths:** sparse blocks keep the per-DM kernels; MGGA and complex DMs use the old path.
+- **Correctness:**
+  - The batch kernels match `einsum` exactly.
+  - f_xc kernel tests (LDA/PBE/B3LYP/r2SCAN, 3 non-symmetric trial DMs) match the reference to ≤ 7e-16.
+  - TDA, TDDFT, both benzene Hessians and all nine Hessian-path cases pass `validate.py`.
+- **Validation rule fix:** tight RPA-TDDFT (`conv_tol=1e-8`) does not converge on unmodified master either. `validate.py` now requires the candidate to converge wherever the *reference* did, instead of everywhere.
