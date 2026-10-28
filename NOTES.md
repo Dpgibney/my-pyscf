@@ -16,11 +16,15 @@ Every upstream clone has `origin` = upstream and a local branch `perf` (one comm
 |---|---|---|---|
 | `pyscf/` | github.com/pyscf/pyscf | master `44313dfb45` (2026-10-26) | working tree, all PySCF changes |
 | `pyscf-base/` | worktree of `pyscf/` | `44313dfb45`, detached | unmodified reference build "B" |
+| `pyscf-f/`, `pyscf-prev/` | worktrees of `pyscf/` | `8fc5eca4e`, `ca881ddc3`, detached | `perf` before It6 and before It5b, for before/after runs |
+| `pyscf-native/` | worktree of `pyscf/` | `8fc5eca4e`, detached | `BUILD_MARCH_NATIVE=ON` build (It3) |
+| `pyscf-qcint/`, `pyscf-qcint-avx2/` | worktrees of `pyscf/` | `44313dfb45`, detached | unmodified master on qcint AVX-512 / AVX2 (It2, It6 SGX check) |
 | `libcint/` | github.com/sunqm/libcint | `v6.2.0` (master's pin) | integrals |
 | `qcint/` | github.com/sunqm/qcint | `v6.2.0` | SIMD integrals (It2) |
 | `libxc/` | gitlab.com/libxc/libxc | `7.1.2` (master's pin) | XC functionals |
 | `OpenBLAS/` | github.com/OpenMathLib/OpenBLAS | `v0.3.34` | BLAS (build-only so far) |
 
+- **`bench/diag/`** holds the one-off scripts behind the numbers quoted here, indexed in its README.
 - **Python:** two uv venvs on a uv-managed CPython 3.12.8, with identical pins (numpy 2.5.4, scipy 1.18.1, h5py 3.16.0, pytest 9.2.0).
   - `.venv` runs the source trees; `PYTHONPATH` picks the tree.
   - `.venv-wheel` has the PyPI `pyscf==2.12.1` wheel: baseline "A", what the user runs today.
@@ -489,7 +493,7 @@ This is the state before It6. The It6 section below compares against it and agai
      - The cost is the per-DM contraction kernels (`CVHFics8_tridm_vj`/`vk`): about npair²/2 ≈ 4.6e8 integral visits per DM, with scattered K updates.
      - A SIMD-friendly K contraction over several DMs at once is the lever. That is a deeper libcvhf change.
 2. **Remaining screened-path XC costs.** `nr_rks` (B3LYP) on n-C20H42/SVP is now ~1.1 s per call.
-   - **AO evaluation** is about 0.6 s of that. `eval_ao` writes the full (ncomp, nao, ngrids) array, zeroing the screened blocks that the new kernels never read. Measure the zero-fill share before changing anything (scratch `eval_ao_cost.py`).
+   - **AO evaluation** is about 0.6 s of that. `eval_ao` writes the full (ncomp, nao, ngrids) array, zeroing the screened blocks that the new kernels never read. Measure the zero-fill share before changing anything (`bench/diag/eval_ao_cost.py`).
    - **Gradient XC term:** `_make_dR_dao_w` builds 12 full-array `_scale_ao` temporaries. A fused gather kernel would remove that traffic, but the term is only about 15% of an alkane gradient (6 of 42 s).
 3. **Extend It5b batching to the remaining f_xc paths:**
    - `nr_uks_fxc` (UKS TDDFT/CPHF);
