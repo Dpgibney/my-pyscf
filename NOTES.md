@@ -295,3 +295,24 @@ P6 = `perf` with stock flags; N = the same code with `-DBUILD_MARCH_NATIVE=ON`; 
   - `test_tdrks.py::{test_custom_rsh, test_tda_b3lyp_xcfun, test_tda_lda_xcfun, test_tddft_b3lyp_xcfun}`.
   - They fail identically on unmodified `pyscf-base`.
 - **No regressions.**
+
+## Next iterations (by measured remaining cost)
+1. **J/K when ERIs don't fit in memory.**
+   - With qcint and 10 threads, direct-SCF J/K is still about 55% of caffeine/SVP SCF time, and 50% of caffeine TDA, where every Davidson iteration recomputes integrals.
+   - Exact options:
+     - better screening in `vhf/nr_direct.c` (dm-weighted, incremental);
+     - load balance (`AO_BLOCK_SIZE`) — needs uncapped clocks to evaluate;
+     - batching all trial DMs of a Davidson step through one integral pass. Check whether `_vhf.direct`/`incore` already do this.
+2. **In-memory J/K with many DMs** (caffeine TDA with `max_memory=20000`: `jk` is still 46 s). Check whether `_vhf.incore` streams the 3.7 GB ERI array once per DM. If so, contract all DMs per integral block.
+3. **Extend It5b batching to the remaining f_xc paths:**
+   - `nr_uks_fxc` (UKS TDDFT/CPHF);
+   - the meta-GGA τ term (per-DM `dsyrk`);
+   - `nr_rks_fxc_st` for triplets already goes through `nr_rks_fxc`.
+4. **Hessian `_get_vxc_deriv1`** (h1ao for the CPHF right-hand side): natm×3 XC matrices built with per-atom GEMMs. These are needed as matrices, but could be batched like It5b.
+5. **AO evaluation** (`eval_gto`, 5–10%): `-march=native` alone did not help. Look at the `GTOval` loops and the grid block size.
+6. **Upstream:**
+   - The 6 `perf` commits are PR candidates. Add unit tests mirroring `bench/kernels.py` and the Hessian-path cases.
+   - Report the LibXC 7.1.2 r2SCAN kxc regression to LibXC.
+7. **Hardware:**
+   - The firmware 2 GHz clamp and boost toggling (HP, probably adapter power) is outside software, but it decides benchmark reliability.
+   - Once fixed, re-run the load-balance experiments: dynamic schedules for the mixed Zen 5 / Zen 5c cores.
