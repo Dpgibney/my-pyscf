@@ -60,9 +60,17 @@ cd bench
 - **PySCF fixes its RUNPATH to `$ORIGIN/deps/lib`**, so `scripts/link_deps.sh` symlinks our installs there. A system `/usr/lib/x86_64-linux-gnu/libopenblas.so.0` exists and would load silently if a link were missing; `build_pyscf.sh` and the harness both check for this.
 - **Don't launch python from the workspace root.** `pkgutil.extend_path` then adds the clone root `my-pyscf/pyscf/` to `pyscf.__path__`. It is harmless, but noisy. The harness runs workers from `scratch/`.
 - **Thread binding is not set by default.** `OMP_PROC_BIND` pins Python's main thread to one core, and pthread pools created afterwards (numpy/scipy OpenBLAS) inherit that mask. Binding is part of the It3 sweep.
-- **Machine:** 4× Zen 5 (CPUs 0–7, up to 5.09 GHz) + 6× Zen 5c (CPUs 8–19, up to 3.32 GHz). At setup, `scaling_max_freq` was pinned to 2.0 GHz on all cores (balanced profile, on AC).
-  - Lift it for benchmarking with `powerprofilesctl set performance; sudo cpupower frequency-set -u 5.1GHz`.
-  - `perf` needs `kernel.perf_event_paranoid` ≤ 2 (currently 4); use `py-spy record --native` instead.
+- **Machine:** 4× Zen 5 (CPUs 0–7, up to 5.09 GHz) + 6× Zen 5c (CPUs 8–19, up to 3.32 GHz).
+- **The firmware caps every core at the 2.0 GHz base clock, with no boost, even on AC.**
+  - `sudo cpupower -c all frequency-set -u 5.1GHz` ran (confirmed in the sudo log), but `scaling_max_freq` stayed at 2.0 GHz.
+  - Measured `cpuinfo_avg_freq` under load is about 2.0 GHz on all cores.
+  - Not thermal: every Processor cooling device is at state 0, and the hottest zone was 55 °C.
+  - Likely the HP firmware (`hp-wmi`) applying a platform limit: an underpowered or unrecognized adapter, or a BIOS power/turbo setting.
+  - This slows all of the user's computations, not just this project.
+- **Benchmarks therefore run at a uniform, fixed 2.0 GHz** (`check_power.sh` mode=capped).
+  - This is low-noise and matches how the laptop runs today.
+  - It hides Zen 5/5c load imbalance, so re-run the key comparisons if the cap is ever lifted.
+- `perf` needs `kernel.perf_event_paranoid` ≤ 2 (currently 4); use `py-spy record --native` instead.
 - **Build flags as found:**
   - PySCF stock: `-msse3 -O2 -g`.
   - libcint stock: `-O3` with no `-march`.
@@ -81,6 +89,18 @@ Kernel tests on caffeine/def2-SVP, max |Δ| / max(1, |ref|):
 
 Rounding-level noise is therefore about 1e-13 relative. The kernel test tolerance (1e-11) leaves two orders of magnitude of margin.
 
+`validate.py` noise floor: the `pyscf` tree, built identically, against `pyscf-base` on the quick suite, tight convergence.
+
+| quantity | max \|Δ\| | tolerance |
+|---|---|---|
+| SCF energy | ≤ 9e-13 Eh | 1e-9 |
+| benzene gradient | 1.0e-10 | 1e-8 |
+| benzene TDA excitations | 5.3e-11 Eh | 1e-9 |
+| grid checksums | identical | — |
+
+- At `conv_tol=1e-12` the cycle count varies even between identical builds (24 vs 27), because the last iterations jitter at the quadrature noise floor. Cycle differences are therefore warnings, not failures.
+- Integral variants (It2 correctness, kernel tests): libcint `-march=native`, qcint AVX-512 and qcint AVX2 all match the stock libcint J/K/DF-J to 2e-14 to 1e-13 relative, the same as the BLAS noise.
+
 ## Baseline profile before any changes (pip wheel 2.12.1, 10 threads, 2 GHz cap; from planning)
 
 | workload | 4c J/K | lib.dot GEMM | scale/contract | AO eval | LibXC |
@@ -96,3 +116,40 @@ Rounding-level noise is therefore about 1e-13 relative. The kernel test toleranc
 - Clones, venvs, OpenBLAS, libcint, qcint, libxc, and the `pyscf` and `pyscf-base` trees are built.
 - The harness is written: `bench/{molecules,cases,worker,common,run_bench,compare,validate,kernels}.py`.
 - Build times: OpenBLAS 7.5 min, libxc 2.3 min, PySCF 11 s, libcint 38 s, qcint 55 s.
+
+#### Two upstream changes between the 2.12.1 wheel and master that affect comparisons with A
+1. **Master no longer prunes the grid by density by default.** `small_rho_cutoff` went from 1e-7 to 0 in `1b0caaee5` (#3192, 2026-04-20).
+   - Caffeine/SVP SCF therefore integrates 294,800 grid points on master versus 247,368 in the wheel: 19% more XC work.
+   - It is also why master's last grid block takes the sparse path (`_dot_ao_ao_sparse` self-time).
+   - Exact-only policy keeps master's default. `mf.small_rho_cutoff = 1e-7` restores the old behaviour if the user wants it.
+2. **LibXC 7.1.2 (master's pin) dropped r2SCAN 3rd/4th derivatives.**
+   - The regenerated `maple2c/mgga_exc/mgga_{x,c}_r2scan.c` carry only EXC/VXC/FXC flags, so `max_deriv_order` is 2 (7.0.0 had 3). SCAN still has KXC/LXC.
+   - This breaks r2SCAN TDDFT excited-state gradients (they need kxc) on upstream master too.
+   - It is an upstream regression; flagged to the user, not patched.
+
+#### It0/It1 timings (fixed 2 GHz, 10 threads, median of 3, interleaved; `results/20261027-185848_it0-it1-blas.json`)
+
+Configs: A = wheel; B = master stock with `OPENBLAS_CORETYPE=Barcelona` (wheel-like kernels); Bzen / Bskx = master stock with modern kernels.
+
+| case | A (s) | B (s) | Bzen (s) | Bskx (s) | `_dgemm` B → Bzen | Bzen vs B | Bzen vs A |
+|---|---|---|---|---|---|---|---|
+| caffeine SVP PBE SCF | 49.1 | 52.1 | 46.2 | 46.2 | 14.0 → 8.1 s | 1.13× | 1.06× |
+| caffeine SVP B3LYP SCF | 49.1 | 51.4 | 45.5 | 45.8 | 13.3 → 7.1 s | 1.13× | 1.08× |
+| caffeine SVP r2SCAN SCF | 42.5 | 46.3 | 37.2 | 37.2 | 19.2 → 10.2 s | 1.25× | 1.14× |
+| benzene B3LYP gradient | 2.63 | 2.77 | 2.59 | 2.71 | 0.15 → 0.10 s | 1.07× | 1.02× |
+| benzene B3LYP TDA (5 states) | 10.2 | 11.6 | 9.26 | 9.17 | 6.0 → 3.9 s | 1.25× | 1.10× |
+| direct grid pipeline | 5.53 | 5.46 | 4.11 | 4.06 | 3.0 → 1.7 s | 1.33× | 1.35× |
+
+- **Micro GEMM** (`lib.dot`, GFLOP/s):
+  - Wheel 119–174.
+  - B 155–175.
+  - Bzen 253–374; Zen is best on the numint shapes (289 for 246×67200×246).
+  - Bskx 228–367; SkylakeX is best on square 2000³ (355).
+- **It0 prediction** (B within ±15% of A): ✔. B's 4–12% deficit is the 19% larger grid, not BLAS.
+- **It1 predictions:**
+  - ✔ `_dgemm` −42…47% (predicted ≥35%).
+  - ✔ `lib.dot` at 4000³ reaches 374 GFLOP/s (predicted ≥180).
+  - ✔ TDA −21% (predicted about −25%).
+  - ✔ Zen ≈ SkylakeX within ±10%.
+- **Wall-time gains are modest** because the integrals (`jk`, about 29 s of 46 s for caffeine) are untouched by BLAS. That is It2.
+- **Decision:** from It2 on, use the build's default dispatch, which picks Cooperlake (the SkylakeX DGEMM). It is equal to Zen at the application level, and it is what the user gets with no environment variables set.

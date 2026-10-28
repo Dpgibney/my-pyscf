@@ -164,7 +164,11 @@ def micro_libxc():
             for xc, nvar in [('LDA,VWN', 1), ('PBE', 4), ('B3LYP', 4), ('SCAN', 5), ('r2SCAN', 5)]:
                 r = rho[0] if nvar == 1 else rho[:nvar]
                 for d in (1, 2, 3):
-                    libxc.eval_xc_eff(xc, r[..., :1000].copy(), deriv=d)
+                    try:
+                        libxc.eval_xc_eff(xc, r[..., :1000].copy(), deriv=d)
+                    except AssertionError:  # deriv beyond the functional's max_deriv_order
+                        out[f'{xc}_d{d}_s'] = float('nan')
+                        continue
                     t0 = time.perf_counter()
                     libxc.eval_xc_eff(xc, r, deriv=d)
                     out[f'{xc}_d{d}_s'] = time.perf_counter() - t0
