@@ -273,3 +273,18 @@ P6 = `perf` with stock flags; N = the same code with `-DBUILD_MARCH_NATIVE=ON`; 
   - Energies agree to 2e-12.
   - `scripts/pyscf-env.sh` sets this.
   - The TDA gain is smaller because each trial vector makes a full bandwidth-bound pass over the stored integrals.
+
+**Thread sweep** (`results/20261027-222823_it3-threads.json`; `perf` tree; times relative to 10 threads)
+
+| threads | caffeine PBE | caffeine r2SCAN | benzene TDA | direct grid | benzene Hessian |
+|---|---|---|---|---|---|
+| 10 (one per physical core) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| 8 | 0.87× | 0.88× | 0.92× | 1.09× | 0.97× |
+| 20 (SMT; the OpenMP default when `OMP_NUM_THREADS` is unset) | **0.67×** | **0.72×** | **0.70×** | **0.73×** | **0.80×** |
+| 10 + `PYSCF_MAX_MEMORY=20000` | **1.94×** | **1.70×** | 1.01× | 0.99× | 1.00× |
+
+- **SMT hurts everything**, which falsifies the plan's prediction that it would help integrals:
+  - J/K gains nothing (18.8 vs 16.6 s);
+  - BLAS and XC kernels slow down;
+  - scipy `eigh` goes from 0.4 to 3.0 s, from thread-pool contention.
+- **The user's shell does not set `OMP_NUM_THREADS`**, so their PySCF runs use 20 threads. `scripts/pyscf-env.sh` now defaults it to 10.
