@@ -50,3 +50,7 @@ Run them in a configuration's pinned environment:
 | `fused_numint_check.py` | NumInt's fused XC kernels (`_FusedXC`) against the `block_loop` path, bit for bit, for every opted-in function and both density paths, with and without the radial cache and with split XC matrices; per-call timings | It11 |
 | `deriv_xc_time.py` | time of the gradient and Hessian XC terms per call and the share of `eval_gto` in it | It12: why |
 | `deriv_xc_check.py` | the gradient and Hessian XC terms (RKS caffeine, UKS benzene⁺; SVWN, B3LYP, r2SCAN) against references saved from an earlier tree, with times | It12 |
+| `fxc_blocks.py` | `nr_rks_fxc` time per dm on n-C20H42/SVP (LDA) vs the number of dms and `max_memory`, i.e. vs the fused kernels' grid block count | It13: A |
+| `fxc_tree.py` | `nr_rks_fxc` of 3·natm CPHF-type dms on n-C20H42/SVP in any tree (upstream comparison) | It13: A |
+| `lowrank_fxc_check.py` | the CPHF XC response from the factors (`_FusedXC.rks_fxc_mo`) against `nr_rks_fxc` projected on the orbitals: differences, interleaved times, the flop model's ratio and choice, and `vind_mo` against the projected `vind` | It13: B |
+| `j_repro.py` | two identical semi-direct J builds and response calls on caffeine/TZVP, compared in the AO and the MO basis | It13: exactness |

@@ -32,6 +32,9 @@ CATEGORY_RULES = [
     ('xc_kernels', 'numint.py', '_dot_ao_dm'),
     # the fused kernels (It11) include the AO evaluation
     ('xc_kernels', 'numint.py', '_rho_kernel'), ('xc_kernels', 'numint.py', 'dot'),
+    # the gradient and Hessian XC terms (It12) and the CPHF response from the factors (It13)
+    ('xc_kernels', 'numint.py', 'dot_terms'), ('xc_kernels', 'numint.py', '_dot_sets_aow_ao'),
+    ('xc_kernels', 'numint.py', 'rho_lowrank'), ('xc_kernels', 'numint.py', 'dot_ao_mo'),
     ('ao_eval', 'numint.py', 'build_radial'),
     ('libxc', 'libxc.py', '_eval_xc'), ('xc_post', 'xc_deriv.py', '*'),
     ('grids', 'gen_grid.py', '*'), ('grids', 'radi.py', '*'),

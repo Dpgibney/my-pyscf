@@ -21,6 +21,7 @@ Every upstream clone has `origin` = upstream and a local branch `perf` (one comm
 | `pyscf-native/` | worktree of `pyscf/` | `8fc5eca4e`, detached | `BUILD_MARCH_NATIVE=ON` build (It3) |
 | `pyscf-qcint/`, `pyscf-qcint-avx2/` | worktrees of `pyscf/` | `44313dfb45`, detached | unmodified master on qcint AVX-512 / AVX2 (It2, It6 SGX check) |
 | `pyscf-it11/` | worktree of `pyscf/` | `474f6366c`, detached | `perf` before It12, for before/after runs |
+| `pyscf-it12/` | worktree of `pyscf/` | `1ccef1836`, detached | `perf` before It13, for before/after runs |
 | `libcint/` | github.com/sunqm/libcint | `v6.2.0` (master's pin) | integrals |
 | `qcint/` | github.com/sunqm/qcint | `v6.2.0` | SIMD integrals (It2); `perf` has the It8 changes, and the `pyscf` tree loads its profile-guided build `install/qcint-pgo` |
 | `libxc/` | gitlab.com/libxc/libxc | `7.1.2` (master's pin) | XC functionals |
@@ -1097,6 +1098,118 @@ End to end (`results/20261029-091520_it11-medium.json`: medians of 2 ABBA reps; 
 - What is left of the Hessian's XC time is mostly the CPHF response: `nr_rks_fxc` for 3·natm dms per iteration.
   This is the low-rank (MO-basis) f_xc candidate in "Next iterations".
 
+## It13: CPHF XC response from the factors of the response dms, 2026-10-29
+
+`pyscf` `perf` commits A `53bd01c13` and B `d88076cb8`. Worktree `pyscf-it12` (`1ccef1836`) is the "before" build.
+
+**Why.** After It12, most of the Hessian's XC time is the CPHF response: `nr_rks_fxc` of 3·natm dms per Krylov
+iteration. Those dms are dm1 = C x Cocc^T + h.c., of rank 2·nocc, and the solver needs only C^T v1 Cocc.
+
+### A: fused fxc blocks (`_fused_fxc_blksize`)
+- **Problem:** `nr_rks_fxc` gave the fused kernels `_rks_fxc_batch`'s grid blocks, so that both paths agreed
+  bit for bit. Those blocks shrink as 1/nset, because `_rks_fxc_batch` holds 2·nset AO arrays per block.
+  - The fused kernels hold no AO arrays. But `VXCfused_dot_wv` allocates and sums nthreads·nset private
+    [nao,nao] matrices per block: 3.6 GB per block for 186 dms of n-C20H42/SVP.
+  - `bench/diag/fxc_blocks.py` (It12 tree, LDA, 186 dms): 64 blocks take 76.8 s, 11 blocks 45.7 s, so about
+    0.59 s per block.
+  - At 11 blocks, 18, 62 and 186 dms all cost about 243 ms per dm.
+- **Fix:** block_loop's blocks, with fewer points only where rho1 and wv of all dms would exceed a quarter of
+  `max_memory`. `nr_uks_fxc` takes the same rule; before, it used block_loop's blocks with no bound on rho1/wv.
+- Where the blocks differ, the fused fxc results now agree with `_rks_fxc_batch` to rounding instead of bit for
+  bit. The two still agree bit for bit where everything fits in one block, as in `test_fused_xc`.
+- **Upstream** (`pyscf-base`, per-dm sparse kernels, `fxc_tree.py`) takes 292.9 s for the same 186-dm LDA call.
+  It12 was already 3.8× faster; with A it is 6.6× faster.
+
+### B: factored path (`_FusedXC.rks_fxc_mo`, `VXCfused_eval_rho_lowrank`, `VXCfused_dot_ao_mo`)
+- **Densities from the factors:**
+  - Notation: A = C x is per dm, B = Cocc is shared. On each 224-point group, TA[c] = ao[c]·A and TB[c] = ao[c]·B.
+  - ρ = 2 Σ TA0·TB0, ∇ρ = 2 Σ (TAx·TB0 + TA0·TBx), τ = Σ_x Σ TAx·TBx.
+  - GGA takes Σ TAx·TB0 = Σ_i ∂_x φ_i Z_i, with Z = A·TB0^T. That is two GEMMs of the size of TA per dm
+    instead of four; a first version with Y = D φ0 took three.
+- **Potential:** v1·Q (Q = Cocc) is added on the group's AO rows with one stacked GEMM per dm and group,
+  ns × nq × K, where K = ng (LDA), 2ng (GGA) or 5ng (meta-GGA).
+  - Each thread keeps private [nset,nao,nq] matrices, summed by a deterministic reduction.
+  - C^T (v1 Q) is applied once at the end.
+- **Flops per grid point and dm**, with r = nq = nocc:
+
+  | | dm path | factored, per dm |
+  |---|---|---|
+  | LDA | 3·ns² | (2r + 2nq)·ns |
+  | GGA | 4·ns² | (4r + 4nq)·ns |
+  | meta-GGA | 13·ns² | (8r + 10nq)·ns |
+
+  Once per pass, the factored path also pays 2·ns·(r+nq) per AO component for TB and ao·Q.
+- **Path choice:** `_gen_rhf_response` (singlet None, hermi 1, MOs given) attaches `vind.vind_mo(dm1, x)`,
+  which returns C^T vind(dm1) Cocc. `hessian.rhf.gen_vind` uses it.
+  - Each call takes the factored XC path where `lowrank_cheaper(xctype, nocc, nocc, nset)` puts its flops
+    below 0.8 of the dm path's; otherwise it calls vind(dm1).
+  - The choice is per call because the Krylov batches shrink as vectors converge, and the per-pass work does
+    not amortize over a few dms.
+- **Memory:** the dms go in passes whose private v1·Q copies fit in half of `max_memory`. Blocks are sized so
+  that rho1 and wv fit in a quarter.
+- **Applicability:** the factored path is offered for any molecule (`_fused_xc(match_block_loop=False)`). It
+  does not reproduce a block_loop path, so it does not need the sparse switch.
+
+**Exactness**
+- `lowrank_fxc_check.py`: the XC response agrees with C^T `nr_rks_fxc`(dm1) Cocc to ≤ 8.1e-15 relative
+  (12 cases).
+- `vind_mo` against the projected `vind`:
+  - ≤ 1.2e-14 where the ERIs are in memory (benzene, caffeine/SVP);
+  - 3e-14–1.1e-12 with semi-direct J (caffeine/TZVP, the alkane).
+  - There, two identical J builds already differ by 7–8e-14 in the AO basis, and by 1.3e-12 in the MO basis,
+    where the coefficients (up to 49.5) amplify it (`j_repro.py`).
+- **Unit tests:**
+  - `test_fxc_lowrank`: SVWN, PBE and r2SCAN, in one pass, and in one-dm passes of 224-point blocks;
+  - `test_cphf_xc_lowrank`: both paths of `vind_mo` against `FUSED_XC=False`, to 1e-13.
+- **Gate:**
+  - kernel tests pass;
+  - tight validation FULL and SPARSE pass (the alkane SCF energies within 2.7e-12 Eh);
+  - the `hessian` suite passes: water Hessians within 1.0–2.1e-11, and 6.7e-11 with DF;
+  - the benzene Hessians agree within 4.3e-12;
+  - upstream tests (`scf df grad hessian tdscf dft`): 850 passed, 4 failed, the same xcfun tests as on
+    unmodified master.
+  - The gate ran on A and B together. A alone (a temporary worktree with the It12 libraries, whose C code is
+    identical) passes `test_numint`, `test_tdrks` and the RKS Hessian tests, except the known xcfun failure.
+
+**Per call** (`lowrank_fxc_check.py`, 3·natm dms; medians of 3 interleaved runs; 10 threads;
+`max_memory` 16000). Each cell gives It12 dm path → dm path with A → factored (B), and It12 / B.
+
+| system (nocc, dms) | SVWN | B3LYP | r2SCAN |
+|---|---|---|---|
+| benzene/SVP (21, 36) | 0.56 → 0.63 → 0.16 s (3.5×) | 0.83 → 0.88 → 0.49 s (1.7×) | 2.47 → 2.56 → 0.88 s (2.8×) |
+| caffeine/SVP (51, 72) | 6.77 → 6.22 → 2.21 s (3.1×) | 8.77 → 8.36 → 5.93 s (1.5×) | 26.1 → 25.3 → 11.6 s (2.3×) |
+| caffeine/TZVP (51, 72) | 25.6 → 22.4 → 4.18 s (6.1×) | 34.0 → 29.9 → 11.6 s (2.9×) | 91.4 → 89.9 → 22.2 s (4.1×) |
+| n-C20H42/SVP (81, 186) | 76.1 → 44.4 → 21.8 s (3.5×) | 92.4 → 59.4 s, dm path kept (1.6×; factored 53.4 s) | 170.3 → 172.3 → 105.6 s (1.6×) |
+
+- **Model check:** the factored/dm flop ratio was 0.22–0.68 in the 11 cases where the model chose the factored
+  path. There, the measured time ratio was 0.19–0.71.
+  - Relative to the dm path, a factored flop costs about 0.85× (LDA), 1.1–1.24× (GGA) and 1.04–1.15×
+    (meta-GGA) on the dense molecules, and 0.74–0.91× on the alkane.
+  - At the 0.8 threshold, the worst case is therefore break-even (GGA, few occupied orbitals). The one miss is
+    the alkane with B3LYP (flop ratio 0.99): it keeps the dm path, which is 1.11× slower than factored would be.
+- Benzene's dm path has the same blocks before and after A. The 4–12% differences there are run-to-run noise:
+  the two runs were hours apart, and the calls take under 3 s.
+
+**End to end** (Hessians; P = `pyscf-it12`, N = It13; `PYSCF_MAX_MEMORY=20000`). Benzene is medians of 2
+(`results/20261029-172327_it13-hess.json`), caffeine 1 rep (`20261029-172759_it13-hess-caffeine.json`).
+J/K is the harness's `jk` category. CPHF XC is the tottime of the kernel wrappers in the runs' profiles:
+`dot` + `_rho_kernel` before, `rho_lowrank` + `dot_ao_mo` after.
+
+| case | P (s) | N (s) | | CPHF XC (s) | J/K (s) |
+|---|---|---|---|---|---|
+| benzene/SVP B3LYP | 20.11 | 18.32 | 1.10× | 5.0 → 2.9 | 11.6 → 12.0 |
+| benzene/SVP PBE | 17.71 | 15.84 | 1.12× | 4.5 → 2.6 | 9.9 → 9.9 |
+| benzene/SVP r2SCAN | 30.20 | 20.24 | 1.49× | 15.0 → 4.9 | 9.8 → 10.0 |
+| caffeine/SVP B3LYP | 198.0 | 178.9 | 1.11× | 53.2 → 35.9 | 116.2 → 114.2 |
+| caffeine/SVP r2SCAN | 280.0 | 199.4 | 1.40× | 147.7 → 66.3 | 91.6 → 92.0 |
+
+- The before columns include the SCF's XC kernels (about 1–3 s); after, those fall below the profile's top 12.
+- J/K is now about two thirds of the B3LYP Hessians and nearly half of the r2SCAN ones.
+- The harness's `worker.py` now counts the It12 and It13 kernel wrappers (`dot_terms`, `_dot_sets_aow_ao`,
+  `rho_lowrank`, `dot_ao_mo`) under `xc_kernels`; these two result files predate that and show them under
+  `other`.
+- New timing-only cases: `hess_benzene_svp_r2scan`, `hess_caffeine_svp_r2scan`.
+
 ## Next iterations (by measured remaining cost, after It9)
 1. **Integral evaluation is still most of J/K**, even after It8's 1.2-1.3x.
    - Where it is: direct SCF on large molecules, gradients and Hessians.
@@ -1116,10 +1229,15 @@ End to end (`results/20261029-091520_it11-medium.json`: medians of 2 ABBA reps; 
    - Screened-path `nr_rks`: the zero fill is gone (It10 A), and AO evaluation is fused into the gather kernels
      (It11).
      - What is left of the XC time is the GEMMs and the gather/scatter of dm and XC-matrix blocks.
-   - Gradient and Hessian XC terms: done in It12.
-     - In Hessians, the CPHF f_xc response is now the largest XC cost (caffeine: most of 57 s).
-     - A low-rank MO-basis f_xc contraction (rank 2·nocc response dms; It5's second idea) would cut its GEMMs
-       roughly by nocc/nao.
+   - Gradient and Hessian XC terms: done in It12. The RKS CPHF f_xc response from the factors: done in It13.
+   - The same factoring for TDA/TDDFT: P = C_vir and Q = C_occ in `rks_fxc_mo`, with nset the number of
+     states. The XC response is 26 of the 35 s of the caffeine TDA.
+     - For UKS CPHF (`_gen_uhf_response`, `hessian.uhf.gen_vind`), use one A, B, Q per spin.
+     - Other `gen_response(hermi=1)` users with orbital-shaped dms (polarizabilities, the TDDFT gradient's
+       Z-vector) could call `vind_mo` too.
+   - The fused dm path still allocates and sums nthreads·nset private [nao,nao] matrices per grid block (about
+     6 s of the alkane's 44 s for 186 dms after It13 A). Accumulating across blocks, or splitting the work by
+     AO rows, would remove that.
    - The gradient XC temporaries in `_make_dR_dao_w`.
 3. **Extend It5b batching** to `nr_uks_fxc` (UKS TDDFT/CPHF) and the meta-GGA τ term.
 4. **Hessian `_get_vxc_deriv1`** (h1ao for the CPHF right-hand side): batch it like It5b.
