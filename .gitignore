@@ -18,3 +18,4 @@ __pycache__/
 # regenerable reference caches (validate.py / kernels.py)
 /bench/results/ref/
 bench/qcint/qbench
+bench/qcint/qcost

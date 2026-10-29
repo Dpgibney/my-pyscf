@@ -231,6 +231,11 @@ case('tda_benzene_svp_b3lyp', (QUICK, FULL))(td_case(BENZENE, 'def2-svp', 'B3LYP
 case('grid_caffeine_svp', (QUICK, FULL))(grid_case(CAFFEINE, 'def2-svp'))
 
 case('scf_caffeine_tzvp_dfpbe', (FULL,))(scf_case(CAFFEINE, 'def2-tzvp', 'PBE', density_fit=True))
+# Conventional TZVP hybrid (ERIs 60 GB, of which 41 GB pass the Schwarz test), and a range-separated
+# hybrid, whose long-range K is direct even when the regular ERIs are in memory. The tight TZVP SCF
+# with incremental J/K drifts and did not converge in 100 cycles in unmodified PySCF; see _full_jk_rebuild.
+case('scf_caffeine_tzvp_b3lyp', (FULL,))(scf_case(CAFFEINE, 'def2-tzvp', 'B3LYP', full_jk=True))
+case('scf_caffeine_svp_camb3lyp', (FULL,))(scf_case(CAFFEINE, 'def2-svp', 'CAM-B3LYP'))
 # Tight direct UKS drifts by up to ~5e-12 Eh per cycle with incremental J/K, so conv_tol=1e-12 was met
 # or missed by chance (47-51 cycles, or not within 100, in every build); see _full_jk_rebuild.
 case('scf_caffeine+_svp_b3lyp_uks', (FULL,))(scf_case(CAFFEINE, 'def2-svp', 'B3LYP', charge=1, spin=1,

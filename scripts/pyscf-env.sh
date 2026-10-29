@@ -6,7 +6,10 @@
 # PySCF tree on PYTHONPATH. Defaults (override by exporting them first):
 #   PYSCF_MAX_MEMORY=20000  two-electron integrals of systems up to ~370 basis functions stay in
 #                           memory (exact; 1.7-2x faster SCF than the 4000 MB default for
-#                           caffeine/def2-SVP)
+#                           caffeine/def2-SVP). Larger systems run direct SCF, which keeps the
+#                           integrals it can in up to 3/4 of the memory left (semi-direct, exact;
+#                           mf.semi_direct = False switches it off). Each job may thus use most of
+#                           this budget: lower it when running several jobs at once.
 #   OMP_NUM_THREADS=10      one thread per physical core; with all 20 hardware threads (the
 #                           OpenMP default) every workload measured was 20-33% slower
 # Don't put this tree on anaconda's PYTHONPATH instead: PySCF's namespace plugin lookup would mix

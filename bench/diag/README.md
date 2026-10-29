@@ -42,3 +42,5 @@ Run them in a configuration's pinned environment:
 | `td_conv_sensitivity.py`, `td_jk_operator_diff.py`, `td_operator_dump.py`, `td_vind_internals.py`, `td_fixed_scf.py`, `scf_endpoint_spread.py` | a TDA validation failure traced to the scatter of the tight SCF endpoint | It7: harness |
 | `dfj_cost.py` | DF J of a pure functional by `df_jk.get_j` vs from `_cderi` | It7 |
 | `scf_jk_one_dm.py` | one SCF density through direct J/K: per-dm kernels vs the batched driver | It7: C |
+| `semidirect_stats.py`, `semidirect_count.c` | Schwarz-significant quartets of a molecule, and which of them each direct SCF call evaluates: sizes of a semi-direct cache and its coverage per threshold | It9: why |
+| `semidirect_profile.py` | leaf functions (py-spy, 1 thread) or wall times of semi-direct J/K calls that read stored integrals | It9: read path |

@@ -673,7 +673,138 @@ every time.
   roots (~10%). Batching across quartets of one class would fill the SIMD lanes, but the 2D-integral kernels read
   each quartet's geometry as scalars, so that is a deep change.
 
-## Next iterations (by measured remaining cost, after It8)
+## It9: semi-direct SCF, 2026-10-28
+
+`pyscf` `perf` commit `0a6af55a2`; harness: `bench/diag/semidirect_stats.py` (+ `semidirect_count.c`),
+`semidirect_profile.py`, `bench/qcint/qcost.c`, `bench/pyscf_conf.py` (`BENCH_SEMI_DIRECT=0|1`), kernels v6,
+cases `scf_caffeine_tzvp_b3lyp` and `scf_caffeine_svp_camb3lyp`.
+
+**Why.** Direct SCF evaluates every shell quartet it needs again in every cycle. For molecules whose s8 ERIs do
+not fit in memory, the quartets that pass the Schwarz test (q_ij q_kl > `direct_scf_tol` = 1e-13) are a fraction
+of the tensor:
+
+| system | full s8 (GB) | Schwarz-significant (GB) | quartets |
+|---|---|---|---|
+| caffeine/def2-SVP | 4 | 2.5 | 1.5e7 |
+| n-C20H42/def2-SVP | 58 | 9.7 | 8.6e7 |
+| n-C12H26/def2-TZVP | 78 | 29 | 1.5e8 |
+| caffeine/def2-TZVP | 60 | 41 | 1.1e8 |
+| n-C20H42/def2-TZVP | 580 | 98 | 5.0e8 |
+
+- n-C20H42/def2-SVP B3LYP, direct: 31.7 of 46.6 s in J/K, 11 calls.
+- Every call evaluated 4.5-8.6 GB of these integrals (39-78M quartets). The incremental Fock build screens out
+  at most half of them by the last cycle; the union over all calls is 8.6 GB.
+
+**Change** (`_vhf.SemiDirectERI`, `nr_direct_batch.c`).
+- `CVHFnr_direct_jk_batch` stores the integrals of a set of quartets when a call first evaluates them, and
+  later calls read them. Quartets outside the set are evaluated as before.
+- Each call screens exactly as without the cache (same `fprescreen`, same density bounds), so it contracts the
+  same integrals: the results are direct SCF's, to rounding.
+- **Layout:**
+  - per pair row ij, the stored kl in loop order (int32 `ksh<<16|lsh`);
+  - a state byte per quartet: not evaluated yet, stored, or zero;
+  - the integral blocks back to back.
+  - The index costs 5 bytes per quartet. Memory is committed as blocks are first stored, so quartets no call
+    needs cost no RAM.
+  - The loop over the quartets not in the set skips stored ones by merging with the row's sorted list.
+- **Safety:** a cache is used only by calls with the atm/bas/env it was made for (geometry, basis, omega,
+  integral cutoffs) and the same q_cond. So `with mol.with_range_coulomb(...)`, another geometry or a changed
+  cutoff falls back to direct evaluation.
+- **`SCF.semi_direct`** (default True; config `scf_hf_SCF_semi_direct`):
+  - `SCF.get_jk` attaches a cache to each direct-SCF `vhfopt`, the range-separated ones included, within 3/4 of
+    the memory left under `max_memory`.
+  - TDDFT/CPHF response J/K through `mf.get_jk` read the same cache.
+  - Setting it to False releases the integrals at the next J/K call.
+
+**Which quartets, when not all fit.** Keeping the quartets with the largest q_ij q_kl helped little: on the TZVP
+alkane, 14.7 GB of them saved ~15% per cycle (224.2 s vs 256.7 s direct).
+- **Time per integral varies ~20-fold between classes** (`bench/qcint/qcost.c`, one core, qcint-pgo): from 65 ns
+  for uncontracted (ss|ss) down to 3.4 ns for (pd|dd)-type blocks.
+- **The cache keeps the quartets with the largest value:** estimated evaluation time per integral, times u, the
+  share of the cycles expected to need the quartet. u is 1 from q_ij q_kl = 1e-7 up and falls linearly in
+  log q to 0.05 at the cutoff, calibrated on the SVP alkane's per-call screening.
+- **The time model** is a 5-parameter fit over ~8000 class timings (def2-SVP/TZVP, cc-pVDZ):
+  80 + nprim (9 + .5 nroots g + .15 nroots ncart) + 1.3 ncart ns. Here nprim is the number of primitive
+  combinations, g = (li+lj+1)(lk+ll+1) and ncart the number of Cartesian functions. Its ranking holds nearly
+  what the measured times would.
+- **Selection** takes a value histogram over all Schwarz-significant quartets (`CVHFsd_histogram`, 4096 bins):
+  1.8 s for the TZVP alkane's 5e8 quartets, 0.1 s when everything fits.
+
+| share of one cycle's integral time held by a 14 GB cache (qcost) | by q_ij q_kl | by modelled time/byte | by measured time/byte |
+|---|---|---|---|
+| caffeine/def2-TZVP (41 GB significant) | 0.30 | 0.60 | 0.62 |
+| n-C20H42/def2-TZVP (98 GB) | 0.12 | 0.44 | 0.44 |
+
+**Exactness.**
+- **Unit test:** `test_vhf.py::test_semi_direct` covers full and partial caches; J+K, J-only and K-only; hermi
+  0/1; one or several dms; bypass under another omega; SCF energies; switching off.
+- **Kernel tests v6:** 12 new entries for J/K from a full and a 40% cache (5 non-symmetric, 2 symmetric and 1
+  symmetric dms), all within 6.3e-14 of unmodified PySCF's direct J/K, the same as the direct path.
+- **Tight validation against `pyscf-base`:**
+  - At the default 4000 MB, the caches are partial for the alkanes and complete for caffeine. 10 cases: SCF
+    energies ≤ 3.0e-12 Eh; the caffeine TDA, whose Davidson J/K read the cache, ≤ 2.1e-15 Eh.
+  - At 20000 MB: the alkane SVP B3LYP and r2SCAN (complete caches) and TZVP PBE (14.7 GB partial) ≤ 4.6e-13 Eh;
+    caffeine/SVP CAM-B3LYP (regular ERIs in memory, long-range K semi-direct) 7.3e-12 Eh; caffeine/TZVP B3LYP
+    (partial) 2.7e-12 Eh.
+  - Tight cycle counts differ by one in some cases, the known endpoint scatter of tight direct SCF (It7).
+- **Range-separated hybrids:** CAM-B3LYP, wB97X and HSE06 (benzene, direct) agree with semi-direct off to
+  ≤ 3e-12 Eh. Each uses two caches, full-range and long/short-range.
+- **Harness fix:** the new caffeine/TZVP B3LYP case did not converge in 100 cycles in unmodified PySCF at tight
+  settings (incremental J/K drift, It6), so it rebuilds J/K every cycle like the TZVP alkane.
+
+**Benchmarks**
+- Runs: `results/20261028-221349_it9-alkane.json`, 1 rep, same tree with `BENCH_SEMI_DIRECT=0` (off) and on,
+  `PYSCF_MAX_MEMORY=20000`, boost clocks.
+- The "on" runs averaged 0.1-0.5 GHz higher Zen 5 clocks, as faster code does. The J/K column is the part that
+  changed.
+
+| workload | off (s) | on (s) | speedup | J/K off -> on (s) | peak RSS off -> on |
+|---|---|---|---|---|---|
+| n-C20H42/SVP B3LYP SCF | 47.5 | 25.3 | **1.88x** | 32.5 -> 10.5 | 1.3 -> 10.9 GB |
+| n-C20H42/SVP r2SCAN SCF | 57.1 | 36.5 | **1.57x** | 31.2 -> 7.8 | 1.5 -> 11.0 GB |
+| n-C20H42/SVP PBE TDA, 5 states | 67.3 | 52.2 | **1.29x** | 27.9 -> 11.0 | 2.2 -> 11.7 GB |
+| n-C20H42/TZVP PBE SCF | 259.1 | 192.3 | **1.35x** | 224.2 -> 154.5 | 2.4 -> 16.4 GB |
+
+Medium molecules (`results/20261028-223438_it9-medium.json` at 20000 MB, `…224403_it9-4000.json` at the
+default 4000 MB; 2 reps ABBA, within 3%):
+
+| workload | off (s) | on (s) | speedup | J/K off -> on (s) |
+|---|---|---|---|---|
+| caffeine/TZVP B3LYP SCF (14.7 of 41 GB cached) | 151.9 | 90.3 | **1.68x** | 135.6 -> 74.1 |
+| caffeine/SVP CAM-B3LYP SCF (regular ERIs in memory, long-range K cached) | 24.3 | 13.2 | **1.84x** | 15.8 -> 4.8 |
+| caffeine/SVP B3LYP SCF, 4000 MB (all 2.5 GB cached) | 23.2 | 13.5 | **1.72x** | 13.7 -> 3.8 |
+| caffeine+/SVP UKS B3LYP SCF, 4000 MB | 41.8 | 26.7 | **1.57x** | 21.2 -> 6.1 |
+| caffeine/SVP B3LYP TDA, 5 states, 4000 MB | 50.9 | 43.4 | **1.17x** | 20.9 -> 12.5 |
+
+- **CAM-B3LYP** now costs about what B3LYP does with the ERIs in memory (11.8 s, It8). Its long-range K was
+  always direct, even when the regular ERIs were in memory.
+- **At the 4000 MB default**, caffeine/SVP SCF gets most of the 20 GB in-memory speed (13.5 vs 11.8 s).
+- **The TDA gains least:** with 20 trial dms per J/K call, the vector kernels' contraction is most of a call
+  even when it reads stored integrals.
+
+- **Per call** (SVP B3LYP): the first call 3.98 s vs 3.73 s direct (storing 8 GB), later calls 0.47-1.0 s vs
+  2.1-4.0 s.
+- **TDA:** reads the cache its SCF filled, in every Davidson J build.
+- **TZVP:** the first call also builds the index, 2.6 s above direct in total; later calls save a third.
+
+**What limits the calls that read the cache.**
+- A call on the SVP alkane takes 0.57 s at 10 threads (3.97 s at 1): J alone 0.25 s, K alone 0.41 s. That is
+  ~54 ns per quartet at 1 thread for blocks of 14 integrals on average.
+- It is not bandwidth: the stored integrals stream at 2 GB/s per thread.
+- Two A/B tests changed nothing beyond the ~10% clock drift between runs minutes apart, and were reverted:
+  - prescreen and kernels inlined into a per-row loop instead of three indirect calls per quartet;
+  - J and symmetric-dm K accumulated transposed, which makes the innermost loops contiguous.
+- So the cost is the kernels' per-quartet overhead on the mostly s/p blocks: loop setup, and loop exits whose
+  trip counts change from quartet to quartet. Kernels specialized by block shape would be the next step.
+
+**Memory.** A direct SCF now uses up to 3/4 of the memory left under `max_memory`, as in-memory ERIs already
+could (`scripts/pyscf-env.sh` says so). Run several jobs at once with lower `PYSCF_MAX_MEMORY` each, or set
+`mf.semi_direct = False`.
+
+**Clock note.** `scaling_max_freq` reads 2.0 GHz on every core, but the cores boost to 4.7-4.9 GHz
+(amd-pstate-epp, active; `/proc/cpuinfo`). The value no longer shows whether the firmware clamp is on.
+
+## Next iterations (by measured remaining cost, after It9)
 1. **Integral evaluation is still most of J/K**, even after It8's 1.2-1.3x.
    - Where it is: direct SCF on large molecules, gradients and Hessians.
    - In qcint (see It8):
@@ -683,6 +814,10 @@ every time.
    - Gradients: the s2kl loop evaluates 4 `int2e_ip1` quartets per s8 orbit, where 3 would do with translational
      invariance (-25%). That needs a driver that contracts the gradient inside the integral loop.
    - SMT for the direct J/K only (13% in It3) is a configuration choice.
+   - Direct SCF (It9): semi-direct removes most of it where the Schwarz-significant quartets fit. What remains:
+     - the batched kernels' per-quartet overhead, now the cost of each cycle that reads the cache (kernels
+       specialized by block shape);
+     - for TZVP-sized molecules, the quartets that do not fit (98 GB for the TZVP alkane).
 2. **Remaining XC costs.**
    - The XC response is now the largest part of the caffeine TDA (26 of 35 s).
    - Screened-path `nr_rks`: AO evaluation is ~0.6 of 1.1 s on the alkane. Measure the zero-fill share first (`bench/diag/eval_ao_cost.py`).

@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-VERSION = 5  # bump when dump() changes, so that cached reference dumps are regenerated
+VERSION = 6  # bump when dump() changes, so that cached reference dumps are regenerated
 
 
 def dump(path):
@@ -60,6 +60,19 @@ def dump(path):
     vhfopt = scf.RHF(mol).init_direct_scf()
     out['vj_direct_t'], out['vk_direct_t'] = scf.hf.get_jk(mol, dm_t, 0, vhfopt)
     out['vj_direct_s'], out['vk_direct_s'] = scf.hf.get_jk(mol, dm_s, 1, vhfopt)
+    # The same from semi-direct ERIs stored by a first call: for all quartets, and for the 40% of
+    # the memory with the largest bounds (trees without semi-direct compute them directly)
+    for tag, share in (('', 1.), ('_part', .4)):
+        opt = vhfopt
+        if hasattr(_vhf, 'semi_direct_eri'):
+            opt = scf.RHF(mol).init_direct_scf()
+            full = _vhf._semi_direct_size(opt.q_cond, mol.ao_loc_nr(), opt.direct_scf_tol)
+            opt.semi_direct_eri = _vhf.semi_direct_eri(opt, mol._atm, mol._bas, mol._env,
+                                                       full * share / 1e6)
+            scf.hf.get_jk(mol, dm_t, 0, opt)
+        out[f'vj_semidirect{tag}_t'], out[f'vk_semidirect{tag}_t'] = scf.hf.get_jk(mol, dm_t, 0, opt)
+        out[f'vj_semidirect{tag}_s'], out[f'vk_semidirect{tag}_s'] = scf.hf.get_jk(mol, dm_s, 1, opt)
+        out[f'vj_semidirect{tag}_1'], out[f'vk_semidirect{tag}_1'] = scf.hf.get_jk(mol, dm, 1, opt)
 
     # A molecule large enough for the screened (sparse) grid kernels of block_loop
     from molecules import n_alkane
