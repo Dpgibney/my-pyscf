@@ -231,7 +231,10 @@ case('tda_benzene_svp_b3lyp', (QUICK, FULL))(td_case(BENZENE, 'def2-svp', 'B3LYP
 case('grid_caffeine_svp', (QUICK, FULL))(grid_case(CAFFEINE, 'def2-svp'))
 
 case('scf_caffeine_tzvp_dfpbe', (FULL,))(scf_case(CAFFEINE, 'def2-tzvp', 'PBE', density_fit=True))
-case('scf_caffeine+_svp_b3lyp_uks', (FULL,))(scf_case(CAFFEINE, 'def2-svp', 'B3LYP', charge=1, spin=1))
+# Tight direct UKS drifts by up to ~5e-12 Eh per cycle with incremental J/K, so conv_tol=1e-12 was met
+# or missed by chance (47-51 cycles, or not within 100, in every build); see _full_jk_rebuild.
+case('scf_caffeine+_svp_b3lyp_uks', (FULL,))(scf_case(CAFFEINE, 'def2-svp', 'B3LYP', charge=1, spin=1,
+                                                     full_jk=True))
 case('tddft_benzene_svp_b3lyp', (FULL,))(td_case(BENZENE, 'def2-svp', 'B3LYP', 'TDDFT'))
 case('hess_benzene_svp_b3lyp', (FULL,))(hess_case(BENZENE, 'def2-svp', 'B3LYP'))
 case('hess_benzene_svp_pbe', (FULL,))(hess_case(BENZENE, 'def2-svp', 'PBE'))
