@@ -17,3 +17,4 @@ __pycache__/
 *.h5
 # regenerable reference caches (validate.py / kernels.py)
 /bench/results/ref/
+bench/qcint/qbench
