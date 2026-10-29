@@ -19,6 +19,9 @@ from pyscf.dft import numint
 from pyscf.dft.gen_grid import BLKSIZE
 
 SYSTEMS = {'c20h42': n_alkane(20), 'caffeine': CAFFEINE}
+# These paths through block_loop and eval_ao, not the kernels that compute AO values in
+# place (It11)
+numint.FUSED_XC = False
 stock_eval_ao = numint.NumInt.__dict__['eval_ao']
 stock_reader_kw = numint._sparse_reader_kw
 nan_written = [0]   # values set to NaN by nan_eval_ao

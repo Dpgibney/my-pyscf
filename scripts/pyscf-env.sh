@@ -8,7 +8,9 @@
 #                           memory (exact; 1.7-2x faster SCF than the 4000 MB default for
 #                           caffeine/def2-SVP). Larger systems run direct SCF, which keeps the
 #                           integrals it can in up to 3/4 of the memory left (semi-direct, exact;
-#                           mf.semi_direct = False switches it off). Each job may thus use most of
+#                           mf.semi_direct = False switches it off). DFT also keeps the radial
+#                           parts of the AO values on the grids when they fit in 1/4 of the memory
+#                           left (0.3-1.4 GB for 25-60 atoms; exact). Each job may thus use most of
 #                           this budget: lower it when running several jobs at once.
 #   OMP_NUM_THREADS=10      one thread per physical core; with all 20 hardware threads (the
 #                           OpenMP default) every workload measured was 20-33% slower

@@ -30,6 +30,9 @@ CATEGORY_RULES = [
     ('xc_kernels', 'numint.py', '_tau_dot_sparse'), ('xc_kernels', 'numint.py', '_dot_ao_aow_sparse'),
     ('xc_kernels', 'numint.py', '_eval_rho_sparse'), ('xc_kernels', 'numint.py', '_dot_ao_ao'),
     ('xc_kernels', 'numint.py', '_dot_ao_dm'),
+    # the fused kernels (It11) include the AO evaluation
+    ('xc_kernels', 'numint.py', '_rho_kernel'), ('xc_kernels', 'numint.py', 'dot'),
+    ('ao_eval', 'numint.py', 'build_radial'),
     ('libxc', 'libxc.py', '_eval_xc'), ('xc_post', 'xc_deriv.py', '*'),
     ('grids', 'gen_grid.py', '*'), ('grids', 'radi.py', '*'),
     ('linalg', '_decomp.py', '*'), ('linalg', '_basic.py', '*'), ('linalg', 'linalg.py', '*'),

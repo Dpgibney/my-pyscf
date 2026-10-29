@@ -939,6 +939,94 @@ Median of 5 interleaved passes; times in s per pass.
   - an MO-path ρ kernel for meta-GGA;
   - a lifetime and memory budget for the radial cache.
 
+## It11: sparse XC kernels that compute the AO values in place, 2026-10-29
+
+`pyscf` `perf` commit `474f6366c`. This is It10 B built into NumInt.
+
+**What**
+- **C, `lib/dft/nr_numint_fused.c`:**
+  - `VXCfused_eval_rho` is `_eval_rho_sparse` for a batch of dms.
+  - `VXCfused_eval_rho_mo` is `eval_rho2`'s orbital path (`VXCdot_ao_mo_sparse_gemm` + `_contract_rho`) for a
+    batch of orbital sets.
+  - `VXCfused_dot_wv` is `_dot_ao_ao_sparse` (LDA, with hermi), `_dot_ao_aow_sparse` and `_tau_dot_sparse` for a
+    batch of potentials.
+  - `VXCfused_radial_fill` fills the radial cache.
+  - Each kernel evaluates a 224-point group's AO values directly into the gather buffers, once for the whole
+    batch, using the GTO functions `eval_ao` calls. The values then go through the same dgemm/dsyrk calls and
+    sums as before.
+  - The It6 group code moved to `nr_numint_gemm.h`.
+- **Python, `numint.py`:**
+  - `_fused_xc` returns a `_FusedXC` for `nr_rks`, `nr_uks`, `nr_rks_fxc`, `nr_uks_fxc`, `cache_xc_kernel` and
+    `cache_xc_kernel1` when all of these hold:
+    - `FUSED_XC` (config `dft_numint_fused_xc`);
+    - the conditions of `_sparse_reader_kw`;
+    - spherical GTOs;
+    - every `block_loop` block takes the sparse path.
+  - Otherwise those functions run as before.
+  - `_FusedXC` runs their loops over the same blocks, with the same LibXC calls and sums.
+  - Densities take the path `_gen_rho_evaluator` would take. Its setup moved into `_rho_setup`/`_rho1_preferred`,
+    which both share.
+  - UKS evaluates α and β in one kernel call.
+  - The XC matrices of many sets are split over calls, to bound the threads' private matrices.
+- **The radial cache** lives in `grids._fused_ao_data`, checked against mol and the grids by content on every
+  use.
+  - It is built when it takes less than `RADIAL_CACHE_FRACTION` (default 1/4) of the memory left.
+  - Sizes: 0.34 GB caffeine/SVP, 0.53 GB caffeine/TZVP, 0.94 GB alkane/SVP, 1.40 GB alkane/TZVP.
+  - SCF builds it and TDDFT reuses it.
+
+**Exactness: bit for bit** (`bench/diag/fused_numint_check.py`).
+- On caffeine and n-C20H42/SVP, 36 results equal the `block_loop` path bit for bit:
+  - `nr_rks` and `nr_uks` with MO-tagged dms, plain dms, and 3 non-symmetric dms at hermi=0;
+  - `nr_rks_fxc` at hermi 0 and 1, and `nr_uks_fxc`;
+  - `cache_xc_kernel` and `cache_xc_kernel1`, RKS and UKS;
+  - each for LDA, PBE and r2SCAN.
+- They also match with the radial cache, without it, and with one set per `VXCfused_dot_wv` call. Every call took
+  the fused path (42/42).
+- Both density paths for MO-tagged dms (each forced) are bit-identical as well.
+- Gate:
+  - kernel tests pass;
+  - tight validation FULL + SPARSE (21 cases) gives the same largest differences as It10 (energies ≤ 1.2e-11 Eh,
+    gradients ≤ 3.8e-12, Hessians ≤ 4.3e-12, excitations ≤ 4.6e-14 Eh);
+  - upstream dft gto tdscf grad hessian: 656 passed, 4 failed (the xcfun tests);
+  - `dft/test/test_numint.py::test_fused_xc` added.
+
+**Timings.** Per call, 10 threads, block_loop path → fused with the radial cache:
+
+| system | `nr_rks` PBE / r2SCAN | `nr_uks` PBE / r2SCAN | `nr_rks_fxc` (5 dms) PBE / r2SCAN |
+|---|---|---|---|
+| caffeine/SVP | 1.67× / 1.46× | 1.58× / 1.49× | 1.46× / 1.27× |
+| caffeine/TZVP | 1.45× / 1.27× | 1.37× / 1.25× | 1.33× / 1.23× |
+| n-C20H42/SVP | 1.58× / 1.56× | 1.62× / 1.53× | 1.47× / 1.23× |
+| n-C20H42/TZVP | 1.47× / 1.35× | 1.45× / 1.28× | 1.28× / 1.16× |
+
+`nr_uks` was measured before α and β shared one ρ kernel call.
+
+End to end (`results/20261029-091520_it11-medium.json`: medians of 2 ABBA reps; `20261029-092429_it11-alkane.json`:
+1 rep; `PYSCF_MAX_MEMORY=20000`; configs `U` = `BENCH_FUSED_XC=0` and `F` = `BENCH_FUSED_XC=1`):
+
+| case | U (s) | F (s) | |
+|---|---|---|---|
+| caffeine/SVP PBE SCF | 11.05 | 9.04 | 1.22× |
+| caffeine/SVP B3LYP SCF | 11.44 | 9.29 | 1.23× |
+| caffeine/SVP r2SCAN SCF | 13.44 | 11.45 | 1.17× |
+| caffeine⁺/SVP UKS B3LYP SCF | 26.15 | 21.71 | 1.20× |
+| caffeine/SVP B3LYP TDA, 5 states | 33.64 | 25.24 | 1.33× |
+| benzene/SVP B3LYP TDDFT, 5 states | 12.43, 14.94 | 8.48, 8.67 | 1.45–1.74× |
+| benzene/SVP B3LYP Hessian | 24.07 | 21.46 | 1.12× |
+| n-C20H42/SVP B3LYP SCF | 21.84 | 19.18 | 1.14× |
+| n-C20H42/SVP r2SCAN SCF | 28.67 | 23.15 | 1.24× |
+| n-C20H42/SVP PBE TDA | 47.96 | 41.93 | 1.14× |
+| n-C20H42/TZVP PBE SCF | 166.7 | 162.7 | 1.02× (J/K 139 s) |
+
+- In these runs the worker filed the fused kernels under "other". `worker.py` now counts them as `xc_kernels`,
+  including their AO evaluation.
+- On caffeine TDA, the XC part fell from 26.4 s (`xc_kernels` + `ao_eval`) to 18.8 s.
+- Still on the old path:
+  - gradients and the Hessian's own XC terms (`deriv=2` AOs);
+  - NLC (VV10);
+  - dense molecules (water, small benzene blocks);
+  - cartesian bases.
+
 ## Next iterations (by measured remaining cost, after It9)
 1. **Integral evaluation is still most of J/K**, even after It8's 1.2-1.3x.
    - Where it is: direct SCF on large molecules, gradients and Hessians.
@@ -955,10 +1043,10 @@ Median of 5 interleaved passes; times in s per pass.
      - for TZVP-sized molecules, the quartets that do not fit (98 GB for the TZVP alkane).
 2. **Remaining XC costs.**
    - The XC response is now the largest part of the caffeine TDA (26 of 35 s).
-   - Screened-path `nr_rks`:
-     - The zero fill is gone (It10 A).
-     - Fusing AO evaluation into the gather kernels gives 1.2–1.75× per GGA call with the radial cache (It10 B
-       prototype). Meta-GGA needs an MO-path ρ kernel first.
+   - Screened-path `nr_rks`: the zero fill is gone (It10 A), and AO evaluation is fused into the gather kernels
+     (It11).
+     - What is left of the XC time is the GEMMs and the gather/scatter of dm and XC-matrix blocks.
+     - For gradients and Hessians, the `deriv=2` AO kernels are not fused yet.
    - The gradient XC temporaries in `_make_dR_dao_w`.
 3. **Extend It5b batching** to `nr_uks_fxc` (UKS TDDFT/CPHF) and the meta-GGA τ term.
 4. **Hessian `_get_vxc_deriv1`** (h1ao for the CPHF right-hand side): batch it like It5b.
