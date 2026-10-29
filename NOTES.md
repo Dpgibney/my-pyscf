@@ -21,7 +21,7 @@ Every upstream clone has `origin` = upstream and a local branch `perf` (one comm
 | `pyscf-native/` | worktree of `pyscf/` | `8fc5eca4e`, detached | `BUILD_MARCH_NATIVE=ON` build (It3) |
 | `pyscf-qcint/`, `pyscf-qcint-avx2/` | worktrees of `pyscf/` | `44313dfb45`, detached | unmodified master on qcint AVX-512 / AVX2 (It2, It6 SGX check) |
 | `libcint/` | github.com/sunqm/libcint | `v6.2.0` (master's pin) | integrals |
-| `qcint/` | github.com/sunqm/qcint | `v6.2.0` | SIMD integrals (It2) |
+| `qcint/` | github.com/sunqm/qcint | `v6.2.0` | SIMD integrals (It2); `perf` has the It8 changes, and the `pyscf` tree loads its profile-guided build `install/qcint-pgo` |
 | `libxc/` | gitlab.com/libxc/libxc | `7.1.2` (master's pin) | XC functionals |
 | `OpenBLAS/` | github.com/OpenMathLib/OpenBLAS | `v0.3.34` | BLAS (build-only so far) |
 
@@ -37,8 +37,9 @@ Every upstream clone has `origin` = upstream and a local branch `perf` (one comm
 # dependencies (install/<name>), then a PySCF tree wired to a chosen cint/libxc build
 scripts/build_openblas.sh
 scripts/build_cint.sh libcint stock            # or: qcint stock | libcint native -DBUILD_MARCH_NATIVE=ON
+scripts/build_qcint_pgo.sh                     # qcint perf branch, profile-guided -> install/qcint-pgo (It8)
 scripts/build_libxc.sh stock                   # or: build_libxc.sh znver5 -DCMAKE_C_FLAGS=-march=znver5
-scripts/build_pyscf.sh pyscf libcint-stock libxc-stock [extra cmake args]
+scripts/build_pyscf.sh pyscf libcint-stock libxc-stock [extra cmake args]   # the perf tree: pyscf qcint-pgo libxc-stock
 
 scripts/check_power.sh                          # benchmark-ready? (AC, performance profile, no freq cap)
 cd bench
@@ -46,9 +47,10 @@ cd bench
 ../.venv/bin/python validate.py new=pyscf [--suite full]   # tight-convergence results vs pyscf-base
 ../.venv/bin/python run_bench.py --tag NAME A=wheel B=pyscf-base:OPENBLAS_CORETYPE=Barcelona new=pyscf
 ../.venv/bin/python compare.py results/<file>.json [--base B]
+bench/qcint/qbench install/qcint-pgo/lib/libcint.so.6 scratch/qcint/caffeine.bin int2e [--compare LIB2]   # It8
 ```
 
-- **Config syntax:** `LABEL=TREE[:VAR=VAL,...]`. TREE is a PySCF tree directory, or `wheel`. VARs override the pinned worker environment, e.g. `OPENBLAS_CORETYPE=SkylakeX` or `OMP_NUM_THREADS=1`.
+- **Config syntax:** `LABEL=TREE[:VAR=VAL,...]`. TREE is a PySCF tree directory, or `wheel`. VARs override the pinned worker environment, e.g. `OPENBLAS_CORETYPE=SkylakeX` or `OMP_NUM_THREADS=1`. `LD_LIBRARY_PATH=$WS/install/qcint-<variant>/lib` swaps in another qcint build of the same ABI (It8); the label still shows the tree's linked variant, while each result records the libraries actually loaded.
 - **Workers:**
   - Each worker is a fresh process: warm-up first (imports, library loads), then the timed `run()` under cProfile.
   - It reports wall time and a per-category cost breakdown.
@@ -588,14 +590,99 @@ This is the state before It6. The It6 section below compares against it and agai
   - Caffeine TDA: J/K is 6 of 35 s, and the XC response (26 s) dominates.
   - Alkane SCFs: J/K is still 75–88%, nearly all of it integral evaluation.
 
-## Next iterations (by measured remaining cost, after It7)
-1. **Integral evaluation is what remains of J/K.**
-   - Where it is: ~80% of a direct SCF J/K build, 84% of gradient J/K, and most of Hessian J/K (the second-derivative integral passes).
-   - The alkane SCFs are still 75–88% J/K.
-   - Exact levers left:
-     - **Gradients:** fewer derivative integrals. The s2kl loop evaluates 4 `int2e_ip1` quartets per s8 orbit. With translational invariance, 3 per orbit suffice (−25%), but the gradient must then be contracted inside the integral loop, a new driver.
-     - **Faster integral kernels:** qcint's `CINTgout2e`/Rys code, which is outside PySCF.
-     - **SMT for the direct J/K only:** 13% in It3; a run configuration choice, not a code change.
+## It8: qcint, 2026-10-28
+
+`qcint` `perf` commits `49205fb` (A), `a95651f` (B); profile-guided build (C, `scripts/build_qcint_pgo.sh`); harness `bench/qcint/` (`qbench.c`, `dump_basis.py`, `eri_native_profile.py`), workspace `efc1186`, `f565c24`. The `pyscf` tree now links `install/qcint-pgo`.
+
+**Harness.** `bench/qcint/qbench` loads a libcint/qcint build with `dlopen` and times its integral function over the
+unique Schwarz-screened shell quartets of a molecule (dumped from PySCF by `dump_basis.py`), grouped by class
+(angular momenta x primitive combinations), single thread pinned to one Zen 5 core. `--compare LIB2` loads a second
+build with `dlmopen` and compares every integral. Same-ABI qcint builds swap into PySCF with `LD_LIBRARY_PATH`
+(config env), so no PySCF rebuild is needed.
+
+**Where the time goes** (stock qcint 6.2.0, AVX-512, caffeine/def2-SVP, 14.6M quartets, 5.6 s per pass):
+- by primitive combinations per quartet: 1: 12% (3.6M quartets, scalar path), 2-7: 34% (6.2M, partly filled SIMD
+  batches), >= 8: 54% (4.7M).
+- the cost is overhead, not arithmetic: (ss|ss) with 29 primitive combinations 470 ns (~14 ns per combination beyond
+  a fixed ~80 ns per quartet); (pp|pp) with 17 combinations 1.4 us.
+- leaf functions (py-spy, PySCF's in-memory ERI build): CINT2e_loop 21.5%, CINTgout2e 14.1%, scalar Rys roots 12%,
+  CINTg0_2e 8.9%, per-primitive contraction calls 7%, cart2sph and copies 7%, env setup 3%.
+
+**A `49205fb`: segmented contractions summed directly; no hardware scatter.**
+- For quartets whose shells each have one contracted function (all def2 sets), the coefficient of i is folded
+  into the primitive prefactor (as j, k, l already were) and each SIMD batch is added straight into the output,
+  instead of recording a contraction target per primitive quartet and calling CINTiprim_to_ctr for each one.
+- GOUT_SCATTER (SIMDD = 8): a store and 8 scalar copies instead of `_mm512_i32scatter_pd` (microcoded on Zen 4/5): 2%.
+- int2e 5.65 -> 4.99 s (1.13x), int2e_ip1 40.8 -> 35.9 s (1.14x), one core.
+- Tried and dropped: a branch-free vectorized one-root Rys routine (all six intervals for every lane, vector exp):
+  no gain; the scalar root code is cheaper than its profile share suggested, and AVX-512 runs at half rate on
+  this core.
+- AVX2 build of the same code: 7% slower than AVX-512 here (5.37 vs 5.00 s).
+
+**Exactness.** qbench --compare against stock qcint, all quartets of water, benzene (def2-SVP, cc-pVDZ) and caffeine,
+for int2e, ip1, ipip1, ip1ip2, ipvip1, cart, range-separated int2e: max difference 2.8e-14 on values up to 131 (as
+large as qcint vs libcint); non-zero flags identical. libcint's test_int2e.py (adapted to the current API):
+same pass/fail pattern as stock qcint.
+- PySCF with each build swapped in (A, A+B, the PGO build): kernel tests pass. Tight validation of 22 cases passes,
+  covering SCF, UKS, DF, gradients, TDA/TDDFT and all 11 Hessians (range-separated included).
+  - Against unmodified PySCF: energies <= 2.7e-12 Eh, gradients <= 1.6e-12, excitations <= 4.6e-14 Eh,
+    Hessians <= 6.9e-11.
+- Upstream tests with the PGO build linked: 856 passed, the known 6 failed.
+
+**B `a95651f`: the lanes of segmented batches summed once per quartet.** Each batch is added lane by lane to SIMD
+accumulators (no transposition to per-lane blocks); the lanes are summed at the end of the quartet. int2e through
+`_gout2e_acc`; the generated gout functions of the gradient and Hessian integrals (int2e_ip1, ip2, ipip1, ipvip1,
+ip1ip2) through an accumulating mode of GOUT_SCATTER, switched on by a hidden thread-local only around them.
+int2e 5.01 -> 4.78 s (5%), ip1 36.4 -> 35.4 s (3%).
+
+**C: profile-guided build** (`scripts/build_qcint_pgo.sh`: instrumented build, ~4 min of qbench training on the
+SCF, gradient, Hessian, Cartesian and range-separated integrals, rebuild with `-fprofile-use
+-fprofile-partial-training`). int2e 4.73 -> 4.47 s (5.5%), ip1 35.3 -> 33.3 s (6%). LTO on top: nothing. Results
+differ from the non-PGO build in rounding only (compiler choices under -ffast-math); short-range ERIs move by up to
+1.7e-13, within the 3-6e-13 by which stock qcint and libcint differ on them.
+
+**Cumulative, one core:** int2e 5.67 -> 4.47 s (1.27x), int2e_ip1 40.8 -> 33.3 s (1.23x).
+
+**Harness: tight UKS SCF fragile.** scf_caffeine+_svp_b3lyp_uks with incremental direct J/K drifts by up to
+5e-12 Eh per cycle near convergence, so conv_tol=1e-12 was met after 47-51 cycles or not within 100, by chance,
+in every build (dev failed once, dev2 passed once). The case now rebuilds J/K every cycle (`f565c24`): 47-50 cycles
+every time.
+
+**Benchmarks** (`results/20261028-193453_it8-medium.json` 2 reps ABBA, `results/20261028-194620_it8-alkane.json` 1 rep).
+- **Setup:** the same `pyscf` tree with stock qcint (H, via `LD_LIBRARY_PATH`) and with `qcint-pgo` (I).
+  `PYSCF_MAX_MEMORY=20000`, boost clocks within a few % of each other in each pair. SCF cycle counts are identical.
+
+| workload | H (s) | I (s) | I vs H | J/K H -> I (s) |
+|---|---|---|---|---|
+| n-C20H42/SVP B3LYP SCF | 58.6 | 48.8 | **1.20x** | 43.7 -> 33.7 (1.30x) |
+| n-C20H42/TZVP PBE SCF | 291.4 | 252.9 | **1.15x** | 256.6 -> 218.2 (1.18x) |
+| n-C20H42/SVP r2SCAN SCF | 65.8 | 56.5 | **1.17x** | 40.5 -> 31.2 (1.30x) |
+| n-C20H42/SVP B3LYP gradient | 42.0 | 36.0 | **1.17x** | 35.3 -> 29.3 (1.21x) |
+| n-C20H42/SVP PBE TDA | 71.2 | 65.1 | 1.09x | 33.1 -> 26.8 (1.23x) |
+| benzene/SVP B3LYP gradient | 2.07 | 1.79 | **1.16x** | 1.62 -> 1.34 |
+| caffeine/SVP B3LYP gradient | 10.95 | 9.58 | **1.14x** | 9.15 -> 7.74 |
+| benzene/SVP B3LYP Hessian | 27.2 | 24.6 | 1.11x | 14.7 -> 12.2 |
+| benzene/SVP PBE Hessian | 24.2 | 21.7 | 1.12x | 12.7 -> 10.2 |
+| caffeine/SVP PBE, B3LYP SCF (ERIs in memory) | 12.0, 11.9 | 11.7, 11.8 | 1.01-1.03x | the ERIs are computed once |
+| caffeine/SVP TDA, caffeine/TZVP DF-PBE SCF | 34.5, 19.3 | 34.3, 19.1 | 1.00x | no 4-center integrals per call |
+
+- The alkane's direct J/K gains 1.30x, slightly more than the single-core int2e figure (1.27x). Its quartets are
+  mostly contracted s/p shells, where the segmented path saves the most.
+- **What is left in qcint:** the per-quartet fixed cost (~80 ns: environment setup, driver, cart2sph and copies),
+  which dominates the quartets with 1-7 primitive combinations (47% of the time); and the scalar Rys roots for 2-3
+  roots (~10%). Batching across quartets of one class would fill the SIMD lanes, but the 2D-integral kernels read
+  each quartet's geometry as scalars, so that is a deep change.
+
+## Next iterations (by measured remaining cost, after It8)
+1. **Integral evaluation is still most of J/K**, even after It8's 1.2-1.3x.
+   - Where it is: direct SCF on large molecules, gradients and Hessians.
+   - In qcint (see It8):
+     - the per-quartet fixed cost (~80 ns), which dominates quartets with few primitive combinations;
+     - the scalar Rys roots for 2-3 roots (~10%; evaluating only the x intervals present in a batch might halve them);
+     - batching across quartets of one class, a deep change.
+   - Gradients: the s2kl loop evaluates 4 `int2e_ip1` quartets per s8 orbit, where 3 would do with translational
+     invariance (-25%). That needs a driver that contracts the gradient inside the integral loop.
+   - SMT for the direct J/K only (13% in It3) is a configuration choice.
 2. **Remaining XC costs.**
    - The XC response is now the largest part of the caffeine TDA (26 of 35 s).
    - Screened-path `nr_rks`: AO evaluation is ~0.6 of 1.1 s on the alkane. Measure the zero-fill share first (`bench/diag/eval_ao_cost.py`).
@@ -605,6 +692,7 @@ This is the state before It6. The It6 section below compares against it and agai
 5. **AO evaluation on the dense path** (`eval_gto`, 5–10%).
 6. **Upstream:**
    - The 15 `perf` commits are PR candidates: six from It4/It5, four from It6, five from It7. All of It7's have unit tests.
+   - The two qcint `perf` commits (It8) are candidates for sunqm/qcint.
    - Report the LibXC 7.1.2 r2SCAN kxc regression to LibXC.
    - Possible PySCF issues:
      - Direct SCF's incremental J/K drift on large molecules.
