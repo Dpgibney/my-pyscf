@@ -20,6 +20,7 @@ Every upstream clone has `origin` = upstream and a local branch `perf` (one comm
 | `pyscf-f/`, `pyscf-prev/` | worktrees of `pyscf/` | `8fc5eca4e`, `ca881ddc3`, detached | `perf` before It6 and before It5b, for before/after runs |
 | `pyscf-native/` | worktree of `pyscf/` | `8fc5eca4e`, detached | `BUILD_MARCH_NATIVE=ON` build (It3) |
 | `pyscf-qcint/`, `pyscf-qcint-avx2/` | worktrees of `pyscf/` | `44313dfb45`, detached | unmodified master on qcint AVX-512 / AVX2 (It2, It6 SGX check) |
+| `pyscf-it11/` | worktree of `pyscf/` | `474f6366c`, detached | `perf` before It12, for before/after runs |
 | `libcint/` | github.com/sunqm/libcint | `v6.2.0` (master's pin) | integrals |
 | `qcint/` | github.com/sunqm/qcint | `v6.2.0` | SIMD integrals (It2); `perf` has the It8 changes, and the `pyscf` tree loads its profile-guided build `install/qcint-pgo` |
 | `libxc/` | gitlab.com/libxc/libxc | `7.1.2` (master's pin) | XC functionals |
@@ -1027,6 +1028,75 @@ End to end (`results/20261029-091520_it11-medium.json`: medians of 2 ABBA reps; 
   - dense molecules (water, small benzene blocks);
   - cartesian bases.
 
+## It12: XC terms of gradients and Hessians, 2026-10-29
+
+`pyscf` `perf` commit `1ccef1836`. Worktree `pyscf-it11` (`474f6366c`) is the "before" build.
+
+**Why** (`bench/diag/deriv_xc_time.py`, profiles; caffeine/def2-SVP B3LYP, per call):
+
+| term | time | where it went |
+|---|---|---|
+| grad `get_vxc` | 1.77 s | dense `_scale_ao` passes 0.48, `eval_gto` (deriv 2) 0.42, gather GEMMs 0.39, `_make_dR_dao_w` 0.29 |
+| hess `_get_vxc_diag` | 3.0 s | GEMMs 0.94, `eval_gto` (deriv 3) 0.86, `_scale_ao` 0.72 |
+| hess `_get_vxc_deriv2_dm` | 6.3 s | numpy `einsum` per atom 3.5 |
+| hess `_get_vxc_deriv1` | 12.3 s (r2SCAN 35.3 s) | per-atom gather GEMMs 5.1, per-atom dense `_scale_ao` over the whole AO block 4.9 |
+
+- AO evaluation is only 3–7% of the two large Hessian terms, so fusing it alone would not have helped them.
+- The weights of each atom's terms are not local: caffeine's atoms are active on 98% of the 224-point groups, and
+  the alkane's on 55–60%. Skipping inactive groups would save little.
+
+**What**
+- **`VXCfused_dot_terms`** (`nr_numint_fused.c`): sums of products of weighted AO values up to third
+  derivatives, computed in place per group. `_eval_group` now covers deriv 2 and 3 through `GTOprim_exp` and
+  `GTOshell_eval_grid_cart_deriv2/3`; no radial cache for those.
+  - The terms are recipes (`numint._xc_grad_terms`, `_xc_hess_diag_terms`) stacked along the grid points: one
+    GEMM per output and group.
+  - Used by `grad.rks/uks.get_vxc` and `hessian.rks/uks._get_vxc_diag` through `_FusedXC`.
+- **`VXCdot_sets_aow_ao_sparse`** (`nr_numint_sparse.c`) computes the per-atom matrices of
+  `_get_vxc_deriv1` for all atoms per block.
+  - Each group's AO values are gathered once into buffers the threads share, and the threads take the
+    (atom, direction) sets, with a barrier per group.
+  - There are no weighted AO arrays and no private matrices. Each matrix is summed in group order, independent
+    of the thread count.
+  - The meta-GGA τ part is one `dsyrk`.
+  - UKS LDA now adds the vxc part to the atoms' rows as RKS does.
+- **`_get_vxc_deriv2_dm`:** the per-atom `einsum('scg,btcg->bst')` is one GEMM over all atoms
+  (`_atom_pair_dot`).
+
+**Exactness** (`bench/diag/deriv_xc_check.py`, references saved from `474f6366c`):
+- Every term agrees to ≤ 2.9e-14 relative, for RKS caffeine and UKS benzene⁺ with SVWN, B3LYP and r2SCAN.
+- Gate:
+  - kernel tests pass;
+  - tight validation FULL + SPARSE (21 cases) passes, with Hessians within 4.3e-12;
+  - the `hessian` suite (9 water Hessians: LDA/r2SCAN/CAM-B3LYP RKS, LDA/PBE/r2SCAN/wB97X UKS, DF RKS/UKS)
+    agrees with unmodified PySCF to ≤ 6.7e-11;
+  - upstream tests: 658 passed, 4 failed (the xcfun tests);
+  - new tests `test_dot_sets_aow_ao` and `test_fused_xc_deriv`.
+
+**Per call** (caffeine/SVP; benzene⁺/SVP UKS):
+
+| term | SVWN | B3LYP | r2SCAN | benzene⁺ UKS (SVWN / B3LYP / r2SCAN) |
+|---|---|---|---|---|
+| grad `get_vxc` | 0.43 → 0.26 s | 1.77 → 0.58 s | 2.36 → 1.05 s | 1.9× / 2.9× / 2.1× |
+| hess `_get_vxc_diag` | 0.87 → 0.42 s | 3.01 → 0.92 s | 4.37 → 1.82 s | 1.8× / 2.7× / 2.0× |
+| hess `_get_vxc_deriv2_dm` | 1.77 → 1.24 s | 6.33 → 4.08 s | 9.67 → 6.80 s | 1.2× / 1.3× / 1.2× |
+| hess `_get_vxc_deriv1` | 7.94 → 3.71 s | 12.26 → 6.90 s | 35.3 → 16.3 s | 2.9× / 1.5× / 1.8× |
+
+**End to end** (`results/20261029-111718_it12-deriv.json` medians of 2, and `20261029-112227_it12-hess-caffeine.json`
+1 rep; P = `pyscf-it11`, N = `1ccef1836`; `PYSCF_MAX_MEMORY=20000`):
+
+| case | P (s) | N (s) | |
+|---|---|---|---|
+| benzene/SVP B3LYP gradient | 1.61 | 1.27 | 1.27× |
+| caffeine/SVP B3LYP gradient | 9.69 | 8.60 | 1.13× (J/K 7.6–8 s) |
+| benzene/SVP B3LYP Hessian | 21.68 | 20.45 | 1.06× |
+| benzene/SVP PBE Hessian | 19.06 | 18.07 | 1.05× |
+| caffeine/SVP B3LYP Hessian | 211.6 | 198.3 | 1.07× (XC 69.2 → 56.8 s; J/K 117 s) |
+
+- `hess_caffeine_svp_b3lyp` is a timing-only case in `bench/cases.py` (no suite).
+- What is left of the Hessian's XC time is mostly the CPHF response: `nr_rks_fxc` for 3·natm dms per iteration.
+  This is the low-rank (MO-basis) f_xc candidate in "Next iterations".
+
 ## Next iterations (by measured remaining cost, after It9)
 1. **Integral evaluation is still most of J/K**, even after It8's 1.2-1.3x.
    - Where it is: direct SCF on large molecules, gradients and Hessians.
@@ -1046,7 +1116,10 @@ End to end (`results/20261029-091520_it11-medium.json`: medians of 2 ABBA reps; 
    - Screened-path `nr_rks`: the zero fill is gone (It10 A), and AO evaluation is fused into the gather kernels
      (It11).
      - What is left of the XC time is the GEMMs and the gather/scatter of dm and XC-matrix blocks.
-     - For gradients and Hessians, the `deriv=2` AO kernels are not fused yet.
+   - Gradient and Hessian XC terms: done in It12.
+     - In Hessians, the CPHF f_xc response is now the largest XC cost (caffeine: most of 57 s).
+     - A low-rank MO-basis f_xc contraction (rank 2·nocc response dms; It5's second idea) would cut its GEMMs
+       roughly by nocc/nao.
    - The gradient XC temporaries in `_make_dR_dao_w`.
 3. **Extend It5b batching** to `nr_uks_fxc` (UKS TDDFT/CPHF) and the meta-GGA τ term.
 4. **Hessian `_get_vxc_deriv1`** (h1ao for the CPHF right-hand side): batch it like It5b.

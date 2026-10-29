@@ -250,6 +250,8 @@ for _xc in ('LDA,VWN', 'r2SCAN', 'CAM-B3LYP'):
 for _xc in ('LDA,VWN', 'PBE', 'r2SCAN', 'wB97X'):
     case(f'hess_water+_svp_{_xc}_uks', (HESS,))(hess_case(WATER, 'def2-svp', _xc, charge=1, spin=1))
 case('hess_water_svp_b3lyp_df', (HESS,))(hess_case(WATER, 'def2-svp', 'B3LYP', density_fit=True))
+# A medium-molecule Hessian for timings only (by --cases; no suite)
+case('hess_caffeine_svp_b3lyp', ())(hess_case(CAFFEINE, 'def2-svp', 'B3LYP'))
 case('hess_water+_svp_pbe_uks_df', (HESS,))(hess_case(WATER, 'def2-svp', 'PBE', charge=1, spin=1,
                                                       density_fit=True))
 case('scf_benzene+_svp_r2scan_uks', (FULL,))(scf_case(BENZENE, 'def2-svp', 'r2SCAN', charge=1, spin=1))

@@ -48,3 +48,5 @@ Run them in a configuration's pinned environment:
 | `screened_unwritten_check.py` | `eval_ao` leaving screened AO values unwritten: every opted-in XC path with zeros, unwritten and NaN-filled values (bitwise), and `nr_rks`/SCF timings | It10: A |
 | `fused_xc.py`, `fused_xc.c` | prototype `nr_rks` with AO values computed inside the It6 gather kernels (optionally from the radial cache): bitwise check against `nr_rks` and per-call timings (build line in `fused_xc.c`) | It10: B |
 | `fused_numint_check.py` | NumInt's fused XC kernels (`_FusedXC`) against the `block_loop` path, bit for bit, for every opted-in function and both density paths, with and without the radial cache and with split XC matrices; per-call timings | It11 |
+| `deriv_xc_time.py` | time of the gradient and Hessian XC terms per call and the share of `eval_gto` in it | It12: why |
+| `deriv_xc_check.py` | the gradient and Hessian XC terms (RKS caffeine, UKS benzene⁺; SVWN, B3LYP, r2SCAN) against references saved from an earlier tree, with times | It12 |
