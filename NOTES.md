@@ -849,6 +849,96 @@ Median of 5 interleaved passes; times in s per pass.
 - **Caveat:** the fused numbers cover AO evaluation only. Small blocks change the consumers' GEMM shapes and the
   Vxc accumulation, which this test does not measure.
 
+## It10: AO evaluation on the screened path, 2026-10-29
+
+`pyscf` `perf` commit `0b787b90e` (A). B is a prototype in `bench/diag/fused_xc.{py,c}`, not in the tree.
+
+**A. `eval_ao` leaves screened AO values unwritten** (`0b787b90e`)
+- **Why:** the AO-cache test showed that `eval_ao` is bound by writing its AO block.
+  - On the screened path, 46% (caffeine/SVP) to 66–79% (n-C20H42/SVP) of that block are zeros for screened
+    shells.
+  - The sparse kernels never read them.
+- **Change:**
+  - `GTOeval_skip_screened` in `libcgto` turns off the zero fill for one call, using a per-thread flag.
+  - `eval_gto`/`eval_ao(zero_screened=False)`.
+  - `block_loop(zero_screened=False)` applies it to blocks yielded with a mask whose length is a multiple of
+    `ALIGNMENT_UNIT`.
+  - `nr_rks`, `nr_uks`, `nr_rks_fxc`/`_rks_fxc_batch` and `nr_uks_fxc` opt in through `_sparse_reader_kw`.
+    They do so only when NumInt's own `block_loop`/`eval_ao`/`eval_rho1`/`eval_rho2`/`_gen_rho_evaluator` are
+    used and the dms and orbitals are real.
+- **Exactness: bit for bit.**
+  - With NaN written into every value left unwritten, every opted-in path equals the zero-filled run bit for bit
+    on n-C20H42 and caffeine/SVP (`bench/diag/screened_unwritten_check.py`; 9.3e8 NaNs per GGA call on the
+    alkane). Covered: LDA/PBE/B3LYP/r2SCAN, RKS/UKS, MO-tagged and plain dms, f_xc.
+  - Kernel tests pass.
+  - Tight validation, FULL + SPARSE (21 cases) vs `pyscf-base`:
+
+    | quantity | largest difference |
+    |---|---|
+    | energy | 1.2e-11 Eh |
+    | gradient | 3.8e-12 |
+    | Hessian | 4.5e-12 |
+    | excitation energy | 4.6e-14 Eh |
+
+  - Upstream dft gto tdscf grad hessian tests: 655 passed, 4 failed (the xcfun tests; xcfun is not built).
+- **Timings** (10 threads, zeros vs unwritten, interleaved):
+
+  | | zeros | unwritten | |
+  |---|---|---|---|
+  | `nr_rks`, n-C20H42/SVP, PBE | 1.207 s | 0.871 s | 1.39× |
+  | same, B3LYP | 1.186 s | 0.843 s | 1.41× |
+  | same, r2SCAN | 1.950 s | 1.616 s | 1.21× |
+  | `nr_rks`, caffeine/SVP, PBE/B3LYP/r2SCAN | | | 1.07–1.10× |
+  | SCF, n-C20H42/SVP, B3LYP (`PYSCF_MAX_MEMORY=20000`) | 24.7 s | 21.6 s | 1.14× |
+  | same, r2SCAN | 31.9 s | 28.8 s | 1.11× |
+  | SCF, caffeine/SVP, B3LYP and r2SCAN | | | 1.03× |
+
+- **Harness pitfalls:**
+  - `bench/diag/run_in.py` replaces `PYSCF_MAX_MEMORY` with 4000 unless the config sets it
+    (`G=pyscf:PYSCF_MAX_MEMORY=20000`). With 4000 the semi-direct cache is smaller, and the same SCF A/B gave
+    1.03–1.08×.
+  - `lib.temporary_env(numint.NumInt, eval_ao=...)` restores a staticmethod as the bare function, because
+    `getattr` unwraps it. That broke `NumInt.eval_ao` for every later test in the pytest worker (17 failures).
+    The test now restores `NumInt.__dict__['eval_ao']`.
+
+**B. Prototype: AO values computed inside the It6 kernels** (`bench/diag/fused_xc.{py,c}`)
+- **What:** `FUSEDeval_rho`, `FUSEDdot_ao_aow` and `FUSEDdot_ao_wv_ao` are `VXCeval_rho_sparse_gemm`,
+  `VXCdot_ao_aow_sparse_gemm` and `VXCdot_ao_wv_ao_sparse_gemm` with one change: the gather from `eval_ao`'s
+  block is replaced by evaluating each 224-point group's AOs straight into the gather buffers, with PySCF's GTO
+  code.
+  - Optionally the AOs come from a radial cache: contracted radial factors per 56-point block and unscreened
+    shell, built once.
+- **Exactness:** `nr_rks_fused` follows `nr_rks` with a plain dm step by step. It equals `nr_rks` bit for bit on
+  caffeine SVP/TZVP and n-C20H42 SVP/TZVP, for PBE and r2SCAN, with and without the cache.
+- **Timings:** seconds per call, 10 threads, median of 5 interleaved. "MO dm" is `nr_rks` with the MO-tagged dm
+  that SCF passes.
+
+  | system | xc | `nr_rks` | `nr_rks` MO dm | fused | fused + radial cache | cache |
+  |---|---|---|---|---|---|---|
+  | caffeine SVP | PBE | 0.341 | 0.402 | 0.272 | 0.230 | 0.34 GB |
+  | caffeine SVP | r2SCAN | 0.674 | 0.551 | 0.671 | 0.572 | |
+  | caffeine TZVP | PBE | 0.842 | 0.817 | 0.715 | 0.673 | 0.53 GB |
+  | caffeine TZVP | r2SCAN | 1.886 | 1.273 | 1.777 | 1.697 | |
+  | C20H42 SVP | PBE | 0.919 | 0.892 | 0.808 | 0.625 | 0.94 GB |
+  | C20H42 SVP | r2SCAN | 1.679 | 1.624 | 1.592 | 1.409 | |
+  | C20H42 TZVP | PBE | 1.834 | 1.967 | 1.582 | 1.447 | 1.40 GB |
+  | C20H42 TZVP | r2SCAN | 3.978 | 3.031 | 3.805 | 3.617 | |
+
+- **GGA:**
+  - 1.14–1.25× without the cache, because the AOs are evaluated twice per call (for ρ and for Vxc).
+  - 1.25–1.48× with the cache, and 1.21–1.75× against the SCF (MO dm) path. The cache builds in 0.05–0.14 s.
+- **Meta-GGA:** 1.0–1.19×. The prototype is slower than the SCF path on caffeine and the TZVP alkane: it
+  computes τ from the dm (three more ng·ns² GEMMs per group), while `eval_rho2` multiplies the AO gradients by
+  the occupied orbitals.
+- **Where the time is:** after A, the AO block traffic left is smaller than the AO-cache test suggested. Most of
+  each call is the GEMMs, the gathers of dm blocks and the scatter-adds.
+- **Not integrated.** Integration would need:
+  - the kernels in `libdft`, with the group code shared;
+  - dispatch in `nr_rks`/`nr_uks`/f_xc;
+  - several dms batched per AO evaluation (UKS α/β, TDDFT trial densities);
+  - an MO-path ρ kernel for meta-GGA;
+  - a lifetime and memory budget for the radial cache.
+
 ## Next iterations (by measured remaining cost, after It9)
 1. **Integral evaluation is still most of J/K**, even after It8's 1.2-1.3x.
    - Where it is: direct SCF on large molecules, gradients and Hessians.
@@ -865,11 +955,10 @@ Median of 5 interleaved passes; times in s per pass.
      - for TZVP-sized molecules, the quartets that do not fit (98 GB for the TZVP alkane).
 2. **Remaining XC costs.**
    - The XC response is now the largest part of the caffeine TDA (26 of 35 s).
-   - Screened-path `nr_rks`: AO evaluation is ~0.6 of 1.1 s on the alkane.
-     - The AO-cache test shows `eval_ao` is bound by writing its dense block, 2/3 of which are zeros for screened
-       shells.
-     - Options: skip the zero fill where only mask-aware kernels read the block (check every consumer, and keep
-       zeros for user code calling `block_loop`), or fuse AO evaluation with the rho/Vxc kernels.
+   - Screened-path `nr_rks`:
+     - The zero fill is gone (It10 A).
+     - Fusing AO evaluation into the gather kernels gives 1.2–1.75× per GGA call with the radial cache (It10 B
+       prototype). Meta-GGA needs an MO-path ρ kernel first.
    - The gradient XC temporaries in `_make_dR_dao_w`.
 3. **Extend It5b batching** to `nr_uks_fxc` (UKS TDDFT/CPHF) and the meta-GGA τ term.
 4. **Hessian `_get_vxc_deriv1`** (h1ao for the CPHF right-hand side): batch it like It5b.

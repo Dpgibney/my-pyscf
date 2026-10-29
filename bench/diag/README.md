@@ -45,3 +45,5 @@ Run them in a configuration's pinned environment:
 | `semidirect_stats.py`, `semidirect_count.c` | Schwarz-significant quartets of a molecule, and which of them each direct SCF call evaluates: sizes of a semi-direct cache and its coverage per threshold | It9: why |
 | `semidirect_profile.py` | leaf functions (py-spy, 1 thread) or wall times of semi-direct J/K calls that read stored integrals | It9: read path |
 | `ao_radial_cache.py`, `ao_radial.c` | memory and per-pass time of caching AO values vs shells' radial factors vs `eval_ao`, in `block_loop` blocks and fused 56-point blocks; checks bitwise equality (build line in `ao_radial.c`) | AO-value cache test |
+| `screened_unwritten_check.py` | `eval_ao` leaving screened AO values unwritten: every opted-in XC path with zeros, unwritten and NaN-filled values (bitwise), and `nr_rks`/SCF timings | It10: A |
+| `fused_xc.py`, `fused_xc.c` | prototype `nr_rks` with AO values computed inside the It6 gather kernels (optionally from the radial cache): bitwise check against `nr_rks` and per-call timings (build line in `fused_xc.c`) | It10: B |
