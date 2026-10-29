@@ -44,3 +44,4 @@ Run them in a configuration's pinned environment:
 | `scf_jk_one_dm.py` | one SCF density through direct J/K: per-dm kernels vs the batched driver | It7: C |
 | `semidirect_stats.py`, `semidirect_count.c` | Schwarz-significant quartets of a molecule, and which of them each direct SCF call evaluates: sizes of a semi-direct cache and its coverage per threshold | It9: why |
 | `semidirect_profile.py` | leaf functions (py-spy, 1 thread) or wall times of semi-direct J/K calls that read stored integrals | It9: read path |
+| `ao_radial_cache.py`, `ao_radial.c` | memory and per-pass time of caching AO values vs shells' radial factors vs `eval_ao`, in `block_loop` blocks and fused 56-point blocks; checks bitwise equality (build line in `ao_radial.c`) | AO-value cache test |

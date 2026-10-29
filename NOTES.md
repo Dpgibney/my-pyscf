@@ -804,6 +804,51 @@ could (`scripts/pyscf-env.sh` says so). Run several jobs at once with lower `PYS
 **Clock note.** `scaling_max_freq` reads 2.0 GHz on every core, but the cores boost to 4.7-4.9 GHz
 (amd-pstate-epp, active; `/proc/cpuinfo`). The value no longer shows whether the firmware clamp is on.
 
+## AO-value cache test: radial factors vs AO values, 2026-10-29
+Question: how much memory does caching only each shell's radial part save, compared with caching the AO values,
+and what does each cost per pass over the grid (an SCF cycle or response iteration)?
+
+Run: `bench/diag/ao_radial_cache.py` with `ao_radial.c`, 10 threads, default level-3 grids.
+- **Radial cache:** for each 56-point block and shell kept by the screen index, store the contracted radial factor
+  e(r) = Σ_p c_p exp(-a_p r²). Deriv 1 also stores the -2a-weighted sum.
+  - The AO values are rebuilt from it with PySCF's own polynomial and c2s code.
+  - The rebuilt values equal `eval_ao` bit for bit, as do the copied-back full-cache values; every block was checked.
+- **Full cache:** the finished AO values of the same blocks and shells.
+- **Each pass was timed two ways:**
+  - in `block_loop` blocks: dense 67200-point blocks in RAM. "zeros" is `eval_ao` with every shell screened, i.e.
+    only writing the block.
+  - fused: each 56-point block goes into a per-thread buffer that stays in cache, then is discarded.
+
+Median of 5 interleaved passes; times in s per pass.
+
+| case | deriv | AO values, screened (GB) | radial (GB) | ratio | block_loop: zeros / eval / radial / full | fused: eval / radial / full |
+|---|---|---|---|---|---|---|
+| caffeine SVP | 0 | 0.35 | 0.17 | 2.1× | .023 / .032 / .026 / .028 | .021 / .004 / .005 |
+| caffeine SVP | 1 | 1.41 | 0.34 | 4.2× | .098 / .100 / .106 / .121 | .029 / .012 / .019 |
+| caffeine TZVP | 0 | 0.68 | 0.27 | 2.6× | .047 / .055 / .052 / .058 | .029 / .007 / .010 |
+| caffeine TZVP | 1 | 2.73 | 0.53 | 5.1× | .195 / .202 / .213 / .240 | .048 / .026 / .037 |
+| C20H42 SVP | 0 | 0.85 | 0.47 | 1.8× | .106 / .138 / .116 / .120 | .068 / .018 / .017 |
+| C20H42 SVP | 1 | 3.42 | 0.94 | 3.6× | .451 / .462 / .492 / .520 | .112 / .061 / .064 |
+| C20H42 TZVP | 0 | 1.50 | 0.70 | 2.1× | .200 / .228 / .214 / .221 | .102 / .033 / .031 |
+| C20H42 TZVP | 1 | 6.01 | 1.40 | 4.3× | .825 / .831 / .872 / .931 | .176 / .113 / .116 |
+
+- **Memory:** the radial cache is 1.8-2.6× smaller for LDA and 3.6-5.1× for GGA/meta-GGA.
+  - Per shell the ratio is 1/3/5/7 (deriv 0) and 2/6/10/14 (deriv 1) for s/p/d/f.
+  - The H-rich alkane has the lowest ratios.
+  - Building it once takes 0.04-0.17 s.
+- **In `block_loop` blocks, `eval_ao` costs what writing its dense block costs.**
+  - For GGA, writing zeros alone comes within 1-3% of a full evaluation, at ~23.5 GB/s.
+  - Neither cache saves time. Both are a few % slower, because they read the cache on top of the same writes.
+  - On the alkane, 2/3 of the bytes written are zeros for screened shells (34% of block-shell pairs are kept).
+- **Fused, AO evaluation is 3.4-4.7× cheaper for GGA, with no cache.**
+  - The radial cache then cuts it a further 1.6-2.4× (GGA) or 3-6× (LDA).
+  - The full cache is no faster than the radial one: it is bound by RAM reads (52-74 GB/s) of 2-5× the bytes.
+- **Conclusion:** a cache pays only once AO evaluation and its consumers work on cache-sized blocks, and then the
+  radial form is the one to keep. The first lever is the memory traffic of the dense blocks, which the rho and
+  Vxc kernels also pay when they read them back.
+- **Caveat:** the fused numbers cover AO evaluation only. Small blocks change the consumers' GEMM shapes and the
+  Vxc accumulation, which this test does not measure.
+
 ## Next iterations (by measured remaining cost, after It9)
 1. **Integral evaluation is still most of J/K**, even after It8's 1.2-1.3x.
    - Where it is: direct SCF on large molecules, gradients and Hessians.
@@ -820,11 +865,16 @@ could (`scripts/pyscf-env.sh` says so). Run several jobs at once with lower `PYS
      - for TZVP-sized molecules, the quartets that do not fit (98 GB for the TZVP alkane).
 2. **Remaining XC costs.**
    - The XC response is now the largest part of the caffeine TDA (26 of 35 s).
-   - Screened-path `nr_rks`: AO evaluation is ~0.6 of 1.1 s on the alkane. Measure the zero-fill share first (`bench/diag/eval_ao_cost.py`).
+   - Screened-path `nr_rks`: AO evaluation is ~0.6 of 1.1 s on the alkane.
+     - The AO-cache test shows `eval_ao` is bound by writing its dense block, 2/3 of which are zeros for screened
+       shells.
+     - Options: skip the zero fill where only mask-aware kernels read the block (check every consumer, and keep
+       zeros for user code calling `block_loop`), or fuse AO evaluation with the rho/Vxc kernels.
    - The gradient XC temporaries in `_make_dR_dao_w`.
 3. **Extend It5b batching** to `nr_uks_fxc` (UKS TDDFT/CPHF) and the meta-GGA τ term.
 4. **Hessian `_get_vxc_deriv1`** (h1ao for the CPHF right-hand side): batch it like It5b.
-5. **AO evaluation on the dense path** (`eval_gto`, 5–10%).
+5. **AO evaluation on the dense path** (`eval_gto`, 5–10%). It is bound by writing the block, not by computing it
+   (AO-cache test). Caching AO values helps only after fusion; then cache the radial factors, not the AO values.
 6. **Upstream:**
    - The 15 `perf` commits are PR candidates: six from It4/It5, four from It6, five from It7. All of It7's have unit tests.
    - The two qcint `perf` commits (It8) are candidates for sunqm/qcint.

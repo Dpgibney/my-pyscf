@@ -19,3 +19,4 @@ __pycache__/
 /bench/results/ref/
 bench/qcint/qbench
 bench/qcint/qcost
+bench/diag/*.so
