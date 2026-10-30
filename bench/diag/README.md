@@ -68,3 +68,7 @@ Run them in a configuration's pinned environment:
 | `lowrank_paths_time.py` | per call, 1–40 TDA-type dms: dm path, factored in two kernels and in one kernel, with the flop model's ratio and choice | It17: C, flop model |
 | `gemm_shapes.c` | dgemm throughput, one call per OpenMP thread, at the factored kernels' shapes (one set vs sets batched along N); build line inside | It17: C |
 | `fused_sched_toggle.py` | experiment only: switches the accumulating fused kernels between `schedule(static, 1)` and `schedule(dynamic, 4)` in the `pyscf` tree | It17: scheduling |
+| `sched_determinism.py` | the kernels that sum partial matrices (fused and unfused `nr_rks`, `nr_rks_fxc`, `rks_fxc_mo` in one and two kernels, gradient `get_vxc`): repeated calls bit for bit, and against another tree on the same orbitals | It18 |
+| `npdgemm_check.py` | `lib.dot` (`NPdgemm`) for shapes that take the m-, n- and k-splits: against another tree, bit for bit or the relative difference, with times | It18 |
+| `dot_wv_time.py` | `_FusedXC.dot` (`VXCfused_dot_wv`) per call on the SCF's blocks and on the whole grid, 1, 2 and 20 sets | It18 |
+| `sched_sim.py` | simulated makespan of static, dynamic, fixed-slot and stream schedules on 4 fast + 6 slow threads, and of the stream schedule's stickiness margin | It18 |

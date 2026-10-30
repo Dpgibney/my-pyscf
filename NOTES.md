@@ -27,6 +27,7 @@ Every upstream clone has `origin` = upstream and a local branch `perf` (one comm
 | `pyscf-it16a/`, `pyscf-it16c/` | worktrees of `pyscf/` | `930f39c41`, `a8a68d87f` | It16 steps A and A+C, built with `-DNUMINT_X86_64_V3=ON` |
 | `pyscf-it16/` | worktree of `pyscf/` | `0835ee427`, detached | `perf` before It17, built with `-DNUMINT_X86_64_V3=ON` |
 | `pyscf-it17a/`, `pyscf-it17b/` | worktrees of `pyscf/` | `d3545eefb`, `3ad92c150` | It17 steps A and A+B, built with `-DNUMINT_X86_64_V3=ON` |
+| `pyscf-it17/` | worktree of `pyscf/` | `1e31fb4d1`, detached | `perf` before It18, built with `-DNUMINT_X86_64_V3=ON` |
 | `libcint/` | github.com/sunqm/libcint | `v6.2.0` (master's pin) | integrals |
 | `qcint/` | github.com/sunqm/qcint | `v6.2.0` | SIMD integrals (It2); `perf` has the It8 changes, and the `pyscf` tree loads its profile-guided build `install/qcint-pgo` |
 | `libxc/` | gitlab.com/libxc/libxc | `7.1.2` (master's pin) | XC functionals |
@@ -1794,7 +1795,7 @@ vectors, about 100 ms per vector on the dm path (`td_fxc_calls.py`). On benzene 
 - A deterministic dynamic schedule would need per-slot sums (a fixed partition of the groups into slots, taken
   dynamically, each summed into its own buffer, and the buffers added in slot order). That is swarm #19, larger
   than its estimate of 1–2.5%.
-- The user chose to keep the static schedule for now (2026-10-30).
+- The user first chose to keep the static schedule, then asked for it the same day: It18 below.
 
 ### It16 → It17
 P = `pyscf-it16` (`0835ee427`), N = `perf` `1e31fb4d1`; 10 threads, `PYSCF_MAX_MEMORY=20000`, means of 2 interleaved
@@ -1827,6 +1828,115 @@ runs (`results/20261030-073148_it16-it17.json`; the caffeine Hessian 1 rep, `202
     TDA), 4.1e-15 (benzene TDA), 7.5e-14 (benzene TDDFT) and 2.1e-15 (alkane TDA); Hessians to 7.3e-12
     (benzene) and 6.6e-11 (water, DF);
   - upstream tests: 852 passed, 4 failed (the known xcfun failures).
+
+## It18: deterministic dynamic schedules (swarm #19), 2026-10-30
+
+`pyscf` `perf` commits:
+- A `c93703cb0`: the XC kernels that sum partial matrices take their groups by a deterministic dynamic
+  schedule.
+- B `219115c29`: `NPdgemm`'s m- and n-splits take fixed chunks by a dynamic schedule.
+
+Worktree `pyscf-it17` (`1e31fb4d1`) is the before-build. UKS, planned as It18, moves to It19.
+
+**Why.** It17 measured that the static schedule of these kernels costs 6–24% on the mixed cores: the Zen 5 cores
+run them about 1.6× faster than the Zen 5c cores, and `schedule(static, 1)` gives every thread the same work.
+
+### A: streams of slots, each summed in order (`nr_numint_gemm.h`)
+- **Kernels:** `VXCfused_dot_wv` (SCF XC matrices and dm-path fxc), `VXCfused_dot_terms` (gradient and Hessian
+  XC terms), `VXCfused_dot_ao_mo` and `VXCfused_fxc_lowrank` (factored response), and `_dot_ao_ao_gemm` (behind
+  the `*_sparse_gemm` kernels).
+- **Design:**
+  - The groups go in slots of 4, and the slots in 2·nthreads contiguous streams, each with a partial matrix
+    of its own.
+  - A thread takes the next slot of an unlocked stream (`omp_test_lock`) and adds the slot's products to that
+    stream's matrix while it holds the lock. It prefers the stream with the most slots left, but stays on its
+    previous stream while that has at most one slot fewer.
+  - Each stream is thus summed in slot order, whichever threads take its slots, and the streams' matrices are
+    added in stream order.
+  - Results are reproducible for a given thread count, as before. The fused and sparse kernels still agree bit
+    for bit (`test_fused_xc`).
+- **Why streams and not fixed slots:** the swarm proposed 4·nthreads fixed slots, each with its own matrix.
+  A simulation with the measured core speeds (`sched_sim.py`) gives these makespans relative to perfect
+  balance:
+
+  | schedule | makespan |
+  |---|---|
+  | static(1) | 1.18–1.28 |
+  | 40 fixed slots | 1.15–1.23 |
+  | 64 fixed slots | 1.09–1.14 |
+  | 2·nthreads streams | 1.01–1.05 (with the stickiness margin of 1) |
+  | non-deterministic dynamic,4 | 1.003–1.017 |
+
+- **Allocation matters.** A first version callocked all the streams' matrices in one block per call, and lost
+  more than balance saved:
+  - per call, 9.7 MB for one set and 194 MB for 20 on caffeine/SVP;
+  - page faults when the block was freshly mapped, or one thread zeroing it when it came from the heap;
+  - `dot_wv` on SCF blocks went 58.0 → 67.9 ms with one set.
+  - Now each stream's matrix is a separate `malloc` (reused across calls) and is zeroed when its first slot is
+    taken, by the thread that adds to it.
+- **The stickiness margin** halves the stream switches; in `dot_wv` it is within noise of none.
+- **Memory:** twice the per-thread matrices of before. `numint.STREAMS_PER_THREAD` (from the library) sizes the
+  Python side's batches.
+- **Exactness** (`sched_determinism.py`):
+  - repeated calls at 10 threads give the same bits: `nr_rks` fused and unfused, `nr_rks_fxc`, `rks_fxc_mo` in
+    one and two kernels, gradient `get_vxc`; caffeine/SVP, PBE and r2SCAN;
+  - against the static schedule on the same orbitals: ≤ 5.3e-15 relative.
+- **`VXCfused_dot_wv` per call** (`dot_wv_time.py`, 10 threads; static → streams; a non-deterministic
+  `dynamic, 4` in brackets):
+
+  | case | 1 set | 2 sets | 20 sets |
+  |---|---|---|---|
+  | caffeine/SVP B3LYP, SCF blocks | 58.0 → 54.3 ms (51.9) | 115.2 → 99.2 ms (97.0) | 1067 → 1068 ms (1024) |
+  | caffeine/SVP B3LYP, whole grid | 55.6 → 50.8 ms (49.1) | 101.5 → 92.5 ms (90.7) | 1019 → 954 ms (997) |
+  | caffeine/TZVP PBE, SCF blocks | 274.6 → 243.8 ms (242.9) | 497.3 → 472.2 ms (453.1) | 4910 → 4472 ms (4599) |
+  | caffeine/TZVP PBE, whole grid | 274.5 → 231.0 ms (239.0) | 476.3 → 429.6 ms (441.1) | 4764 → 4019 ms (3968) |
+
+  - With 20 sets on SCF-sized blocks the doubled partial memory per call costs about what balance saves. The
+    fxc contractions now run in one block per call (It17 B2).
+
+### B: `NPdgemm`'s m- and n-splits in fixed chunks
+- Chunks of about 4 per thread, multiples of 64 rows or columns, by `schedule(dynamic, 1)`.
+- Each element is still computed by one dgemm over all of k, so the result does not depend on the timing.
+  Moving the chunk boundaries changes m-split products by rounding in OpenBLAS (≤ 1.3e-15 relative). The n-split
+  shapes tried, and the k-split (unchanged), are bit for bit (`npdgemm_check.py`).
+- `lib.dot`: 50000×246×246 20.7–27.1 → 18.4–18.8 ms, 60001×114×114 7.1–7.5 → 6.5–6.9 ms. The n- and k-split
+  shapes are within noise.
+
+### End to end
+P = `pyscf-it17`, N = `perf` `219115c29`; 10 threads, `PYSCF_MAX_MEMORY=20000`, means of 2 interleaved runs
+(`results/20261030-085612_it18-sched2.json`).
+
+| case | P (s) | N (s) | |
+|---|---|---|---|
+| SCF caffeine/SVP B3LYP | 4.45 | 4.16 | 1.07× (XC kernels 1.83 → 1.54 s) |
+| SCF caffeine/SVP r2SCAN | 6.58 | 6.34 | 1.04× |
+| SCF caffeine⁺/SVP B3LYP UKS | 12.48 | 12.17 | 1.025× |
+| SCF caffeine/TZVP DF-PBE | 9.15 | 8.84 | 1.035× |
+| SCF n-C20H42/SVP B3LYP | 14.57 | 14.32 | 1.02× |
+| SCF benzene⁺/SVP r2SCAN UKS | 2.11 | 1.86 | 1.14× |
+| TDA caffeine/SVP B3LYP | 17.07 | 15.95 | 1.07× |
+| TDDFT benzene/SVP B3LYP | 3.78 | 3.40 | 1.11× |
+| TDA n-C20H42/SVP PBE | 31.66 | 29.23 | 1.08× |
+| gradient caffeine/SVP B3LYP | 7.12 | 7.04 | 1.01× |
+| Hessian benzene/SVP B3LYP | 7.65 | 7.05 | 1.085× |
+| Hessian benzene/SVP r2SCAN | 10.35 | 9.69 | 1.07× |
+| grid pipeline caffeine/SVP | 3.21 | 3.09 | 1.04× |
+
+- The first version (one zeroed block per call, `results/20261030-083244_it18-sched.json`) made the UKS and
+  DF-TZVP SCFs 1–2% slower.
+
+### Gate
+- Kernel tests pass against `pyscf-base`.
+- Tight validation passes on the hessian, full and sparse suites. Largest differences from unmodified PySCF:
+  energies 4.6e-12 Eh, gradients 3.8e-12, excitations 2.6e-14, Hessians 6.6e-11 (water, DF).
+- Upstream tests: 852 passed, 4 failed (the known xcfun failures).
+- **Cycle counts.** The tight SCFs' cycle-count warnings move between gates even when the SCF code does not
+  change (It17a and It17 B+C flagged different cases). This is the run-dependent endpoint of tight direct SCFs
+  noted since It7: the semi-direct and direct J/K sum in thread order.
+  - The tight CAM-B3LYP SCF took 30 cycles against the reference's 24 in this gate.
+  - Six reruns with It18 took 24, 24, 24, 27, 29 and 30 cycles, and three with It17 took 24, 24 and 27.
+  - Its energy was always within 2.5e-12 Eh. Its long-range K is semi-direct with a dynamic schedule; the XC
+    kernels and `NPdgemm` are deterministic.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
