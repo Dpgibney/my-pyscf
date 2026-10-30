@@ -47,8 +47,12 @@ def worker_env(cfg, threads):
     env = {k: v for k, v in os.environ.items()
            if not k.startswith(drop) and k not in ('PYTHONPATH', 'VIRTUAL_ENV', 'PYTHONHOME')}
     SCRATCH.mkdir(exist_ok=True)
+    # OPENBLAS_THREAD_TIMEOUT: numpy's and scipy's own OpenBLAS pools spin 2^20 cycles after a
+    # call instead of 2^28 (~134 ms), so they leave the cores to PySCF's OpenMP threads
+    # (results/20261029-201727_pools-ab.json; NOTES.md, "Thread pools")
     env.update(OMP_NUM_THREADS=str(threads), PYSCF_MAX_MEMORY='4000', PYSCF_TMPDIR=str(SCRATCH),
-               PYSCF_CONFIG_FILE=str(BENCH / 'pyscf_conf.py'), PYTHONNOUSERSITE='1')
+               PYSCF_CONFIG_FILE=str(BENCH / 'pyscf_conf.py'), PYTHONNOUSERSITE='1',
+               OPENBLAS_THREAD_TIMEOUT='20')
     if cfg.tree != 'wheel':
         env['PYTHONPATH'] = str(WS / cfg.tree)
     env.update(cfg.env)

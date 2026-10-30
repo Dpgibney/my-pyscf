@@ -56,3 +56,5 @@ Run them in a configuration's pinned environment:
 | `j_repro.py` | two identical semi-direct J builds and response calls on caffeine/TZVP, compared in the AO and the MO basis | It13: exactness |
 | `native_profile.py` | 1-thread `py-spy --native` profile of a bench case: self and inclusive time per native and Python function (retries py-spy's occasional failure to attach) | profile-it13 |
 | `profile_summary.py` | readable summary of a `run_bench.py` results file: wall time, categories and top functions per case (`BENCH_TOP=30` in the config env records 30) | profile-it13 |
+| `blas_pools.py` | CPU that numpy's and scipy's bundled OpenBLAS pools burn after a call, what that costs a PySCF OpenMP call made next (J+K, `get_overlap_cond`, `condense`), and eigh/GEMM times at three sizes; run once per `OPENBLAS_*` setting | thread pools |
+| `hess_ejk_check.py` | the Hessian's two-electron blocks (RHF/UHF, J only, range-separated K) and `hess_elec`'s mo1 terms against copies of the code before It14, for all atoms, reversed and subset atom lists; 1 thread | It14 |

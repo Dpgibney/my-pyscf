@@ -14,6 +14,10 @@
 #                           this budget: lower it when running several jobs at once.
 #   OMP_NUM_THREADS=10      one thread per physical core; with all 20 hardware threads (the
 #                           OpenMP default) every workload measured was 20-33% slower
+#   OPENBLAS_THREAD_TIMEOUT=20  numpy's and scipy's own OpenBLAS thread pools stop spinning
+#                           2^20 cycles (~0.5 ms) after a call instead of 2^28 (~134 ms). The
+#                           spinning threads otherwise share the cores with PySCF's OpenMP
+#                           threads: SCFs 1.2-1.9x faster, identical results.
 # Don't put this tree on anaconda's PYTHONPATH instead: PySCF's namespace plugin lookup would mix
 # in modules from the pyscf 2.12.1 installed there.
 _ws="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -21,4 +25,5 @@ source "$_ws/.venv/bin/activate"
 export PYTHONPATH="$_ws/pyscf${PYTHONPATH:+:$PYTHONPATH}"
 export PYSCF_MAX_MEMORY="${PYSCF_MAX_MEMORY:-20000}"
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-10}"
+export OPENBLAS_THREAD_TIMEOUT="${OPENBLAS_THREAD_TIMEOUT:-20}"
 unset _ws

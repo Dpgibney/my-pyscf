@@ -22,6 +22,7 @@ Every upstream clone has `origin` = upstream and a local branch `perf` (one comm
 | `pyscf-qcint/`, `pyscf-qcint-avx2/` | worktrees of `pyscf/` | `44313dfb45`, detached | unmodified master on qcint AVX-512 / AVX2 (It2, It6 SGX check) |
 | `pyscf-it11/` | worktree of `pyscf/` | `474f6366c`, detached | `perf` before It12, for before/after runs |
 | `pyscf-it12/` | worktree of `pyscf/` | `1ccef1836`, detached | `perf` before It13, for before/after runs |
+| `pyscf-it13/` | worktree of `pyscf/` | `d88076cb8`, detached | `perf` before It14, for before/after runs |
 | `libcint/` | github.com/sunqm/libcint | `v6.2.0` (master's pin) | integrals |
 | `qcint/` | github.com/sunqm/qcint | `v6.2.0` | SIMD integrals (It2); `perf` has the It8 changes, and the `pyscf` tree loads its profile-guided build `install/qcint-pgo` |
 | `libxc/` | gitlab.com/libxc/libxc | `7.1.2` (master's pin) | XC functionals |
@@ -1280,7 +1281,7 @@ Three more items are large but have no bench case yet:
 - a different eigensolver (it changes cycle counts);
 - MO-basis J for TD below ≈ 280 dms.
 
-**Proposed order** (report §6):
+**Proposed order** (report §6). Steps 1 and 2 are done; see "Thread pools" and "It14" below.
 1. The thread-pool A/B (#7), with no code. Adopt the winner in `scripts/pyscf-env.sh` and `bench/common.py`,
    then re-profile.
 2. It14, Hessian derivative J/K and `hess_elec`: #1, #2, #5, #3. The summed estimate takes the caf B3LYP Hessian
@@ -1290,6 +1291,169 @@ Three more items are large but have no bench case yet:
 5. It17, TD response: #6, #12, #17, then #20.
 6. It18, UKS: #10, then bench cases and the UKS factored response.
 7. It19, derivative J/K drivers: #11, #15.
+
+## Thread pools: `OPENBLAS_THREAD_TIMEOUT=20` (swarm #7), 2026-10-29
+
+**Problem.** numpy and scipy each bundle their own pthread OpenBLAS (numpy's `libscipy_openblas64_`, scipy's
+`libscipy_openblas`), each with OMP_NUM_THREADS = 10 threads.
+- After a threaded call, the idle workers spin for 2^28 TSC ticks (about 134 ms) before they sleep.
+- PySCF's OpenMP regions that start in that window share the cores with 9, or after scipy and then numpy, 18
+  spinning threads.
+- `run_tests.sh` already set `OPENBLAS_THREAD_TIMEOUT=4`, copied from upstream CI. The benchmarks and
+  `pyscf-env.sh` never did.
+
+**Measurements: `bench/diag/blas_pools.py`** (caffeine/SVP sizes, 10 threads).
+- **CPU burned while the main thread sleeps 0.5 s after a call:**
+  - 1.2 s after a numpy GEMM, a numpy ddot of 128k elements, or a scipy eigh;
+  - 2.4 s after an eigh followed by a GEMM;
+  - 0.05 s after a PySCF `lib.dot`, which is libgomp's own short spin.
+- **One in-core J+K build (180 ms of OpenMP), right after the call vs after a pause:**
+
+  | right after | default | timeout 4 | `OPENBLAS_NUM_THREADS=1` |
+  |---|---|---|---|
+  | a numpy GEMM | 210 vs 188 ms | 180–184 ms | 179–183 ms |
+  | a scipy eigh | 207 vs 184 ms | 180–184 ms | 179–183 ms |
+  | eigh, then GEMM | 258 vs 185 ms | 180–184 ms | 179–183 ms |
+
+- **Short OpenMP calls** (`get_overlap_cond`, `condense`) were not slowed with one pool spinning: the 20 hardware
+  threads absorb 9 spinners. The swarm's 5 ms vs 0.13 ms came from the overlapping profile runs.
+- **eigh(F,S) and GEMM back to back**, median ms (several runs; scipy's spinning pool also slows numpy's GEMM):
+
+  | n | default eigh / GEMM | timeout 4 | timeout 16 | timeout 20 | `NUM_THREADS=1` |
+  |---|---|---|---|---|---|
+  | 246 | 4.6–5.2 / 0.15 | 4.5–4.6 | 3.9–4.3 | 4.0 | 4.7 / 0.49 |
+  | 520 | 19–21 / 1.2–1.3 | 20–26 | 18 | 16 | 29 / 4.5 |
+  | 872 | 46–50 / 6.2 | 60–63 / 3.6–5.4 | 47–55 / 3.5 | 47 / 3.4 | 110 / 21 |
+
+**End to end** (`results/20261029-201727_pools-ab.json`): medians of 3 ABBA runs, 10 threads,
+`PYSCF_MAX_MEMORY=20000`, `pyscf` at `d88076cb8`.
+
+| case | default (s) | timeout 4 (s) | timeout 20 (s) | default / timeout 20 |
+|---|---|---|---|---|
+| scf_caffeine_svp_b3lyp | 9.38 | 5.32 | 5.45 | 1.72× |
+| scf_caffeine+_svp_b3lyp_uks | 21.60 | 14.49 | 14.84 | 1.46× |
+| scf_benzene+_svp_r2scan_uks | 4.18 | 2.13 | 2.18 | 1.92× |
+| scf_c20h42_svp_b3lyp | 19.49 | 15.94 | 15.97 | 1.22× |
+| tda_caffeine_svp_b3lyp | 25.48 | 25.14 | 24.97 | 1.02× |
+| hess_benzene_svp_b3lyp | 17.56 | 17.42 | 17.35 | 1.01× |
+| grad_benzene_svp_b3lyp | 1.41 | 1.33 | 1.35 | 1.04× |
+| grid_caffeine_svp | 3.82 | 3.41 | 3.43 | 1.11× |
+
+- **Where it shows:** the SCF's XC kernels, about 1.85× faster (caffeine B3LYP 4.8–5.0 → 2.6–2.7 s; the alkane
+  6.4 → 4.1 s). Each SCF cycle calls eigh and numpy just before the XC kernels. TD and Hessians call numpy
+  rarely between their long kernels.
+- **Results:**
+  - identical bit for bit wherever a case is deterministic (in-core SCFs, TDA, gradient, grid);
+  - the semi-direct alkane SCF and the direct-J/K Hessian keep their usual run-to-run spread (3.6e-12 Eh,
+    8.8e-14) under every setting, with the same cycle counts.
+- **Decision:** `OPENBLAS_THREAD_TIMEOUT=20` (about 0.5 ms) goes in `scripts/pyscf-env.sh` and in
+  `bench/common.py`'s pinned environment, for every tree including `pyscf-base` and the wheel.
+  - Timeout 4 is as fast end to end, but eigh at n = 872 is 30% slower: every LAPACK-internal BLAS call wakes
+    sleeping threads.
+  - `OPENBLAS_NUM_THREADS=1` makes eigh 2.3× and GEMM 6× slower at n = 872.
+- **Comparability:** benchmark times before this change include the penalty on both sides of every
+  comparison, so they are not comparable with times after it.
+
+## It14: Hessian two-electron terms and the direct J/K driver's blocks, 2026-10-29
+
+`pyscf` `perf` commits:
+- A `4034c2ae6`: J/K driver blocks;
+- B `fb7275305`: rows that are read, and translational invariance;
+- C `5c07d15d0`: `hess_elec`.
+
+These are swarm items #5, #1+#2 and #3. Worktree `pyscf-it13` (`d88076cb8`) is the "before" build. All times
+use the pinned `OPENBLAS_THREAD_TIMEOUT=20` (previous section).
+
+**Why.** After It13, derivative J/K was 60% of the caffeine B3LYP Hessian: 107.8 of 181 s, in 73 calls (ipip1 ×1,
+ip1ip2 ×24, ipvip1 ×24, make_h1 ×24). `hess_elec`'s three-operand `numpy.einsum`s took another 8.8–11.3 s.
+
+### A: adaptive AO blocks in `CVHFnr_direct_drv` (#5)
+- **Problem:** the driver's tasks are the (j,k,l) blocks of 64 AOs, and each task loops over the i blocks. Benzene
+  (114 AOs) has 8 tasks per gradient call, and the Hessian's per-atom calls have similarly few. At 10 threads,
+  derivative J/K therefore scaled only 2.6× (gradient) and 3.2× (Hessian).
+- **Fix:** halve the blocks, down to 16 AOs, until there are at least 16 tasks per thread. The same applies to
+  `CVHFnr_direct_ex_drv`.
+- **Required alongside:** `keys_cache`, which tracks a thread's output blocks, was sized for 64-AO blocks. Smaller
+  blocks would overflow it, so the new `CVHFallocate_JKArray_bs` sizes it from the actual block size.
+  `CVHFallocate_JKArray` (64 AOs, used by `nr_sr_vhf.c`) is unchanged.
+- **Effect on results:** rounding-level only. The order in which threads write back their blocks was already
+  dynamic.
+
+### B: only the rows the pair loop reads, and diagonal blocks from translational invariance (#1, #2)
+- **Rows:** the pair loop of `_partial_hess_ejk` reads, for atom A, only the rows of the ip1ip2/ipvip1 contractions
+  that belong to atoms B ≤ A. All other rows were computed and thrown away, so every atom pair was computed twice.
+  - The ip1ip2 calls now take k shells, and the ipvip1 calls j shells, only up to the last of those atoms.
+- **Translational invariance:** when atmlst holds every atom, Σ_B ∂²E/∂R_A∂R_B = 0 at fixed density gives
+  ej[A,A] = −Σ_{B≠A} ej[A,B], and likewise ek.
+  - Then int2e_ipip1 is not computed, the rows of A itself are dropped, and the first atom needs no call at all.
+  - With a subset of atoms, ipip1 still gives the diagonal blocks.
+- **One function for all callers:** `hessian.rhf._partial_hess_2e(mol, dm_j, dms_k, k_fac, atmlst, with_j,
+  with_k, omega)` serves:
+  - RHF `_partial_hess_ejk`;
+  - UHF `_partial_hess_ejk`, with dms_k = [dm0a, dm0b] and k_fac = 2;
+  - the long-range K of range-separated hybrids in `rks`/`uks.partial_hess_elec`, which was mixed into veff with
+    the XC terms and is now `de2 -= (alpha-hyb) * ek_lr`.
+  - XC has no grid response here, so it is not translation-invariant and keeps its own diagonal terms.
+
+### C: `hess_elec` with GEMMs (#3)
+- **Before:** `hess_elec` rebuilt dm1[B] = mo1[B] Cᵀ and its energy-weighted version for every pair (A,B), with
+  `numpy.einsum` (three operands, no BLAS).
+- **Now:** `_hess_elec_mo1` forms once per atom h1ao[A] C − s1ao[A] C e and Cᵀ s1ao[A] C, then two GEMMs against
+  all stacked mo1[B] and mo_e1[B]. It is used by RHF and per spin by UHF.
+- The lower-triangle-plus-mirror convention is kept.
+
+**Exactness** (`bench/diag/hess_ejk_check.py`, 1 thread, against copies of the replaced code):
+- Off-diagonal blocks are identical bit for bit, for RHF and UHF, J only, range-separated K, and all-atom,
+  reversed and subset atom lists. The subset path is bit-for-bit identical everywhere.
+- Diagonal blocks from translational invariance:
+
+  | system | ej | ek | long-range K |
+  |---|---|---|---|
+  | water | 8.1e-13 (max \|ej\| 7.3) | 6.7e-13 (max \|ek\| 1.1) | ≤ 5.2e-14 (water and ethylene) |
+  | ethylene | 1.1e-12 (max \|ej\| 13.2) | 6.4e-13 | |
+  | ethylene⁺ UHF | 2.8e-12 | 2.2e-13 | |
+  | benzene | 7.3e-12 (max \|ej\| 22.5) | 1.2e-12 | |
+
+  - This is the integrals' own translational-invariance error, not summation order.
+  - It stays below the Hessian spread between builds that It7 and It8 recorded (up to 1.5e-10).
+- `hess_elec` terms: ≤ 4.3e-16.
+- 1 thread, benzene:
+  - two-electron blocks 31.45 → 10.92 s (2.9×); J only 27.52 → 9.40 s;
+  - `hess_elec` terms 0.23 → 0.003 s.
+
+**Gate**
+- Kernel tests pass.
+- Tight validation passes on the hessian, full and sparse suites:
+  - water Hessians (all functional types, RKS/UKS, DF) within 8.6e-12–1.8e-11, DF 6.7e-11 (as in It13);
+  - benzene Hessians 6.9–7.3e-12 (4.3e-12 in It13; the new part is the translational-invariance diagonal);
+  - caffeine gradient 1.6e-12.
+- Upstream tests: 850 passed, 4 failed (the known xcfun failures).
+
+**Timings** (P = `pyscf-it13`, N = It14; 10 threads; `PYSCF_MAX_MEMORY=20000`; medians of 3 ABBA runs,
+`results/20261029-211033_it14-hess-grad.json`; caffeine: means of 2,
+`results/20261029-212113_it14-hess-caffeine.json`). J/K is the harness's `jk` category.
+
+| case | P (s) | N (s) | | J/K P → N (s) |
+|---|---|---|---|---|
+| hess_benzene_svp_b3lyp | 17.98 | 8.28 | 2.17× | 11.93 → 2.63 |
+| hess_benzene_svp_pbe | 16.12 | 7.61 | 2.12× | 10.26 → 2.14 |
+| hess_benzene_svp_r2scan | 20.12 | 12.05 | 1.67× | 10.10 → 2.16 |
+| grad_benzene_svp_b3lyp | 1.45 | 0.71 | 2.04× | 1.30 → 0.57 |
+| grad_caffeine_svp_b3lyp | 8.11 | 7.67 | 1.06× | 7.48 → 7.00 |
+| grad_c20h42_svp_b3lyp | 29.11 | 29.21 | 1.00× | 27.44 → 27.44 (64-AO blocks kept: 288 tasks) |
+| hess_caffeine_svp_b3lyp | 180.8 | 105.0 | 1.72× | 115.8 → 52.0 |
+| hess_caffeine_svp_r2scan | 201.0 | 135.0 | 1.49× | 93.0 → 38.6 |
+
+- **`hess_elec`:** the harness's `numpy` category (mostly the einsums) drops from 15.2 to 3.7 s (caffeine
+  B3LYP) and from 16.7 to 5.2 s (r2SCAN).
+- **Against the swarm's estimate:** it predicted 181 → 105–119 s for the caffeine B3LYP Hessian; the result is
+  105 s.
+- **What is left in the Hessians:** the CPHF XC response is unchanged (caffeine: 44.6 s B3LYP, 86.0 s r2SCAN).
+  - For B3LYP it now nearly equals J/K (52 s), and for r2SCAN it is the largest part.
+  - On benzene, XC (3.9 s B3LYP, 7.5 s r2SCAN) exceeds J/K (2.1–2.6 s).
+- **Unit test:** `test_partial_hess_2e_translational_invariance` (`hessian/test/test_rhf.py`) checks that the
+  diagonal blocks from translational invariance equal those from int2e_ipip1 to 1e-9, for RHF, UHF-type spin
+  densities and range-separated K.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are

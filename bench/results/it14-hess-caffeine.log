@@ -1,0 +1,9 @@
+hess_caffeine_svp_b3lyp           P rep0   180.69s  core=Cooperlake  jk=115.75  xc_kernels=44.81  numpy=15.17
+hess_caffeine_svp_b3lyp           N rep0   105.33s  core=Cooperlake  jk=52.36  xc_kernels=44.50  numpy=3.68
+hess_caffeine_svp_b3lyp           N rep1   104.72s  core=Cooperlake  jk=51.61  xc_kernels=44.61  numpy=3.66
+hess_caffeine_svp_b3lyp           P rep1   180.93s  core=Cooperlake  jk=115.92  xc_kernels=44.86  numpy=15.18
+hess_caffeine_svp_r2scan          P rep0   200.81s  core=Cooperlake  jk=93.03  xc_kernels=85.97  numpy=16.63
+hess_caffeine_svp_r2scan          N rep0   135.18s  core=Cooperlake  xc_kernels=85.69  jk=39.05  numpy=5.21
+hess_caffeine_svp_r2scan          N rep1   134.81s  core=Cooperlake  xc_kernels=86.26  jk=38.20  numpy=5.15
+hess_caffeine_svp_r2scan          P rep1   201.21s  core=Cooperlake  jk=93.00  xc_kernels=86.17  numpy=16.69
+saved /home/danny/Chemistry/my-pyscf/bench/results/20261029-212113_it14-hess-caffeine.json
