@@ -1794,6 +1794,7 @@ vectors, about 100 ms per vector on the dm path (`td_fxc_calls.py`). On benzene 
 - A deterministic dynamic schedule would need per-slot sums (a fixed partition of the groups into slots, taken
   dynamically, each summed into its own buffer, and the buffers added in slot order). That is swarm #19, larger
   than its estimate of 1–2.5%.
+- The user chose to keep the static schedule for now (2026-10-30).
 
 ### It16 → It17
 P = `pyscf-it16` (`0835ee427`), N = `perf` `1e31fb4d1`; 10 threads, `PYSCF_MAX_MEMORY=20000`, means of 2 interleaved
