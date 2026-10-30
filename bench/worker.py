@@ -179,7 +179,7 @@ def main():
     libs = loaded_libs()
     record = {
         'case': name, 'tight': tight, 'wall': wall, 'values': values,
-        'categories': categorize(stats), 'top': top_functions(stats),
+        'categories': categorize(stats), 'top': top_functions(stats, int(os.environ.get('BENCH_TOP', 12))),
         'pyscf_file': pyscf.__file__, 'pyscf_version': pyscf.__version__,
         'omp_threads': lib.num_threads(), 'libs': libs, 'blas_core': blas_core(libs),
         'max_rss_mb': __import__('resource').getrusage(0).ru_maxrss / 1024,

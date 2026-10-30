@@ -1,0 +1,811 @@
+profile-it13 2026-10-29 18:09:28, 10 threads, shas {'workspace': 'd056590af3-dirty', 'pyscf': 'd88076cb8f', 'pyscf-base': '44313dfb45', 'libcint': '42ec76d6b5', 'qcint': 'a95651f0ec', 'libxc': 'f1eb21e8d6', 'OpenBLAS': 'e0166008be'}
+
+== scf_caffeine_svp_pbe [N]  wall 10.22 s  rss 4122 MB
+   categories (s): xc_kernels 5.71, jk 1.91, libxc 0.88, other 0.81, linalg 0.34, numpy 0.25, grids 0.12, blas 0.06, ints1e 0.05, ao_eval 0.04, xc_post 0.03
+   top functions by self time (s, calls):
+        2.879       90  dft/numint.py:1149(dot)
+        2.832       90  dft/numint.py:1077(_rho_kernel)
+        1.037       18  scf/_vhf.py:509(_incore_s8_batch)
+        0.879       90  dft/libxc.py:1077(_eval_xc)
+        0.873        1  gto/moleintor.py:601(getints4c)
+        0.341       34  linalg/_decomp.py:311(eigh)
+        0.277       54  gto/mole.py:2097(get_overlap_cond)
+        0.237       36  lib/numpy_helper.py:1226(condense)
+        0.171       19  <method 'argsort' of 'numpy.ndarray' objects>
+        0.107       18  dft/numint.py:1295(nr_rks)
+        0.102       24  dft/gen_grid.py:376(gen_grid_partition)
+        0.063       61  lib/numpy_helper.py:980(_dgemm)
+        0.045        5  gto/moleintor.py:473(getints2c)
+        0.039        1  dft/numint.py:983(build_radial)
+        0.037      189  <method 'dot' of 'numpy.ndarray' objects>
+        0.031       90  dft/xc_deriv.py:489(_unfold_gga)
+        0.025       68  _core/numeric.py:2471(array_equal)
+        0.025       18  lib/numpy_helper.py:374(unpack_tril)
+        0.024        4  <method 'split' of 're.Pattern' objects>
+        0.011      418  <method 'reduce' of 'numpy.ufunc' objects>
+        0.010        1  dft/gen_grid.py:630(_select_grids)
+        0.008      349  <built-in method numpy.zeros>
+        0.008     3026  ctypes/__init__.py:520(cast)
+        0.007        1  lib/_arraysetops_impl.py:350(_unique1d)
+        0.007        1  gto/eval_gto.py:165(make_screen_index)
+        0.006      180  dft/numint.py:1046(_args)
+        0.005       18  dft/numint.py:1063(_occupied)
+        0.005        1  dft/gen_grid.py:447(arg_group_grids)
+        0.005       15  lib/diis.py:244(extrapolate)
+        0.004      159  <built-in method numpy._core._multiarray_umath.c_einsum>
+
+== scf_caffeine_svp_b3lyp [N]  wall 10.03 s  rss 4125 MB
+   categories (s): xc_kernels 5.16, jk 2.34, other 0.78, libxc 0.67, linalg 0.41, numpy 0.31, grids 0.14, blas 0.10, ao_eval 0.04, xc_post 0.03, ints1e 0.02
+   top functions by self time (s, calls):
+        2.662       85  dft/numint.py:1149(dot)
+        2.499       85  dft/numint.py:1077(_rho_kernel)
+        1.392       17  scf/_vhf.py:509(_incore_s8_batch)
+        0.952        1  gto/moleintor.py:601(getints4c)
+        0.672       85  dft/libxc.py:1077(_eval_xc)
+        0.411       32  linalg/_decomp.py:311(eigh)
+        0.261       51  gto/mole.py:2097(get_overlap_cond)
+        0.218       34  lib/numpy_helper.py:1226(condense)
+        0.183       18  <method 'argsort' of 'numpy.ndarray' objects>
+        0.121       24  dft/gen_grid.py:376(gen_grid_partition)
+        0.099       17  dft/numint.py:1295(nr_rks)
+        0.099       57  lib/numpy_helper.py:980(_dgemm)
+        0.080      178  <method 'dot' of 'numpy.ndarray' objects>
+        0.041        1  dft/numint.py:983(build_radial)
+        0.038       17  lib/numpy_helper.py:374(unpack_tril)
+        0.030       85  dft/xc_deriv.py:489(_unfold_gga)
+        0.027       64  _core/numeric.py:2471(array_equal)
+        0.027        4  <method 'split' of 're.Pattern' objects>
+        0.018        5  gto/moleintor.py:473(getints2c)
+        0.010        1  dft/gen_grid.py:630(_select_grids)
+        0.009      348  <built-in method numpy.zeros>
+        0.008      432  <method 'reduce' of 'numpy.ufunc' objects>
+        0.008     2877  ctypes/__init__.py:520(cast)
+        0.008        1  lib/_arraysetops_impl.py:350(_unique1d)
+        0.007        1  gto/eval_gto.py:165(make_screen_index)
+        0.006      173  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.006      170  dft/numint.py:1046(_args)
+        0.005        1  dft/gen_grid.py:447(arg_group_grids)
+        0.005       14  lib/diis.py:244(extrapolate)
+        0.004      110  <method 'cumsum' of 'numpy.ndarray' objects>
+
+== scf_caffeine_svp_r2scan [N]  wall 11.67 s  rss 4131 MB
+   categories (s): xc_kernels 6.99, jk 1.85, libxc 1.05, other 0.77, linalg 0.45, numpy 0.25, grids 0.12, ints1e 0.06, blas 0.04, ao_eval 0.04, xc_post 0.04
+   top functions by self time (s, calls):
+        4.779       80  dft/numint.py:1149(dot)
+        2.215       80  dft/numint.py:1077(_rho_kernel)
+        1.050       80  dft/libxc.py:1077(_eval_xc)
+        0.986        1  gto/moleintor.py:601(getints4c)
+        0.862       16  scf/_vhf.py:509(_incore_s8_batch)
+        0.449       30  linalg/_decomp.py:311(eigh)
+        0.265       48  gto/mole.py:2097(get_overlap_cond)
+        0.241       32  lib/numpy_helper.py:1226(condense)
+        0.190       17  <method 'argsort' of 'numpy.ndarray' objects>
+        0.103       24  dft/gen_grid.py:376(gen_grid_partition)
+        0.090       16  dft/numint.py:1295(nr_rks)
+        0.058        5  gto/moleintor.py:473(getints2c)
+        0.044       53  lib/numpy_helper.py:980(_dgemm)
+        0.040        1  dft/numint.py:983(build_radial)
+        0.035       80  dft/xc_deriv.py:489(_unfold_gga)
+        0.028       60  _core/numeric.py:2471(array_equal)
+        0.024      167  <method 'dot' of 'numpy.ndarray' objects>
+        0.019       16  lib/numpy_helper.py:374(unpack_tril)
+        0.018        4  <method 'split' of 're.Pattern' objects>
+        0.010        1  dft/gen_grid.py:630(_select_grids)
+        0.009        1  gto/eval_gto.py:165(make_screen_index)
+        0.008      378  <method 'reduce' of 'numpy.ufunc' objects>
+        0.008      329  <built-in method numpy.zeros>
+        0.007     2782  ctypes/__init__.py:520(cast)
+        0.007        1  lib/_arraysetops_impl.py:350(_unique1d)
+        0.005      160  dft/numint.py:1046(_args)
+        0.004        1  dft/gen_grid.py:447(arg_group_grids)
+        0.004       16  lib/numpy_helper.py:764(hermi_sum)
+        0.004       56  <built-in method time.process_time>
+        0.003        1  scf/addons.py:369(project_mo_nr2nr)
+
+== scf_caffeine_svp_camb3lyp [N]  wall 10.69 s  rss 6544 MB
+   categories (s): jk 4.66, xc_kernels 3.95, libxc 0.60, other 0.58, linalg 0.35, numpy 0.28, grids 0.13, ao_eval 0.04, ints1e 0.04, xc_post 0.03, blas 0.02
+   top functions by self time (s, calls):
+        2.585       15  scf/_vhf.py:582(_direct_s8_batch)
+        2.142       75  dft/numint.py:1149(dot)
+        1.808       75  dft/numint.py:1077(_rho_kernel)
+        1.122       15  scf/_vhf.py:509(_incore_s8_batch)
+        0.939        1  gto/moleintor.py:601(getints4c)
+        0.598       75  dft/libxc.py:1077(_eval_xc)
+        0.353       28  linalg/_decomp.py:311(eigh)
+        0.195       45  gto/mole.py:2097(get_overlap_cond)
+        0.171       17  <method 'argsort' of 'numpy.ndarray' objects>
+        0.170       30  lib/numpy_helper.py:1226(condense)
+        0.107       24  dft/gen_grid.py:376(gen_grid_partition)
+        0.080      156  <method 'dot' of 'numpy.ndarray' objects>
+        0.063       15  dft/numint.py:1295(nr_rks)
+        0.038        1  dft/numint.py:983(build_radial)
+        0.035        5  gto/moleintor.py:473(getints2c)
+        0.025       75  dft/xc_deriv.py:489(_unfold_gga)
+        0.023      101  _core/numeric.py:2471(array_equal)
+        0.021       49  lib/numpy_helper.py:980(_dgemm)
+        0.017        4  <method 'split' of 're.Pattern' objects>
+        0.015       15  lib/numpy_helper.py:374(unpack_tril)
+        0.011        1  scf/_vhf.py:299(__init__)
+        0.010        1  dft/gen_grid.py:630(_select_grids)
+        0.008     2785  ctypes/__init__.py:520(cast)
+        0.007      328  <built-in method numpy.zeros>
+        0.007        1  gto/eval_gto.py:165(make_screen_index)
+        0.006      467  <method 'reduce' of 'numpy.ufunc' objects>
+        0.005      165  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.005        1  dft/gen_grid.py:447(arg_group_grids)
+        0.004      150  dft/numint.py:1046(_args)
+        0.004       15  dft/rks.py:37(get_veff)
+
+== scf_caffeine_tzvp_dfpbe [N]  wall 14.96 s  rss 2299 MB
+   categories (s): xc_kernels 10.89, other 1.32, linalg 0.83, numpy 0.76, libxc 0.51, jk 0.28, grids 0.13, blas 0.09, ints1e 0.06, ao_eval 0.05, xc_post 0.03
+   top functions by self time (s, calls):
+        6.921       90  dft/numint.py:1149(dot)
+        3.971       90  dft/numint.py:1077(_rho_kernel)
+        0.824       34  linalg/_decomp.py:311(eigh)
+        0.536      333  <method 'dot' of 'numpy.ndarray' objects>
+        0.514       90  dft/libxc.py:1077(_eval_xc)
+        0.337        1  df/incore.py:129(cholesky_eri)
+        0.301       54  gto/mole.py:2097(get_overlap_cond)
+        0.282        1  gto/moleintor.py:528(getints3c)
+        0.244       36  lib/numpy_helper.py:1226(condense)
+        0.171       19  <method 'argsort' of 'numpy.ndarray' objects>
+        0.125       18  dft/numint.py:1295(nr_rks)
+        0.110       24  dft/gen_grid.py:376(gen_grid_partition)
+        0.089       61  lib/numpy_helper.py:980(_dgemm)
+        0.055        1  dft/numint.py:983(build_radial)
+        0.042       18  lib/numpy_helper.py:374(unpack_tril)
+        0.042        7  gto/moleintor.py:473(getints2c)
+        0.040       68  _core/numeric.py:2471(array_equal)
+        0.033        2  <built-in method scipy.linalg._batched_linalg._cholesky>
+        0.026       90  dft/xc_deriv.py:489(_unfold_gga)
+        0.024       12  <method 'split' of 're.Pattern' objects>
+        0.013       18  df/df_jk.py:303(get_jk)
+        0.011        8  gto/moleintor.py:821(make_cintopt)
+        0.011       15  lib/diis.py:244(extrapolate)
+        0.011       33  scf/hf.py:1098(get_fock)
+        0.010      459  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.010      526  <method 'reduce' of 'numpy.ufunc' objects>
+        0.010       17  scf/hf.py:1393(_adjust_phase_)
+        0.010        1  dft/gen_grid.py:630(_select_grids)
+        0.009      397  <built-in method numpy.zeros>
+        0.008        1  gto/eval_gto.py:165(make_screen_index)
+
+== scf_caffeine_tzvp_b3lyp [N]  wall 81.18 s  rss 14444 MB
+   categories (s): jk 69.28, xc_kernels 9.62, linalg 0.65, other 0.56, libxc 0.40, numpy 0.33, grids 0.13, blas 0.08, ao_eval 0.05, ints1e 0.03, xc_post 0.03
+   top functions by self time (s, calls):
+       68.769       16  scf/_vhf.py:582(_direct_s8_batch)
+        6.286       80  dft/numint.py:1149(dot)
+        3.336       80  dft/numint.py:1077(_rho_kernel)
+        0.653       30  linalg/_decomp.py:311(eigh)
+        0.398       80  dft/libxc.py:1077(_eval_xc)
+        0.313        1  scf/_vhf.py:299(__init__)
+        0.189        1  scf/_vhf.py:365(semi_direct_eri)
+        0.174       18  <method 'argsort' of 'numpy.ndarray' objects>
+        0.128       48  gto/mole.py:2097(get_overlap_cond)
+        0.118       16  dft/numint.py:1295(nr_rks)
+        0.108       24  dft/gen_grid.py:376(gen_grid_partition)
+        0.092      167  <method 'dot' of 'numpy.ndarray' objects>
+        0.087       32  lib/numpy_helper.py:1226(condense)
+        0.076       53  lib/numpy_helper.py:980(_dgemm)
+        0.049        1  dft/numint.py:983(build_radial)
+        0.027        5  gto/moleintor.py:473(getints2c)
+        0.024       80  dft/xc_deriv.py:489(_unfold_gga)
+        0.024      108  _core/numeric.py:2471(array_equal)
+        0.021        4  <method 'split' of 're.Pattern' objects>
+        0.016       16  lib/numpy_helper.py:764(hermi_sum)
+        0.016      169  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.015       16  dft/rks.py:37(get_veff)
+        0.012       13  lib/diis.py:244(extrapolate)
+        0.011       29  scf/hf.py:1098(get_fock)
+        0.010        1  dft/gen_grid.py:630(_select_grids)
+        0.009      316  <built-in method numpy.zeros>
+        0.009       15  scf/hf.py:1393(_adjust_phase_)
+        0.009      479  <method 'reduce' of 'numpy.ufunc' objects>
+        0.009     2827  ctypes/__init__.py:520(cast)
+        0.008        1  gto/eval_gto.py:165(make_screen_index)
+
+== scf_caffeine+_svp_b3lyp_uks [N]  wall 21.16 s  rss 4157 MB
+   categories (s): xc_kernels 9.87, jk 6.43, other 1.53, libxc 1.52, linalg 0.56, numpy 0.49, blas 0.42, grids 0.12, xc_post 0.12, ao_eval 0.04, ints1e 0.04
+   top functions by self time (s, calls):
+        5.502       25  scf/_vhf.py:509(_incore_s8_batch)
+        5.295      125  dft/numint.py:1149(dot)
+        4.575      125  dft/numint.py:1077(_rho_kernel)
+        1.525      125  dft/libxc.py:1077(_eval_xc)
+        0.931        1  gto/moleintor.py:601(getints4c)
+        0.563       72  linalg/_decomp.py:311(eigh)
+        0.544      125  gto/mole.py:2097(get_overlap_cond)
+        0.475      100  lib/numpy_helper.py:1226(condense)
+        0.419      177  lib/numpy_helper.py:980(_dgemm)
+        0.208       25  dft/numint.py:1317(nr_uks)
+        0.188      408  <method 'dot' of 'numpy.ndarray' objects>
+        0.170       50  <method 'argsort' of 'numpy.ndarray' objects>
+        0.117      125  dft/xc_deriv.py:489(_unfold_gga)
+        0.102       24  dft/gen_grid.py:376(gen_grid_partition)
+        0.063     1951  <built-in method numpy.asarray>
+        0.042       25  lib/numpy_helper.py:374(unpack_tril)
+        0.038        1  dft/numint.py:983(build_radial)
+        0.036       96  _core/numeric.py:2471(array_equal)
+        0.030        6  gto/moleintor.py:473(getints2c)
+        0.030       25  dft/numint.py:1996(nr_uks)
+        0.019      599  <built-in method numpy.zeros>
+        0.017        4  <method 'split' of 're.Pattern' objects>
+        0.015      878  <method 'reduce' of 'numpy.ufunc' objects>
+        0.013     4875  ctypes/__init__.py:520(cast)
+        0.010       22  lib/diis.py:244(extrapolate)
+        0.009        1  dft/gen_grid.py:630(_select_grids)
+        0.008        1  scf/hf.py:49(kernel)
+        0.008      250  dft/numint.py:1046(_args)
+        0.007      254  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.007       25  dft/uks.py:30(get_veff)
+
+== scf_benzene+_svp_r2scan_uks [N]  wall 4.09 s  rss 463 MB
+   categories (s): xc_kernels 2.05, libxc 1.08, other 0.47, numpy 0.15, jk 0.14, linalg 0.07, xc_post 0.07, grids 0.02, ints1e 0.02, ao_eval 0.02
+   top functions by self time (s, calls):
+        1.565       39  dft/numint.py:1149(dot)
+        1.085       39  dft/libxc.py:1077(_eval_xc)
+        0.483       39  dft/numint.py:1077(_rho_kernel)
+        0.155       65  gto/mole.py:2097(get_overlap_cond)
+        0.146       52  lib/numpy_helper.py:1226(condense)
+        0.105       26  <method 'argsort' of 'numpy.ndarray' objects>
+        0.084        1  gto/moleintor.py:601(getints4c)
+        0.071       13  dft/numint.py:1317(nr_uks)
+        0.069       36  linalg/_decomp.py:311(eigh)
+        0.066       39  dft/xc_deriv.py:489(_unfold_gga)
+        0.052       13  scf/_vhf.py:509(_incore_s8_batch)
+        0.022      884  <built-in method numpy.asarray>
+        0.020       13  dft/numint.py:1996(nr_uks)
+        0.017        6  gto/moleintor.py:473(getints2c)
+        0.016        1  dft/numint.py:983(build_radial)
+        0.014       12  dft/gen_grid.py:376(gen_grid_partition)
+        0.012        2  <method 'split' of 're.Pattern' objects>
+        0.009      204  <method 'dot' of 'numpy.ndarray' objects>
+        0.008       48  _core/numeric.py:2471(array_equal)
+        0.005      285  <built-in method numpy.zeros>
+        0.005       81  lib/numpy_helper.py:980(_dgemm)
+        0.005        1  dft/gen_grid.py:630(_select_grids)
+        0.004     1931  ctypes/__init__.py:520(cast)
+        0.004        1  dft/gen_grid.py:447(arg_group_grids)
+        0.003      378  <method 'reduce' of 'numpy.ufunc' objects>
+        0.003       39  dft/numint.py:1391(_dot_wv)
+        0.002       78  dft/numint.py:1046(_args)
+        0.002      368  <built-in method numpy.empty>
+        0.002        1  gto/eval_gto.py:165(make_screen_index)
+        0.002     1996  _core/_internal.py:262(__init__)
+
+== grad_benzene_svp_b3lyp [N]  wall 1.46 s  rss 438 MB
+   categories (s): jk 1.30, xc_kernels 0.12, other 0.03
+   top functions by self time (s, calls):
+        1.298        1  scf/_vhf.py:806(nr_direct_drv)
+        0.112        3  dft/numint.py:1168(dot_terms)
+        0.012        3  dft/numint.py:1077(_rho_kernel)
+        0.007      108  <built-in method marshal.loads>
+        0.005        3  dft/libxc.py:1077(_eval_xc)
+        0.003       15  gto/moleintor.py:473(getints2c)
+        0.002        1  grad/rhf.py:173(_calc_q_cond)
+        0.002      108  <built-in method _io.open_code>
+        0.002      136  <built-in method builtins.__build_class__>
+        0.001      108  <frozen importlib._bootstrap_external>:755(_compile_bytecode)
+        0.001        1  dft/numint.py:1187(get_vxc_grad)
+        0.001       12  grad/rhf.py:156(hcore_deriv)
+        0.001      412  <built-in method posix.stat>
+        0.001        3  dft/xc_deriv.py:489(_unfold_gga)
+        0.001        4  _core/numeric.py:2471(array_equal)
+        0.001      109  <frozen importlib._bootstrap_external>:1597(find_spec)
+        0.001      232  <frozen importlib._bootstrap>:304(acquire)
+        0.001        1  multigrid/_backend_c.py:1(<module>)
+        0.001      108  <method 'read' of '_io.BufferedReader' objects>
+        0.000      109  <frozen importlib._bootstrap>:1240(_find_spec)
+        0.000      257  ctypes/__init__.py:520(cast)
+        0.000      670  <frozen importlib._bootstrap_external>:126(_path_join)
+        0.000      108  <frozen importlib._bootstrap_external>:1066(get_code)
+        0.000       16  gto/moleintor.py:821(make_cintopt)
+        0.000      216  <frozen importlib._bootstrap_external>:486(cache_from_source)
+        0.000       38  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.000      110  <frozen importlib._bootstrap>:1349(_find_and_load)
+        0.000      110  <frozen importlib._bootstrap>:1304(_find_and_load_unlocked)
+        0.000      109  <built-in method builtins.exec>
+        0.000      527  <frozen importlib._bootstrap>:1390(_handle_fromlist)
+
+== grad_caffeine_svp_b3lyp [N]  wall 8.14 s  rss 4149 MB
+   categories (s): jk 7.48, xc_kernels 0.57, other 0.05, ints1e 0.02, libxc 0.01
+   top functions by self time (s, calls):
+        7.482        1  scf/_vhf.py:806(nr_direct_drv)
+        0.503        5  dft/numint.py:1168(dot_terms)
+        0.071        5  dft/numint.py:1077(_rho_kernel)
+        0.021       27  gto/moleintor.py:473(getints2c)
+        0.009        1  grad/rhf.py:173(_calc_q_cond)
+        0.009        5  dft/libxc.py:1077(_eval_xc)
+        0.007      108  <built-in method marshal.loads>
+        0.007       24  grad/rhf.py:156(hcore_deriv)
+        0.003       74  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.002      136  <built-in method builtins.__build_class__>
+        0.001        1  dft/numint.py:1187(get_vxc_grad)
+        0.001        5  dft/xc_deriv.py:489(_unfold_gga)
+        0.001       28  gto/moleintor.py:821(make_cintopt)
+        0.001        4  _core/numeric.py:2471(array_equal)
+        0.001      413  ctypes/__init__.py:520(cast)
+        0.001      108  <frozen importlib._bootstrap_external>:755(_compile_bytecode)
+        0.001      412  <built-in method posix.stat>
+        0.001      108  <built-in method _io.open_code>
+        0.001      232  <frozen importlib._bootstrap>:304(acquire)
+        0.001      109  <frozen importlib._bootstrap_external>:1597(find_spec)
+        0.001      109  <frozen importlib._bootstrap>:1240(_find_spec)
+        0.001        1  grad/rhf.py:33(grad_elec)
+        0.001      108  <method 'read' of '_io.BufferedReader' objects>
+        0.000      670  <frozen importlib._bootstrap_external>:126(_path_join)
+        0.000      108  <frozen importlib._bootstrap_external>:1066(get_code)
+        0.000        1  grad/rks.py:33(get_veff)
+        0.000      216  <frozen importlib._bootstrap_external>:486(cache_from_source)
+        0.000      109  <built-in method builtins.exec>
+        0.000      110  <frozen importlib._bootstrap>:1349(_find_and_load)
+        0.000       51  <built-in method numpy.zeros>
+
+== tda_benzene_svp_b3lyp [N]  wall 3.03 s  rss 687 MB
+   categories (s): xc_kernels 2.35, jk 0.22, numpy 0.18, other 0.16, libxc 0.07, xc_post 0.03, blas 0.02, linalg 0.01
+   top functions by self time (s, calls):
+        1.222       21  dft/numint.py:1149(dot)
+        1.123       24  dft/numint.py:1077(_rho_kernel)
+        0.221        7  scf/_vhf.py:509(_incore_s8_batch)
+        0.154      320  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.075        1  dft/libxc.py:1077(_eval_xc)
+        0.047        7  dft/numint.py:1346(rks_fxc)
+        0.023        3  dft/xc_deriv.py:489(_unfold_gga)
+        0.020       28  lib/numpy_helper.py:980(_dgemm)
+        0.018        7  tdscf/_lr_eig.py:783(_qr)
+        0.013        7  dft/numint.py:2440(nr_rks_fxc_st)
+        0.012     6818  <method 'dot' of 'numpy.ndarray' objects>
+        0.011      208  lib/numpy_helper.py:1226(condense)
+        0.008       21  lib/numpy_helper.py:764(hermi_sum)
+        0.007       21  gto/mole.py:2097(get_overlap_cond)
+        0.006       32  _core/numeric.py:2471(array_equal)
+        0.005       21  dft/numint.py:1391(_dot_wv)
+        0.004     1223  <built-in method numpy.asarray>
+        0.004        7  linalg/_decomp.py:311(eigh)
+        0.004        2  dft/xc_deriv.py:539(transform_xc)
+        0.003        1  dft/libxc.py:1047(eval_xc1)
+        0.003     1532  ctypes/__init__.py:520(cast)
+        0.003       28  _core/shape_base.py:218(vstack)
+        0.003        1  tdscf/_lr_eig.py:27(eigh)
+        0.003        1  bench/cases.py:107(run)
+        0.002      268  <built-in method numpy.zeros>
+        0.002        1  scf/_response_functions.py:30(_gen_rhf_response)
+        0.002        7  scf/_response_functions.py:161(vind)
+        0.002       14  dft/numint.py:3663(_rho_setup)
+        0.002     1576  _core/_internal.py:262(__init__)
+        0.002      312  <built-in method numpy.empty>
+
+== tda_caffeine_svp_b3lyp [N]  wall 25.25 s  rss 4664 MB
+   categories (s): xc_kernels 18.05, jk 5.56, other 0.77, numpy 0.63, blas 0.11, libxc 0.07, xc_post 0.05, linalg 0.02
+   top functions by self time (s, calls):
+        9.349       50  dft/numint.py:1149(dot)
+        8.698       55  dft/numint.py:1077(_rho_kernel)
+        5.554       10  scf/_vhf.py:509(_incore_s8_batch)
+        0.451      811  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.226      320  lib/numpy_helper.py:1226(condense)
+        0.147       10  dft/numint.py:1346(rks_fxc)
+        0.111       40  lib/numpy_helper.py:980(_dgemm)
+        0.099    27520  <method 'dot' of 'numpy.ndarray' objects>
+        0.090       10  tdscf/_lr_eig.py:783(_qr)
+        0.067        1  dft/libxc.py:1077(_eval_xc)
+        0.060       10  dft/numint.py:2440(nr_rks_fxc_st)
+        0.044     2063  <built-in method numpy.asarray>
+        0.044       40  _core/shape_base.py:218(vstack)
+        0.038        3  dft/xc_deriv.py:489(_unfold_gga)
+        0.031       30  lib/numpy_helper.py:764(hermi_sum)
+        0.026       30  gto/mole.py:2097(get_overlap_cond)
+        0.026        1  tdscf/_lr_eig.py:27(eigh)
+        0.023       10  scf/_response_functions.py:161(vind)
+        0.014       44  _core/numeric.py:2471(array_equal)
+        0.014       50  dft/numint.py:1391(_dot_wv)
+        0.011      404  <built-in method numpy.zeros>
+        0.010       10  scf/_vhf.py:412(incore)
+        0.010       10  linalg/_decomp.py:311(eigh)
+        0.009      592  linalg/_linalg.py:2615(norm)
+        0.008      124  <method 'reduce' of 'numpy.ufunc' objects>
+        0.007       20  dft/numint.py:3663(_rho_setup)
+        0.007        2  dft/xc_deriv.py:539(transform_xc)
+        0.006     2642  ctypes/__init__.py:520(cast)
+        0.005        1  dft/libxc.py:1047(eval_xc1)
+        0.005        1  scf/_response_functions.py:30(_gen_rhf_response)
+
+== tddft_benzene_svp_b3lyp [N]  wall 8.52 s  rss 748 MB
+   categories (s): xc_kernels 6.57, jk 0.56, numpy 0.55, other 0.54, blas 0.13, linalg 0.10, libxc 0.03, xc_post 0.03
+   top functions by self time (s, calls):
+        3.495       51  dft/numint.py:1149(dot)
+        3.076       54  dft/numint.py:1077(_rho_kernel)
+        0.564       17  scf/_vhf.py:509(_incore_s8_batch)
+        0.436      960  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.137       17  dft/numint.py:1346(rks_fxc)
+        0.130      136  lib/numpy_helper.py:980(_dgemm)
+        0.111      560  lib/numpy_helper.py:1226(condense)
+        0.080      868  <method 'dot' of 'numpy.ndarray' objects>
+        0.047       51  linalg/_linalg.py:547(inv)
+        0.044       51  lib/numpy_helper.py:764(hermi_sum)
+        0.037       75  linalg/_linalg.py:1513(eigh)
+        0.037       17  dft/numint.py:2440(nr_rks_fxc_st)
+        0.033        1  dft/libxc.py:1077(_eval_xc)
+        0.022       51  gto/mole.py:2097(get_overlap_cond)
+        0.022        3  dft/xc_deriv.py:489(_unfold_gga)
+        0.021       17  <built-in method scipy.linalg._batched_linalg._lu>
+        0.016       72  _core/numeric.py:2471(array_equal)
+        0.013       51  dft/numint.py:1391(_dot_wv)
+        0.012        1  tdscf/_lr_eig.py:481(real_eig)
+        0.011     3002  <built-in method numpy.asarray>
+        0.008      529  <method 'reshape' of 'numpy.ndarray' objects>
+        0.007       50  _core/shape_base.py:218(vstack)
+        0.007     4084  ctypes/__init__.py:520(cast)
+        0.007      153  linalg/_linalg.py:3063(_multi_dot)
+        0.007       17  tdscf/rhf.py:1134(vind)
+        0.006      108  <built-in method marshal.loads>
+        0.006       17  scf/_response_functions.py:161(vind)
+        0.006      290  <method 'reduce' of 'numpy.ufunc' objects>
+        0.005       17  tdscf/_lr_eig.py:907(TDDFT_subspace_eigen_solver)
+        0.005      715  <built-in method numpy.zeros>
+
+== hess_benzene_svp_b3lyp [N]  wall 17.87 s  rss 1632 MB
+   categories (s): jk 11.61, xc_kernels 4.14, numpy 1.09, other 0.61, ao_eval 0.27, ints1e 0.10, libxc 0.03, xc_post 0.02, blas 0.01
+   top functions by self time (s, calls):
+       11.337       37  scf/_vhf.py:806(nr_direct_drv)
+        1.619       21  dft/numint.py:1224(dot_ao_mo)
+        1.246       21  dft/numint.py:1208(rho_lowrank)
+        1.049     3524  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.461        3  dft/numint.py:1659(_dot_sets_aow_ao)
+        0.268        7  scf/_vhf.py:509(_incore_s8_batch)
+        0.252        6  gto/eval_gto.py:33(eval_gto)
+        0.216       48  dft/numint.py:762(_dot_ao_dm)
+        0.195       75  dft/numint.py:804(_scale_ao)
+        0.191        3  dft/numint.py:1168(dot_terms)
+        0.184       45  dft/numint.py:717(_dot_ao_ao)
+        0.130        6  grad/rks.py:217(_make_dR_dao_w)
+        0.109        7  dft/numint.py:1262(rks_fxc_mo)
+        0.084      311  gto/moleintor.py:473(getints2c)
+        0.078        1  lib/linalg_helper.py:1221(krylov)
+        0.044       72  hessian/rks.py:300(_make_dR_rho1)
+        0.044        1  hessian/rks.py:497(_get_vxc_deriv2_dm)
+        0.028       10  dft/libxc.py:1077(_eval_xc)
+        0.026      514  <built-in method _functools.reduce>
+        0.023        6  dft/numint.py:1077(_rho_kernel)
+        0.020        1  hessian/rks.py:1246(_get_vxc_deriv1)
+        0.018       78  hessian/rhf.py:509(get_hcore)
+        0.016        1  dft/numint.py:983(build_radial)
+        0.015       24  dft/xc_deriv.py:489(_unfold_gga)
+        0.014       17  lib/numpy_helper.py:980(_dgemm)
+        0.013        7  lib/linalg_helper.py:1411(_qr)
+        0.012      348  gto/moleintor.py:821(make_cintopt)
+        0.011        1  lib/linalg_helper.py:1434(_outprod_to_subspace)
+        0.010     3963  <built-in method numpy.asarray>
+        0.009      108  <built-in method marshal.loads>
+
+== hess_benzene_svp_pbe [N]  wall 15.64 s  rss 1633 MB
+   categories (s): jk 9.80, xc_kernels 3.83, numpy 1.02, other 0.54, ao_eval 0.27, ints1e 0.11, libxc 0.03, xc_post 0.02, blas 0.02
+   top functions by self time (s, calls):
+        9.708       37  scf/_vhf.py:806(nr_direct_drv)
+        1.453       21  dft/numint.py:1224(dot_ao_mo)
+        1.104       21  dft/numint.py:1208(rho_lowrank)
+        0.987     3362  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.458        3  dft/numint.py:1659(_dot_sets_aow_ao)
+        0.257        6  gto/eval_gto.py:33(eval_gto)
+        0.223       48  dft/numint.py:762(_dot_ao_dm)
+        0.199       75  dft/numint.py:804(_scale_ao)
+        0.183       45  dft/numint.py:717(_dot_ao_ao)
+        0.182        3  dft/numint.py:1168(dot_terms)
+        0.124        6  grad/rks.py:217(_make_dR_dao_w)
+        0.094      311  gto/moleintor.py:473(getints2c)
+        0.093        7  dft/numint.py:1262(rks_fxc_mo)
+        0.092        7  scf/_vhf.py:509(_incore_s8_batch)
+        0.064        1  lib/linalg_helper.py:1221(krylov)
+        0.044       72  hessian/rks.py:300(_make_dR_rho1)
+        0.041        1  hessian/rks.py:497(_get_vxc_deriv2_dm)
+        0.030      466  <built-in method _functools.reduce>
+        0.029       10  dft/libxc.py:1077(_eval_xc)
+        0.023        6  dft/numint.py:1077(_rho_kernel)
+        0.019        1  hessian/rks.py:1246(_get_vxc_deriv1)
+        0.017       78  hessian/rhf.py:509(get_hcore)
+        0.016        1  dft/numint.py:983(build_radial)
+        0.015       17  lib/numpy_helper.py:980(_dgemm)
+        0.014       24  dft/xc_deriv.py:489(_unfold_gga)
+        0.012      348  gto/moleintor.py:821(make_cintopt)
+        0.011        7  lib/linalg_helper.py:1411(_qr)
+        0.011        1  lib/linalg_helper.py:1434(_outprod_to_subspace)
+        0.009       72  <built-in method numpy.array>
+        0.007     4803  ctypes/__init__.py:520(cast)
+
+== hess_caffeine_svp_b3lyp [N]  wall 181.18 s  rss 6624 MB
+   categories (s): jk 116.34, xc_kernels 44.70, numpy 15.16, other 3.64, ao_eval 0.88, ints1e 0.31, blas 0.09, libxc 0.04, xc_post 0.03
+   top functions by self time (s, calls):
+      107.761       73  scf/_vhf.py:806(nr_direct_drv)
+       18.631       35  dft/numint.py:1224(dot_ao_mo)
+       17.607       35  dft/numint.py:1208(rho_lowrank)
+       14.869    12229  <built-in method numpy._core._multiarray_umath.c_einsum>
+        8.567        8  scf/_vhf.py:509(_incore_s8_batch)
+        4.076        5  dft/numint.py:1659(_dot_sets_aow_ao)
+        1.186       80  dft/numint.py:762(_dot_ao_dm)
+        0.974       75  dft/numint.py:717(_dot_ao_ao)
+        0.912        1  lib/linalg_helper.py:1221(krylov)
+        0.887        5  dft/numint.py:1168(dot_terms)
+        0.882      125  dft/numint.py:804(_scale_ao)
+        0.842       10  gto/eval_gto.py:33(eval_gto)
+        0.581       10  grad/rks.py:217(_make_dR_dao_w)
+        0.407        7  dft/numint.py:1262(rks_fxc_mo)
+        0.270       15  dft/numint.py:1077(_rho_kernel)
+        0.259        8  lib/linalg_helper.py:1411(_qr)
+        0.251      300  hessian/rhf.py:509(get_hcore)
+        0.218     1187  gto/moleintor.py:473(getints2c)
+        0.196     1060  <built-in method _functools.reduce>
+        0.164        1  hessian/rks.py:497(_get_vxc_deriv2_dm)
+        0.162      240  hessian/rks.py:300(_make_dR_rho1)
+        0.151        5  dft/numint.py:1149(dot)
+        0.142        1  lib/linalg_helper.py:1434(_outprod_to_subspace)
+        0.101    11535  <built-in method numpy.asarray>
+        0.090       19  lib/numpy_helper.py:980(_dgemm)
+        0.076        1  hessian/rks.py:1246(_get_vxc_deriv1)
+        0.072     1260  gto/moleintor.py:821(make_cintopt)
+        0.058        8  hessian/rhf.py:362(fx)
+        0.057        8  scf/_response_functions.py:84(vind_jk)
+        0.056      115  <built-in method numpy.array>
+
+== grid_caffeine_svp [N]  wall 3.64 s  rss 2054 MB
+   categories (s): ao_eval 1.70, blas 1.32, xc_kernels 0.41, libxc 0.15, other 0.06, numpy 0.01
+   top functions by self time (s, calls):
+        1.698       24  gto/eval_gto.py:33(eval_gto)
+        1.316       42  lib/numpy_helper.py:980(_dgemm)
+        0.405       96  dft/numint.py:848(_contract_rho)
+        0.146       24  dft/libxc.py:1077(_eval_xc)
+        0.045        1  bench/cases.py:149(run)
+        0.010       24  dft/numint.py:133(eval_rho)
+        0.003       18  lib/numpy_helper.py:764(hermi_sum)
+        0.002      156  <built-in method numpy.asarray>
+        0.002      672  ctypes/__init__.py:520(cast)
+        0.002      228  <built-in method numpy.empty>
+        0.001       24  <built-in method numpy.zeros>
+        0.001       48  gto/moleintor.py:803(make_loc)
+        0.001      666  _core/_internal.py:262(__init__)
+        0.001       48  <method 'cumsum' of 'numpy.ndarray' objects>
+        0.001      666  _core/_internal.py:279(data_as)
+        0.001       42  dft/numint.py:762(_dot_ao_dm)
+        0.000       24  _core/numeric.py:170(ones)
+        0.000       24  dft/numint.py:64(eval_ao)
+        0.000       42  lib/numpy_helper.py:825(ddot)
+        0.000       42  lib/numpy_helper.py:915(dot)
+        0.000        3  dft/libxc.py:1274(__init__)
+        0.000       24  dft/libxc.py:724(eval_xc)
+        0.000       48  dft/libxc.py:1428(_get_xc)
+        0.000       24  <method 'reshape' of 'numpy.ndarray' objects>
+        0.000        5  dft/libxc.py:496(parse_xc)
+        0.000       84  <method 'encode' of 'str' objects>
+        0.000        8  dft/libxc.py:570(parse_token)
+        0.000       24  gto/mole.py:1499(ao_loc_nr)
+        0.000       24  <built-in method builtins.min>
+        0.000       24  <built-in method builtins.getattr>
+
+== scf_c20h42_svp_b3lyp [N]  wall 18.77 s  rss 10851 MB
+   categories (s): jk 9.84, xc_kernels 6.14, other 0.59, numpy 0.54, libxc 0.49, linalg 0.49, grids 0.42, ao_eval 0.10, ints1e 0.05, xc_post 0.04, blas 0.04
+   top functions by self time (s, calls):
+        9.750       11  scf/_vhf.py:582(_direct_s8_batch)
+        3.527      121  dft/numint.py:1149(dot)
+        2.611      121  dft/numint.py:1077(_rho_kernel)
+        0.495      121  dft/libxc.py:1077(_eval_xc)
+        0.489       20  linalg/_decomp.py:311(eigh)
+        0.395       13  <method 'argsort' of 'numpy.ndarray' objects>
+        0.371       62  dft/gen_grid.py:376(gen_grid_partition)
+        0.145       33  gto/mole.py:2097(get_overlap_cond)
+        0.131       22  lib/numpy_helper.py:1226(condense)
+        0.100        1  dft/numint.py:983(build_radial)
+        0.085        1  scf/_vhf.py:299(__init__)
+        0.071       11  dft/numint.py:1295(nr_rks)
+        0.063      112  <method 'dot' of 'numpy.ndarray' objects>
+        0.050       73  _core/numeric.py:2471(array_equal)
+        0.042        5  gto/moleintor.py:473(getints2c)
+        0.040      121  dft/xc_deriv.py:489(_unfold_gga)
+        0.038       33  lib/numpy_helper.py:980(_dgemm)
+        0.022        1  gto/eval_gto.py:165(make_screen_index)
+        0.021      426  <method 'reduce' of 'numpy.ufunc' objects>
+        0.019        1  dft/gen_grid.py:630(_select_grids)
+        0.017        2  <method 'split' of 're.Pattern' objects>
+        0.015        1  dft/gen_grid.py:447(arg_group_grids)
+        0.014        1  lib/_arraysetops_impl.py:350(_unique1d)
+        0.011       86  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.011      317  <built-in method numpy.zeros>
+        0.011       11  dft/rks.py:37(get_veff)
+        0.010     3555  ctypes/__init__.py:520(cast)
+        0.009      121  <built-in method numpy._core._multiarray_umath.count_nonzero>
+        0.008     1161  <built-in method numpy.asarray>
+        0.008        1  scf/addons.py:369(project_mo_nr2nr)
+
+== scf_c20h42_svp_r2scan [N]  wall 22.74 s  rss 10875 MB
+   categories (s): xc_kernels 12.75, jk 6.42, libxc 1.10, other 0.74, numpy 0.57, linalg 0.44, grids 0.43, ao_eval 0.10, xc_post 0.06, blas 0.06, ints1e 0.05
+   top functions by self time (s, calls):
+        8.449      132  dft/numint.py:1149(dot)
+        6.325       12  scf/_vhf.py:582(_direct_s8_batch)
+        4.296      132  dft/numint.py:1077(_rho_kernel)
+        1.104      132  dft/libxc.py:1077(_eval_xc)
+        0.442       22  linalg/_decomp.py:311(eigh)
+        0.413       14  <method 'argsort' of 'numpy.ndarray' objects>
+        0.386       62  dft/gen_grid.py:376(gen_grid_partition)
+        0.193       36  gto/mole.py:2097(get_overlap_cond)
+        0.171       24  lib/numpy_helper.py:1226(condense)
+        0.110       12  dft/numint.py:1295(nr_rks)
+        0.098        1  dft/numint.py:983(build_radial)
+        0.086        1  scf/_vhf.py:299(__init__)
+        0.072      123  <method 'dot' of 'numpy.ndarray' objects>
+        0.068       80  _core/numeric.py:2471(array_equal)
+        0.058      132  dft/xc_deriv.py:489(_unfold_gga)
+        0.057       37  lib/numpy_helper.py:980(_dgemm)
+        0.050        5  gto/moleintor.py:473(getints2c)
+        0.024        1  gto/eval_gto.py:165(make_screen_index)
+        0.019      445  <method 'reduce' of 'numpy.ufunc' objects>
+        0.018        1  dft/gen_grid.py:630(_select_grids)
+        0.016      364  <built-in method numpy.zeros>
+        0.014        1  lib/_arraysetops_impl.py:350(_unique1d)
+        0.012     4125  ctypes/__init__.py:520(cast)
+        0.012        1  dft/gen_grid.py:447(arg_group_grids)
+        0.011        2  <method 'split' of 're.Pattern' objects>
+        0.009      132  <built-in method numpy._core._multiarray_umath.count_nonzero>
+        0.009        1  dft/gen_grid.py:339(get_partition)
+        0.008      264  dft/numint.py:1046(_args)
+        0.008       21  scf/hf.py:1098(get_fock)
+        0.007       89  <built-in method numpy._core._multiarray_umath.c_einsum>
+
+== scf_c20h42_tzvp_pbe [N]  wall 159.26 s  rss 14708 MB
+   categories (s): jk 138.02, xc_kernels 16.78, linalg 1.42, numpy 0.77, libxc 0.75, other 0.64, grids 0.39, blas 0.20, ao_eval 0.14, ints1e 0.07, xc_post 0.04
+   top functions by self time (s, calls):
+      136.020       12  scf/_vhf.py:582(_direct_s8_batch)
+        9.912      132  dft/numint.py:1149(dot)
+        6.864      132  dft/numint.py:1077(_rho_kernel)
+        1.421       22  linalg/_decomp.py:311(eigh)
+        1.206        1  scf/_vhf.py:299(__init__)
+        0.776        1  scf/_vhf.py:365(semi_direct_eri)
+        0.752      132  dft/libxc.py:1077(_eval_xc)
+        0.409       14  <method 'argsort' of 'numpy.ndarray' objects>
+        0.345       62  dft/gen_grid.py:376(gen_grid_partition)
+        0.253      123  <method 'dot' of 'numpy.ndarray' objects>
+        0.202       37  lib/numpy_helper.py:980(_dgemm)
+        0.163       12  dft/numint.py:1295(nr_rks)
+        0.143        1  dft/numint.py:983(build_radial)
+        0.072       36  gto/mole.py:2097(get_overlap_cond)
+        0.063        5  gto/moleintor.py:473(getints2c)
+        0.050       24  lib/numpy_helper.py:1226(condense)
+        0.043       80  _core/numeric.py:2471(array_equal)
+        0.041        1  gto/eval_gto.py:165(make_screen_index)
+        0.039      132  dft/xc_deriv.py:489(_unfold_gga)
+        0.023        9  lib/diis.py:244(extrapolate)
+        0.022      447  <method 'reduce' of 'numpy.ufunc' objects>
+        0.021       21  scf/hf.py:1098(get_fock)
+        0.019       11  scf/hf.py:1393(_adjust_phase_)
+        0.019        1  dft/gen_grid.py:630(_select_grids)
+        0.018      352  <built-in method numpy.zeros>
+        0.017       12  lib/numpy_helper.py:764(hermi_sum)
+        0.017       89  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.015       12  scf/_vhf.py:225(set_dm)
+        0.014       12  dft/rks.py:37(get_veff)
+        0.014        1  lib/_arraysetops_impl.py:350(_unique1d)
+
+== grad_c20h42_svp_b3lyp [N]  wall 28.26 s  rss 11017 MB
+   categories (s): jk 26.55, xc_kernels 1.39, ints1e 0.15, other 0.12, numpy 0.02, libxc 0.02
+   top functions by self time (s, calls):
+       26.554        1  scf/_vhf.py:806(nr_direct_drv)
+        1.230       11  dft/numint.py:1168(dot_terms)
+        0.161       11  dft/numint.py:1077(_rho_kernel)
+        0.146       65  gto/moleintor.py:473(getints2c)
+        0.053       62  grad/rhf.py:156(hcore_deriv)
+        0.019       11  dft/libxc.py:1077(_eval_xc)
+        0.017      187  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.016        1  grad/rhf.py:173(_calc_q_cond)
+        0.009      108  <built-in method marshal.loads>
+        0.004        4  _core/numeric.py:2471(array_equal)
+        0.003       66  gto/moleintor.py:821(make_cintopt)
+        0.003        1  dft/numint.py:1187(get_vxc_grad)
+        0.003       11  dft/xc_deriv.py:489(_unfold_gga)
+        0.002      136  <built-in method builtins.__build_class__>
+        0.002        1  grad/rks.py:33(get_veff)
+        0.002      888  ctypes/__init__.py:520(cast)
+        0.002      108  <frozen importlib._bootstrap_external>:755(_compile_bytecode)
+        0.002        1  grad/rhf.py:33(grad_elec)
+        0.001       56  <built-in method numpy.zeros>
+        0.001      412  <built-in method posix.stat>
+        0.001       11  <built-in method numpy._core._multiarray_umath.count_nonzero>
+        0.001        1  grad/rhf.py:118(get_hcore)
+        0.001      840  _core/_internal.py:262(__init__)
+        0.001        1  grad/rhf.py:191(get_jk)
+        0.001      108  <built-in method _io.open_code>
+        0.001      109  <frozen importlib._bootstrap_external>:1597(find_spec)
+        0.001       22  dft/numint.py:1046(_args)
+        0.001      232  <frozen importlib._bootstrap>:304(acquire)
+        0.001       76  <method 'cumsum' of 'numpy.ndarray' objects>
+        0.001      109  <frozen importlib._bootstrap>:1240(_find_spec)
+
+== tda_c20h42_svp_pbe [N]  wall 36.79 s  rss 12131 MB
+   categories (s): xc_kernels 25.07, jk 10.13, numpy 0.68, other 0.61, libxc 0.13, xc_post 0.10, blas 0.07, linalg 0.01
+   top functions by self time (s, calls):
+       14.053       66  dft/numint.py:1149(dot)
+       11.018       77  dft/numint.py:1077(_rho_kernel)
+       10.090        6  scf/_vhf.py:582(_direct_s8_batch)
+        0.560      887  <built-in method numpy._core._multiarray_umath.c_einsum>
+        0.180        6  dft/numint.py:1346(rks_fxc)
+        0.126        1  dft/libxc.py:1077(_eval_xc)
+        0.108        6  tdscf/_lr_eig.py:783(_qr)
+        0.087        3  dft/xc_deriv.py:489(_unfold_gga)
+        0.067        6  dft/numint.py:2440(nr_rks_fxc_st)
+        0.067       24  lib/numpy_helper.py:980(_dgemm)
+        0.045     2973  <method 'dot' of 'numpy.ndarray' objects>
+        0.040       18  lib/numpy_helper.py:764(hermi_sum)
+        0.039        6  scf/_vhf.py:225(set_dm)
+        0.028     1012  <built-in method numpy.asarray>
+        0.024       46  _core/numeric.py:2471(array_equal)
+        0.024       18  _core/shape_base.py:218(vstack)
+        0.021      160  lib/numpy_helper.py:1226(condense)
+        0.018        1  tdscf/_lr_eig.py:27(eigh)
+        0.017       66  dft/numint.py:1391(_dot_wv)
+        0.016       12  dft/numint.py:3663(_rho_setup)
+        0.016        2  dft/xc_deriv.py:539(transform_xc)
+        0.015      100  <method 'reduce' of 'numpy.ufunc' objects>
+        0.012       18  gto/mole.py:2097(get_overlap_cond)
+        0.011        1  scf/_response_functions.py:30(_gen_rhf_response)
+        0.010        6  scf/_response_functions.py:161(vind)
+        0.009        1  dft/libxc.py:1047(eval_xc1)
+        0.008      151  linalg/_linalg.py:2615(norm)
+        0.007      206  <built-in method numpy.zeros>
+        0.005       77  <built-in method numpy._core._multiarray_umath.count_nonzero>
+        0.005      111  <method 'reshape' of 'numpy.ndarray' objects>
+
+== micro_gemm [N]  wall 2.88 s  rss 1045 MB
+   categories (s): blas 2.49, other 0.39
+   top functions by self time (s, calls):
+        2.491       24  lib/numpy_helper.py:980(_dgemm)
+        0.388        1  bench/cases.py:173(run)
+        0.001       24  <built-in method numpy.empty>
+        0.000       72  ctypes/__init__.py:520(cast)
+        0.000       24  lib/numpy_helper.py:825(ddot)
+        0.000       24  lib/numpy_helper.py:915(dot)
+        0.000       72  _core/_internal.py:262(__init__)
+        0.000       72  _core/_internal.py:279(data_as)
+        0.000       48  <method 'encode' of 'str' objects>
+        0.000        1  _core/_ufunc_config.py:496(inner)
+        0.000        1  <method 'disable' of '_lsprof.Profiler' objects>
+        0.000       12  <built-in method time.perf_counter>
+        0.000        2  <built-in method _abc._abc_subclasscheck>
+        0.000        1  <frozen importlib._bootstrap>:1390(_handle_fromlist)
+        0.000        1  <built-in method _abc._abc_instancecheck>
+        0.000        1  <frozen abc>:117(__instancecheck__)
+        0.000        2  <frozen abc>:121(__subclasscheck__)
+        0.000        1  python3.12/threading.py:124(RLock)
+        0.000        1  <method 'reset' of '_contextvars.ContextVar' objects>
+        0.000        1  <method 'set' of '_contextvars.ContextVar' objects>
+        0.000        1  <built-in method numpy._core._multiarray_umath._make_extobj>
+        0.000        1  <built-in method builtins.hasattr>
+        0.000        1  <built-in method builtins.isinstance>
+        0.000        1  _core/multiarray.py:197(concatenate)
+
+== micro_libxc [N]  wall 1.74 s  rss 1967 MB
+   categories (s): libxc 0.93, xc_post 0.76, other 0.04, numpy 0.01
+   top functions by self time (s, calls):
+        0.931       29  dft/libxc.py:1077(_eval_xc)
+        0.581       36  dft/xc_deriv.py:489(_unfold_gga)
+        0.178       28  dft/xc_deriv.py:539(transform_xc)
+        0.025       29  dft/libxc.py:1047(eval_xc1)
+        0.016        1  bench/cases.py:202(run)
+        0.006       28  <built-in method numpy.zeros>
+        0.001       29  dft/libxc.py:1107(eval_xc_eff)
+        0.001      208  ctypes/__init__.py:520(cast)
+        0.001       41  <built-in method numpy.empty>
+        0.000        5  dft/xc_deriv.py:454(_product_uniq_indices)
+        0.000       33  <built-in method numpy.arange>
+        0.000        4  dft/libxc.py:1274(__init__)
+        0.000      200  _core/_internal.py:262(__init__)
+        0.000       70  <method 'reshape' of 'numpy.ndarray' objects>
+        0.000       86  dft/libxc.py:1428(_get_xc)
+        0.000       28  dft/libxc.py:1056(_libxc_to_xcfun_indices)
+        0.000       20  <method 'copy' of 'numpy.ndarray' objects>
+        0.000      200  _core/_internal.py:279(data_as)
+        0.000      121  <built-in method numpy.asarray>
+        0.000       57  dft/libxc.py:313(xc_type)
+        0.000        6  _core/shape_base.py:293(hstack)
+        0.000        7  dft/libxc.py:496(parse_xc)
+        0.000       14  dft/xc_deriv.py:517(_diagonal_indices)
+        0.000      200  _core/_internal.py:358(_as_parameter_)
+        0.000       11  dft/libxc.py:570(parse_token)
+        0.000        5  _core/numeric.py:170(ones)
+        0.000      110  <built-in method math.comb>
+        0.000       36  <method 'ravel' of 'numpy.ndarray' objects>
+        0.000        5  <method 'sort' of 'numpy.ndarray' objects>
+        0.000       26  <method 'transpose' of 'numpy.ndarray' objects>

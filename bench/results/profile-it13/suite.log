@@ -1,0 +1,25 @@
+scf_caffeine_svp_pbe              N rep0    10.22s  core=Cooperlake  xc_kernels=5.71  jk=1.91  libxc=0.88
+scf_caffeine_svp_b3lyp            N rep0    10.03s  core=Cooperlake  xc_kernels=5.16  jk=2.34  other=0.78
+scf_caffeine_svp_r2scan           N rep0    11.67s  core=Cooperlake  xc_kernels=6.99  jk=1.85  libxc=1.05
+scf_caffeine_svp_camb3lyp         N rep0    10.69s  core=Cooperlake  jk=4.66  xc_kernels=3.95  libxc=0.60
+scf_caffeine_tzvp_dfpbe           N rep0    14.96s  core=Cooperlake  xc_kernels=10.89  other=1.32  linalg=0.83
+scf_caffeine_tzvp_b3lyp           N rep0    81.18s  core=Cooperlake  jk=69.28  xc_kernels=9.62  linalg=0.65
+scf_caffeine+_svp_b3lyp_uks       N rep0    21.16s  core=Cooperlake  xc_kernels=9.87  jk=6.43  other=1.53
+scf_benzene+_svp_r2scan_uks       N rep0     4.09s  core=Cooperlake  xc_kernels=2.05  libxc=1.08  other=0.47
+grad_benzene_svp_b3lyp            N rep0     1.46s  core=Cooperlake  jk=1.30  xc_kernels=0.12  other=0.03
+grad_caffeine_svp_b3lyp           N rep0     8.14s  core=Cooperlake  jk=7.48  xc_kernels=0.57  other=0.05
+tda_benzene_svp_b3lyp             N rep0     3.03s  core=Cooperlake  xc_kernels=2.35  jk=0.22  numpy=0.18
+tda_caffeine_svp_b3lyp            N rep0    25.25s  core=Cooperlake  xc_kernels=18.05  jk=5.56  other=0.77
+tddft_benzene_svp_b3lyp           N rep0     8.52s  core=Cooperlake  xc_kernels=6.57  jk=0.56  numpy=0.55
+hess_benzene_svp_b3lyp            N rep0    17.87s  core=Cooperlake  jk=11.61  xc_kernels=4.14  numpy=1.09
+hess_benzene_svp_pbe              N rep0    15.64s  core=Cooperlake  jk=9.80  xc_kernels=3.83  numpy=1.02
+hess_caffeine_svp_b3lyp           N rep0   181.18s  core=Cooperlake  jk=116.34  xc_kernels=44.70  numpy=15.16
+grid_caffeine_svp                 N rep0     3.64s  core=Cooperlake  ao_eval=1.70  blas=1.32  xc_kernels=0.41
+scf_c20h42_svp_b3lyp              N rep0    18.77s  core=Cooperlake  jk=9.84  xc_kernels=6.14  other=0.59
+scf_c20h42_svp_r2scan             N rep0    22.74s  core=Cooperlake  xc_kernels=12.75  jk=6.42  libxc=1.10
+scf_c20h42_tzvp_pbe               N rep0   159.26s  core=Cooperlake  jk=138.02  xc_kernels=16.78  linalg=1.42
+grad_c20h42_svp_b3lyp             N rep0    28.26s  core=Cooperlake  jk=26.55  xc_kernels=1.39  ints1e=0.15
+tda_c20h42_svp_pbe                N rep0    36.79s  core=Cooperlake  xc_kernels=25.07  jk=10.13  numpy=0.68
+micro_gemm                        N rep0     2.88s  core=Cooperlake  blas=2.49  other=0.39  numpy=0.00
+micro_libxc                       N rep0     1.74s  core=Cooperlake  libxc=0.93  xc_post=0.76  other=0.04
+saved /home/danny/Chemistry/my-pyscf/bench/results/20261029-180928_profile-it13.json

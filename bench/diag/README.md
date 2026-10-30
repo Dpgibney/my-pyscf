@@ -54,3 +54,5 @@ Run them in a configuration's pinned environment:
 | `fxc_tree.py` | `nr_rks_fxc` of 3·natm CPHF-type dms on n-C20H42/SVP in any tree (upstream comparison) | It13: A |
 | `lowrank_fxc_check.py` | the CPHF XC response from the factors (`_FusedXC.rks_fxc_mo`) against `nr_rks_fxc` projected on the orbitals: differences, interleaved times, the flop model's ratio and choice, and `vind_mo` against the projected `vind` | It13: B |
 | `j_repro.py` | two identical semi-direct J builds and response calls on caffeine/TZVP, compared in the AO and the MO basis | It13: exactness |
+| `native_profile.py` | 1-thread `py-spy --native` profile of a bench case: self and inclusive time per native and Python function (retries py-spy's occasional failure to attach) | profile-it13 |
+| `profile_summary.py` | readable summary of a `run_bench.py` results file: wall time, categories and top functions per case (`BENCH_TOP=30` in the config env records 30) | profile-it13 |

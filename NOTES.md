@@ -1210,7 +1210,91 @@ J/K is the harness's `jk` category. CPHF XC is the tottime of the kernel wrapper
   `other`.
 - New timing-only cases: `hess_benzene_svp_r2scan`, `hess_caffeine_svp_r2scan`.
 
+## Swarm review after It13, 2026-10-29
+
+**What ran.** A workflow of 17 agents on the It13 tree (`perf` `d88076cb8`). It was read-only apart from short
+1-thread experiments.
+- Eight area analysts: J/K, XC, TD, gradients and Hessians, UKS and DF, Python overhead, SCF driver, system and
+  build.
+- One skeptical verifier per area, which reran the analyst's key measurements and tried to refute each finding.
+- A synthesis that merged duplicates across areas and ranked what survived.
+
+56 findings: 48 confirmed or adjusted, 8 refuted.
+- Full report: `results/profile-it13/swarm/report.md`. §2 ranks 25 items; §3 gives designs for the top 8.
+- Analyst and verifier data per finding: `swarm/findings.json`.
+- The agents' prototype scripts are in `swarm/prototypes/<area>/`. They are unreviewed and keep the paths they
+  ran with.
+
+**Profile used.**
+- `results/20261029-180928_profile-it13.json`: 10 threads, full suite, `BENCH_TOP=30`.
+- Its summary: `results/profile-it13/summary.txt`.
+- 1-thread native profiles: `profile-it13/native_*.txt`.
+
+The profile runs overlapped. This was my error.
+- The five caffeine/benzene native profiles ran at the same time.
+- The 10-thread suite started at 18:09:28, while the caffeine SCF native profile ran until 18:09:59.
+- As a result, the XC kernels of `scf_caffeine_svp_{pbe,b3lyp}` read about 10–15% high.
+- The native profiles' absolute times are about 2× inflated. Their percentages are usable, but 1→10-thread
+  ratios taken from them are not.
+- Run profiles one at a time.
+
+**Ranked opportunities.** Savings are the verifiers' 10-thread estimates. None has been measured end to end.
+"caf" is caffeine/SVP and "bz" is benzene/SVP.
+
+| # | opportunity | expected saving | exactness | effort |
+|---|---|---|---|---|
+| 1 | Hessian 2e J/K: `int2e_ip1ip2`/`int2e_ipvip1` only for the rows the pair loop reads (atoms ≤ A) | caf B3LYP Hessian −28 to −34 s of 181 | bitwise | S |
+| 2 | Hessian diagonal 2e blocks from translational invariance: no `int2e_ipip1`, no A=A blocks | caf a further −25 to −27 s; bz −3 to −4 s | ≤ 7e-12 on diagonal blocks (qcint's TI error) | M |
+| 3 | `hess_elec`: GEMMs instead of 3-operand `numpy.einsum` and dm1 rebuilt for every pair | caf −8.5 to −11 s | 6.5e-15 | S |
+| 4 | `-O3 -march=x86-64-v3 -ffp-contract=off` for libdft and libcgto's grid files | XC 3–5% (SCF); caf Hessian −4 to −6 s | bitwise | S |
+| 5 | Adaptive AO block size (64 → 32/16) in `CVHFnr_direct_drv` when a call has few tasks | bz Hessians −4.5 to −6 s (25–35%); bz gradient −0.6 to −0.8 s | rounding | S–M |
+| 6 | TDA/RPA/Casida XC response from the trial-vector factors (`rks_fxc_mo`) | caf TDA −3.5 to −4.1 s; bz TDDFT ≈ −2.6 s | ≤ 2e-14 | M |
+| 7 | numpy's and scipy's own OpenBLAS pools spin about 134 ms after each call: A/B `OPENBLAS_THREAD_TIMEOUT`, `OPENBLAS_NUM_THREADS`, OMP and malloc settings | SCFs −0.25 to −1.8 s (unmeasured) | bitwise (timeout) | config |
+| 8 | Grid grouping: an int64 box key and a stable argsort instead of `numpy.unique(axis=0)` | caf SCF −0.16 s; alkane −0.4 s | bitwise | S |
+| 9 | GGA density on the MO path via Z = C·v0 (2 GEMMs instead of 4) | caf PBE/B3LYP −0.6 to −0.75 s | rounding | M |
+| 10 | UKS in-core J/K: both spin dms in one ERI pass | caf⁺ UKS −2.3 to −3.0 s | rounding | S–M |
+| 11 | Gradient J/K: an s8 driver with 3 of 4 centre derivatives, contracted straight into dE/dR | alkane gradient −5.3 to −6.5 s (≈ 20%) | rounding | L |
+
+Three more items are large but have no bench case yet:
+- the VV10 pair kernel: ≈ −150 to −250 s per caffeine wB97M-V SCF;
+- the UKS factored CPHF/TD response: ≈ −35 to −42 s per caffeine⁺ B3LYP Hessian;
+- DF-K of response dms from their factors: DF hybrid TD 1.45–1.75×.
+
+**Opt-in only (approximations):**
+- Hessian derivative-integral screening. Upstream's `_make_vhfopt` is dead code, because `rhf.py:192` tests the
+  intor names without their suffixes.
+- Davidson restricted to the target roots.
+- A looser CPHF.
+- Coarser grids.
+- Frozen core.
+- float32 storage in the semi-direct cache.
+- Becke pair screening.
+
+**Ruled out**, among others:
+- cartesian contraction of the derivative integrals;
+- `-O3`/PGO for libcvhf (42% slower);
+- libxc built with `-march` (bitwise neutral);
+- SMT;
+- BLIS/AOCL;
+- `OPENBLAS_CORETYPE` changes;
+- a different eigensolver (it changes cycle counts);
+- MO-basis J for TD below ≈ 280 dms.
+
+**Proposed order** (report §6):
+1. The thread-pool A/B (#7), with no code. Adopt the winner in `scripts/pyscf-env.sh` and `bench/common.py`,
+   then re-profile.
+2. It14, Hessian derivative J/K and `hess_elec`: #1, #2, #5, #3. The summed estimate takes the caf B3LYP Hessian
+   from 181 s to about 105–119 s.
+3. It15, XC setup, grid build and the libxc interface: #8, #14, #18, #22.
+4. It16, fused XC kernels: #4, then #9, #16 and the NPdgemm chunks.
+5. It17, TD response: #6, #12, #17, then #20.
+6. It18, UKS: #10, then bench cases and the UKS factored response.
+7. It19, derivative J/K drivers: #11, #15.
+
 ## Next iterations (by measured remaining cost, after It9)
+The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
+background.
+
 1. **Integral evaluation is still most of J/K**, even after It8's 1.2-1.3x.
    - Where it is: direct SCF on large molecules, gradients and Hessians.
    - In qcint (see It8):
