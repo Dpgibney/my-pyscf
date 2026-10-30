@@ -25,6 +25,8 @@ Every upstream clone has `origin` = upstream and a local branch `perf` (one comm
 | `pyscf-it13/` | worktree of `pyscf/` | `d88076cb8`, detached | `perf` before It14, for before/after runs |
 | `pyscf-it15/` | worktree of `pyscf/` | `84f2271ca`, detached | `perf` before It16 (stock flags) |
 | `pyscf-it16a/`, `pyscf-it16c/` | worktrees of `pyscf/` | `930f39c41`, `a8a68d87f` | It16 steps A and A+C, built with `-DNUMINT_X86_64_V3=ON` |
+| `pyscf-it16/` | worktree of `pyscf/` | `0835ee427`, detached | `perf` before It17, built with `-DNUMINT_X86_64_V3=ON` |
+| `pyscf-it17a/`, `pyscf-it17b/` | worktrees of `pyscf/` | `d3545eefb`, `3ad92c150` | It17 steps A and A+B, built with `-DNUMINT_X86_64_V3=ON` |
 | `libcint/` | github.com/sunqm/libcint | `v6.2.0` (master's pin) | integrals |
 | `qcint/` | github.com/sunqm/qcint | `v6.2.0` | SIMD integrals (It2); `perf` has the It8 changes, and the `pyscf` tree loads its profile-guided build `install/qcint-pgo` |
 | `libxc/` | gitlab.com/libxc/libxc | `7.1.2` (master's pin) | XC functionals |
@@ -1650,6 +1652,180 @@ pinned timeout of 20. 10 threads, `PYSCF_MAX_MEMORY=20000`, means of 2 ABBA runs
   - the XC response of TD (16.5 of 23.3 s on caffeine TDA): It17, the factored TD response (#6);
   - the CPHF XC response and derivative J/K of Hessians;
   - the semi-direct J/K of large SCFs.
+
+## It17: TD XC response from the factors, and the fxc kernels, 2026-10-30
+
+`pyscf` `perf` commits (swarm items #6, #12, #17, #20):
+- A `d3545eefb`: TDA, TDDFT and Casida XC response from the factors of the trial dms (#6).
+- B1 `7a57c167e`: the fxc potentials of all sets in one threaded kernel (#12).
+- B2 `3ad92c150`: the fused fxc contractions in one grid block per call (#17).
+- C `1e31fb4d1`: the factored response in one kernel per group of points, and the flop model recalibrated
+  (#20).
+
+Worktrees: `pyscf-it16` (before), `pyscf-it17a` (A), `pyscf-it17b` (A+B).
+
+**Why.** After It16 the XC response was 16.9 of 23.1 s of caffeine/SVP B3LYP TDA: 10 response calls, 160 trial
+vectors, about 100 ms per vector on the dm path (`td_fxc_calls.py`). On benzene TDDFT it was 5.6 of 6.5 s
+(17 calls, 280 vectors). It13's factored path served only CPHF.
+
+### A: the TD response from the factors (#6)
+- **The factors.** The XC response depends only on the symmetric part of a response dm. For the TD trial dms
+  that part is a·orboᵀ + orbo·aᵀ, and the operators need only orbvᵀ v_xc orbo:
+
+  | method | a |
+  |---|---|
+  | TDA | orbv zᵀ |
+  | TDDFT (RPA) | orbv (x+y)ᵀ; the symmetric XC block adds the same to both halves |
+  | Casida | 2 orbv (z·√e_ia)ᵀ |
+
+- **Response function.** `_gen_rhf_response` now has, in every branch, one `vind_jk` per spin case (singlet and
+  CPHF: J and K; triplet: K only), `vind_nlc` and `vind_xc` (`nr_rks_fxc`, or `nr_rks_fxc_st` for TD).
+  - It attaches `vind.vind_lowrank(dm1, a, P, Q) -> (v1, w)`: vind(dm1) = v1 + v_xc, with w = Pᵀ v_xc Q from the
+    factors where `lowrank_cheaper` says so; otherwise (vind(dm1), 0).
+  - The singlet or triplet kernel fxc[0,:,0] ± fxc[0,:,1] is formed at the first factored call.
+  - CPHF's `vind_mo` is now built on `vind_lowrank`.
+  - `_gen_tda_operation`, `_gen_tdhf_operation` and `CasidaTDDFT.gen_vind` use it where it is offered. J, K and
+    NLC stay in the AO basis.
+- **Conditions:** NumInt's own `nr_rks_fxc` and `nr_rks_fxc_st` (`numint._fused_xc_mo`), and real factors.
+  Wrapped response functions (the solvent models) carry no `vind_lowrank` and keep the AO path.
+- **Exactness:**
+  - On the dm path the TD operators (TDA, TDDFT, Casida; singlet and triplet; SVWN, B3LYP, r2SCAN, CAM-B3LYP)
+    and the CPHF operator are bit for bit those of It16 (benzene, 1 thread; `td_cphf_bitwise.py`).
+  - On the factored path the operators agree with `FUSED_XC=False` to ≤ 1.8e-14 relative (water and benzene;
+    SVWN, PBE, B3LYP, r2SCAN, CAM-B3LYP; `td_lowrank_check.py`).
+  - New test: `test_tdrks.test_td_xc_lowrank`.
+- **Timings** (P = `pyscf-it16`; medians of 3 interleaved runs; `results/20261030-052350_it17a-td.json`, and
+  `results/20261030-052834_it17a-td-mem20g.json` for caffeine and the alkane):
+
+  | case | P (s) | A (s) | |
+  |---|---|---|---|
+  | TDA benzene/SVP B3LYP | 2.42 | 1.65 | 1.47× |
+  | TDDFT benzene/SVP B3LYP | 7.25 | 4.52 | 1.60× |
+  | TDA caffeine/SVP B3LYP | 23.32 | 18.36 | 1.27× (XC 16.4 → 11.4 s) |
+  | TDA n-C20H42/SVP PBE | 36.76 | 36.69 | the dm path is kept (flop ratio 1.13) |
+
+- **Harness note.** `run_bench`'s default `PYSCF_MAX_MEMORY` (4000) keeps caffeine's ERIs out of memory: the
+  caffeine TDA then spends 12 s in semi-direct J/K instead of 5.6 s in memory. TD and SCF comparisons use
+  `:PYSCF_MAX_MEMORY=20000`, as the user's environment does.
+
+### B: the fxc potentials in one kernel (#12), and one block per call (#17)
+- **B1.** `_FusedXC.rks_fxc` and `rks_fxc_mo` formed wv = Σ_y rho1[y] fxc[x,y] w per set with `numpy.einsum`, on
+  one thread, reading fxc once per set. `numint._fxc_wv` (`VXCfused_fxc_wv`) does all sets on all threads in
+  blocks of 512 points, reading each block of fxc once.
+  - The terms are (rho1·fxc)·w added in the order of y, as numpy's einsum does. The results are bit for bit the
+    einsum's (benzene, caffeine; SVWN, PBE, r2SCAN; CPHF and TD singlet kernels; `fxc_wv_check.py`).
+  - Seven sets on caffeine's whole grid: PBE 0.028 → 0.008 s, r2SCAN 0.043 → 0.011 s.
+- **B2.** `_fused_fxc_blksize` gave the fused fxc contractions `block_loop`'s blocks (at most 1200·56 points).
+  The fused kernels hold no AO arrays, but each block allocates and sums nthreads·nset private nao² matrices.
+  - The blocks are now bounded only by rho1 and wv in a quarter of `max_memory`. On the bench molecules that
+    is one block per call; for TD with 20 dms it was 3 (benzene), 5 (caffeine) and 11 (alkane).
+  - Results change by rounding: the sums over blocks go in another order.
+- **Timings, A → A+B** (`results/20261030-064646_it17-abc.json`, medians of 3 interleaved runs):
+
+  | case | A (s) | A+B (s) | |
+  |---|---|---|---|
+  | TDA benzene | 1.57 | 1.48 | 1.06× |
+  | TDDFT benzene | 4.47 | 4.24 | 1.05× |
+  | TDA caffeine | 18.27 | 17.83 | 1.02× |
+  | TDA alkane (dm path) | 36.83 | 33.74 | 1.09× |
+  | Hessian benzene B3LYP | 7.85 | 7.58 | 1.04× |
+  | Hessian benzene r2SCAN | 11.02 | 10.55 | 1.04× |
+
+### C: the factored response in one kernel (#20), and the flop model
+- **One kernel.** `VXCfused_fxc_lowrank` does all of `rks_fxc_mo`'s work on each group of points:
+  - the AO values and TB = ao·B once;
+  - then per set the densities of A Bᵀ + B Aᵀ, the potentials (halved as `_dot_wv` does), and v1 B, whose
+    products ao·Q are TB when Q = B.
+  - Before, two kernels each evaluated the AO values and their products with the orbitals, and rho1 and wv of
+    every block went through Python.
+  - The three kernels now share their per-group code. `VXCfused_eval_rho_lowrank` and `VXCfused_dot_ao_mo` give
+    the same results as before, bit for bit (`lowrank_kernels_bitwise.py`).
+  - `rks_fxc_mo` takes the one kernel where Q is B, as in all its callers; `one_pass=False` keeps the two.
+  - One kernel agrees with two to 7.7e-15 relative, and with `nr_rks_fxc` to 1.3e-14.
+- **Batching the sets into wider GEMMs** (the other half of #20) is ruled out (`gemm_shapes.c`). Per thread, dgemm
+  at one set's shape (M = 112 points, K = 150 AOs, N = 51 orbitals) runs at 510 GFLOP/s, and wider N at
+  333–419. The per-set operands stay in the 1 MB L2; batched ones do not.
+- **Per call, two kernels → one kernel** (`lowrank_paths_time.py`, TDA-type dms, 10 threads):
+
+  | system, xc | 1 dm | 5 dms | 20 dms |
+  |---|---|---|---|
+  | caffeine SVWN | 0.068 → 0.041 s | 0.165 → 0.144 s | 0.608 → 0.550 s |
+  | caffeine B3LYP | 0.177 → 0.115 s | 0.411 → 0.355 s | 1.540 → 1.436 s |
+  | caffeine r2SCAN | 0.262 → 0.205 s | 0.974 → 0.923 s | 2.713 → 2.764 s |
+  | alkane PBE | 0.706 → 0.503 s | 1.685 → 1.465 s | 5.359 → 5.146 s |
+
+  - Meta-GGA at 20 or more dms is 2–3% slower in one kernel; its per-thread buffers (5 GEMM segments, about
+    2 MB) overflow L2.
+- **Flop model.** `lowrank_cheaper` now models the one-kernel pass (the products with Q once per pass), and
+  weighs a factored flop at 0.8 (LDA), 0.9 (GGA) and 1.0 (meta-GGA) of a dm flop.
+  - Measured time ratio over modelled flop ratio: LDA 0.6–0.8, GGA 0.83–1.0, meta-GGA 0.9–1.0 (benzene,
+    caffeine, alkane; 1–40 dms).
+  - It13's threshold of 0.8 dated from when a factored flop cost 1.1–1.24 dm flops. It kept calls on the dm
+    path that run 1.2–1.45× faster factored (caffeine B3LYP with 2–5 dms).
+  - The alkane's PBE calls with 10 or more dms now go factored: modelled 1.02–1.09, measured 0.86–0.96.
+- **Timings, A+B → A+B+C** (same file):
+
+  | case | A+B (s) | A+B+C (s) | |
+  |---|---|---|---|
+  | TDA benzene | 1.48 | 1.40 | 1.06× |
+  | TDDFT benzene | 4.24 | 3.86 | 1.10× |
+  | TDA caffeine | 17.83 | 17.35 | 1.03× |
+  | TDA alkane | 33.74 | 31.92 | 1.06× |
+  | Hessian benzene B3LYP | 7.58 | 7.32 | 1.04× |
+  | Hessian benzene r2SCAN | 10.55 | 10.35 | 1.02× |
+
+  - `worker.py` now counts `_fxc_wv` and `rks_fxc_mo` (which calls the one kernel through ctypes) as
+    `xc_kernels`. The file above predates that, so the C runs show their XC time under `other`. From the saved
+    top functions, XC went from 11.5 to 10.8 s (caffeine TDA) and from 25.0 to 20.8 s (alkane TDA) between A
+    and A+B+C.
+
+### The accumulating kernels' static schedule (measured, not changed)
+- `VXCfused_dot_wv` (the XC matrices of SCF and the dm-path fxc), `VXCfused_dot_ao_mo` and
+  `VXCfused_fxc_lowrank` use `schedule(static, 1)`, so that each thread's private sums, and with them the results,
+  do not depend on timing. The density kernels use `dynamic, 4`.
+- Experiment (`fused_sched_toggle.py`: `dynamic, 4` in those three kernels, which makes them
+  non-deterministic):
+  - per call on caffeine (20–40 dms): one-kernel factored path 1.235× (B3LYP) and 1.16× (r2SCAN); dm path
+    1.06–1.19×;
+  - SCFs (`results/20261030-062252_it17-sched-probe.json`): caffeine B3LYP 4.27 → 3.89 s (XC kernels 1.66 → 1.46
+    s), r2SCAN 6.39 → 6.06 s; alkane XC −4%.
+- The implied speed ratio of a Zen 5 to a Zen 5c core in these kernels is about 1.6: static(1) gives every thread
+  the same work, so the four fast cores idle about a third of the time.
+- A deterministic dynamic schedule would need per-slot sums (a fixed partition of the groups into slots, taken
+  dynamically, each summed into its own buffer, and the buffers added in slot order). That is swarm #19, larger
+  than its estimate of 1–2.5%.
+
+### It16 → It17
+P = `pyscf-it16` (`0835ee427`), N = `perf` `1e31fb4d1`; 10 threads, `PYSCF_MAX_MEMORY=20000`, means of 2 interleaved
+runs (`results/20261030-073148_it16-it17.json`; the caffeine Hessian 1 rep, `20261030-073915_it16-it17-hess.json`).
+
+| case | P (s) | N (s) | |
+|---|---|---|---|
+| TDA benzene/SVP B3LYP | 2.40 | 1.33 | 1.81× |
+| TDDFT benzene/SVP B3LYP | 6.72 | 3.69 | 1.82× |
+| TDA caffeine/SVP B3LYP | 24.65 | 17.88 | 1.38× (XC 17.4 → 11.2 s; J/K 5.9 → 6.1 s) |
+| TDA n-C20H42/SVP PBE | 36.65 | 32.03 | 1.14× (XC 24.9 → 20.9 s) |
+| Hessian benzene/SVP B3LYP | 7.74 | 7.28 | 1.06× |
+| Hessian benzene/SVP r2SCAN | 10.87 | 10.34 | 1.05× |
+| Hessian caffeine/SVP B3LYP | 94.88 | 94.18 | unchanged (its CPHF calls are large, where one kernel gains 4–7%) |
+| SCF caffeine/SVP B3LYP (control) | 4.32 | 4.33 | unchanged; It17 does not touch the SCF |
+
+- What remains in TD:
+  - caffeine TDA: XC 11.2 s, in-core J/K 6.1 s;
+  - alkane TDA: XC 20.9 s (dm path for small calls), semi-direct J 10.5 s.
+
+### Gate
+- A (`pyscf-it17a`):
+  - kernel tests pass;
+  - tight validation passes on the hessian, full and sparse suites. TD excitations agree with unmodified PySCF
+    to 2.2e-15 Eh (caffeine TDA), 4.8e-15 (benzene TDA), 4.4e-14 (benzene TDDFT) and 2.0e-15 (alkane TDA);
+  - upstream tests: 852 passed (851 + the new test), 4 failed (the known xcfun failures).
+- B+C (`pyscf` at `1e31fb4d1`):
+  - kernel tests pass;
+  - tight validation passes on the hessian, full and sparse suites. TD excitations agree to 1.6e-15 Eh (caffeine
+    TDA), 4.1e-15 (benzene TDA), 7.5e-14 (benzene TDDFT) and 2.1e-15 (alkane TDA); Hessians to 7.3e-12
+    (benzene) and 6.6e-11 (water, DF);
+  - upstream tests: 852 passed, 4 failed (the known xcfun failures).
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are

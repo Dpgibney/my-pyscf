@@ -60,3 +60,11 @@ Run them in a configuration's pinned environment:
 | `hess_ejk_check.py` | the Hessian's two-electron blocks (RHF/UHF, J only, range-separated K) and `hess_elec`'s mo1 terms against copies of the code before It14, for all atoms, reversed and subset atom lists; 1 thread | It14 |
 | `xc_deriv_check.py` | `transform_xc`, `ud2ts`, `ts2ud` and the fg kernel against the code before It15 (old Python driving the old `libdft` from `pyscf-it13`), bit for bit, plus transform times at 1M points | It15: B |
 | `grid_group_check.py` | `arg_group_grids` against the `numpy.unique(axis=0)` version: identical permutations on real and displaced grids, and times | It15: A |
+| `td_fxc_calls.py` | the response calls of a TD run: trial vectors per call, XC and J/K time per call, and the factored path's flop ratio and choice | It17: why |
+| `td_lowrank_check.py` | TDA, TDDFT and Casida operators (singlet, triplet) and the CPHF operator with the XC response from the factors against `FUSED_XC=False`, both paths of the flop model forced; TDA time per call | It17: A |
+| `td_cphf_bitwise.py` | the TD operators on the dm path and the CPHF operator on fixed orbitals, saved in one tree and compared bit for bit in another | It17: A |
+| `fxc_wv_check.py` | `numint._fxc_wv` (`VXCfused_fxc_wv`) against the per-set numpy expressions it replaced, bit for bit, with times | It17: B |
+| `lowrank_kernels_bitwise.py` | `VXCfused_eval_rho_lowrank` and `VXCfused_dot_ao_mo` against another tree, bit for bit (the refactor into shared helpers); one-kernel vs two-kernel `rks_fxc_mo` vs `nr_rks_fxc` | It17: C |
+| `lowrank_paths_time.py` | per call, 1–40 TDA-type dms: dm path, factored in two kernels and in one kernel, with the flop model's ratio and choice | It17: C, flop model |
+| `gemm_shapes.c` | dgemm throughput, one call per OpenMP thread, at the factored kernels' shapes (one set vs sets batched along N); build line inside | It17: C |
+| `fused_sched_toggle.py` | experiment only: switches the accumulating fused kernels between `schedule(static, 1)` and `schedule(dynamic, 4)` in the `pyscf` tree | It17: scheduling |

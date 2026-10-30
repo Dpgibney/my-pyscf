@@ -35,6 +35,8 @@ CATEGORY_RULES = [
     # the gradient and Hessian XC terms (It12) and the CPHF response from the factors (It13)
     ('xc_kernels', 'numint.py', 'dot_terms'), ('xc_kernels', 'numint.py', '_dot_sets_aow_ao'),
     ('xc_kernels', 'numint.py', 'rho_lowrank'), ('xc_kernels', 'numint.py', 'dot_ao_mo'),
+    # the fxc potentials and the one-kernel factored response (It17), called through ctypes from these
+    ('xc_kernels', 'numint.py', '_fxc_wv'), ('xc_kernels', 'numint.py', 'rks_fxc_mo'),
     ('ao_eval', 'numint.py', 'build_radial'),
     ('libxc', 'libxc.py', '_eval_xc'), ('xc_post', 'xc_deriv.py', '*'),
     ('grids', 'gen_grid.py', '*'), ('grids', 'radi.py', '*'),
