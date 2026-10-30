@@ -77,3 +77,9 @@ Run them in a configuration's pinned environment:
 | `uks_lowrank_edge.py` | the UKS factored response with no beta electrons (H2+, H3 quartet) against `FUSED_XC=False`, and the response functions ROKS gets | It19: C |
 | `make_h1_time.py`, `h1_jk_scripts.py` | the UKS Hessian's `make_h1` between trees, and its J/K call with Coulomb scripts per spin vs on the total density | It19: D |
 | `hess_cpscf_tol.py` | benzene+ UKS Hessian on fixed orbitals at two CPHF tolerances, between trees and run to run | It19: end to end |
+| `grad_ejk_check.py` | `grad.rhf.jk_energy_per_atom` against the J/K matrices of `get_jk`/`get_j`/`get_k` contracted as `grad_elec` does (RHF, UHF, J or K alone, range-separated K), and the times of both | It20: B |
+| `grad_ejk_stats.py` | orbits and integral evaluations of `CVHFgrad_jk_energy` against the `int2e_ip1` evaluations of the s2kl driver for the same density | It20: B |
+| `grad_ejk_paths.py` | whole gradients with `rhf_grad.JK_ENERGY` on and off for every SCF type with the J/K energy path, and density fitting, which keeps the matrices | It20: B |
+| `grad_jk_native.py` (`ejk` argument) | leaf functions of `jk_energy_per_atom` instead of `get_jk` | It20: B |
+| `deriv_jk_kernels.py` | the derivative J/K calls of the gradient, `make_h1` (RKS and UKS scripts) and `_partial_hess_2e` (`int2e_ip1ip2`, `int2e_ipvip1`): matrices saved to compare trees bit for bit, and times | It20: A |
+| `deriv_jk_scripts.py` | marginal cost of each contraction script of the Hessian's derivative J/K calls | It20: A |

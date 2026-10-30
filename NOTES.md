@@ -30,6 +30,7 @@ Every upstream clone has `origin` = upstream and a local branch `perf` (one comm
 | `pyscf-it17/` | worktree of `pyscf/` | `1e31fb4d1`, detached | `perf` before It18, built with `-DNUMINT_X86_64_V3=ON` |
 | `pyscf-it18/` | worktree of `pyscf/` | `219115c29`, detached | `perf` before It19, built with `-DNUMINT_X86_64_V3=ON` |
 | `pyscf-it19/` | worktree of `pyscf/` | `06b7253bc`, detached | It19, for its gate, built with `-DNUMINT_X86_64_V3=ON` |
+| `pyscf-it20/` | worktree of `pyscf/` | `9ab2db1e0`, detached | It20, for its gate, built with `-DNUMINT_X86_64_V3=ON` |
 | `libcint/` | github.com/sunqm/libcint | `v6.2.0` (master's pin) | integrals |
 | `qcint/` | github.com/sunqm/qcint | `v6.2.0` | SIMD integrals (It2); `perf` has the It8 changes, and the `pyscf` tree loads its profile-guided build `install/qcint-pgo` |
 | `libxc/` | gitlab.com/libxc/libxc | `7.1.2` (master's pin) | XC functionals |
@@ -2098,6 +2099,136 @@ It18 against It19: 10 threads, `PYSCF_MAX_MEMORY=20000`, means of 2 interleaved 
   - None of It19's code is on its path: at the validation's 4000 MB it runs semi-direct.
   - Three reruns each: It19 took 24, 27 and 26 cycles, It18 24, 29 and 24, with energies within 3.9e-12 Eh.
   - This is the run-dependent endpoint of tight direct SCFs, noted since It7.
+
+## It20: derivative J/K: the gradient's two-electron term inside the integral loop, and the contraction kernels, 2026-10-30
+
+`pyscf` `perf` commits:
+- A `89ee07e8d` (swarm #15, first step): derivative J/K kernels sum four outputs at a time in registers.
+- B `9ab2db1e0` (swarm #11): the two-electron gradient contracted inside the integral loop.
+- Bench cases (workspace): `grad_caffeine+_svp_b3lyp_uks` (FULL), and water gradients with CAM-B3LYP (RKS) and
+  PBE, B3LYP, wB97X (UKS) in the 'hessian' suite.
+
+Worktree `pyscf-it19` (`06b7253bc`) is the before-build; `pyscf-it20` is the gated build.
+
+**Where the time went.** The gradient's J/K step (`rhf_grad.get_jk` through `grad_elec`) was 94–95% of every
+gradient case (benzene 0.47 of 0.58 s, caffeine 5.99 of 6.42 s, n-C20H42 28.6 of 30.1 s at 10 threads). One
+thread, caffeine: `int2e_ip1` evaluation about 80% of it, the two contraction scripts 17%, the prescreen 1%.
+
+### A: derivative J/K kernels (#15, first step)
+- **Change.** Six kernels of `nr_direct_dot.c` used by the gradient and Hessian scripts (`ji->s1kl`, `li->s1kj`,
+  `lj->s1ki`, `jk->s1il`, and the s2kl branches of `li->s1kj` and `jk->s1il`) summed one output at a time: a
+  chain of dependent additions, or a load and store of the output for every term. They now hold four outputs (or
+  two pairs) in registers and sum them side by side. Each output keeps the order of the one-output loop.
+- **Exactness.** Bit for bit: the 34 matrices of `deriv_jk_kernels.py` (gradient RHF and UHF, `make_h1` RKS and
+  UKS scripts, `int2e_ip1ip2` and `int2e_ipvip1` of `_partial_hess_2e`, two atoms of benzene, 1 thread) are
+  equal to It19's.
+- **Per script** (`deriv_jk_scripts.py`, benzene atom 6, 1 thread; marginal cost of adding each script, s):
+
+  | call | script | It19 | It20 |
+  |---|---|---|---|
+  | `int2e_ip1ip2` s1 | `li->s1kj` | 0.047 | 0.031 |
+  | | `lj->s1ki` | 0.050 | 0.038 |
+  | `int2e_ipvip1` s2kl | `li->s1kj` | 0.035 | 0.028 |
+  | `int2e_ip1` s2kl (`make_h1`) | `lk->s1ij` | 0.013 | 0.013 |
+  | | `li->s1kj` | 0.019 | 0.016 |
+  | | `jk->s1il` | 0.020 | 0.017 |
+
+  Whole calls: `int2e_ip1ip2` 0.552 → 0.531 s, `int2e_ipvip1` 0.284 → 0.279 s, `make_h1` 0.190 → 0.189 s.
+- **Why so little.** Each script is 3–9% of its call; the integrals are about 85%. The second step of #15,
+  fusing the scripts of a call, can at best bring them to the cost of one contraction per integral. For
+  `_partial_hess_2e`, about 80% of the Hessians' derivative J/K, an energy-style driver like B's would do that
+  (the ej/ek blocks are contracted with the density right away): about 12% of it for RKS (3 + 2 scripts become
+  one contraction each) and 25% for UKS (5 + 3). Its integral count is already minimal: 6 second-derivative
+  evaluations per s8 orbit (4 `int2e_ip1ip2`, 2 `int2e_ipvip1`), with the diagonal blocks from translational
+  invariance since It14. Not done in It20.
+
+### B: the gradient's two-electron term contracted inside the integral loop (#11)
+- **Before.** `grad_elec` contracted the J/K matrices of `get_jk` with the density. The s2kl driver evaluates
+  `int2e_ip1` (nabla i j|kl) for all i, all j, k >= l: one integral per center of every s8 orbit, 4 per orbit,
+  each contracted by two scripts into matrices that `grad_elec` then contracts again.
+- **Driver.** `CVHFgrad_jk_energy` (`lib/vhf/grad_jk_energy.c`) visits each s8 orbit once and contracts its
+  derivative integrals with Gamma_pqrs = cj Dj_pq Dj_rs - ck/2 sum_n (Dk_pr Dk_qs + Dk_ps Dk_qr) straight into
+  dE/dR (dE2/dR_A = -deg/2 sum over the centers on A of G_c). By translational invariance the centers on one
+  atom need no integrals once the others are known: 4 atoms take 3 evaluations, 2 + 2 take 2, 3 + 1 take 1, one
+  atom none. The atom left out is the one with the most centers, then the lowest angular momentum (3% faster than
+  the highest on caffeine, 1 thread; a VRR-size model was in between).
+- **Screening.** Each of the 4 orderings gets the s2kl driver's own test (`CVHFgrad_{jk,j,k}_prescreen`). An
+  orbit is skipped only if none passes; otherwise it takes the cheaper of the passing orderings (exactly the
+  integrals the s2kl driver evaluates) or all 4 centers by translational invariance. Both include everything the
+  s2kl driver includes. A pair bound (max of the two derivative estimates and the plain one) and a pair list
+  sorted by it stop each pair's inner loop at the first partner that cannot pass.
+- **Determinism.** The orbits are summed in a fixed partition of up to 4096 chunks of the pair list, each into
+  its own buffer, then the buffers in order: the result does not depend on the thread count or the schedule
+  (`repeat 0` in every check).
+- **Python.** `grad.rhf.jk_energy_per_atom(mol, dm, j_factor, k_factor, omega, screen)` gives dE2/dR for a total
+  (RHF) or alpha/beta (UHF) density. `grad_elec` of RHF/RKS and of UHF/UKS/ROHF/ROKS (which share `uhf.grad_elec`)
+  calls `_get_veff_jk_energy`. It uses the energy path when the object's `get_veff` is a stock one
+  (`rhf_grad._VEFF_SPLIT`) and its `get_jk`, `get_j`, `get_k` are `GradientsBase`'s. Density fitting, SGX,
+  DFT+U and any override keep the matrices. `get_veff` itself still returns the full matrices; the XC part of
+  RKS/UKS moved to `_get_vxc_veff`. A hybrid's J/K screens as `get_jk` did (`screen='jk'`), its long-range K as
+  `get_k`. Switch: config `grad_rhf_jk_energy` (module attribute `rhf_grad.JK_ENERGY`).
+- **Integral evaluations** (`grad_ejk_stats.py`, minao density, def2-SVP):
+
+  | molecule | orbits that pass | s2kl evaluations | new | ratio | per orbit |
+  |---|---|---|---|---|---|
+  | benzene | 1.06e6 | 4.11e6 | 2.59e6 | 0.63 | 2.45 |
+  | caffeine | 1.43e7 | 5.50e7 | 3.80e7 | 0.69 | 2.65 |
+  | n-C20H42 | 8.21e7 | 3.09e8 | 2.25e8 | 0.73 | 2.74 |
+
+- **Per call** (`grad_ejk_check.py`, 10 threads, minao density): benzene RHF 0.47 → 0.25 s, UHF 0.55 → 0.26 s;
+  caffeine RHF 6.03 → 3.94 s, UHF 8.43 → 4.43 s.
+- **After** (1 thread, caffeine): integral evaluation about 91%; building Gamma 2.9%, contracting 3.5%, the orbit
+  logic and screening 2.2%.
+- **Exactness.** Against the matrix path: 1e-14 relative per call (water to caffeine; RHF, UHF, J or K alone,
+  range-separated and short-range K), and 1.2e-14 at most on whole gradients of RHF, UHF, ROHF, RKS (PBE, B3LYP
+  with and without grid response, CAM-B3LYP, wB97X, r2SCAN), UKS (PBE, B3LYP, wB97X), ROKS (B3LYP, CAM-B3LYP)
+  and atom subsets. Cartesian, generally contracted (cc-pVTZ) and ghost-atom bases agree to 3e-15; a lone atom
+  now gives exactly 0. The DF gradient keeps the matrices and is unchanged bit for bit.
+- **Tests.** `test_jk_energy_per_atom` and `test_grad_elec_jk_energy` in `grad/test/test_rhf.py`; the upstream
+  run of the gate covers them with the grad, df, solvent and qmmm tests.
+
+### End to end
+It19 against It20: 10 threads, `PYSCF_MAX_MEMORY=20000`, means of 2 interleaved runs
+(`results/20261030-165121_it20.json`; J/K of the It20 gradients is `jk_energy_per_atom`, which that run still
+counted as "other").
+
+| case | It19 (s) | It20 (s) | |
+|---|---|---|---|
+| gradient benzene/SVP B3LYP | 0.58 | 0.36 | 1.60× (J/K 0.47 → 0.29 s) |
+| gradient caffeine/SVP B3LYP | 7.33 | 4.66 | 1.57× (J/K 6.85 → 4.21 s); It19's two runs were 6.89 and 7.76 s |
+| gradient caffeine+/SVP B3LYP UKS (new) | 9.42 | 5.25 | 1.80× (J/K 8.51 → 4.38 s) |
+| gradient n-C20H42/SVP B3LYP | 29.19 | 17.65 | 1.65× (J/K 27.68 → 16.33 s) |
+| Hessian benzene/SVP B3LYP, PBE | 7.15, 6.40 | 7.14, 6.40 | unchanged |
+| Hessian benzene+/SVP B3LYP UKS | 12.68 | 12.58 | −0.8% |
+| Hessian caffeine/SVP B3LYP | 92.4 | 90.7 | −1.8% (derivative J/K 43.5 → 41.4 s) |
+| Hessian caffeine+/SVP B3LYP UKS | 157.6 | 155.1 | −1.6% (derivative J/K 48.4 → 46.8 s) |
+
+- **Where the time goes now:**
+  - Gradients: J/K is still 90% (caffeine 4.2 of 4.7 s, n-C20H42 16.2 of 17.7 s), and integral evaluation is
+    about 91% of it. Fewer evaluations per orbit are not possible this way; cheaper ones would need a qcint
+    kernel that derives all centers from one set of Rys roots (estimated 15–20% of the integral time: the roots
+    and the primitive loop are shared, the g arrays and contractions are not).
+  - caffeine Hessian (90.7 s): derivative J/K 41.4 s, CPHF XC 26.6 s, CPHF J/K 8.5 s.
+  - caffeine+ UKS Hessian (155.1 s): CPHF XC 61.5 s, derivative J/K 46.8 s, CPHF J/K 18.7 s.
+
+### Gate
+- Kernel tests pass against `pyscf-base`.
+- Tight validation passes on the hessian suite (with the 4 new water gradients), the full suite (with
+  `grad_caffeine+_svp_b3lyp_uks`) and the sparse suite. Largest differences from unmodified PySCF:
+
+  | quantity | max difference | case |
+  |---|---|---|
+  | energies | 4.6e-12 Eh | |
+  | gradients | 3.8e-12 | n-C20H42 (as in It19); caffeine 1.7e-12, caffeine+ UKS 1.6e-12, water 2.4e-14 |
+  | excitations | 1.3e-12 | water+ UKS r2SCAN Casida |
+  | Hessians | 6.6e-11 | water, DF; benzene+ UKS 2.8e-11 |
+
+- Upstream tests (dft, scf, df, grad, hessian, tdscf, solvent, qmmm): 997 passed, 4 failed (the known xcfun
+  failures).
+- **Cycle-count warnings** on four tight SCFs, which It20 does not touch (the kernels it changed that the SCF
+  could reach are bit for bit). The new one, caffeine PBE at 41 cycles against 39, was rerun twice in each tree:
+  It20 40 and 39, It19 41 and 44, energies within 5e-12 Eh. This is the run-dependent endpoint of tight direct
+  SCFs, noted since It7.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are

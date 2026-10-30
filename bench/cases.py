@@ -88,9 +88,9 @@ def converged_ks(atom, basis, xc, tight, charge=0, spin=0, density_fit=False, fu
     return mf
 
 
-def grad_case(atom, basis, xc):
+def grad_case(atom, basis, xc, charge=0, spin=0, full_jk=False):
     def setup(tight):
-        mf = converged_ks(atom, basis, xc, tight)
+        mf = converged_ks(atom, basis, xc, tight, charge, spin, full_jk=full_jk)
 
         def run():
             g = mf.nuc_grad_method().kernel()
@@ -274,6 +274,13 @@ case('hess_caffeine+_svp_b3lyp_uks', ())(hess_case(CAFFEINE, 'def2-svp', 'B3LYP'
                                                    full_jk=True))
 case('scf_benzene+_svp_r2scan_uks', (FULL,))(scf_case(BENZENE, 'def2-svp', 'r2SCAN', charge=1, spin=1))
 case('grad_caffeine_svp_b3lyp', (FULL,))(grad_case(CAFFEINE, 'def2-svp', 'B3LYP'))
+# UKS gradient (the UHF branch of the J/K energy gradient), and the gradient code paths of range-separated
+# hybrids and UKS on water in the 'hessian' suite
+case('grad_caffeine+_svp_b3lyp_uks', (FULL,))(grad_case(CAFFEINE, 'def2-svp', 'B3LYP', charge=1, spin=1,
+                                                      full_jk=True))
+case('grad_water_svp_CAM-B3LYP', (HESS,))(grad_case(WATER, 'def2-svp', 'CAM-B3LYP'))
+for _xc in ('PBE', 'B3LYP', 'wB97X'):
+    case(f'grad_water+_svp_{_xc}_uks', (HESS,))(grad_case(WATER, 'def2-svp', _xc, charge=1, spin=1))
 case('tda_caffeine_svp_b3lyp', (FULL,))(td_case(CAFFEINE, 'def2-svp', 'B3LYP', 'TDA'))
 case('scf_c20h42_svp_b3lyp', (FULL, SPARSE))(scf_case(C20H42, 'def2-svp', 'B3LYP'))
 case('scf_c20h42_tzvp_pbe', (FULL, SPARSE))(scf_case(C20H42, 'def2-tzvp', 'PBE', full_jk=True))

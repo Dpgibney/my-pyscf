@@ -20,6 +20,7 @@ MARK = '@@RESULT@@'
 # routine called through ctypes is charged to the Python wrapper that calls it.
 CATEGORY_RULES = [
     ('jk', '_vhf.py', '*'), ('jk', 'moleintor.py', 'getints4c'), ('jk', 'moleintor.py', 'getints3c'),
+    ('jk', 'rhf.py', 'jk_energy_per_atom'),
     ('blas', 'numpy_helper.py', '_dgemm'), ('blas', 'numpy_helper.py', '_zgemm'),
     ('blas', 'numint.py', '_dot_ao_wv_ao_hermi'),
     ('xc_kernels', 'numint.py', '_contract_rho_batch'), ('xc_kernels', 'numint.py', '_scale_ao_batch'),
