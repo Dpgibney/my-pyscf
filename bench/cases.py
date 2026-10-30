@@ -64,7 +64,7 @@ def scf_case(atom, basis, xc, charge=0, spin=0, density_fit=False, full_jk=False
     return setup
 
 
-def converged_ks(atom, basis, xc, tight, charge=0, spin=0, density_fit=False):
+def converged_ks(atom, basis, xc, tight, charge=0, spin=0, density_fit=False, full_jk=False):
     '''A converged KS object for the post-SCF cases. In validation the reference writes its SCF solution to
     BENCH_SCF_OUT and the candidate starts from it (BENCH_SCF_IN) instead of its own SCF: the endpoint of a
     tight direct SCF scatters between runs of any build, because it stops at a cycle that depends on the
@@ -73,7 +73,7 @@ def converged_ks(atom, basis, xc, tight, charge=0, spin=0, density_fit=False):
     scf_ cases cover the SCF.'''
     from pyscf import gto
     mol = gto.M(atom=atom, basis=basis, charge=charge, spin=spin, verbose=0)
-    mf = make_ks(mol, xc, tight, density_fit)
+    mf = make_ks(mol, xc, tight, density_fit, full_jk)
     if os.environ.get('BENCH_SCF_IN'):
         s = np.load(os.environ['BENCH_SCF_IN'])
         mf.mo_coeff, mf.mo_occ, mf.mo_energy = s['mo_coeff'], s['mo_occ'], s['mo_energy']
@@ -100,9 +100,9 @@ def grad_case(atom, basis, xc):
     return setup
 
 
-def td_case(atom, basis, xc, method, nstates=5):
+def td_case(atom, basis, xc, method, nstates=5, charge=0, spin=0, full_jk=False):
     def setup(tight):
-        mf = converged_ks(atom, basis, xc, tight)
+        mf = converged_ks(atom, basis, xc, tight, charge, spin, full_jk=full_jk)
 
         def run():
             td = getattr(mf, method)()
@@ -122,9 +122,9 @@ def td_case(atom, basis, xc, method, nstates=5):
     return setup
 
 
-def hess_case(atom, basis, xc, charge=0, spin=0, density_fit=False):
+def hess_case(atom, basis, xc, charge=0, spin=0, density_fit=False, full_jk=False):
     def setup(tight):
-        mf = converged_ks(atom, basis, xc, tight, charge, spin, density_fit)
+        mf = converged_ks(atom, basis, xc, tight, charge, spin, density_fit, full_jk)
 
         def run():
             h = mf.Hessian().kernel()
@@ -258,6 +258,20 @@ case('hess_benzene_svp_r2scan', ())(hess_case(BENZENE, 'def2-svp', 'r2SCAN'))
 case('hess_caffeine_svp_r2scan', ())(hess_case(CAFFEINE, 'def2-svp', 'r2SCAN'))
 case('hess_water+_svp_pbe_uks_df', (HESS,))(hess_case(WATER, 'def2-svp', 'PBE', charge=1, spin=1,
                                                       density_fit=True))
+# UKS TD code paths, also in the 'hessian' suite (the response functions it shares with the UKS
+# Hessians): TDA for each functional type, and TDDFT, which is Casida's for pure functionals and the
+# full RPA for hybrids
+for _xc in ('LDA,VWN', 'PBE', 'r2SCAN', 'B3LYP', 'wB97X'):
+    case(f'tda_water+_svp_{_xc}_uks', (HESS,))(td_case(WATER, 'def2-svp', _xc, 'TDA', charge=1, spin=1))
+for _xc in ('PBE', 'r2SCAN', 'B3LYP'):
+    case(f'tddft_water+_svp_{_xc}_uks', (HESS,))(td_case(WATER, 'def2-svp', _xc, 'TDDFT', charge=1,
+                                                          spin=1))
+# UKS response on medium molecules (caffeine+: full J/K builds in the tight SCF, as for its scf_ case)
+case('tda_caffeine+_svp_b3lyp_uks', (FULL,))(td_case(CAFFEINE, 'def2-svp', 'B3LYP', 'TDA', charge=1,
+                                                     spin=1, full_jk=True))
+case('hess_benzene+_svp_b3lyp_uks', (FULL,))(hess_case(BENZENE, 'def2-svp', 'B3LYP', charge=1, spin=1))
+case('hess_caffeine+_svp_b3lyp_uks', ())(hess_case(CAFFEINE, 'def2-svp', 'B3LYP', charge=1, spin=1,
+                                                   full_jk=True))
 case('scf_benzene+_svp_r2scan_uks', (FULL,))(scf_case(BENZENE, 'def2-svp', 'r2SCAN', charge=1, spin=1))
 case('grad_caffeine_svp_b3lyp', (FULL,))(grad_case(CAFFEINE, 'def2-svp', 'B3LYP'))
 case('tda_caffeine_svp_b3lyp', (FULL,))(td_case(CAFFEINE, 'def2-svp', 'B3LYP', 'TDA'))

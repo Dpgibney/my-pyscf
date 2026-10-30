@@ -72,3 +72,8 @@ Run them in a configuration's pinned environment:
 | `npdgemm_check.py` | `lib.dot` (`NPdgemm`) for shapes that take the m-, n- and k-splits: against another tree, bit for bit or the relative difference, with times | It18 |
 | `dot_wv_time.py` | `_FusedXC.dot` (`VXCfused_dot_wv`) per call on the SCF's blocks and on the whole grid, 1, 2 and 20 sets | It18 |
 | `sched_sim.py` | simulated makespan of static, dynamic, fixed-slot and stream schedules on 4 fast + 6 slow threads, and of the stream schedule's stickiness margin | It18 |
+| `incore_ndm_time.py` | in-memory J/K of 1–8 symmetric dms per call: the tree's routing, the single-dm kernel once per dm, and the BLAS-3 batch kernels; against the per-dm kernels of `nr_incore.c`, and the tree against the single-dm kernel bit for bit | It19: A |
+| `lowrank_uks_time.py` | per call, 1–40 UKS TDA-type spin dm sets: the dm path (`nr_uks_fxc`) and the factored path (`uks_fxc_mo`), with the flop model's ratio and choice and the difference between the paths | It19: C |
+| `uks_lowrank_edge.py` | the UKS factored response with no beta electrons (H2+, H3 quartet) against `FUSED_XC=False`, and the response functions ROKS gets | It19: C |
+| `make_h1_time.py`, `h1_jk_scripts.py` | the UKS Hessian's `make_h1` between trees, and its J/K call with Coulomb scripts per spin vs on the total density | It19: D |
+| `hess_cpscf_tol.py` | benzene+ UKS Hessian on fixed orbitals at two CPHF tolerances, between trees and run to run | It19: end to end |

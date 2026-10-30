@@ -28,6 +28,8 @@ Every upstream clone has `origin` = upstream and a local branch `perf` (one comm
 | `pyscf-it16/` | worktree of `pyscf/` | `0835ee427`, detached | `perf` before It17, built with `-DNUMINT_X86_64_V3=ON` |
 | `pyscf-it17a/`, `pyscf-it17b/` | worktrees of `pyscf/` | `d3545eefb`, `3ad92c150` | It17 steps A and A+B, built with `-DNUMINT_X86_64_V3=ON` |
 | `pyscf-it17/` | worktree of `pyscf/` | `1e31fb4d1`, detached | `perf` before It18, built with `-DNUMINT_X86_64_V3=ON` |
+| `pyscf-it18/` | worktree of `pyscf/` | `219115c29`, detached | `perf` before It19, built with `-DNUMINT_X86_64_V3=ON` |
+| `pyscf-it19/` | worktree of `pyscf/` | `06b7253bc`, detached | It19, for its gate, built with `-DNUMINT_X86_64_V3=ON` |
 | `libcint/` | github.com/sunqm/libcint | `v6.2.0` (master's pin) | integrals |
 | `qcint/` | github.com/sunqm/qcint | `v6.2.0` | SIMD integrals (It2); `perf` has the It8 changes, and the `pyscf` tree loads its profile-guided build `install/qcint-pgo` |
 | `libxc/` | gitlab.com/libxc/libxc | `7.1.2` (master's pin) | XC functionals |
@@ -1937,6 +1939,165 @@ P = `pyscf-it17`, N = `perf` `219115c29`; 10 threads, `PYSCF_MAX_MEMORY=20000`, 
   - Six reruns with It18 took 24, 24, 24, 27, 29 and 30 cycles, and three with It17 took 24, 24 and 27.
   - Its energy was always within 2.5e-12 Eh. Its long-range K is semi-direct with a dynamic schedule; the XC
     kernels and `NPdgemm` are deterministic.
+
+## It19: UKS: J/K of both spins in one pass, the factored XC response, J of the total density, 2026-10-30
+
+`pyscf` `perf` commits:
+- A `22c74b9e4` (swarm #10): in-memory J/K of up to 6 symmetric dms in one pass over the ERIs.
+- C `ab7906363`: the UKS XC response from the factors of the spin dms (TDA, TDDFT, Casida, CPHF).
+- D `06b7253bc`: J of the total density in the pure-functional UKS response and in the UHF/UKS Hessians'
+  `make_h1`.
+- B (workspace): bench cases for the UKS response.
+
+Worktree `pyscf-it18` (`219115c29`) is the before-build; `pyscf-it19` is the gated build.
+
+### A: J/K of both spins in one pass over the in-memory ERIs (#10)
+- **Why.** UHF, UKS, ROHF and ROKS pass both spin densities to `get_jk`. With the ERIs in memory, two dms took
+  It7's BLAS-3 batch kernels: J by tiled GEMMs with 2 columns, and K by copying each packed row into a square
+  matrix for two `dsymm` with 2 columns. That was 181 ms per call against 54 ms for one dm (caffeine+/SVP,
+  3.69 GB of ERIs, 10 threads), and 5.6 of the 12 s of the caffeine+ UKS SCF.
+- **Kernel.** `CVHFnrs8_incore_jk_ndm` replaces `CVHFnrs8_incore_jk_1dm`. Each ERI row is read from memory once
+  for all dms: J of each dm in one loop over the row, then K one segment of the row (k fixed) at a time.
+  - A first version summed the dms one after another: 82 ms for 2 dms. Its dot products were bound by the
+    latency of one chain of dependent additions: 4 cycles per 4 elements, 3 such loops per element and dm,
+    about 38 ms per dm at 10 threads, as measured.
+  - The sums of all dms, and both K updates of a row, now go side by side in one loop, in chunks of up to 4
+    dms (a compile-time constant). Without `#pragma GCC unroll 4` the per-dm arrays stayed in memory and 2 dms
+    took 99 ms.
+  - Each sum keeps its order, so each dm's J and K are bit for bit those of a call with that dm alone. With one
+    dm the kernel equals the old one bit for bit (51–53 against 54 ms), so the RKS SCF is unchanged.
+- **Per call** (`incore_ndm_time.py`, caffeine+, 10 threads, ms):
+
+  | dms | batch kernels | one pass |
+  |---|---|---|
+  | 1 | 54 (old 1-dm kernel) | 52 |
+  | 2 | 181 | 66 |
+  | 3 | 203 | 91 |
+  | 4 | 202 | 136 |
+  | 6 | 231 | 210 |
+  | 8 | 248 | 355 |
+
+  - J alone: the one-pass kernel is faster up to 3 dms (2 dms: 46.6 against 56.3 ms), equal at 4, slower at 6
+    (120 against 82 ms).
+  - Cutoffs: `INCORE_FUSED_MAX = 6` and `INCORE_FUSED_J_MAX = 3`. On benzene+ (0.17 GB) the one-pass kernel wins
+    at every n up to 8.
+- caffeine+ UKS B3LYP SCF: 12.05 → 9.22 s (J/K 5.68 → 2.68 s), 23 cycles in both, energies 2.7e-12 Eh apart.
+
+### B: bench cases for the UKS response
+- `td_case` takes charge and spin, and `converged_ks`, `td_case` and `hess_case` take `full_jk`: the caffeine+
+  cases rebuild J/K in the tight SCF, as `scf_caffeine+_svp_b3lyp_uks` does.
+- FULL: `tda_caffeine+_svp_b3lyp_uks` and `hess_benzene+_svp_b3lyp_uks`. Timings only:
+  `hess_caffeine+_svp_b3lyp_uks`.
+- The 'hessian' suite, which collects the response code paths, adds water+ UKS TDA for SVWN, PBE, r2SCAN, B3LYP
+  and wB97X, and UKS TDDFT for PBE and r2SCAN (Casida) and B3LYP (full RPA).
+- `worker.py` counts `uks_fxc_mo` as XC.
+
+### C: the UKS XC response from the factors of the spin dms
+- **Why.** It13 and It17 gave the RKS CPHF and TD operators the XC response from the factors of the response
+  dms. UKS kept the dm path: `nr_uks_fxc` on two dms per set. It was 27 of the 39 s of the caffeine+ UKS TDA
+  and 115 of the 204 s of the caffeine+ UKS Hessian.
+- **Kernel.** `VXCfused_fxc_lowrank` becomes `_fxc_lowrank` for one or two spins, with
+  `VXCfused_fxc_lowrank_uks` as the UKS entry. Each group of points:
+  - evaluates its AO values once for both spins;
+  - takes the densities of both spins from their factors;
+  - forms the spin-coupled potentials of `nr_uks_fxc`, with the kernel's first index pair contracted with
+    the densities, as `nr_uks_fxc` does (the UKS kernel is symmetric only to rounding, about 1e-17 relative);
+  - adds v1[s] Q[s] for each spin.
+
+  The RKS kernel performs the same operations as before: `sched_determinism.py` against It18 gives 0.0 for every
+  kernel.
+- **Python.**
+  - `_FusedXC.uks_fxc_mo` drives the kernel.
+  - `lowrank_cheaper(nspin=2)` weighs it against the 2·nset dms of the dm path, with the factored terms summed
+    over the spins.
+  - `_gen_uhf_response` is split as `_gen_rhf_response` is (J/K, NLC, XC). It attaches
+    `vind_lowrank(dm1, a, P, Q)` for factors given per spin, and `vind_mo(dm1, x)` for CPHF when the orbitals
+    come per spin. ROHF's own `mo_coeff` and `mo_occ`, which callers without orbitals fall back to, get no
+    `vind_mo`.
+  - The UHF/UKS TDA (a = orbv zᵀ/2), TDHF (a = orbv (X+Y)ᵀ/2, the XC block added to both halves) and Casida
+    (a = orbv (z·d)ᵀ) operators and the UHF Hessian's CPHF operator use them where offered.
+- **A bug that the edge cases caught:** with no beta electrons (H2+), `vind_mo` inferred the number of sets
+  from each spin's x, and the empty beta block cannot tell. It now takes the count from a spin with orbitals.
+  The H2+ case is in `test_cphf_xc_lowrank`.
+- **Per call** (`lowrank_uks_time.py`, caffeine+, 10 threads, s; dm path → factored):
+
+  | xc | 1 set | 10 sets | 40 sets |
+  |---|---|---|---|
+  | SVWN | 0.163 → 0.068 | 1.884 → 0.548 | 7.667 → 2.161 |
+  | PBE | 0.210 (dm path kept; 0.217 factored) | 2.068 → 1.287 | 8.255 → 4.821 |
+  | B3LYP | 0.215 (dm path kept; 0.212 factored) | 2.063 → 1.272 | 8.257 → 4.834 |
+  | r2SCAN | 0.610 → 0.352 | 6.091 → 2.501 | 24.286 → 9.757 |
+
+  - The flop model picks the faster path at every point.
+  - The paths agree to 2.6e-14 relative.
+  - The UKS gain (GGA 1.6–1.7×) is larger than the RKS one (1.3–1.4×): the dm path pays for both spins'
+    dms, where the factored path shares the AO values and their products between the spins.
+- **Tests:**
+  - `test_tduks.test_td_xc_lowrank` (TDA, TDDFT, Casida; SVWN, BP86, B3LYP, M06-L) and hessian
+    `test_uks.test_cphf_xc_lowrank`, both against `FUSED_XC=False` to 1e-13 with either path forced.
+  - Edge cases (`uks_lowrank_edge.py`): H2+ and the H3 quartet, which have no beta electrons, agree to
+    ≤ 1.5e-15 for TDA, TDDFT and CPHF.
+
+### D: J of the total density
+- J depends on the spin densities only through their sum.
+  - The pure-functional branch of `_gen_uhf_response` now takes J of the summed spin dms: half the J work on
+    any J backend.
+  - The UHF and UKS `make_h1` contract each atom's `int2e_ip1` integrals with one Coulomb script on the total
+    density instead of one per spin: 6 contractions per quartet instead of 8 (hybrids), 2 instead of 4 (pure).
+- `make_h1`'s J/K call for one atom (`h1_jk_scripts.py`, ms): caffeine+ B3LYP 805 → 741, PBE 581 → 518;
+  benzene+ 83 → 77 and 61 → 55. That is about 1.5 s per caffeine+ Hessian. On benzene+ it is lost in the
+  noise of `make_h1` (2.7–3.0 s, mostly the XC term; `make_h1_time.py`). h1ao changes by 1.8e-14 relative.
+- **Not done:** J of the spin sum in hybrid responses. `get_jk` computes J and K in one pass on the direct and
+  semi-direct backends, so splitting it would evaluate the integrals twice. In memory J and K are separate
+  passes, but the saving would be about 1% of a UKS TDA.
+
+### End to end
+It18 against It19: 10 threads, `PYSCF_MAX_MEMORY=20000`, means of 2 interleaved runs
+(`results/20261030-132547_it19-uks.json`).
+
+| case | It18 (s) | It19 (s) | |
+|---|---|---|---|
+| SCF caffeine+/SVP B3LYP UKS | 11.90 | 8.61 | 1.38× (J/K 5.61 → 2.60 s) |
+| TDA caffeine+/SVP B3LYP UKS | 38.91 | 27.48 | 1.42× (XC 26.9 → 17.4 s) |
+| Hessian benzene+/SVP B3LYP UKS | 19.19 | 12.41 | 1.55× |
+| Hessian caffeine+/SVP B3LYP UKS | 203.9 | 156.8 | 1.30× (CPHF XC about 100 → 61 s) |
+| SCF benzene+/SVP r2SCAN UKS | 1.83 | 1.82 | unchanged (pure: J of one summed dm already) |
+| SCF, TDA caffeine/SVP B3LYP; Hessian benzene/SVP B3LYP (RKS) | 4.25, 16.42, 7.03 | 4.30, 15.99, 7.07 | bit-for-bit results; times within noise |
+
+- **Exactness between the trees:**
+  - UKS SCF energies differ by 2.7e-12 Eh with the same cycles, and excitations by 1.3e-14.
+  - The Hessians differ by 1.6e-9 (benzene+) and 1.6e-11 (caffeine+).
+- **The benzene+ Hessian:**
+  - Its CPHF amplifies rounding: run to run, each tree's Hessian varies by 5e-11, against 5e-13 for neutral
+    benzene. Benzene+ is a Jahn–Teller cation with near-degenerate orbitals.
+  - The 1.6e-9 comes from each run's own default SCF, whose endpoint (conv_tol 1e-9) differs between the trees.
+  - On the same orbitals (`hess_cpscf_tol.py`) It19 and It18 differ by 5.2e-11 at the default
+    `conv_tol_cpscf` and 1.4e-10 at 1e-12. It18 against itself gives 1.2e-11 and 4.5e-11.
+- **Where UKS time goes now:**
+  - caffeine+ TDA (27.4 s): XC response 17.4 s, J/K 8.8 s.
+  - caffeine+ Hessian (157 s):
+    - CPHF XC 61.3 s;
+    - derivative J/K (`nr_direct_drv`) 48.4 s, It20's target;
+    - CPHF J/K 18.6 s;
+    - the Hessian XC terms about 13 s (`_dot_sets_aow_ao` 7.3 s, the per-atom wv einsums 5.2 s).
+
+### Gate
+- Kernel tests pass against `pyscf-base`.
+- Tight validation passes on the hessian suite (now with the 8 water+ UKS TD cases), the full suite and the
+  sparse suite. Largest differences from unmodified PySCF:
+
+  | quantity | max difference | case |
+  |---|---|---|
+  | energies | 5.5e-12 Eh | |
+  | gradients | 3.8e-12 | |
+  | excitations | 1.3e-12 | water+ UKS r2SCAN Casida; caffeine+ UKS TDA 7.9e-16 |
+  | Hessians | 6.6e-11 | water, DF; benzene+ UKS 4.7e-11 |
+
+- Upstream tests: 855 passed, 4 failed (the known xcfun failures).
+- **Cycle-count warnings** on five tight SCFs, among them the RKS caffeine B3LYP (27 against 24).
+  - None of It19's code is on its path: at the validation's 4000 MB it runs semi-direct.
+  - Three reruns each: It19 took 24, 27 and 26 cycles, It18 24, 29 and 24, with energies within 3.9e-12 Eh.
+  - This is the run-dependent endpoint of tight direct SCFs, noted since It7.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
