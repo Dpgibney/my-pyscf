@@ -23,6 +23,8 @@ Every upstream clone has `origin` = upstream and a local branch `perf` (one comm
 | `pyscf-it11/` | worktree of `pyscf/` | `474f6366c`, detached | `perf` before It12, for before/after runs |
 | `pyscf-it12/` | worktree of `pyscf/` | `1ccef1836`, detached | `perf` before It13, for before/after runs |
 | `pyscf-it13/` | worktree of `pyscf/` | `d88076cb8`, detached | `perf` before It14, for before/after runs |
+| `pyscf-it15/` | worktree of `pyscf/` | `84f2271ca`, detached | `perf` before It16 (stock flags) |
+| `pyscf-it16a/`, `pyscf-it16c/` | worktrees of `pyscf/` | `930f39c41`, `a8a68d87f` | It16 steps A and A+C, built with `-DNUMINT_X86_64_V3=ON` |
 | `libcint/` | github.com/sunqm/libcint | `v6.2.0` (master's pin) | integrals |
 | `qcint/` | github.com/sunqm/qcint | `v6.2.0` | SIMD integrals (It2); `perf` has the It8 changes, and the `pyscf` tree loads its profile-guided build `install/qcint-pgo` |
 | `libxc/` | gitlab.com/libxc/libxc | `7.1.2` (master's pin) | XC functionals |
@@ -43,6 +45,7 @@ scripts/build_cint.sh libcint stock            # or: qcint stock | libcint nativ
 scripts/build_qcint_pgo.sh                     # qcint perf branch, profile-guided -> install/qcint-pgo (It8)
 scripts/build_libxc.sh stock                   # or: build_libxc.sh znver5 -DCMAKE_C_FLAGS=-march=znver5
 scripts/build_pyscf.sh pyscf libcint-stock libxc-stock [extra cmake args]   # the perf tree: pyscf qcint-pgo libxc-stock
+                                               #   -DNUMINT_X86_64_V3=ON (It16: AVX2 numint/GTO grid kernels, bitwise)
 
 scripts/check_power.sh                          # benchmark-ready? (AC, performance profile, no freq cap)
 cd bench
@@ -1527,6 +1530,126 @@ The "fused-context" slowdowns the swarm saw were the spinning pools.
 
 - On benzene⁺ the parts do show the gain: the grid sort −0.08 s and `_unfold_gga` 0.052 → 0.021 s.
 - Results are identical where the case is deterministic.
+
+## It16: the fused XC kernels: AVX2 flags, GEMM groups of 2 blocks, GGA densities from Z, 2026-10-29
+
+`pyscf` `perf` commits:
+- A `930f39c41`: build option `NUMINT_X86_64_V3`.
+- C `a8a68d87f`: `GEMM_NBLK` 2.
+- B `0835ee427`: GGA densities from Z, and the density path by flop count.
+
+These are swarm items #4, #16 and #9. Worktrees: `pyscf-it15` (before, stock flags), `pyscf-it16a` (A) and
+`pyscf-it16c` (A+C), the last two built with `-DNUMINT_X86_64_V3=ON`. The `pyscf` tree is now configured with
+that option; it stays in the CMake cache, and a fresh build must pass it (How to).
+
+### A: AVX2 for the numint and GTO grid kernels (#4)
+- **Problem:** the stock `-msse3 -O2` leaves the elementwise loops of the fused kernels scalar (`_contract_mo`,
+  `_contract_group`, the weighted gathers in `VXCfused_dot_wv`).
+- **Fix:** `-DNUMINT_X86_64_V3=ON` compiles `dft/nr_numint.c`, `nr_numint_sparse.c`, `nr_numint_fused.c` and
+  `gto/grid_ao_drv.c`, `deriv1.c`, `deriv2.c` with `-O3 -march=x86-64-v3 -ffp-contract=off`.
+  - Every other library keeps the stock flags (It3: `-march=native` everywhere made J/K 4–6% slower).
+  - The option is off by default, because the libraries then need an AVX2 CPU.
+- **Bit for bit, because FMA contraction is off and nothing is reassociated:**
+  - all 72 entries of `kernels.py` against `pyscf-it15` at 1 thread with `--rtol 0`;
+  - every gradient and Hessian XC term of `deriv_xc_check.py` (caffeine RKS, benzene⁺ UKS; SVWN, B3LYP,
+    r2SCAN);
+  - the CPHF factored response `rks_fxc_mo` (benzene, caffeine; 3 functionals).
+- **Timings** (10 threads, medians of 3 ABBA runs, `results/20261029-231043_it16a-flags.json`):
+
+  | case | before (s) | after (s) | |
+  |---|---|---|---|
+  | caffeine B3LYP SCF | 5.26 | 4.97 | 1.06× |
+  | caffeine r2SCAN SCF | 7.14 | 6.84 | 1.05× |
+  | DF-TZVP SCF | 10.89 | 10.56 | 1.03× |
+  | caffeine TDA | 25.55 | 23.90 | 1.07× (XC 18.5 → 16.9 s) |
+  | benzene Hessian | 8.51 | 7.91 | 1.08× |
+  | grid pipeline | 3.18 | 3.20 | unchanged; dense `eval_ao` is bound by writing its arrays |
+
+### C: GEMM groups of 2 grid blocks (#16)
+- **Problem:** the sparse and fused kernels gather the AOs unscreened on a group of `GEMM_NBLK` blocks and run one
+  GEMM over the group. With 4 blocks (224 points) a thread's GGA AO buffer is 1.2 MB at ns = 170, above the
+  1 MB L2.
+- **Fix:** 2 blocks halve the buffer, at nearly the same mean ns (caffeine/SVP 152 vs 154).
+  - `numint.py` reads the size from the library (`VXCfused_gemm_nblk`) for `group_naos` and `rks_fxc_mo`'s
+    alignment.
+- **Results** change by rounding: Vxc ≤ 1.5e-15 relative, f_xc 2e-17, exc identical. The fused and block_loop paths
+  still agree bit for bit.
+- **Timings on top of A** (`results/20261029-232522_it16c-nblk.json`):
+
+  | case | A (s) | A+C (s) | |
+  |---|---|---|---|
+  | caffeine B3LYP SCF | 4.93 | 4.49 | 1.10× (XC kernels 2.36 → 1.96 s) |
+  | caffeine r2SCAN SCF | 6.97 | 6.60 | 1.06× |
+  | DF-TZVP SCF | 10.62 | 10.21 | 1.04× |
+  | alkane SCF | 14.92 | 14.64 | 1.02× |
+  | caffeine TDA | 23.89 | 23.54 | 1.015× |
+  | benzene Hessian | 7.86 | 7.82 | within noise |
+
+  - The 1-thread gain the swarm measured was 5%. The larger 10-thread gain fits the cache argument.
+
+### B: GGA densities from the orbitals with one GEMM for the gradient; density path by flop count (#9)
+- **The Z trick:**
+  - `VXCfused_eval_rho_mo` formed the GGA gradient from v0 = ao[0]C and three more GEMMs v_c = ao[c]C, with
+    rho_c = 2 Σ_o v0 v_c.
+  - With Z = C v0ᵀ (one GEMM of the same size), rho_c = 2 Σ_n ao[c,n] Z[n]. That is two GEMMs per group instead
+    of four, as It13's factored CPHF kernel already does. Meta-GGA keeps the v_c for tau.
+- **The path choice:**
+  - The fused path now picks between the orbital and density-matrix kernels by their flops summed over the AO
+    groups (`_FusedXC.mo_path_cheaper`).
+  - Before, it copied `_rho1_preferred`'s pair-mask ratio, which was tuned for the unfused kernels.
+  - Flops per point and set (2-block groups):
+
+    | system | xctype | orbitals then | orbitals with Z | dm |
+    |---|---|---|---|---|
+    | caffeine/SVP | GGA | 61.8k | 31.4k | 49.4k |
+    | caffeine/TZVP | GGA | 120k | 61k | 188k |
+    | alkane | GGA | 101k | 51.1k | 51.7k |
+    | alkane | LDA/meta-GGA | — | 25.3k (orbitals) | 51.0k |
+
+- **Results** change by rounding (Vxc 2.0e-16 relative in `test_fused_xc`).
+  - `test_fused_xc` now compares dms that carry orbitals to 1e-13, and all others bit for bit.
+- **Timings on top of A+C** (`results/20261029-233957_it16b-gga-z.json`). Cycle counts and energies to 9 decimals
+  are identical.
+
+  | case | A+C (s) | A+C+B (s) | |
+  |---|---|---|---|
+  | caffeine PBE SCF | 4.78 | 4.39 | 1.09× |
+  | caffeine B3LYP SCF | 4.95 | 4.56 | 1.09× |
+  | DF-TZVP SCF | 10.32 | 9.24 | 1.12× |
+  | caffeine⁺ UKS SCF | 13.35 | 12.42 | 1.08× |
+  | alkane B3LYP SCF | 14.60 | 14.48 | 1.01× (the two paths cost about the same) |
+  | alkane r2SCAN, benzene⁺ UKS r2SCAN | | | unchanged; meta-GGA was already on the orbital path |
+
+**Gate**
+- Kernel tests pass against `pyscf-base`.
+- Tight validation passes on the hessian, full and sparse suites.
+- Upstream tests: 851 passed, 4 failed (the known xcfun failures).
+
+## Session summary: It13 → It16 with the thread-pool fix, 2026-10-30
+
+P = `pyscf-it13` with OpenBLAS's default spin (`OPENBLAS_THREAD_TIMEOUT=28`); N = `perf` `0835ee427` with the
+pinned timeout of 20. 10 threads, `PYSCF_MAX_MEMORY=20000`, means of 2 ABBA runs
+(`results/20261030-001558_session-it13-it16.json`).
+
+| case | P (s) | N (s) | |
+|---|---|---|---|
+| scf_caffeine_svp_b3lyp | 8.83 | 4.20 | 2.10× |
+| scf_caffeine_svp_r2scan | 11.22 | 6.56 | 1.71× |
+| scf_caffeine+_svp_b3lyp_uks | 21.83 | 12.81 | 1.70× |
+| scf_benzene+_svp_r2scan_uks | 4.01 | 2.06 | 1.95× |
+| scf_caffeine_tzvp_dfpbe | 15.06 | 9.21 | 1.64× |
+| scf_c20h42_svp_b3lyp | 19.02 | 14.46 | 1.31× |
+| tda_caffeine_svp_b3lyp | 25.47 | 23.30 | 1.09× |
+| grad_benzene_svp_b3lyp | 1.48 | 0.69 | 2.15× |
+| hess_benzene_svp_b3lyp | 18.07 | 7.84 | 2.30× |
+| grid_caffeine_svp | 3.49 | 3.17 | 1.10× |
+| micro_libxc | 1.72 | 1.42 | 1.21× |
+
+- The caffeine/SVP B3LYP Hessian (It14, both sides with the timeout of 20) went from 180.8 to 105.0 s.
+- What remains largest:
+  - the XC response of TD (16.5 of 23.3 s on caffeine TDA): It17, the factored TD response (#6);
+  - the CPHF XC response and derivative J/K of Hessians;
+  - the semi-direct J/K of large SCFs.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
