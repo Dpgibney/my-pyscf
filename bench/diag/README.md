@@ -58,3 +58,5 @@ Run them in a configuration's pinned environment:
 | `profile_summary.py` | readable summary of a `run_bench.py` results file: wall time, categories and top functions per case (`BENCH_TOP=30` in the config env records 30) | profile-it13 |
 | `blas_pools.py` | CPU that numpy's and scipy's bundled OpenBLAS pools burn after a call, what that costs a PySCF OpenMP call made next (J+K, `get_overlap_cond`, `condense`), and eigh/GEMM times at three sizes; run once per `OPENBLAS_*` setting | thread pools |
 | `hess_ejk_check.py` | the Hessian's two-electron blocks (RHF/UHF, J only, range-separated K) and `hess_elec`'s mo1 terms against copies of the code before It14, for all atoms, reversed and subset atom lists; 1 thread | It14 |
+| `xc_deriv_check.py` | `transform_xc`, `ud2ts`, `ts2ud` and the fg kernel against the code before It15 (old Python driving the old `libdft` from `pyscf-it13`), bit for bit, plus transform times at 1M points | It15: B |
+| `grid_group_check.py` | `arg_group_grids` against the `numpy.unique(axis=0)` version: identical permutations on real and displaced grids, and times | It15: A |

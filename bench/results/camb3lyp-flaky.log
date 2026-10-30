@@ -1,0 +1,28 @@
+== pyscf run 1
+PASS  scf_caffeine_svp_camb3lyp
+      e_tot                  max|d|=  4.32e-12 tol= 1e-09 ok
+      cycles                 max|d|=  24 vs 27 tol=       warn
+ALL PASS
+== pyscf-it13 run 1
+PASS  scf_caffeine_svp_camb3lyp
+      e_tot                  max|d|=  9.09e-13 tol= 1e-09 ok
+ALL PASS
+== pyscf run 2
+FAIL  scf_caffeine_svp_camb3lyp
+      e_tot                  max|d|=  1.91e-09 tol= 1e-09 FAIL
+      cycles                 max|d|= 100 vs 27 tol=       warn
+      converged              max|d|=     False tol=       FAIL
+== pyscf-it13 run 2
+PASS  scf_caffeine_svp_camb3lyp
+      e_tot                  max|d|=  2.05e-12 tol= 1e-09 ok
+ALL PASS
+== pyscf run 3
+PASS  scf_caffeine_svp_camb3lyp
+      e_tot                  max|d|=  1.82e-12 tol= 1e-09 ok
+      cycles                 max|d|=  29 vs 27 tol=       warn
+ALL PASS
+== pyscf-it13 run 3
+FAIL  scf_caffeine_svp_camb3lyp
+      e_tot                  max|d|=  1.69e-09 tol= 1e-09 FAIL
+      cycles                 max|d|= 100 vs 27 tol=       warn
+      converged              max|d|=     False tol=       FAIL

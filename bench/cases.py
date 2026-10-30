@@ -235,7 +235,9 @@ case('scf_caffeine_tzvp_dfpbe', (FULL,))(scf_case(CAFFEINE, 'def2-tzvp', 'PBE', 
 # hybrid, whose long-range K is direct even when the regular ERIs are in memory. The tight TZVP SCF
 # with incremental J/K drifts and did not converge in 100 cycles in unmodified PySCF; see _full_jk_rebuild.
 case('scf_caffeine_tzvp_b3lyp', (FULL,))(scf_case(CAFFEINE, 'def2-tzvp', 'B3LYP', full_jk=True))
-case('scf_caffeine_svp_camb3lyp', (FULL,))(scf_case(CAFFEINE, 'def2-svp', 'CAM-B3LYP'))
+# The tight CAM-B3LYP SCF with incremental J/K stalled short of conv_tol=1e-12 in 1 of 3 runs in both
+# the It13 and It15 trees (results/camb3lyp-flaky.log), so it rebuilds J/K too.
+case('scf_caffeine_svp_camb3lyp', (FULL,))(scf_case(CAFFEINE, 'def2-svp', 'CAM-B3LYP', full_jk=True))
 # Tight direct UKS drifts by up to ~5e-12 Eh per cycle with incremental J/K, so conv_tol=1e-12 was met
 # or missed by chance (47-51 cycles, or not within 100, in every build); see _full_jk_rebuild.
 case('scf_caffeine+_svp_b3lyp_uks', (FULL,))(scf_case(CAFFEINE, 'def2-svp', 'B3LYP', charge=1, spin=1,

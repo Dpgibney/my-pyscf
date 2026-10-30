@@ -1,0 +1,13 @@
+== run 1
+PASS  scf_caffeine_svp_camb3lyp
+      e_tot                  max|d|=  2.27e-13 tol= 1e-09 ok
+ALL PASS
+== run 2
+PASS  scf_caffeine_svp_camb3lyp
+      e_tot                  max|d|=  9.09e-13 tol= 1e-09 ok
+      cycles                 max|d|=  31 vs 24 tol=       warn
+ALL PASS
+== run 3
+PASS  scf_caffeine_svp_camb3lyp
+      e_tot                  max|d|=  1.82e-12 tol= 1e-09 ok
+ALL PASS

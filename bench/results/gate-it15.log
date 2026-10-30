@@ -1,0 +1,84 @@
+== kernels 22:06:57
+  ok   sparse_grad_vxc_PBE      max|d|/scale = 1.13e-12
+  ok   sparse_vxc_rks_mo_r2SCAN max|d|/scale = 2.29e-14
+  ok   sparse_exc_rks_mo_r2SCAN max|d|/scale = 1.93e-15
+  ok   sparse_grad_vxc_r2SCAN   max|d|/scale = 4.67e-14
+ALL PASS
+kernels exit 0
+== validate full 22:07:34
+PASS  tda_benzene_svp_b3lyp
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  3.22e-15 tol= 1e-09 ok
+PASS  grid_caffeine_svp
+PASS  scf_caffeine_tzvp_dfpbe
+      e_tot                  max|d|=  2.96e-12 tol= 1e-09 ok
+      cycles                 max|d|=  37 vs 28 tol=       warn
+PASS  scf_caffeine_tzvp_b3lyp
+      e_tot                  max|d|=  9.09e-13 tol= 1e-09 ok
+      cycles                 max|d|=  25 vs 26 tol=       warn
+FAIL  scf_caffeine_svp_camb3lyp
+      e_tot                  max|d|=  1.93e-09 tol= 1e-09 FAIL
+      cycles                 max|d|= 100 vs 27 tol=       warn
+      converged              max|d|=     False tol=       FAIL
+PASS  scf_caffeine+_svp_b3lyp_uks
+      e_tot                  max|d|=  1.59e-12 tol= 1e-09 ok
+      cycles                 max|d|=  48 vs 47 tol=       warn
+PASS  tddft_benzene_svp_b3lyp
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  4.59e-14 tol= 1e-09 ok
+PASS  hess_benzene_svp_b3lyp
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  7.30e-12 tol= 1e-07 ok
+PASS  hess_benzene_svp_pbe
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  6.99e-12 tol= 1e-07 ok
+PASS  scf_benzene+_svp_r2scan_uks
+      e_tot                  max|d|=  1.14e-13 tol= 1e-09 ok
+      cycles                 max|d|=  20 vs 19 tol=       warn
+PASS  grad_caffeine_svp_b3lyp
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      grad                   max|d|=  1.62e-12 tol= 1e-08 ok
+PASS  tda_caffeine_svp_b3lyp
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  2.55e-15 tol= 1e-09 ok
+PASS  scf_c20h42_svp_b3lyp
+      e_tot                  max|d|=  1.82e-12 tol= 1e-09 ok
+PASS  scf_c20h42_tzvp_pbe
+      e_tot                  max|d|=  4.55e-12 tol= 1e-09 ok
+SOME FAILED
+validate full exit 1
+== validate sparse 22:22:14
+candidate new: pyscf {} [cint=qcint-pgo xc=libxc-stock blas=openblas]
+reference ref: pyscf-base {} [cint=libcint-stock xc=libxc-stock blas=openblas]
+PASS  scf_c20h42_svp_b3lyp
+      e_tot                  max|d|=  9.09e-13 tol= 1e-09 ok
+PASS  scf_c20h42_tzvp_pbe
+      e_tot                  max|d|=  6.37e-12 tol= 1e-09 ok
+PASS  scf_c20h42_svp_r2scan
+      e_tot                  max|d|=  2.73e-12 tol= 1e-09 ok
+PASS  grad_c20h42_svp_b3lyp
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      grad                   max|d|=  3.79e-12 tol= 1e-08 ok
+PASS  tda_c20h42_svp_pbe
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  2.55e-15 tol= 1e-09 ok
+ALL PASS
+validate sparse exit 0
+== run_tests 22:31:36
+      gto_basis_enforce_element_match = True
+  in ~/.pyscf_conf.py
+    warnings.warn(
+
+pyscf/df/test/test_addons.py::KnownValues::test_default_auxbasis
+  /home/danny/Chemistry/my-pyscf/pyscf/pyscf/gto/basis/__init__.py:732: UserWarning: Basis may be available in basis-set-exchange. It is recommended to install basis-set-exchange: pip install basis-set-exchange
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_custom_rsh
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tda_b3lyp_xcfun
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tda_lda_xcfun
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tddft_b3lyp_xcfun
+4 failed, 851 passed, 57 skipped, 138 warnings, 134 subtests passed in 298.39s (0:04:58)
+run_tests exit 1
+== done 22:36:34

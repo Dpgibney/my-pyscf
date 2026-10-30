@@ -1455,6 +1455,79 @@ ip1ip2 ×24, ipvip1 ×24, make_h1 ×24). `hess_elec`'s three-operand `numpy.eins
   diagonal blocks from translational invariance equal those from int2e_ipip1 to 1e-9, for RHF, UHF-type spin
   densities and range-separated K.
 
+## It15: grid grouping key and threaded xc_deriv transforms, 2026-10-29
+
+Swarm items #8 and #22, in `pyscf` `perf` commits A `a737220e0` (grid key) and B `84f2271ca` (xc_deriv).
+Worktree `pyscf-it13` is the "before" build: It14 changed nothing these cases run.
+
+**Dropped from the plan.** Two items lost their target once the thread-pool fix was in. Evidence:
+`results/20261029-215557_profile-it14.json`, run with `OPENBLAS_THREAD_TIMEOUT=20`.
+- **#14, the duplicated XC setup:** `get_overlap_cond` and `condense` now cost 0.01–0.03 s per SCF, down from
+  0.3–0.5 s.
+- **#18, libxc in one parallel region:** libxc now costs 0.14–0.18 s per caffeine SCF (was 0.67–0.88 s) and
+  scales about 5.6× on 10 threads.
+
+The "fused-context" slowdowns the swarm saw were the spinning pools.
+
+### A: grid points grouped by an integer box key (#8)
+- **Before:** `arg_group_grids` sorted the (x,y,z) box ids as structured rows (`numpy.unique(axis=0)`, single
+  thread): 0.16 s per caffeine grid and 0.41 s for the alkane. After the thread-pool fix that is 3% of a caffeine
+  SCF.
+- **Now:** a mixed-radix int64 key and one stable argsort. The ids are clipped to [-1, boxes], so the key increases
+  with the rows' lexicographic order, and its stable argsort is the same permutation.
+- **Check (`bench/diag/grid_group_check.py`):** identical permutations in all 10 tests, covering water to the
+  alkane, caffeine at level 5, and points displaced by N(0, 3 bohr). Times:
+
+  | grid | before | after |
+  |---|---|---|
+  | caffeine | 165 ms | 13 ms |
+  | alkane | 406 ms | 31 ms |
+  | caffeine, level 5 | 515 ms | 39 ms |
+
+- **Test:** `test_arg_group_coords` now also covers displaced points. It passes with both versions.
+
+### B: xc_deriv transforms on all threads (#22)
+- **Before:** the kernels of `xc_deriv.c` ran on one thread, and so did `transform_xc`'s fancy-index gathers and
+  additions in numpy.
+- **Now:**
+  - `VXCunfold_sigma_spin0/1`, `VXCud2ts`/`VXCts2ud` and `VXCfg_to_direct_deriv` run over 1024-point blocks with
+    OpenMP.
+  - The row gather in `_unfold_gga` uses the new `VXCgather_rows`.
+  - `transform_xc` records each `xc_tensor.transpose(...)[diag_idx] += xc_sub` as pairs of row numbers. To get
+    them it applies the same transpose and indexing to arrays of row numbers. `VXCadd_rows_indexed` then adds the
+    pairs in the same order at every point.
+  - Within one update the target rows are distinct; the check asserts this. So the sums equal numpy's.
+- **Bit for bit (`bench/diag/xc_deriv_check.py`):** `transform_xc` matches the old Python code driving the old
+  library for GGA and MGGA, spin 0 and 1, orders 1–4. So do `ud2ts`, `ts2ud` and the fg kernel.
+- **Times at 1M points, transform only:** 1.3–1.8× faster.
+  - Spin-1 order 3: GGA 1.39 → 0.77 s, MGGA 2.56 → 1.53 s.
+  - The rest is memory traffic of the derivative tensors: 4 GB at 1M points for spin-1 GGA order 3.
+- **`micro_libxc`** (`results/20261029-220536_it15-xcderiv.json`, medians of 3): 1.69 → 1.43 s, with `xc_post`
+  0.76 → 0.47 s. Third-derivative calls are 1.3–1.4× faster, first-derivative calls unchanged.
+
+**Gate**
+- Kernel tests pass.
+- Tight validation passes on the full and sparse suites, except one run of `scf_caffeine_svp_camb3lyp`:
+  - It did not converge to conv_tol=1e-12 within 100 cycles (1.9e-9 Eh off).
+  - Reruns (`results/camb3lyp-flaky.log`) failed 1 time in 3 on both the It15 tree and `pyscf-it13`.
+  - The SCF's long-range K uses the batched J/K kernels, which neither It14 nor It15 touched.
+  - So this is the incremental-J/K stall that NOTES records for the TZVP and UKS cases.
+  - The case now rebuilds J/K in tight mode (`full_jk=True`), like those. Its reference was regenerated, and 3 of
+    3 runs pass within 2.3e-13–1.8e-12 (`results/camb3lyp-fulljk.log`).
+- Upstream tests: 851 passed, 4 failed (the known xcfun failures).
+
+**Timings** (P = `pyscf-it13`, N = It15; 10 threads; medians of 5 ABBA runs;
+`results/20261029-224239_it15-scf.json`)
+
+| case | P (s) | N (s) | | grid sort P → N (s) |
+|---|---|---|---|---|
+| scf_caffeine_svp_b3lyp | 5.36 | 5.17 | −0.19 s (3.5%) | 0.168 → below the top 40 |
+| scf_c20h42_svp_b3lyp | 15.64 | 15.21 | −0.43 s (2.7%) | 0.417 → below the top 40 |
+| scf_benzene+_svp_r2scan_uks | 2.12 | 2.12 | within the ±7% spread | 0.080 → below the top 40 |
+
+- On benzene⁺ the parts do show the gain: the grid sort −0.08 s and `_unfold_gga` 0.052 → 0.021 s.
+- Results are identical where the case is deterministic.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
