@@ -2446,10 +2446,80 @@ converges with nothing. This is a diagnosis; PySCF is unchanged. Scripts: `bench
   - **Grid points.** The 112 extra points are GPU4PySCF's padding of the grid to a multiple of 256
     (`grid_aligned`).
   - **Start-up cost is small.** The two GPU runs differ by 0.4 s.
-  - **The GPU is 1.27× slower than the CPU here,** as the FP64 rates predict.
-    - The CPU run keeps the ERIs in memory: 246 AOs fit under the 4000 MB default.
-    - GPU4PySCF computes J/K directly every cycle.
-- **Next (not started):** profile the card per part (J/K, XC, the rest) before choosing what to optimize.
+  - **The GPU is 1.27× slower than the CPU here,** as the FP64 rates predict. Both run direct SCF: in-memory
+    ERIs for 246 AOs need 3.7 GB, more than PySCF's 4000 MB default leaves (corrected: first written up as an
+    in-memory CPU run; the profile below shows forced-direct and default CPU runs timing the same).
+- **SCF profile per part.**
+  - Scripts: `bench/gpu/scf_parts.py`, `parse_gpu_log.py`, `jk_variants.py`.
+  - Results in `bench/results/node1/`: `scf_parts.jsonl`, `scf_parts_v6.txt`, `scf_parts_v4_and_jk.txt`,
+    `gpu_timers_v6.txt`, `parts_logs/`.
+  - **Method.**
+    - Each SCF method is wrapped and timed exclusively, between device synchronizations: guess, grids, XC
+      (`nr_rks`), J, K, Fock+DIIS, eig, density, energy, gradient. Untimed time is ≤ 0.004 s per cycle.
+    - GPU runs are profiled on their second SCF. The headline GPU numbers come from verbose 4.
+    - CPU numbers are PySCF 2.14.0's wheel on 8 threads, not our perf tree.
+    - GPU4PySCF's own timers (verbose 6) split XC and give J/K per angular-momentum class.
+      - Use their GPU-event times. Each timer reads the host clock before it synchronizes, so a host wall time
+        also contains the previous label's GPU work.
+      - They synchronize after every J/K kernel launch, which slows B3LYP's K by 10% (2.54 against 2.31 s per
+        cycle).
+    - The forced-direct CPU runs (`cpu-direct`) time the same as the default ones. At 246 AOs PySCF is already
+      direct.
+  - **Per SCF cycle, caffeine/def2-SVP** (s, steady state; first calls excluded). GPU and CPU energies agree to
+    ≤ 1e-10 Eh in every case, with the same cycle counts.
+
+    | case | device | XC | J | K | eig, DIIS, rest | SCF wall (cycles) |
+    |---|---|---|---|---|---|---|
+    | PBE | GPU | 0.63 | 0.68 | – | 0.02 | 25.1 s (18) |
+    | PBE | CPU | 1.34 | 1.24 | – | 0.01 | 50.1 s (18) |
+    | B3LYP | GPU | 0.63 | 0.69 | 2.31 | 0.02 | 57.6 s (15) |
+    | B3LYP | CPU | 1.36 | 1.41 (J+K) | | 0.01 | 45.3 s (15) |
+    | r2SCAN | GPU | 1.47 | 0.69 | – | 0.02 | 37.0 s (16) |
+    | r2SCAN | CPU | 2.69 | 1.25 | – | 0.01 | 67.9 s (16) |
+    | DF-B3LYP | GPU | 0.63 | 0.17 (DF J+K) | | 0.02 | 14.5 s (15) |
+    | DF-B3LYP | CPU | 1.36 | 0.19 (DF J+K) | | 0.01 | 26.0 s (15) |
+
+    - The GPU is 2.0× faster than the CPU for PBE, 1.8× for r2SCAN and DF-B3LYP, and 0.79× for B3LYP.
+    - K is 60% of a B3LYP cycle on the GPU. On the CPU, K adds only 0.17 s to J, because PySCF builds both in
+      one integral pass.
+  - **Inside XC** (GPU-event time per call):
+
+    | functional | density on the grid | functional (libxc) | Vxc integration |
+    |---|---|---|---|
+    | PBE, B3LYP | 0.31 s | 0.006–0.008 s | 0.31 s |
+    | r2SCAN | 0.32 s | 0.012 s | 1.15 s |
+
+    - The density and the integration are each one nao×nao contraction over the grid in FP64. If dense, that is
+      2·246²·294 912 = 3.6e10 FLOP, i.e. ~115 GFLOP/s, 70–80% of the card's FP64 peak (138–169 GFLOPS, base boost
+      to max clock).
+    - r2SCAN's integration adds the three τ contractions: 4 × 3.6e10 FLOP at ~125 GFLOP/s.
+    - On this card XC only gets faster by doing fewer FLOPs.
+  - **Inside J** (MD J-engine): 21 classes, none dominant. The largest are (ps|ss) 13%, (pp|ps) 10%, (dp|ss) 10%
+    and (ds|ps) 10%.
+  - **Inside K** (Rys, B3LYP): 25 classes, 4256 kernel launches over the SCF.
+    - Classes with only s and p shells take 72% of K: (ps|ss) 23%, (ss|ss) 17%, (ps|ps) 14%, (pp|ss) 8%.
+      Classes with one d shell take 20%, with two or more 8%.
+    - These quartets carry the least quadrature arithmetic. Their cost is probably per-quartet work (Boys function
+      in FP64, screening, accumulation). Only a kernel-level profile can say which.
+  - **J and K in one pass** (`jk_variants.py`; converged B3LYP density, median of 3):
+
+    | build | time |
+    |---|---|
+    | J-engine (`get_j`) | 0.78 s |
+    | Rys K (`get_k`) | 2.62 s |
+    | both, as RKS does now | 3.39 s |
+    | Rys J+K in one pass (`get_jk`) | 2.63 s |
+
+    - The one-pass result agrees to 7.7e-12 (J) and 4.1e-13 (K).
+    - J inside the K pass costs ~0.02 s, so dropping the separate J-engine pass for hybrids would save ~0.7 s per
+      cycle, ~18% of the B3LYP SCF on this card (estimate).
+    - GPU4PySCF presumably chose the J-engine on faster cards; an A100/H100 has to confirm the trade.
+  - **One-time costs** (first calls, GPU): XC 0.80 s, K 1.67 s, J 0.31 s (screening setup included), grids
+    0.07 s, guess 0.03 s.
+- **Next candidates (not started):**
+  - J from the K pass for hybrids, in a `gpu4pyscf` clone with a `perf` branch and a reference build.
+  - A kernel-level profile of K's s/p classes (Nsight Compute; needs a user-local CUDA toolkit).
+  - Our perf PySCF built on node1, for a CPU baseline that isn't the stock wheel.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are

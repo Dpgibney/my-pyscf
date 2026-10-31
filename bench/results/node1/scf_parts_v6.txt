@@ -1,0 +1,101 @@
+Overwritten attributes  get_jk eig get_ovlp get_j make_rdm1 get_occ get_init_guess get_hcore energy_tot get_veff get_k get_fock get_grad  of <class 'pyscf.dft.rks.RKS'>
+Overwritten attributes  get_jk eig get_ovlp get_j make_rdm1 get_occ get_init_guess get_hcore energy_tot get_veff get_k get_fock get_grad  of <class 'gpu4pyscf.dft.rks.RKS'>
+
+caffeine def2-svp pbe, nao 246, conv_tol 1e-10
+                                             cpu              cpu-direct                     gpu
+  E (Eh)                         -679.0403707178         -679.0403707178         -679.0403707179
+  cycles                                      18                      18                      18
+  SCF wall (s)                             50.14                   50.14                   25.16
+  part: first | per cycle    first s  per-cycle s    first s  per-cycle s    first s  per-cycle s
+  init guess                0.030          0.000    0.028          0.000    0.029          0.000
+  hcore+ovlp                0.003          0.000    0.003          0.000    0.035          0.000
+  grids                     0.270          0.000    0.275          0.000    0.070          0.000
+  XC                        1.593          1.344    1.580          1.342    0.803          0.626
+  J                         0.000          0.000    0.000          0.000    0.312          0.684
+  J+K                       1.396          1.243    1.397          1.242                       -
+  veff rest                 0.000          0.001    0.000          0.000    0.000          0.001
+  Fock+DIIS                 0.000          0.002    0.000          0.002    0.000          0.002
+  eig                       0.007          0.008    0.007          0.009    0.013          0.012
+  occ+density               0.001          0.001    0.001          0.002    0.001          0.001
+  energy                    0.000          0.000    0.000          0.001    0.000          0.000
+  gradient                  0.000          0.000    0.000          0.000    0.001          0.001
+  untimed                                  0.002                   0.004                   0.001
+  gpu XC: density on grid               0.077 s per cycle
+  gpu XC: functional (libxc)            0.261 s per cycle
+  gpu XC: Vxc integration               0.011 s per cycle
+  gpu CuPy memory pool after the run: 0.146 GiB
+
+caffeine def2-svp b3lyp, nao 246, conv_tol 1e-10
+                                             cpu              cpu-direct                     gpu
+  E (Eh)                         -679.8127486398         -679.8127486398         -679.8127486398
+  cycles                                      15                      15                      15
+  SCF wall (s)                             45.28                   45.27                   61.34
+  part: first | per cycle    first s  per-cycle s    first s  per-cycle s    first s  per-cycle s
+  init guess                0.029          0.000    0.028          0.000    0.028          0.000
+  hcore+ovlp                0.003          0.000    0.003          0.000    0.035          0.000
+  grids                     0.288          0.000    0.282          0.000    0.070          0.000
+  XC                        1.587          1.359    1.585          1.360    0.805          0.628
+  J                                            -                       -    0.312          0.691
+  K                                            -                       -    1.871          2.544
+  J+K                       1.557          1.412    1.566          1.411                       -
+  veff rest                 0.001          0.001    0.001          0.001    0.001          0.001
+  Fock+DIIS                 0.000          0.002    0.000          0.003    0.000          0.002
+  eig                       0.007          0.009    0.007          0.008    0.012          0.012
+  occ+density               0.001          0.001    0.001          0.001    0.001          0.001
+  energy                    0.000          0.001    0.000          0.001    0.000          0.000
+  gradient                  0.000          0.000    0.000          0.000    0.001          0.001
+  untimed                                  0.003                   0.003                   0.001
+  gpu XC: density on grid               0.080 s per cycle
+  gpu XC: functional (libxc)            0.263 s per cycle
+  gpu XC: Vxc integration               0.011 s per cycle
+  gpu CuPy memory pool after the run: 0.146 GiB
+
+caffeine def2-svp r2scan, nao 246, conv_tol 1e-10
+                                             cpu              cpu-direct                     gpu
+  E (Eh)                         -679.4529650104         -679.4529650104         -679.4529650104
+  cycles                                      16                      16                      16
+  SCF wall (s)                             67.89                   67.85                   36.99
+  part: first | per cycle    first s  per-cycle s    first s  per-cycle s    first s  per-cycle s
+  init guess                0.028          0.000    0.028          0.000    0.028          0.000
+  hcore+ovlp                0.003          0.000    0.003          0.000    0.036          0.000
+  grids                     0.281          0.000    0.284          0.000    0.070          0.000
+  XC                        2.847          2.693    2.844          2.689    1.650          1.473
+  J                         0.000          0.000    0.000          0.000    0.312          0.690
+  J+K                       1.406          1.249    1.393          1.250                       -
+  veff rest                 0.000          0.001    0.000          0.000    0.000          0.001
+  Fock+DIIS                 0.000          0.002    0.000          0.002    0.000          0.002
+  eig                       0.007          0.008    0.007          0.009    0.012          0.012
+  occ+density               0.001          0.001    0.001          0.001    0.001          0.001
+  energy                    0.000          0.001    0.000          0.001    0.000          0.000
+  gradient                  0.000          0.000    0.000          0.000    0.001          0.001
+  untimed                                  0.002                   0.003                   0.001
+  gpu XC: density on grid               0.193 s per cycle
+  gpu XC: functional (libxc)            0.158 s per cycle
+  gpu XC: Vxc integration               0.425 s per cycle
+  gpu CuPy memory pool after the run: 0.202 GiB
+Overwritten attributes  get_occ get_jk energy_tot make_rdm1 eig get_j get_hcore get_k get_grad get_init_guess get_fock get_ovlp get_veff  of <class 'pyscf.df.df_jk.DFRKS'>
+Overwritten attributes  get_occ get_jk energy_tot make_rdm1 eig get_j get_hcore get_k get_grad get_init_guess get_fock get_ovlp get_veff  of <class 'gpu4pyscf.df.df_jk.DFRKS'>
+
+caffeine def2-svp b3lyp DF, nao 246, conv_tol 1e-10
+                                             cpu                     gpu
+  E (Eh)                         -679.8128017242         -679.8128017243
+  cycles                                      15                      15
+  SCF wall (s)                             26.02                   14.52
+  part: first | per cycle    first s  per-cycle s    first s  per-cycle s
+  init guess                0.030          0.000    0.028          0.000
+  hcore+ovlp                0.003          0.000    0.035          0.000
+  grids                     0.268          0.000    0.070          0.000
+  XC                        1.598          1.358    0.806          0.628
+  J+K                       0.673          0.188    1.345          0.170
+  veff rest                 0.001          0.000    0.001          0.001
+  Fock+DIIS                 0.000          0.002    0.000          0.002
+  eig                       0.007          0.010    0.013          0.012
+  occ+density               0.001          0.001    0.001          0.001
+  energy                    0.000          0.000    0.000          0.000
+  gradient                  0.000          0.000    0.001          0.001
+  untimed                                  0.002                   0.001
+  gpu XC: density on grid               0.080 s per cycle
+  gpu XC: functional (libxc)            0.263 s per cycle
+  gpu XC: Vxc integration               0.011 s per cycle
+  gpu CuPy memory pool after the run: 0.133 GiB
+exit 0

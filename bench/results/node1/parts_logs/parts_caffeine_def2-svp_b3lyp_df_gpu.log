@@ -1,0 +1,478 @@
+
+
+******** <class 'gpu4pyscf.df.df_jk.DFRKS'> ********
+method = DFRKS
+initial guess = minao
+damping factor = None
+level_shift factor = None
+DIIS = <class 'gpu4pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 8
+diis_damp = 0
+SCF conv_tol = 1e-10
+SCF conv_tol_grad = None
+SCF max_cycles = 50
+direct_scf = False
+XC library gpu4pyscf.dft.libxc version 7.0.0 (CUDA)
+    unable to decode the reference due to https://github.com/NVIDIA/cuda-python/issues/29
+XC functionals = b3lyp
+small_rho_cutoff = 0
+Overwritten attributes  get_occ get_jk energy_tot make_rdm1 eig get_j get_hcore get_k get_grad get_init_guess get_fock get_ovlp get_veff  of <class 'gpu4pyscf.df.df_jk.DFRKS'>
+Set gradient conv threshold to 1e-05
+Initial guess from minao
+    CPU time for generating initial guess                                0.18 sec, wall time      0.03 sec, GPU time     28.36 ms
+atom C rad-grids = 75, ang-grids = [ 50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50
+  50  50  50  50  86  86  86  86  86  86  86  86  86  86 266 266 266 266
+ 266 266 302 302 302 302 302 302 302 302 302 302 302 302 302 302 302 302
+ 302 302 302 302 266 266 266 266 266 266 266 266 266 266 266 266 266 266
+ 266 266 266]
+atom N rad-grids = 75, ang-grids = [ 50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50
+  50  50  50  50  50  86  86  86  86  86  86  86  86  86  86 266 266 266
+ 266 266 266 266 302 302 302 302 302 302 302 302 302 302 302 302 302 302
+ 302 302 302 302 302 302 266 266 266 266 266 266 266 266 266 266 266 266
+ 266 266 266]
+atom O rad-grids = 75, ang-grids = [ 50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50
+  50  50  50  50  50  86  86  86  86  86  86  86  86  86 266 266 266 266
+ 266 266 266 302 302 302 302 302 302 302 302 302 302 302 302 302 302 302
+ 302 302 302 302 302 266 266 266 266 266 266 266 266 266 266 266 266 266
+ 266 266 266]
+atom H rad-grids = 50, ang-grids = [ 50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  86  86  86
+  86 266 266 266 266 266 302 302 302 302 302 302 302 302 302 302 302 302
+ 302 266 266 266 266 266 266 266 266 266 266 266 266 266]
+    CPU time for setting up grids                                        0.14 sec, wall time      0.07 sec, GPU time     69.54 ms
+Number of shells for each [l, nctr] group
+    [0 1] : 38
+    [0 3] : 10
+    [0 5] : 14
+    [1 1] : 24
+    [1 3] : 14
+    [2 1] : 14
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3313.44 MB, used=32.38 MB, free=101.85 MB, free_blocks=16
+3581.184512 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.30 sec, wall time      0.30 sec, GPU time    481.01 ms
+    CPU time for eval vxc on Device 0                                    0.19 sec, wall time      0.19 sec, GPU time      7.62 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3305.44 MB, used=58.70 MB, free=75.52 MB, free_blocks=15
+3545.19296 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    315.64 ms
+    CPU time for nr_rks                                                  0.81 sec, wall time      0.81 sec, GPU time    805.82 ms
+nelec by numeric integration = 101.91774322948602
+    CPU time for vxc                                                     0.95 sec, wall time      0.88 sec, GPU time    875.44 ms
+Psi4 predefined JKFIT basis set def2-svp-jkfit for HF
+Default auxbasis def2-svp-jkfit is applied universally
+num shells = 410, num cGTOs = 1242
+Number of shells for each [l, nprim] group
+    [0 5] : 14
+    [0 3] : 10
+    [0 1] : 38
+    [1 3] : 14
+    [1 1] : 24
+    [2 1] : 14
+Number of shells for each [l, nprim] group
+    [0 5] : 14
+    [0 3] : 10
+    [0 1] : 136
+    [1 3] : 14
+    [1 1] : 118
+    [2 3] : 6
+    [2 2] : 8
+    [2 1] : 70
+    [3 2] : 8
+    [3 1] : 12
+    [4 1] : 14
+Building cderi for omega=None, lr_factor=None, sr_factor=None
+sp_batches = 1, ksh_batches = 1
+int2c2e_kernel, nimgs = 1
+mem_avail=3474391040.000 MB on_gpu=True, nao_pairs=27033, naux_per_device=1242, batch_size=27033, num_batches=1
+    CPU time for cholesky_eri                                            1.05 sec, wall time      1.05 sec, GPU time   1051.43 ms
+3.318 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    1.35 sec, wall time      1.35 sec, GPU time   1344.95 ms
+Number of shells for each [l, nprim] group
+    [0 1] : 138
+    [1 1] : 66
+    [2 1] : 14
+    CPU time for Initialize q_cond                                       0.01 sec, wall time      0.01 sec, GPU time     10.60 ms
+sp_blocks = 6, ksh_blocks = 2, shm_size = 47264 B
+    CPU time for processing contract_int3c2e_auxvec                      0.01 sec, wall time      0.01 sec, GPU time      9.56 ms
+Number of shells for each [l, nprim] group
+    [0 5] : 14
+    [0 3] : 10
+    [0 1] : 38
+    [1 3] : 14
+    [1 1] : 24
+    [2 1] : 14
+Number of shells for each [l, nprim] group
+    [0 5] : 14
+    [0 3] : 10
+    [0 1] : 38
+    [1 3] : 14
+    [1 1] : 24
+    [2 1] : 14
+E1 = -2754.0251757853534  E2 = 1147.3134898118458  Ecoul = 1239.3122566023699  Exc = -91.99876679052409
+init E= -682.315743615454
+cond(S) = 16453.422815362617
+    CPU time for SCF initialization                                      2.53 sec, wall time      2.30 sec, GPU time   2295.68 ms
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      0.05 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.49 ms
+  HOMO = -0.262839472666673  LUMO = -0.0974661015652006  gap/eV = 4.50004
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3109.44 MB, used=35.62 MB, free=45.57 MB, free_blocks=11
+3308.260864 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.06 sec, wall time      0.06 sec, GPU time    305.13 ms
+    CPU time for eval vxc on Device 0                                    0.25 sec, wall time      0.25 sec, GPU time      7.71 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3069.44 MB, used=61.99 MB, free=46.19 MB, free_blocks=14
+3266.974208 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    314.41 ms
+    CPU time for nr_rks                                                  0.63 sec, wall time      0.63 sec, GPU time    628.07 ms
+nelec by numeric integration = 101.99990877438454
+    CPU time for vxc                                                     0.63 sec, wall time      0.63 sec, GPU time    628.13 ms
+3.322 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    0.17 sec, wall time      0.17 sec, GPU time    169.86 ms
+    CPU time for veff                                                    0.80 sec, wall time      0.80 sec, GPU time    798.85 ms
+E1 = -2760.498943546547  E2 = 1156.6814433320098  Ecoul = 1249.3758805159118  Exc = -92.69443718390195
+    CPU time for cycle=1                                                 0.81 sec, wall time      0.81 sec, GPU time    812.29 ms
+cycle= 1 E= -679.421557856484  delta_E= 2.89  |g|= 1.38  |ddm|= 5.65
+diis-c [-1.9142422  1.       ]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      1.82 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.60 ms
+  HOMO = -0.0581611438385446  LUMO = -0.0494455112413639  gap/eV = 0.23716
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3049.44 MB, used=35.93 MB, free=100.00 MB, free_blocks=19
+3302.427136 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.06 sec, wall time      0.06 sec, GPU time    305.10 ms
+    CPU time for eval vxc on Device 0                                    0.25 sec, wall time      0.25 sec, GPU time      7.54 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3041.44 MB, used=62.30 MB, free=73.63 MB, free_blocks=19
+3266.38336 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    314.49 ms
+    CPU time for nr_rks                                                  0.63 sec, wall time      0.63 sec, GPU time    627.80 ms
+nelec by numeric integration = 101.99990928599472
+    CPU time for vxc                                                     0.63 sec, wall time      0.63 sec, GPU time    627.85 ms
+3.322 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    0.17 sec, wall time      0.17 sec, GPU time    170.11 ms
+    CPU time for veff                                                    0.80 sec, wall time      0.80 sec, GPU time    798.84 ms
+E1 = -2761.1662576887934  E2 = 1161.3860402038304  Ecoul = 1252.5624323137508  Exc = -91.17639210992036
+    CPU time for cycle=2                                                 0.81 sec, wall time      0.81 sec, GPU time    814.17 ms
+cycle= 2 E= -675.38427512691  delta_E= 4.04  |g|= 3.94  |ddm|=  5.6
+diis-c [-0.44047374  0.76203198  0.23796802]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      1.91 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.34 ms
+  HOMO = -0.197337025243044  LUMO = -0.0332448551160896  gap/eV = 4.46518
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3049.44 MB, used=36.39 MB, free=99.54 MB, free_blocks=20
+3301.940736 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.06 sec, wall time      0.06 sec, GPU time    305.03 ms
+    CPU time for eval vxc on Device 0                                    0.25 sec, wall time      0.25 sec, GPU time      7.54 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3041.44 MB, used=62.77 MB, free=73.16 MB, free_blocks=19
+3265.89696 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    314.37 ms
+    CPU time for nr_rks                                                  0.63 sec, wall time      0.63 sec, GPU time    627.63 ms
+nelec by numeric integration = 101.99990348865622
+    CPU time for vxc                                                     0.63 sec, wall time      0.63 sec, GPU time    627.69 ms
+3.321 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    0.17 sec, wall time      0.17 sec, GPU time    165.55 ms
+    CPU time for veff                                                    0.79 sec, wall time      0.79 sec, GPU time    794.13 ms
+E1 = -2756.197828053244  E2 = 1152.1376093941758  Ecoul = 1243.9746963254624  Exc = -91.83708693128673
+    CPU time for cycle=3                                                 0.81 sec, wall time      0.81 sec, GPU time    809.29 ms
+cycle= 3 E= -679.664276301015  delta_E= -4.28  |g|= 0.72  |ddm|=  4.9
+diis-c [-0.19230809  0.37831392  0.14136069  0.48032539]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.03 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.35 ms
+  HOMO = -0.213258975747198  LUMO = -0.0532311561464975  gap/eV = 4.35458
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3049.44 MB, used=36.86 MB, free=99.07 MB, free_blocks=19
+3301.454336 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.06 sec, wall time      0.06 sec, GPU time    304.96 ms
+    CPU time for eval vxc on Device 0                                    0.25 sec, wall time      0.25 sec, GPU time      7.52 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3041.44 MB, used=63.23 MB, free=72.70 MB, free_blocks=19
+3265.41056 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    315.52 ms
+    CPU time for nr_rks                                                  0.63 sec, wall time      0.63 sec, GPU time    628.67 ms
+nelec by numeric integration = 101.99989286768374
+    CPU time for vxc                                                     0.63 sec, wall time      0.63 sec, GPU time    628.73 ms
+3.321 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    0.17 sec, wall time      0.17 sec, GPU time    170.07 ms
+    CPU time for veff                                                    0.80 sec, wall time      0.80 sec, GPU time    799.68 ms
+E1 = -2758.098841021284  E2 = 1153.9097125317633  Ecoul = 1245.9074862573827  Exc = -91.99777372561941
+    CPU time for cycle=4                                                 0.81 sec, wall time      0.82 sec, GPU time    814.96 ms
+cycle= 4 E= -679.793186131467  delta_E= -0.129  |g|= 0.298  |ddm|= 1.32
+diis-c [-0.01551717  0.00931581  0.02980309  0.26783228  0.69304882]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.12 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.46 ms
+  HOMO = -0.242637125406981  LUMO = -0.0607968881612019  gap/eV = 4.94812
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3049.44 MB, used=37.32 MB, free=98.61 MB, free_blocks=20
+3300.967936 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.06 sec, wall time      0.06 sec, GPU time    304.94 ms
+    CPU time for eval vxc on Device 0                                    0.25 sec, wall time      0.25 sec, GPU time      7.52 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3041.44 MB, used=63.70 MB, free=72.24 MB, free_blocks=19
+3264.92416 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    314.15 ms
+    CPU time for nr_rks                                                  0.63 sec, wall time      0.63 sec, GPU time    627.28 ms
+nelec by numeric integration = 101.99989829260211
+    CPU time for vxc                                                     0.63 sec, wall time      0.63 sec, GPU time    627.33 ms
+3.320 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    0.17 sec, wall time      0.17 sec, GPU time    168.66 ms
+    CPU time for veff                                                    0.80 sec, wall time      0.80 sec, GPU time    796.86 ms
+E1 = -2759.3357876433893  E2 = 1155.1324554119544  Ecoul = 1247.1729884839897  Exc = -92.04053307203534
+    CPU time for cycle=5                                                 0.81 sec, wall time      0.81 sec, GPU time    812.35 ms
+cycle= 5 E= -679.807389873382  delta_E= -0.0142  |g|= 0.15  |ddm|= 0.423
+diis-c [-0.00163767 -0.02256021  0.00528663  0.1007957   0.41204967  0.50442822]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.21 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.36 ms
+  HOMO = -0.233942573830343  LUMO = -0.0489025159773033  gap/eV = 5.03520
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3049.44 MB, used=37.79 MB, free=98.15 MB, free_blocks=20
+3300.481536 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.06 sec, wall time      0.06 sec, GPU time    304.98 ms
+    CPU time for eval vxc on Device 0                                    0.25 sec, wall time      0.25 sec, GPU time      7.52 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3041.44 MB, used=64.16 MB, free=71.77 MB, free_blocks=19
+3264.43776 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    314.33 ms
+    CPU time for nr_rks                                                  0.63 sec, wall time      0.63 sec, GPU time    627.51 ms
+nelec by numeric integration = 101.99989688616418
+    CPU time for vxc                                                     0.63 sec, wall time      0.63 sec, GPU time    627.56 ms
+3.320 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    0.17 sec, wall time      0.17 sec, GPU time    170.04 ms
+    CPU time for veff                                                    0.80 sec, wall time      0.80 sec, GPU time    798.47 ms
+E1 = -2758.589297355855  E2 = 1154.3810073999935  Ecoul = 1246.3667091065963  Exc = -91.98570170660284
+    CPU time for cycle=6                                                 0.81 sec, wall time      0.81 sec, GPU time    813.95 ms
+cycle= 6 E= -679.812347597808  delta_E= -0.00496  |g|= 0.0432  |ddm|= 0.219
+diis-c [-2.07705090e-04 -1.00396990e-02 -1.41506847e-04  3.36886348e-02
+  1.54471868e-01  2.81855988e-01  5.40164715e-01]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.32 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.37 ms
+  HOMO = -0.233241884231056  LUMO = -0.0481333774269167  gap/eV = 5.03706
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3049.44 MB, used=38.25 MB, free=97.68 MB, free_blocks=18
+3299.995136 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.06 sec, wall time      0.06 sec, GPU time    305.10 ms
+    CPU time for eval vxc on Device 0                                    0.25 sec, wall time      0.25 sec, GPU time      7.52 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3041.44 MB, used=64.62 MB, free=71.31 MB, free_blocks=19
+3263.95136 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    314.33 ms
+    CPU time for nr_rks                                                  0.63 sec, wall time      0.63 sec, GPU time    627.61 ms
+nelec by numeric integration = 101.99989675949925
+    CPU time for vxc                                                     0.63 sec, wall time      0.63 sec, GPU time    627.66 ms
+3.319 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    0.17 sec, wall time      0.17 sec, GPU time    168.66 ms
+    CPU time for veff                                                    0.80 sec, wall time      0.80 sec, GPU time    797.20 ms
+E1 = -2758.4893060434897  E2 = 1154.280639196711  Ecoul = 1246.2638576779207  Exc = -91.98321848120955
+    CPU time for cycle=7                                                 0.81 sec, wall time      0.81 sec, GPU time    812.78 ms
+cycle= 7 E= -679.812724488725  delta_E= -0.000377  |g|= 0.0186  |ddm|= 0.0559
+diis-c [-2.75619325e-05 -1.66852405e-03 -2.85750126e-04  1.27183374e-02
+  4.65497581e-02  1.17119929e-01  3.37234989e-01  4.88331260e-01]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.40 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.43 ms
+  HOMO = -0.234023978152648  LUMO = -0.0481873390421683  gap/eV = 5.05687
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3049.44 MB, used=38.71 MB, free=97.22 MB, free_blocks=22
+3299.508736 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.06 sec, wall time      0.06 sec, GPU time    305.16 ms
+    CPU time for eval vxc on Device 0                                    0.25 sec, wall time      0.25 sec, GPU time      7.63 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3041.44 MB, used=65.09 MB, free=70.85 MB, free_blocks=19
+3263.46496 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    314.42 ms
+    CPU time for nr_rks                                                  0.63 sec, wall time      0.63 sec, GPU time    627.95 ms
+nelec by numeric integration = 101.99989687318012
+    CPU time for vxc                                                     0.63 sec, wall time      0.63 sec, GPU time    628.02 ms
+3.319 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    0.17 sec, wall time      0.17 sec, GPU time    173.13 ms
+    CPU time for veff                                                    0.80 sec, wall time      0.80 sec, GPU time    802.02 ms
+E1 = -2758.5438126065633  E2 = 1154.3350756376665  Ecoul = 1246.3206397092458  Exc = -91.98556407157945
+    CPU time for cycle=8                                                 0.82 sec, wall time      0.82 sec, GPU time    817.76 ms
+cycle= 8 E= -679.812794610844  delta_E= -7.01e-05  |g|= 0.00561  |ddm|= 0.022
+diis-c [-3.99294315e-06  9.13823414e-04 -1.67991925e-04  3.84920649e-03
+  6.35814749e-03  3.11032933e-02  1.24366282e-01  2.72596155e-01
+  5.60981085e-01]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.54 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.44 ms
+  HOMO = -0.234157008686137  LUMO = -0.0482612156361052  gap/eV = 5.05848
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3049.44 MB, used=39.18 MB, free=96.76 MB, free_blocks=22
+3299.022336 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.06 sec, wall time      0.06 sec, GPU time    305.06 ms
+    CPU time for eval vxc on Device 0                                    0.25 sec, wall time      0.25 sec, GPU time      7.51 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3041.44 MB, used=65.55 MB, free=70.38 MB, free_blocks=21
+3262.97856 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    314.27 ms
+    CPU time for nr_rks                                                  0.63 sec, wall time      0.63 sec, GPU time    627.55 ms
+nelec by numeric integration = 101.99989694784414
+    CPU time for vxc                                                     0.63 sec, wall time      0.63 sec, GPU time    627.60 ms
+3.318 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    0.17 sec, wall time      0.17 sec, GPU time    170.33 ms
+    CPU time for veff                                                    0.80 sec, wall time      0.80 sec, GPU time    798.82 ms
+E1 = -2758.5581381309225  E2 = 1154.3493948606397  Ecoul = 1246.3368118288045  Exc = -91.98741696816477
+    CPU time for cycle=9                                                 0.81 sec, wall time      0.81 sec, GPU time    814.71 ms
+cycle= 9 E= -679.81280091223  delta_E= -6.3e-06  |g|= 0.00188  |ddm|= 0.00754
+diis-c [-1.01865664e-06  6.27314654e-01 -1.86833236e-04  1.61708880e-03
+  1.82311965e-03  7.44670321e-03  2.74889590e-02  7.05492880e-02
+  2.63947021e-01]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.52 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.47 ms
+  HOMO = -0.234167678163168  LUMO = -0.048238303770543  gap/eV = 5.05940
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3049.44 MB, used=39.18 MB, free=96.76 MB, free_blocks=21
+3299.022336 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.06 sec, wall time      0.06 sec, GPU time    305.04 ms
+    CPU time for eval vxc on Device 0                                    0.25 sec, wall time      0.25 sec, GPU time      7.54 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3041.44 MB, used=65.55 MB, free=70.38 MB, free_blocks=19
+3262.97856 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    314.29 ms
+    CPU time for nr_rks                                                  0.63 sec, wall time      0.63 sec, GPU time    627.60 ms
+nelec by numeric integration = 101.99989694219822
+    CPU time for vxc                                                     0.63 sec, wall time      0.63 sec, GPU time    627.65 ms
+3.318 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    0.17 sec, wall time      0.18 sec, GPU time    176.17 ms
+    CPU time for veff                                                    0.80 sec, wall time      0.80 sec, GPU time    804.70 ms
+E1 = -2758.556294241607  E2 = 1154.347550379392  Ecoul = 1246.3349088856494  Exc = -91.98735850625735
+    CPU time for cycle=10                                                0.81 sec, wall time      0.82 sec, GPU time    820.63 ms
+cycle= 10 E= -679.812801504161  delta_E= -5.92e-07  |g|= 0.000946  |ddm|= 0.00294
+diis-c [-7.53108020e-08  3.32697985e-01  6.77833548e-01  4.96014712e-04
+ -4.95219799e-04 -2.04762245e-03 -1.09708406e-02 -1.86384921e-02
+  2.11246271e-02]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.57 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.43 ms
+  HOMO = -0.234133381581125  LUMO = -0.0481908334704805  gap/eV = 5.05975
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3049.44 MB, used=39.18 MB, free=96.76 MB, free_blocks=19
+3299.022336 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.06 sec, wall time      0.06 sec, GPU time    304.99 ms
+    CPU time for eval vxc on Device 0                                    0.25 sec, wall time      0.25 sec, GPU time      7.53 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3041.44 MB, used=65.55 MB, free=70.38 MB, free_blocks=19
+3262.97856 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    314.26 ms
+    CPU time for nr_rks                                                  0.63 sec, wall time      0.63 sec, GPU time    627.50 ms
+nelec by numeric integration = 101.99989695523203
+    CPU time for vxc                                                     0.63 sec, wall time      0.63 sec, GPU time    627.55 ms
+3.318 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    0.17 sec, wall time      0.17 sec, GPU time    170.00 ms
+    CPU time for veff                                                    0.80 sec, wall time      0.80 sec, GPU time    798.46 ms
+E1 = -2758.552024929694  E2 = 1154.343280862958  Ecoul = 1246.3304677091937  Exc = -91.98718684623567
+    CPU time for cycle=11                                                0.81 sec, wall time      0.81 sec, GPU time    814.37 ms
+cycle= 11 E= -679.812801708683  delta_E= -2.05e-07  |g|= 0.000266  |ddm|= 0.00145
+diis-c [-3.95470063e-09  1.24530448e-01  3.25831037e-01  5.72577758e-01
+ -1.00996326e-03 -1.99776946e-03 -7.18004824e-03 -1.17876593e-02
+ -9.63802703e-04]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.52 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.51 ms
+  HOMO = -0.234149507568219  LUMO = -0.0482001973772929  gap/eV = 5.05994
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3049.44 MB, used=39.18 MB, free=96.76 MB, free_blocks=20
+3299.022336 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.06 sec, wall time      0.06 sec, GPU time    305.08 ms
+    CPU time for eval vxc on Device 0                                    0.25 sec, wall time      0.25 sec, GPU time      7.52 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3041.44 MB, used=65.55 MB, free=70.38 MB, free_blocks=19
+3262.97856 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    314.27 ms
+    CPU time for nr_rks                                                  0.63 sec, wall time      0.63 sec, GPU time    627.54 ms
+nelec by numeric integration = 101.99989695500044
+    CPU time for vxc                                                     0.63 sec, wall time      0.63 sec, GPU time    627.59 ms
+3.318 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    0.17 sec, wall time      0.17 sec, GPU time    172.97 ms
+    CPU time for veff                                                    0.80 sec, wall time      0.80 sec, GPU time    801.43 ms
+E1 = -2758.5534847386643  E2 = 1154.3447406573046  Ecoul = 1246.331963909339  Exc = -91.98722325203448
+    CPU time for cycle=12                                                0.82 sec, wall time      0.82 sec, GPU time    817.37 ms
+cycle= 12 E= -679.812801723307  delta_E= -1.46e-08  |g|= 6.69e-05  |ddm|= 0.000311
+diis-c [-2.07355426e-09  1.30303606e-02  3.33087186e-02  1.53165013e-01
+  7.97712282e-01  1.37230192e-04  2.96713142e-04  4.42323616e-04
+  1.90735879e-03]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.50 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.50 ms
+  HOMO = -0.234147863419206  LUMO = -0.048203326758857  gap/eV = 5.05981
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3049.44 MB, used=39.18 MB, free=96.76 MB, free_blocks=19
+3299.022336 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.06 sec, wall time      0.06 sec, GPU time    304.97 ms
+    CPU time for eval vxc on Device 0                                    0.25 sec, wall time      0.25 sec, GPU time      7.52 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3041.44 MB, used=65.55 MB, free=70.38 MB, free_blocks=19
+3262.97856 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    314.37 ms
+    CPU time for nr_rks                                                  0.63 sec, wall time      0.63 sec, GPU time    627.53 ms
+nelec by numeric integration = 101.99989695401452
+    CPU time for vxc                                                     0.63 sec, wall time      0.63 sec, GPU time    627.59 ms
+3.318 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    0.17 sec, wall time      0.17 sec, GPU time    170.02 ms
+    CPU time for veff                                                    0.80 sec, wall time      0.80 sec, GPU time    798.49 ms
+E1 = -2758.5535586663887  E2 = 1154.3448145851994  Ecoul = 1246.3320168192568  Exc = -91.98720223405746
+    CPU time for cycle=13                                                0.81 sec, wall time      0.81 sec, GPU time    814.38 ms
+cycle= 13 E= -679.812801723136  delta_E= 1.71e-10  |g|= 7.17e-05  |ddm|= 0.000188
+diis-c [-6.00437342e-11  8.35835282e-03  2.19280181e-02  7.31371264e-02
+  4.98471101e-01  3.98137246e-01 -1.17677340e-04 -2.84414661e-04
+  3.70247238e-04]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.51 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.46 ms
+  HOMO = -0.234148708096186  LUMO = -0.0482027989809334  gap/eV = 5.05985
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3049.44 MB, used=39.18 MB, free=96.76 MB, free_blocks=20
+3299.022336 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.06 sec, wall time      0.06 sec, GPU time    305.13 ms
+    CPU time for eval vxc on Device 0                                    0.25 sec, wall time      0.25 sec, GPU time      7.52 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3041.44 MB, used=65.55 MB, free=70.38 MB, free_blocks=18
+3262.97856 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    314.34 ms
+    CPU time for nr_rks                                                  0.63 sec, wall time      0.63 sec, GPU time    627.67 ms
+nelec by numeric integration = 101.99989695433737
+    CPU time for vxc                                                     0.63 sec, wall time      0.63 sec, GPU time    627.72 ms
+3.318 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    0.17 sec, wall time      0.17 sec, GPU time    171.52 ms
+    CPU time for veff                                                    0.80 sec, wall time      0.80 sec, GPU time    800.12 ms
+E1 = -2758.553513354428  E2 = 1154.3447692720974  Ecoul = 1246.3319858653078  Exc = -91.98721659321052
+    CPU time for cycle=14                                                0.82 sec, wall time      0.82 sec, GPU time    815.99 ms
+cycle= 14 E= -679.812801724277  delta_E= -1.14e-09  |g|= 7.9e-06  |ddm|= 8.91e-05
+diis-c [-1.45373822e-11  8.86640763e-04  5.30374782e-03  2.36274449e-02
+  1.79731612e-01  1.66289842e-01  6.24362928e-01 -6.94718082e-05
+ -1.32744098e-04]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.52 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.39 ms
+  HOMO = -0.234148909664107  LUMO = -0.0482025043540982  gap/eV = 5.05986
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3049.44 MB, used=39.18 MB, free=96.76 MB, free_blocks=20
+3299.022336 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.06 sec, wall time      0.06 sec, GPU time    305.08 ms
+    CPU time for eval vxc on Device 0                                    0.25 sec, wall time      0.25 sec, GPU time      7.53 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3041.44 MB, used=65.55 MB, free=70.38 MB, free_blocks=20
+3262.97856 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.01 sec, wall time      0.01 sec, GPU time    314.35 ms
+    CPU time for nr_rks                                                  0.63 sec, wall time      0.63 sec, GPU time    627.64 ms
+nelec by numeric integration = 101.99989695439474
+    CPU time for vxc                                                     0.63 sec, wall time      0.63 sec, GPU time    627.69 ms
+3.318 GB memory available onDevice 0, block size = 256
+    CPU time for veff                                                    0.17 sec, wall time      0.17 sec, GPU time    172.77 ms
+    CPU time for veff                                                    0.80 sec, wall time      0.80 sec, GPU time    801.35 ms
+E1 = -2758.553530173331  E2 = 1154.3447860909882  Ecoul = 1246.3320043123535  Exc = -91.98721822136524
+    CPU time for cycle=15                                                0.82 sec, wall time      0.82 sec, GPU time    817.16 ms
+cycle= 15 E= -679.81280172429  delta_E= -1.23e-11  |g|= 4.46e-06  |ddm|= 1.13e-05
+    CPU time for SCF                                                    14.74 sec, wall time     14.52 sec, GPU time  14518.96 ms
+converged SCF energy = -679.81280172429

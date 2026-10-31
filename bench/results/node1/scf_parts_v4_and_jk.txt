@@ -1,0 +1,88 @@
+caffeine def2-svp b3lyp: nao 246, E -679.8127486398
+  get_j  (MD J-engine)        0.778 s
+  get_k  (Rys K)              2.615 s
+  get_j + get_k               3.393 s
+  get_jk (Rys J+K, 1 pass)    2.634 s
+  max |J(get_jk) - J(get_j)| = 7.7e-12, max |K(get_jk) - K(get_k)| = 4.1e-13
+
+caffeine def2-svp pbe, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.0403707179
+  cycles                                      18
+  SCF wall (s)                             25.12
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.034          0.000
+  grids                     0.069          0.000
+  XC                        0.802          0.626
+  J                         0.311          0.683
+  veff rest                 0.000          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu CuPy memory pool after the run: 0.146 GiB
+
+caffeine def2-svp b3lyp, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.8127486398
+  cycles                                      15
+  SCF wall (s)                             57.63
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.034          0.000
+  grids                     0.069          0.000
+  XC                        0.805          0.628
+  J                         0.311          0.691
+  K                         1.669          2.310
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu CuPy memory pool after the run: 0.146 GiB
+
+caffeine def2-svp r2scan, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.4529650104
+  cycles                                      16
+  SCF wall (s)                             36.99
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.028          0.000
+  hcore+ovlp                0.034          0.000
+  grids                     0.069          0.000
+  XC                        1.652          1.474
+  J                         0.311          0.690
+  veff rest                 0.000          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu CuPy memory pool after the run: 0.202 GiB
+
+caffeine def2-svp b3lyp DF, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.8128017243
+  cycles                                      15
+  SCF wall (s)                             14.54
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.034          0.000
+  grids                     0.069          0.000
+  XC                        0.804          0.628
+  J+K                       1.349          0.172
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.013          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu CuPy memory pool after the run: 0.133 GiB
+exit 0

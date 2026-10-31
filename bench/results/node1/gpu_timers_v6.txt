@@ -1,0 +1,92 @@
+== parts_logs/parts_caffeine_def2-svp_pbe_gpu.log: 18 cycles; GPU-event time (s): total, per call
+   vj                             38 calls   25.243   0.6643
+   vxc                            19 calls   12.148   0.6394
+   nr_rks                         19 calls   12.069   0.6352
+   eval rho on Device 0           19 calls    5.973   0.3143
+   eval vxc on Device 0           19 calls    0.106   0.0056
+   eval integration on 0          19 calls    5.974   0.3144
+   eig                            18 calls    0.223   0.0124
+   DIIS                           18 calls    0.040   0.0022
+   SCF initialization              1 calls    1.261   1.2611
+   setting up grids                1 calls    0.069   0.0695
+   Initialize q_cond               2 calls    0.022   0.0109
+   J engine: 21 classes, 399 launches, 12.523 s
+      (ps|ss)       19 launches    1.604 s  12.8%
+      (pp|ps)       19 launches    1.286 s  10.3%
+      (dp|ss)       19 launches    1.252 s  10.0%
+      (ds|ps)       19 launches    1.229 s   9.8%
+      (dp|ps)       19 launches    1.038 s   8.3%
+      (ps|ps)       19 launches    0.935 s   7.5%
+      (pp|ss)       19 launches    0.900 s   7.2%
+      (dp|pp)       19 launches    0.773 s   6.2%
+      (ds|ss)       19 launches    0.754 s   6.0%
+      (dp|ds)       19 launches    0.696 s   5.6%
+== parts_logs/parts_caffeine_def2-svp_b3lyp_gpu.log: 15 cycles; GPU-event time (s): total, per call
+   vj                             32 calls   21.363   0.6676
+   vk                             32 calls   80.014   2.5005
+   vxc                            16 calls   10.295   0.6435
+   nr_rks                         16 calls   10.225   0.6390
+   eval rho on Device 0           16 calls    5.058   0.3161
+   eval vxc on Device 0           16 calls    0.121   0.0075
+   eval integration on 0          16 calls    5.031   0.3144
+   eig                            15 calls    0.186   0.0124
+   DIIS                           15 calls    0.033   0.0022
+   SCF initialization              1 calls    3.133   3.1334
+   setting up grids                1 calls    0.070   0.0696
+   Initialize q_cond               3 calls    0.055   0.0183
+   J engine: 21 classes, 336 launches, 10.597 s
+      (ps|ss)       16 launches    1.371 s  12.9%
+      (pp|ps)       16 launches    1.078 s  10.2%
+      (dp|ss)       16 launches    1.067 s  10.1%
+      (ds|ps)       16 launches    1.025 s   9.7%
+      (dp|ps)       16 launches    0.875 s   8.3%
+      (ps|ps)       16 launches    0.794 s   7.5%
+      (pp|ss)       16 launches    0.759 s   7.2%
+      (dp|pp)       16 launches    0.653 s   6.2%
+      (ds|ss)       16 launches    0.647 s   6.1%
+      (dp|ds)       16 launches    0.588 s   5.6%
+   K (Rys): 25 classes, 4256 launches, 39.962 s
+      (ps|ss)      576 launches    9.214 s  23.1%
+      (ss|ss)      400 launches    6.847 s  17.1%
+      (ps|ps)      432 launches    5.750 s  14.4%
+      (pp|ss)      288 launches    3.112 s   7.8%
+      (ds|ss)      288 launches    2.404 s   6.0%
+      (pp|ps)      240 launches    1.612 s   4.0%
+      (dp|ps)      192 launches    1.383 s   3.5%
+      (ds|ps)      288 launches    1.345 s   3.4%
+      (ps|pp)      192 launches    1.328 s   3.3%
+      (dp|pp)       96 launches    1.040 s   2.6%
+== parts_logs/parts_caffeine_def2-svp_r2scan_gpu.log: 16 cycles; GPU-event time (s): total, per call
+   vj                             34 calls   22.691   0.6674
+   vxc                            17 calls   25.287   1.4875
+   nr_rks                         17 calls   25.216   1.4833
+   eval rho on Device 0           17 calls    5.458   0.3211
+   eval vxc on Device 0           17 calls    0.208   0.0122
+   eval integration on 0          17 calls   19.534   1.1490
+   eig                            16 calls    0.199   0.0124
+   DIIS                           16 calls    0.035   0.0022
+   SCF initialization              1 calls    2.108   2.1082
+   setting up grids                1 calls    0.070   0.0695
+   Initialize q_cond               2 calls    0.022   0.0110
+   J engine: 21 classes, 357 launches, 11.251 s
+      (ps|ss)       17 launches    1.450 s  12.9%
+      (pp|ps)       17 launches    1.148 s  10.2%
+      (dp|ss)       17 launches    1.127 s  10.0%
+      (ds|ps)       17 launches    1.094 s   9.7%
+      (dp|ps)       17 launches    0.929 s   8.3%
+      (ps|ps)       17 launches    0.846 s   7.5%
+      (pp|ss)       17 launches    0.806 s   7.2%
+      (dp|pp)       17 launches    0.695 s   6.2%
+      (ds|ss)       17 launches    0.682 s   6.1%
+      (dp|ds)       17 launches    0.624 s   5.5%
+== parts_logs/parts_caffeine_def2-svp_b3lyp_df_gpu.log: 15 cycles; GPU-event time (s): total, per call
+   vxc                            16 calls   10.292   0.6432
+   nr_rks                         16 calls   10.221   0.6388
+   eval rho on Device 0           16 calls    5.057   0.3160
+   eval vxc on Device 0           16 calls    0.121   0.0075
+   eval integration on 0          16 calls    5.032   0.3145
+   eig                            15 calls    0.187   0.0124
+   DIIS                           15 calls    0.033   0.0022
+   SCF initialization              1 calls    2.296   2.2957
+   setting up grids                1 calls    0.070   0.0695
+   Initialize q_cond               1 calls    0.011   0.0106

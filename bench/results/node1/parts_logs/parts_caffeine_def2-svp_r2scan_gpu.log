@@ -1,0 +1,1246 @@
+
+
+******** <class 'gpu4pyscf.dft.rks.RKS'> ********
+method = RKS
+initial guess = minao
+damping factor = None
+level_shift factor = None
+DIIS = <class 'gpu4pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 8
+diis_damp = 0
+SCF conv_tol = 1e-10
+SCF conv_tol_grad = None
+SCF max_cycles = 50
+direct_scf = True
+direct_scf_tol = 1e-13
+XC library gpu4pyscf.dft.libxc version 7.0.0 (CUDA)
+    unable to decode the reference due to https://github.com/NVIDIA/cuda-python/issues/29
+XC functionals = r2scan
+small_rho_cutoff = 0
+Set gradient conv threshold to 1e-05
+Initial guess from minao
+    CPU time for generating initial guess                                0.19 sec, wall time      0.03 sec, GPU time     28.39 ms
+atom C rad-grids = 75, ang-grids = [ 50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50
+  50  50  50  50  86  86  86  86  86  86  86  86  86  86 266 266 266 266
+ 266 266 302 302 302 302 302 302 302 302 302 302 302 302 302 302 302 302
+ 302 302 302 302 266 266 266 266 266 266 266 266 266 266 266 266 266 266
+ 266 266 266]
+atom N rad-grids = 75, ang-grids = [ 50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50
+  50  50  50  50  50  86  86  86  86  86  86  86  86  86  86 266 266 266
+ 266 266 266 266 302 302 302 302 302 302 302 302 302 302 302 302 302 302
+ 302 302 302 302 302 302 266 266 266 266 266 266 266 266 266 266 266 266
+ 266 266 266]
+atom O rad-grids = 75, ang-grids = [ 50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  50
+  50  50  50  50  50  86  86  86  86  86  86  86  86  86 266 266 266 266
+ 266 266 266 302 302 302 302 302 302 302 302 302 302 302 302 302 302 302
+ 302 302 302 302 302 266 266 266 266 266 266 266 266 266 266 266 266 266
+ 266 266 266]
+atom H rad-grids = 50, ang-grids = [ 50  50  50  50  50  50  50  50  50  50  50  50  50  50  50  86  86  86
+  86 266 266 266 266 266 302 302 302 302 302 302 302 302 302 302 302 302
+ 302 266 266 266 266 266 266 266 266 266 266 266 266 266]
+    CPU time for setting up grids                                        0.14 sec, wall time      0.07 sec, GPU time     69.53 ms
+Number of shells for each [l, nctr] group
+    [0 1] : 38
+    [0 3] : 10
+    [0 5] : 14
+    [1 1] : 24
+    [1 3] : 14
+    [2 1] : 14
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=60.62 MB, free=146.33 MB, free_blocks=33
+3531.360768 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.37 sec, wall time      0.37 sec, GPU time    486.78 ms
+    CPU time for eval vxc on Device 0                                    0.13 sec, wall time      0.13 sec, GPU time     12.25 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=86.94 MB, free=120.01 MB, free_blocks=34
+3495.369216 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1149.14 ms
+    CPU time for nr_rks                                                  1.65 sec, wall time      1.65 sec, GPU time   1649.95 ms
+nelec by numeric integration = 101.91774322948602
+    CPU time for vxc                                                     1.79 sec, wall time      1.72 sec, GPU time   1719.56 ms
+Number of shells for each [l, nprim] group
+    [0 1] : 138
+    [1 1] : 66
+    [2 1] : 14
+    CPU time for Initialize q_cond                                       0.01 sec, wall time      0.01 sec, GPU time     11.15 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.21 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time     56.77 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.06 sec, wall time      0.06 sec, GPU time      1.11 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.00 sec, wall time      0.00 sec, GPU time     36.85 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.04 sec, wall time      0.04 sec, GPU time     35.08 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.04 sec, wall time      0.04 sec, GPU time     11.78 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.01 sec, wall time      0.01 sec, GPU time     23.74 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.02 sec, wall time      0.02 sec, GPU time      1.06 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.00 sec, wall time      0.00 sec, GPU time      9.47 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.01 sec, wall time      0.01 sec, GPU time      0.24 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.00 sec, wall time      0.00 sec, GPU time     59.77 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.06 sec, wall time      0.06 sec, GPU time      0.99 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.00 sec, wall time      0.00 sec, GPU time     29.07 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.03 sec, wall time      0.03 sec, GPU time      0.88 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.00 sec, wall time      0.00 sec, GPU time      0.55 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.00 sec, wall time      0.00 sec, GPU time      8.21 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      0.25 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.00 sec, wall time      0.00 sec, GPU time      2.01 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.00 sec, wall time      0.00 sec, GPU time      0.33 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.00 sec, wall time      0.00 sec, GPU time      0.15 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.00 sec, wall time      0.00 sec, GPU time      0.07 ms
+kernel launches 21
+(ss|ss) wall time 18214.91
+(ps|ss) wall time 56774.14
+(ps|ps) wall time 1108.77
+(pp|ss) wall time 36852.93
+(pp|ps) wall time 35076.99
+(pp|pp) wall time 11783.39
+(ds|ss) wall time 23742.88
+(ds|ps) wall time 1063.39
+(ds|pp) wall time 9465.31
+(ds|ds) wall time 241.66
+(dp|ss) wall time 59766.94
+(dp|ps) wall time 991.62
+(dp|pp) wall time 29067.30
+(dp|ds) wall time 875.97
+(dp|dp) wall time 550.88
+(dd|ss) wall time 8211.01
+(dd|ps) wall time 245.82
+(dd|pp) wall time 2010.30
+(dd|ds) wall time 334.59
+(dd|dp) wall time 147.46
+(dd|dd) wall time 71.33
+    CPU time for vj                                                      0.30 sec, wall time      0.30 sec, GPU time    301.28 ms
+    CPU time for vj                                                      0.31 sec, wall time      0.31 sec, GPU time    312.75 ms
+    CPU time for veff                                                    2.11 sec, wall time      2.03 sec, GPU time   2032.38 ms
+Number of shells for each [l, nprim] group
+    [0 1] : 138
+    [1 1] : 66
+    [2 1] : 14
+    CPU time for Initialize q_cond                                       0.01 sec, wall time      0.01 sec, GPU time     10.87 ms
+sp_blocks = 6, ksh_blocks = 2, shm_size = 47264 B
+    CPU time for processing contract_int3c2e_auxvec                      0.01 sec, wall time      0.01 sec, GPU time      9.27 ms
+Number of shells for each [l, nprim] group
+    [0 5] : 14
+    [0 3] : 10
+    [0 1] : 38
+    [1 3] : 14
+    [1 1] : 24
+    [2 1] : 14
+Number of shells for each [l, nprim] group
+    [0 5] : 14
+    [0 3] : 10
+    [0 1] : 38
+    [1 3] : 14
+    [1 1] : 24
+    [2 1] : 14
+E1 = -2754.0251757853534  E2 = 1148.0185712447237  Ecoul = 1239.3123719777295  Exc = -91.2938007330059
+init E= -681.610662182576
+cond(S) = 16453.422815362617
+    CPU time for SCF initialization                                      2.34 sec, wall time      2.11 sec, GPU time   2108.25 ms
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      0.05 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.35 ms
+  HOMO = -0.271729102242151  LUMO = -0.112566935557567  gap/eV = 4.33102
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=64.28 MB, free=142.67 MB, free_blocks=32
+3527.522816 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.62 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.22 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=90.65 MB, free=116.30 MB, free_blocks=33
+3491.47904 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1148.86 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1472.66 ms
+nelec by numeric integration = 101.99991311747945
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1472.71 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.57 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time    113.02 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.11 sec, wall time      0.11 sec, GPU time     70.92 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.07 sec, wall time      0.07 sec, GPU time     49.58 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.05 sec, wall time      0.05 sec, GPU time     69.55 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     17.37 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.02 sec, wall time      0.02 sec, GPU time     47.93 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.05 sec, wall time      0.05 sec, GPU time     68.32 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     25.88 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.03 sec, wall time      0.03 sec, GPU time     13.03 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     73.97 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.07 sec, wall time      0.07 sec, GPU time     63.69 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.06 sec, wall time      0.06 sec, GPU time     44.97 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.04 sec, wall time      0.04 sec, GPU time     43.10 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.04 sec, wall time      0.04 sec, GPU time     12.42 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      9.94 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      8.84 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      7.65 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.01 sec, wall time      0.01 sec, GPU time      5.62 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.01 sec, wall time      0.01 sec, GPU time      7.09 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.95 ms
+kernel launches 21
+(ss|ss) wall time 18567.87
+(ps|ss) wall time 113021.19
+(ps|ps) wall time 70920.19
+(pp|ss) wall time 49580.03
+(pp|ps) wall time 69549.73
+(pp|pp) wall time 17369.44
+(ds|ss) wall time 47928.93
+(ds|ps) wall time 68324.93
+(ds|pp) wall time 25876.77
+(ds|ds) wall time 13034.05
+(dp|ss) wall time 73969.67
+(dp|ps) wall time 63694.85
+(dp|pp) wall time 44972.03
+(dp|ds) wall time 43097.57
+(dp|dp) wall time 12419.10
+(dd|ss) wall time 9943.55
+(dd|ps) wall time 8837.12
+(dd|pp) wall time 7645.38
+(dd|ds) wall time 5619.52
+(dd|dp) wall time 7094.27
+(dd|dd) wall time 947.90
+    CPU time for vj                                                      0.78 sec, wall time      0.78 sec, GPU time    777.10 ms
+    CPU time for vj                                                      0.78 sec, wall time      0.78 sec, GPU time    777.61 ms
+    CPU time for veff                                                    2.25 sec, wall time      2.25 sec, GPU time   2250.40 ms
+    CPU time for veff                                                    2.25 sec, wall time      2.25 sec, GPU time   2251.29 ms
+E1 = -2761.15312485766  E2 = 1157.6798724994333  Ecoul = 1250.0157961174707  Exc = -92.33592361803746
+    CPU time for cycle=1                                                 2.27 sec, wall time      2.26 sec, GPU time   2264.63 ms
+cycle= 1 E= -679.077310000173  delta_E= 2.53  |g|= 1.36  |ddm|= 5.62
+diis-c [-1.83799194  1.        ]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      1.81 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.45 ms
+  HOMO = -0.0598616820830916  LUMO = -0.0526884466225396  gap/eV = 0.19519
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=64.59 MB, free=142.36 MB, free_blocks=31
+3527.194112 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.61 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.22 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=90.96 MB, free=115.98 MB, free_blocks=32
+3491.150336 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1149.21 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1472.98 ms
+nelec by numeric integration = 101.99990596233376
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1473.04 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.56 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time    109.74 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.11 sec, wall time      0.11 sec, GPU time     70.12 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.07 sec, wall time      0.07 sec, GPU time     49.53 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.05 sec, wall time      0.05 sec, GPU time     69.51 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     18.07 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.02 sec, wall time      0.02 sec, GPU time     47.89 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.05 sec, wall time      0.05 sec, GPU time     68.29 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     25.87 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.03 sec, wall time      0.03 sec, GPU time     13.03 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     73.85 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.07 sec, wall time      0.07 sec, GPU time     63.87 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.06 sec, wall time      0.06 sec, GPU time     45.43 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.05 sec, wall time      0.05 sec, GPU time     43.38 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.04 sec, wall time      0.04 sec, GPU time     12.49 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      9.93 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      8.83 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      7.65 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.01 sec, wall time      0.01 sec, GPU time      5.66 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.01 sec, wall time      0.01 sec, GPU time      7.12 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.95 ms
+kernel launches 21
+(ss|ss) wall time 18559.14
+(ps|ss) wall time 109743.36
+(ps|ps) wall time 70116.35
+(pp|ss) wall time 49530.33
+(pp|ps) wall time 69510.91
+(pp|pp) wall time 18071.81
+(ds|ss) wall time 47888.93
+(ds|ps) wall time 68294.65
+(ds|pp) wall time 25868.00
+(ds|ds) wall time 13033.76
+(dp|ss) wall time 73846.05
+(dp|ps) wall time 63872.99
+(dp|pp) wall time 45434.97
+(dp|ds) wall time 43376.96
+(dp|dp) wall time 12492.45
+(dd|ss) wall time 9931.46
+(dd|ps) wall time 8834.05
+(dd|pp) wall time 7652.35
+(dd|ds) wall time 5660.67
+(dd|dp) wall time 7115.97
+(dd|dd) wall time 947.01
+    CPU time for vj                                                      0.77 sec, wall time      0.77 sec, GPU time    774.47 ms
+    CPU time for vj                                                      0.78 sec, wall time      0.78 sec, GPU time    774.98 ms
+    CPU time for veff                                                    2.25 sec, wall time      2.25 sec, GPU time   2248.10 ms
+    CPU time for veff                                                    2.25 sec, wall time      2.25 sec, GPU time   2248.99 ms
+E1 = -2761.756696890623  E2 = 1163.8065740380946  Ecoul = 1254.5556812307416  Exc = -90.74910719264706
+    CPU time for cycle=2                                                 2.26 sec, wall time      2.26 sec, GPU time   2264.18 ms
+cycle= 2 E= -673.554180494475  delta_E= 5.52  |g|= 4.51  |ddm|= 6.57
+diis-c [-0.58305642  0.79876507  0.20123493]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      1.93 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.46 ms
+  HOMO = -0.154911014562053  LUMO = -0.0290110323513471  gap/eV = 3.42591
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=65.05 MB, free=141.89 MB, free_blocks=32
+3526.707712 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.61 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.24 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=91.43 MB, free=115.52 MB, free_blocks=32
+3490.663936 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1148.22 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1471.98 ms
+nelec by numeric integration = 101.9999028578587
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1472.03 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.55 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time    111.60 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.11 sec, wall time      0.11 sec, GPU time     70.10 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.07 sec, wall time      0.07 sec, GPU time     49.52 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.05 sec, wall time      0.05 sec, GPU time     69.54 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     18.00 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.02 sec, wall time      0.02 sec, GPU time     47.91 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.05 sec, wall time      0.05 sec, GPU time     68.29 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     25.87 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.03 sec, wall time      0.03 sec, GPU time     13.03 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     73.66 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.07 sec, wall time      0.07 sec, GPU time     63.82 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.06 sec, wall time      0.06 sec, GPU time     45.31 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.05 sec, wall time      0.05 sec, GPU time     43.27 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.04 sec, wall time      0.04 sec, GPU time     12.46 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      9.94 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      8.83 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      7.66 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.01 sec, wall time      0.01 sec, GPU time      5.68 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.01 sec, wall time      0.01 sec, GPU time      7.11 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.95 ms
+kernel launches 21
+(ss|ss) wall time 18554.18
+(ps|ss) wall time 111604.42
+(ps|ps) wall time 70096.89
+(pp|ss) wall time 49522.62
+(pp|ps) wall time 69535.80
+(pp|pp) wall time 18000.13
+(ds|ss) wall time 47912.70
+(ds|ps) wall time 68292.48
+(ds|pp) wall time 25866.21
+(ds|ds) wall time 13025.44
+(dp|ss) wall time 73664.51
+(dp|ps) wall time 63817.73
+(dp|pp) wall time 45307.90
+(dp|ds) wall time 43265.12
+(dp|dp) wall time 12462.62
+(dd|ss) wall time 9935.23
+(dd|ps) wall time 8830.59
+(dd|pp) wall time 7655.81
+(dd|ds) wall time 5678.75
+(dd|dp) wall time 7114.50
+(dd|dd) wall time 945.82
+    CPU time for vj                                                      0.78 sec, wall time      0.78 sec, GPU time    775.78 ms
+    CPU time for vj                                                      0.78 sec, wall time      0.78 sec, GPU time    776.29 ms
+    CPU time for veff                                                    2.25 sec, wall time      2.25 sec, GPU time   2248.41 ms
+    CPU time for veff                                                    2.25 sec, wall time      2.25 sec, GPU time   2249.31 ms
+E1 = -2754.9492685295836  E2 = 1151.2501355679958  Ecoul = 1242.579196465594  Exc = -91.32906089759803
+    CPU time for cycle=3                                                 2.26 sec, wall time      2.26 sec, GPU time   2264.60 ms
+cycle= 3 E= -679.303190603535  delta_E= -5.75  |g|= 0.704  |ddm|= 6.06
+diis-c [-0.19402599  0.36092165  0.10316477  0.53591358]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.04 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.33 ms
+  HOMO = -0.176987751517796  LUMO = -0.0808709765548151  gap/eV = 2.61547
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=65.52 MB, free=141.43 MB, free_blocks=32
+3526.221312 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.45 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.22 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=91.89 MB, free=115.06 MB, free_blocks=33
+3490.177536 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1148.74 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1472.31 ms
+nelec by numeric integration = 101.99989099723142
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1472.36 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.55 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time    112.99 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.11 sec, wall time      0.11 sec, GPU time     66.99 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.07 sec, wall time      0.07 sec, GPU time     49.56 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.05 sec, wall time      0.05 sec, GPU time     69.55 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     16.16 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.02 sec, wall time      0.02 sec, GPU time     47.68 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.05 sec, wall time      0.05 sec, GPU time     68.34 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     25.80 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.03 sec, wall time      0.03 sec, GPU time     13.03 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     72.39 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.07 sec, wall time      0.07 sec, GPU time     62.67 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.06 sec, wall time      0.06 sec, GPU time     44.62 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.04 sec, wall time      0.04 sec, GPU time     42.55 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.04 sec, wall time      0.04 sec, GPU time     12.01 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      9.87 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      8.83 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      7.44 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.01 sec, wall time      0.01 sec, GPU time      5.44 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.01 sec, wall time      0.01 sec, GPU time      7.09 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.95 ms
+kernel launches 21
+(ss|ss) wall time 18552.38
+(ps|ss) wall time 112986.56
+(ps|ps) wall time 66987.27
+(pp|ss) wall time 49561.70
+(pp|ps) wall time 69553.89
+(pp|pp) wall time 16159.68
+(ds|ss) wall time 47681.54
+(ds|ps) wall time 68341.19
+(ds|pp) wall time 25802.66
+(ds|ds) wall time 13033.92
+(dp|ss) wall time 72394.88
+(dp|ps) wall time 62666.85
+(dp|pp) wall time 44621.79
+(dp|ds) wall time 42547.07
+(dp|dp) wall time 12013.54
+(dd|ss) wall time 9873.60
+(dd|ps) wall time 8830.98
+(dd|pp) wall time 7444.48
+(dd|ds) wall time 5443.58
+(dd|dp) wall time 7092.22
+(dd|dd) wall time 948.22
+    CPU time for vj                                                      0.77 sec, wall time      0.77 sec, GPU time    767.23 ms
+    CPU time for vj                                                      0.77 sec, wall time      0.77 sec, GPU time    767.74 ms
+    CPU time for veff                                                    2.24 sec, wall time      2.24 sec, GPU time   2240.19 ms
+    CPU time for veff                                                    2.24 sec, wall time      2.24 sec, GPU time   2241.09 ms
+E1 = -2758.2037438692987  E2 = 1154.405553148626  Ecoul = 1245.9958242575944  Exc = -91.59027110896841
+    CPU time for cycle=4                                                 2.26 sec, wall time      2.26 sec, GPU time   2256.39 ms
+cycle= 4 E= -679.402248362619  delta_E= -0.0991  |g|= 0.445  |ddm|= 1.53
+diis-c [-0.02129824  0.072758    0.02384196  0.35596437  0.54743566]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.13 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.45 ms
+  HOMO = -0.216790767423856  LUMO = -0.0814790818378062  gap/eV = 3.68202
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=65.98 MB, free=140.97 MB, free_blocks=34
+3525.734912 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.73 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.20 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=92.36 MB, free=114.59 MB, free_blocks=34
+3489.691136 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1149.16 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1473.00 ms
+nelec by numeric integration = 101.99989993793238
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1473.05 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.56 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time    111.64 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.11 sec, wall time      0.11 sec, GPU time     65.51 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.07 sec, wall time      0.07 sec, GPU time     49.57 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.05 sec, wall time      0.05 sec, GPU time     69.55 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     14.55 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.01 sec, wall time      0.01 sec, GPU time     46.97 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.05 sec, wall time      0.05 sec, GPU time     68.34 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     25.72 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.03 sec, wall time      0.03 sec, GPU time     13.03 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     71.40 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.07 sec, wall time      0.07 sec, GPU time     61.98 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.06 sec, wall time      0.06 sec, GPU time     44.17 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.04 sec, wall time      0.04 sec, GPU time     41.92 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.04 sec, wall time      0.04 sec, GPU time     11.76 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      9.88 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      8.84 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      7.41 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.01 sec, wall time      0.01 sec, GPU time      5.21 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.01 sec, wall time      0.01 sec, GPU time      7.09 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.95 ms
+kernel launches 21
+(ss|ss) wall time 18560.74
+(ps|ss) wall time 111638.08
+(ps|ps) wall time 65505.34
+(pp|ss) wall time 49568.26
+(pp|ps) wall time 69552.44
+(pp|pp) wall time 14546.78
+(ds|ss) wall time 46966.79
+(ds|ps) wall time 68343.65
+(ds|pp) wall time 25723.04
+(ds|ds) wall time 13033.09
+(dp|ss) wall time 71399.81
+(dp|ps) wall time 61975.78
+(dp|pp) wall time 44165.92
+(dp|ds) wall time 41924.61
+(dp|dp) wall time 11758.59
+(dd|ss) wall time 9880.29
+(dd|ps) wall time 8841.15
+(dd|pp) wall time 7414.11
+(dd|ds) wall time 5205.82
+(dd|dp) wall time 7092.42
+(dd|dd) wall time 948.48
+    CPU time for vj                                                      0.76 sec, wall time      0.76 sec, GPU time    758.70 ms
+    CPU time for vj                                                      0.76 sec, wall time      0.76 sec, GPU time    759.20 ms
+    CPU time for veff                                                    2.23 sec, wall time      2.23 sec, GPU time   2232.34 ms
+    CPU time for veff                                                    2.23 sec, wall time      2.23 sec, GPU time   2233.24 ms
+E1 = -2759.295158492904  E2 = 1155.461199214344  Ecoul = 1247.0941131240747  Exc = -91.63291390973072
+    CPU time for cycle=5                                                 2.25 sec, wall time      2.25 sec, GPU time   2248.74 ms
+cycle= 5 E= -679.438016920507  delta_E= -0.0358  |g|= 0.239  |ddm|= 0.725
+diis-c [-0.00305198  0.0161373   0.00436312  0.18827456  0.3884092   0.40281582]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.24 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.40 ms
+  HOMO = -0.20449688881853  LUMO = -0.070297113077935  gap/eV = 3.65176
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=66.45 MB, free=140.50 MB, free_blocks=33
+3525.248512 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.78 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.21 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=92.82 MB, free=114.13 MB, free_blocks=34
+3489.204736 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1148.87 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1472.82 ms
+nelec by numeric integration = 101.99989786987268
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1472.87 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.57 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time    108.35 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.11 sec, wall time      0.11 sec, GPU time     61.89 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.06 sec, wall time      0.06 sec, GPU time     49.56 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.05 sec, wall time      0.05 sec, GPU time     69.56 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     13.43 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.01 sec, wall time      0.01 sec, GPU time     46.43 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.05 sec, wall time      0.05 sec, GPU time     68.32 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     25.72 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.03 sec, wall time      0.03 sec, GPU time     13.02 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     70.72 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.07 sec, wall time      0.07 sec, GPU time     61.20 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.06 sec, wall time      0.06 sec, GPU time     43.89 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.04 sec, wall time      0.04 sec, GPU time     41.38 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.04 sec, wall time      0.04 sec, GPU time     11.51 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      9.85 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      8.84 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      7.27 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.01 sec, wall time      0.01 sec, GPU time      4.99 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.00 sec, wall time      0.00 sec, GPU time      7.09 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.95 ms
+kernel launches 21
+(ss|ss) wall time 18565.76
+(ps|ss) wall time 108349.44
+(ps|ps) wall time 61890.56
+(pp|ss) wall time 49555.45
+(pp|ps) wall time 69562.24
+(pp|pp) wall time 13432.96
+(ds|ss) wall time 46432.25
+(ds|ps) wall time 68319.20
+(ds|pp) wall time 25716.77
+(ds|ds) wall time 13022.94
+(dp|ss) wall time 70719.77
+(dp|ps) wall time 61203.49
+(dp|pp) wall time 43887.52
+(dp|ds) wall time 41375.61
+(dp|dp) wall time 11509.18
+(dd|ss) wall time 9853.70
+(dd|ps) wall time 8838.82
+(dd|pp) wall time 7272.38
+(dd|ds) wall time 4991.39
+(dd|dp) wall time 7088.13
+(dd|dd) wall time 946.18
+    CPU time for vj                                                      0.75 sec, wall time      0.75 sec, GPU time    747.19 ms
+    CPU time for vj                                                      0.75 sec, wall time      0.75 sec, GPU time    747.69 ms
+    CPU time for veff                                                    2.22 sec, wall time      2.22 sec, GPU time   2220.65 ms
+    CPU time for veff                                                    2.22 sec, wall time      2.22 sec, GPU time   2221.55 ms
+E1 = -2758.4606589396153  E2 = 1154.6130286524  Ecoul = 1246.1971455737716  Exc = -91.58411692137155
+    CPU time for cycle=6                                                 2.24 sec, wall time      2.24 sec, GPU time   2237.10 ms
+cycle= 6 E= -679.451687929162  delta_E= -0.0137  |g|= 0.0705  |ddm|= 0.373
+diis-c [-4.63263654e-04  6.86236139e-03 -5.64721918e-04  7.61168385e-02
+  1.69693699e-01  2.57708971e-01  4.90182852e-01]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.35 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.43 ms
+  HOMO = -0.205538670478454  LUMO = -0.0694474182255697  gap/eV = 3.70323
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=66.91 MB, free=140.04 MB, free_blocks=35
+3524.762112 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.74 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.23 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=93.28 MB, free=113.66 MB, free_blocks=34
+3488.718336 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1148.98 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1472.87 ms
+nelec by numeric integration = 101.99989755082053
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1472.93 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.56 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time    108.68 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.11 sec, wall time      0.11 sec, GPU time     58.15 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.06 sec, wall time      0.06 sec, GPU time     49.55 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.05 sec, wall time      0.05 sec, GPU time     69.54 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     13.43 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.01 sec, wall time      0.01 sec, GPU time     44.27 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.04 sec, wall time      0.04 sec, GPU time     68.29 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     25.56 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.03 sec, wall time      0.03 sec, GPU time     13.03 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     69.49 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.07 sec, wall time      0.07 sec, GPU time     59.68 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.06 sec, wall time      0.06 sec, GPU time     42.77 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.04 sec, wall time      0.04 sec, GPU time     40.91 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.04 sec, wall time      0.04 sec, GPU time     11.03 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      9.67 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      8.84 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      7.00 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.01 sec, wall time      0.01 sec, GPU time      4.80 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.00 sec, wall time      0.00 sec, GPU time      7.09 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.95 ms
+kernel launches 21
+(ss|ss) wall time 18562.56
+(ps|ss) wall time 108677.89
+(ps|ps) wall time 58152.64
+(pp|ss) wall time 49547.58
+(pp|ps) wall time 69535.74
+(pp|pp) wall time 13430.78
+(ds|ss) wall time 44273.22
+(ds|ps) wall time 68290.75
+(ds|pp) wall time 25561.34
+(ds|ds) wall time 13032.86
+(dp|ss) wall time 69487.20
+(dp|ps) wall time 59676.00
+(dp|pp) wall time 42768.45
+(dp|ds) wall time 40907.26
+(dp|dp) wall time 11032.67
+(dd|ss) wall time 9672.13
+(dd|ps) wall time 8837.47
+(dd|pp) wall time 7000.29
+(dd|ds) wall time 4800.32
+(dd|dp) wall time 7088.32
+(dd|dd) wall time 949.28
+    CPU time for vj                                                      0.74 sec, wall time      0.74 sec, GPU time    735.98 ms
+    CPU time for vj                                                      0.74 sec, wall time      0.74 sec, GPU time    736.49 ms
+    CPU time for veff                                                    2.21 sec, wall time      2.21 sec, GPU time   2209.50 ms
+    CPU time for veff                                                    2.21 sec, wall time      2.21 sec, GPU time   2210.40 ms
+E1 = -2758.1846418572054  E2 = 1154.3358917351031  Ecoul = 1245.9098799649098  Exc = -91.57398822980657
+    CPU time for cycle=7                                                 2.23 sec, wall time      2.23 sec, GPU time   2226.09 ms
+cycle= 7 E= -679.452807764049  delta_E= -0.00112  |g|= 0.0259  |ddm|= 0.0974
+diis-c [-5.74801694e-05  3.39214714e-03 -5.02314794e-04  2.26634975e-02
+  4.71986480e-02  1.03361070e-01  3.11210192e-01  5.12676760e-01]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.44 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.49 ms
+  HOMO = -0.206983151002258  LUMO = -0.0693562782379289  gap/eV = 3.74502
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=67.37 MB, free=139.57 MB, free_blocks=36
+3524.275712 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.67 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.22 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=93.75 MB, free=113.20 MB, free_blocks=35
+3488.231936 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1149.13 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1472.95 ms
+nelec by numeric integration = 101.99989773969409
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1473.01 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.54 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time    105.53 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.11 sec, wall time      0.11 sec, GPU time     53.99 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.05 sec, wall time      0.05 sec, GPU time     49.59 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.05 sec, wall time      0.05 sec, GPU time     69.59 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     13.43 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.01 sec, wall time      0.01 sec, GPU time     43.15 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.04 sec, wall time      0.04 sec, GPU time     68.34 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     25.49 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.03 sec, wall time      0.03 sec, GPU time     13.04 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     68.42 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.07 sec, wall time      0.07 sec, GPU time     58.77 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.06 sec, wall time      0.06 sec, GPU time     42.06 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.04 sec, wall time      0.04 sec, GPU time     40.35 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.04 sec, wall time      0.04 sec, GPU time     10.51 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      9.12 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      8.78 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      6.67 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.01 sec, wall time      0.01 sec, GPU time      4.47 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.00 sec, wall time      0.00 sec, GPU time      6.68 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.95 ms
+kernel launches 21
+(ss|ss) wall time 18536.22
+(ps|ss) wall time 105527.36
+(ps|ps) wall time 53986.94
+(pp|ss) wall time 49587.14
+(pp|ps) wall time 69588.87
+(pp|pp) wall time 13430.91
+(ds|ss) wall time 43153.47
+(ds|ps) wall time 68339.45
+(ds|pp) wall time 25487.39
+(ds|ds) wall time 13037.12
+(dp|ss) wall time 68418.14
+(dp|ps) wall time 58771.68
+(dp|pp) wall time 42059.55
+(dp|ds) wall time 40351.75
+(dp|dp) wall time 10505.70
+(dd|ss) wall time 9124.19
+(dd|ps) wall time 8779.10
+(dd|pp) wall time 6669.15
+(dd|ds) wall time 4466.75
+(dd|dp) wall time 6677.50
+(dd|dd) wall time 948.19
+    CPU time for vj                                                      0.72 sec, wall time      0.72 sec, GPU time    722.15 ms
+    CPU time for vj                                                      0.72 sec, wall time      0.72 sec, GPU time    722.65 ms
+    CPU time for veff                                                    2.20 sec, wall time      2.20 sec, GPU time   2195.75 ms
+    CPU time for veff                                                    2.20 sec, wall time      2.20 sec, GPU time   2196.66 ms
+E1 = -2758.2764098028765  E2 = 1154.4275310552207  Ecoul = 1246.0036764599874  Exc = -91.5761454047668
+    CPU time for cycle=8                                                 2.21 sec, wall time      2.21 sec, GPU time   2212.52 ms
+cycle= 8 E= -679.452936389603  delta_E= -0.000129  |g|= 0.0109  |ddm|= 0.0301
+diis-c [-8.06297848e-06  1.69181364e-03 -2.00763920e-04  6.46926737e-03
+  1.08625036e-02  3.72560231e-02  1.50872000e-01  3.49406702e-01
+  4.43642454e-01]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.55 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.38 ms
+  HOMO = -0.207052517698519  LUMO = -0.0696192183253246  gap/eV = 3.73975
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=67.84 MB, free=139.11 MB, free_blocks=37
+3523.789312 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.84 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.22 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=94.21 MB, free=112.74 MB, free_blocks=36
+3487.745536 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1149.86 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1473.84 ms
+nelec by numeric integration = 101.99989779928413
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1473.90 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.54 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time     81.77 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.08 sec, wall time      0.08 sec, GPU time     52.25 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.05 sec, wall time      0.05 sec, GPU time     49.53 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.05 sec, wall time      0.05 sec, GPU time     69.52 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     13.43 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.01 sec, wall time      0.01 sec, GPU time     42.20 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.04 sec, wall time      0.04 sec, GPU time     68.34 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     24.75 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.02 sec, wall time      0.02 sec, GPU time     13.03 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     67.61 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.07 sec, wall time      0.07 sec, GPU time     58.15 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.06 sec, wall time      0.06 sec, GPU time     41.58 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.04 sec, wall time      0.04 sec, GPU time     39.62 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.04 sec, wall time      0.04 sec, GPU time     10.15 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      8.98 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      8.40 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      6.44 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.01 sec, wall time      0.01 sec, GPU time      4.21 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.00 sec, wall time      0.00 sec, GPU time      6.53 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.95 ms
+kernel launches 21
+(ss|ss) wall time 18542.11
+(ps|ss) wall time 81774.50
+(ps|ps) wall time 52251.20
+(pp|ss) wall time 49534.98
+(pp|ps) wall time 69523.45
+(pp|pp) wall time 13428.74
+(ds|ss) wall time 42196.99
+(ds|ps) wall time 68335.14
+(ds|pp) wall time 24749.92
+(ds|ds) wall time 13033.66
+(dp|ss) wall time 67610.08
+(dp|ps) wall time 58149.95
+(dp|pp) wall time 41580.45
+(dp|ds) wall time 39618.14
+(dp|dp) wall time 10151.46
+(dd|ss) wall time 8981.38
+(dd|ps) wall time 8396.80
+(dd|pp) wall time 6440.83
+(dd|ds) wall time 4214.66
+(dd|dp) wall time 6527.30
+(dd|dd) wall time 950.21
+    CPU time for vj                                                      0.69 sec, wall time      0.69 sec, GPU time    690.70 ms
+    CPU time for vj                                                      0.69 sec, wall time      0.69 sec, GPU time    691.22 ms
+    CPU time for veff                                                    2.17 sec, wall time      2.17 sec, GPU time   2165.20 ms
+    CPU time for veff                                                    2.17 sec, wall time      2.17 sec, GPU time   2166.10 ms
+E1 = -2758.2983588296215  E2 = 1154.4494543270152  Ecoul = 1246.0286994332018  Exc = -91.57924510618648
+    CPU time for cycle=9                                                 2.18 sec, wall time      2.18 sec, GPU time   2181.97 ms
+cycle= 9 E= -679.452962144553  delta_E= -2.58e-05  |g|= 0.00351  |ddm|= 0.0127
+diis-c [-1.17003559e-06  5.22861757e-01 -1.37489652e-04  9.25088720e-05
+ -1.21803440e-03  6.37914028e-03  4.62384376e-02  1.45112624e-01
+  2.80671056e-01]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.55 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.48 ms
+  HOMO = -0.207177942608995  LUMO = -0.069651733636881  gap/eV = 3.74228
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=67.84 MB, free=139.11 MB, free_blocks=39
+3523.789312 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.75 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.22 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=94.21 MB, free=112.74 MB, free_blocks=38
+3487.745536 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1149.43 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1473.33 ms
+nelec by numeric integration = 101.99989778149882
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1473.39 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.53 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time     70.43 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.07 sec, wall time      0.07 sec, GPU time     48.70 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.05 sec, wall time      0.05 sec, GPU time     49.57 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.05 sec, wall time      0.05 sec, GPU time     69.55 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     13.43 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.01 sec, wall time      0.01 sec, GPU time     41.08 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.04 sec, wall time      0.04 sec, GPU time     68.34 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     20.53 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.02 sec, wall time      0.02 sec, GPU time     13.03 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     66.69 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.07 sec, wall time      0.07 sec, GPU time     57.73 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.06 sec, wall time      0.06 sec, GPU time     41.18 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.04 sec, wall time      0.04 sec, GPU time     39.01 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.04 sec, wall time      0.04 sec, GPU time      9.73 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      8.52 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      7.64 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      6.03 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.01 sec, wall time      0.01 sec, GPU time      4.01 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.00 sec, wall time      0.00 sec, GPU time      6.47 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.95 ms
+kernel launches 21
+(ss|ss) wall time 18527.81
+(ps|ss) wall time 70431.17
+(ps|ps) wall time 48696.87
+(pp|ss) wall time 49570.27
+(pp|ps) wall time 69550.05
+(pp|pp) wall time 13432.86
+(ds|ss) wall time 41076.74
+(ds|ps) wall time 68339.71
+(ds|pp) wall time 20531.20
+(ds|ds) wall time 13028.80
+(dp|ss) wall time 66692.86
+(dp|ps) wall time 57725.19
+(dp|pp) wall time 41176.80
+(dp|ds) wall time 39012.96
+(dp|dp) wall time 9734.02
+(dd|ss) wall time 8517.89
+(dd|ps) wall time 7636.16
+(dd|pp) wall time 6026.37
+(dd|ds) wall time 4007.94
+(dd|dp) wall time 6468.90
+(dd|dd) wall time 946.72
+    CPU time for vj                                                      0.67 sec, wall time      0.67 sec, GPU time    665.80 ms
+    CPU time for vj                                                      0.67 sec, wall time      0.67 sec, GPU time    666.30 ms
+    CPU time for veff                                                    2.14 sec, wall time      2.14 sec, GPU time   2139.77 ms
+    CPU time for veff                                                    2.14 sec, wall time      2.14 sec, GPU time   2140.68 ms
+E1 = -2758.302282373451  E2 = 1154.4533754096774  Ecoul = 1246.0326143301047  Exc = -91.5792389204272
+    CPU time for cycle=10                                                2.16 sec, wall time      2.16 sec, GPU time   2156.63 ms
+cycle= 10 E= -679.45296460572  delta_E= -2.46e-06  |g|= 0.00132  |ddm|= 0.00461
+diis-c [-6.27036047e-08  3.09847625e-01  4.90867355e-01  1.81599752e-04
+ -3.73975485e-04  2.45313476e-03  1.77918684e-02  5.86544706e-02
+  1.20577921e-01]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.55 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.45 ms
+  HOMO = -0.207066538775589  LUMO = -0.0695995077001216  gap/eV = 3.74067
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=67.84 MB, free=139.11 MB, free_blocks=38
+3523.789312 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.77 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.23 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=94.21 MB, free=112.74 MB, free_blocks=37
+3487.745536 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1149.10 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1473.02 ms
+nelec by numeric integration = 101.99989778136604
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1473.07 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.53 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time     60.92 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.06 sec, wall time      0.06 sec, GPU time     46.99 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.05 sec, wall time      0.05 sec, GPU time     49.52 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.05 sec, wall time      0.05 sec, GPU time     69.56 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     13.42 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.01 sec, wall time      0.01 sec, GPU time     39.10 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.04 sec, wall time      0.04 sec, GPU time     68.34 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     15.45 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.02 sec, wall time      0.02 sec, GPU time     13.02 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     65.25 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.07 sec, wall time      0.07 sec, GPU time     56.52 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.06 sec, wall time      0.06 sec, GPU time     40.50 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.04 sec, wall time      0.04 sec, GPU time     37.81 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.04 sec, wall time      0.04 sec, GPU time      9.11 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      8.47 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      7.47 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      5.70 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.01 sec, wall time      0.01 sec, GPU time      3.68 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.00 sec, wall time      0.00 sec, GPU time      6.47 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.95 ms
+kernel launches 21
+(ss|ss) wall time 18525.09
+(ps|ss) wall time 60917.34
+(ps|ps) wall time 46991.04
+(pp|ss) wall time 49515.23
+(pp|ps) wall time 69559.36
+(pp|pp) wall time 13423.55
+(ds|ss) wall time 39099.74
+(ds|ps) wall time 68339.84
+(ds|pp) wall time 15452.86
+(ds|ds) wall time 13023.07
+(dp|ss) wall time 65251.33
+(dp|ps) wall time 56524.80
+(dp|pp) wall time 40498.59
+(dp|ds) wall time 37808.73
+(dp|dp) wall time 9110.88
+(dd|ss) wall time 8471.20
+(dd|ps) wall time 7469.06
+(dd|pp) wall time 5703.68
+(dd|ds) wall time 3683.52
+(dd|dp) wall time 6470.02
+(dd|dd) wall time 946.62
+    CPU time for vj                                                      0.64 sec, wall time      0.64 sec, GPU time    641.47 ms
+    CPU time for vj                                                      0.64 sec, wall time      0.64 sec, GPU time    641.98 ms
+    CPU time for veff                                                    2.12 sec, wall time      2.12 sec, GPU time   2115.14 ms
+    CPU time for veff                                                    2.12 sec, wall time      2.12 sec, GPU time   2116.03 ms
+E1 = -2758.29562303252  E2 = 1154.446715692892  Ecoul = 1246.0254643415276  Exc = -91.5787486486356
+    CPU time for cycle=11                                                2.13 sec, wall time      2.13 sec, GPU time   2131.96 ms
+cycle= 11 E= -679.452964981575  delta_E= -3.76e-07  |g|= 0.000345  |ddm|= 0.00161
+diis-c [-1.51585871e-08  1.74814279e-01  2.94258844e-01  4.18714397e-01
+ -3.52654289e-04  1.30562230e-03  1.03534431e-02  3.37457777e-02
+  6.71602915e-02]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.54 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.64 ms
+  HOMO = -0.207055321106635  LUMO = -0.0696029500391574  gap/eV = 3.74027
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=67.84 MB, free=139.11 MB, free_blocks=37
+3523.789312 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.86 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.22 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=94.21 MB, free=112.74 MB, free_blocks=36
+3487.745536 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1149.16 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1473.17 ms
+nelec by numeric integration = 101.99989777944879
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1473.22 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.52 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time     59.80 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.06 sec, wall time      0.06 sec, GPU time     41.36 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.04 sec, wall time      0.04 sec, GPU time     48.91 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.05 sec, wall time      0.05 sec, GPU time     69.50 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     13.42 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.01 sec, wall time      0.01 sec, GPU time     36.61 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.04 sec, wall time      0.04 sec, GPU time     68.31 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     13.49 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.01 sec, wall time      0.01 sec, GPU time     13.03 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     62.46 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.06 sec, wall time      0.06 sec, GPU time     54.92 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.05 sec, wall time      0.05 sec, GPU time     39.67 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.04 sec, wall time      0.04 sec, GPU time     36.62 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.04 sec, wall time      0.04 sec, GPU time      8.63 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      8.39 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      7.47 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      5.43 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.01 sec, wall time      0.01 sec, GPU time      3.49 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.00 sec, wall time      0.00 sec, GPU time      6.47 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.95 ms
+kernel launches 21
+(ss|ss) wall time 18521.50
+(ps|ss) wall time 59795.84
+(ps|ps) wall time 41355.36
+(pp|ss) wall time 48906.24
+(pp|ps) wall time 69498.69
+(pp|pp) wall time 13424.83
+(ds|ss) wall time 36605.70
+(ds|ps) wall time 68307.20
+(ds|pp) wall time 13493.63
+(ds|ds) wall time 13027.97
+(dp|ss) wall time 62461.86
+(dp|ps) wall time 54915.17
+(dp|pp) wall time 39665.50
+(dp|ds) wall time 36620.32
+(dp|dp) wall time 8632.48
+(dd|ss) wall time 8392.67
+(dd|ps) wall time 7471.10
+(dd|pp) wall time 5427.20
+(dd|ds) wall time 3487.17
+(dd|dp) wall time 6471.81
+(dd|dd) wall time 946.27
+    CPU time for vj                                                      0.62 sec, wall time      0.62 sec, GPU time    622.13 ms
+    CPU time for vj                                                      0.62 sec, wall time      0.62 sec, GPU time    622.64 ms
+    CPU time for veff                                                    2.10 sec, wall time      2.10 sec, GPU time   2095.95 ms
+    CPU time for veff                                                    2.10 sec, wall time      2.10 sec, GPU time   2096.85 ms
+E1 = -2758.2953550488796  E2 = 1154.446447683993  Ecoul = 1246.0251470885348  Exc = -91.57869940454174
+    CPU time for cycle=12                                                2.11 sec, wall time      2.11 sec, GPU time   2112.94 ms
+cycle= 12 E= -679.452965006833  delta_E= -2.53e-08  |g|= 0.00013  |ddm|= 0.000457
+diis-c [-7.78921963e-10  3.93830574e-02  7.44068301e-02  2.68354777e-01
+  5.95209365e-01  3.07620081e-04  2.21389162e-03  7.04678727e-03
+  1.30776714e-02]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.55 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.48 ms
+  HOMO = -0.207054561084291  LUMO = -0.0696067423976683  gap/eV = 3.74015
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=67.84 MB, free=139.11 MB, free_blocks=37
+3523.789312 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.75 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.21 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=94.21 MB, free=112.74 MB, free_blocks=35
+3487.745536 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1148.78 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1472.65 ms
+nelec by numeric integration = 101.99989777935637
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1472.71 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.52 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time     59.78 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.06 sec, wall time      0.06 sec, GPU time     39.06 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.04 sec, wall time      0.04 sec, GPU time     46.21 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.05 sec, wall time      0.05 sec, GPU time     69.52 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     13.43 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.01 sec, wall time      0.01 sec, GPU time     34.49 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.03 sec, wall time      0.03 sec, GPU time     68.32 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     13.34 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.01 sec, wall time      0.01 sec, GPU time     13.03 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     60.90 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.06 sec, wall time      0.06 sec, GPU time     53.73 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.05 sec, wall time      0.05 sec, GPU time     38.65 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.04 sec, wall time      0.04 sec, GPU time     35.09 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.04 sec, wall time      0.04 sec, GPU time      7.85 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      8.36 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      7.47 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      5.23 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.01 sec, wall time      0.01 sec, GPU time      3.27 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.00 sec, wall time      0.00 sec, GPU time      6.37 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.95 ms
+kernel launches 21
+(ss|ss) wall time 18521.54
+(ps|ss) wall time 59784.80
+(ps|ps) wall time 39062.50
+(pp|ss) wall time 46206.98
+(pp|ps) wall time 69518.97
+(pp|pp) wall time 13428.45
+(ds|ss) wall time 34494.17
+(ds|ps) wall time 68321.50
+(ds|pp) wall time 13339.33
+(ds|ds) wall time 13027.36
+(dp|ss) wall time 60901.37
+(dp|ps) wall time 53727.23
+(dp|pp) wall time 38646.79
+(dp|ds) wall time 35091.10
+(dp|dp) wall time 7848.29
+(dd|ss) wall time 8364.03
+(dd|ps) wall time 7470.85
+(dd|pp) wall time 5225.73
+(dd|ds) wall time 3273.73
+(dd|dp) wall time 6367.23
+(dd|dd) wall time 945.50
+    CPU time for vj                                                      0.61 sec, wall time      0.61 sec, GPU time    608.23 ms
+    CPU time for vj                                                      0.61 sec, wall time      0.61 sec, GPU time    608.73 ms
+    CPU time for veff                                                    2.08 sec, wall time      2.08 sec, GPU time   2081.53 ms
+    CPU time for veff                                                    2.08 sec, wall time      2.08 sec, GPU time   2082.42 ms
+E1 = -2758.2956246328376  E2 = 1154.446717264564  Ecoul = 1246.0254396285754  Exc = -91.5787223640113
+    CPU time for cycle=13                                                2.10 sec, wall time      2.10 sec, GPU time   2098.37 ms
+cycle= 13 E= -679.45296501022  delta_E= -3.39e-09  |g|= 2.96e-05  |ddm|= 0.000175
+diis-c [-1.64073322e-10  9.44831152e-03  2.00711134e-02  1.01996911e-01
+  2.78751167e-01  5.85775285e-01  3.04907298e-04  1.20802673e-03
+  2.44427771e-03]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.53 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.46 ms
+  HOMO = -0.207055687027346  LUMO = -0.0696084873209877  gap/eV = 3.74013
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=67.84 MB, free=139.11 MB, free_blocks=37
+3523.789312 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.68 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.34 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=94.21 MB, free=112.74 MB, free_blocks=35
+3487.745536 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1149.07 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1473.05 ms
+nelec by numeric integration = 101.9998977794822
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1473.11 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.52 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time     59.77 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.06 sec, wall time      0.06 sec, GPU time     34.51 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.03 sec, wall time      0.03 sec, GPU time     43.33 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.04 sec, wall time      0.04 sec, GPU time     69.51 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     13.42 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.01 sec, wall time      0.01 sec, GPU time     31.66 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.03 sec, wall time      0.03 sec, GPU time     68.31 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     13.27 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.01 sec, wall time      0.01 sec, GPU time     13.02 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     58.01 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.06 sec, wall time      0.06 sec, GPU time     50.93 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.05 sec, wall time      0.05 sec, GPU time     37.27 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.04 sec, wall time      0.04 sec, GPU time     33.14 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.03 sec, wall time      0.03 sec, GPU time      7.39 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      8.12 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      7.46 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      4.94 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.00 sec, wall time      0.00 sec, GPU time      2.89 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.00 sec, wall time      0.00 sec, GPU time      5.83 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.94 ms
+kernel launches 21
+(ss|ss) wall time 18515.97
+(ps|ss) wall time 59768.74
+(ps|ps) wall time 34507.97
+(pp|ss) wall time 43334.34
+(pp|ps) wall time 69509.35
+(pp|pp) wall time 13418.50
+(ds|ss) wall time 31663.10
+(ds|ps) wall time 68305.92
+(ds|pp) wall time 13273.25
+(ds|ds) wall time 13020.86
+(dp|ss) wall time 58007.71
+(dp|ps) wall time 50929.44
+(dp|pp) wall time 37267.68
+(dp|ds) wall time 33136.26
+(dp|dp) wall time 7393.66
+(dd|ss) wall time 8120.45
+(dd|ps) wall time 7462.78
+(dd|pp) wall time 4940.86
+(dd|ds) wall time 2892.19
+(dd|dp) wall time 5829.15
+(dd|dd) wall time 943.52
+    CPU time for vj                                                      0.59 sec, wall time      0.59 sec, GPU time    592.17 ms
+    CPU time for vj                                                      0.59 sec, wall time      0.59 sec, GPU time    592.69 ms
+    CPU time for veff                                                    2.06 sec, wall time      2.07 sec, GPU time   2065.88 ms
+    CPU time for veff                                                    2.06 sec, wall time      2.07 sec, GPU time   2066.78 ms
+E1 = -2758.295778257347  E2 = 1154.4468708889774  Ecoul = 1246.0256072440916  Exc = -91.57873635511416
+    CPU time for cycle=14                                                2.08 sec, wall time      2.08 sec, GPU time   2082.72 ms
+cycle= 14 E= -679.452965010316  delta_E= -9.62e-11  |g|= 1.92e-05  |ddm|= 4.19e-05
+diis-c [-5.80959665e-11  2.25493895e-03  7.85847219e-03  4.19425467e-02
+  1.03826978e-01  3.47407965e-01  4.96484760e-01  6.74265962e-05
+  1.56911889e-04]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.55 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.41 ms
+  HOMO = -0.207055124824796  LUMO = -0.0696063076106257  gap/eV = 3.74017
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=67.84 MB, free=139.11 MB, free_blocks=38
+3523.789312 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.73 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.23 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=94.21 MB, free=112.74 MB, free_blocks=37
+3487.745536 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1148.93 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1472.84 ms
+nelec by numeric integration = 101.99989777958555
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1472.90 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.51 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time     59.77 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.06 sec, wall time      0.06 sec, GPU time     32.97 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.03 sec, wall time      0.03 sec, GPU time     43.15 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.04 sec, wall time      0.04 sec, GPU time     69.49 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     13.41 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.01 sec, wall time      0.01 sec, GPU time     31.10 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.03 sec, wall time      0.03 sec, GPU time     68.29 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     13.28 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.01 sec, wall time      0.01 sec, GPU time     13.03 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     56.82 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.06 sec, wall time      0.06 sec, GPU time     50.68 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.05 sec, wall time      0.05 sec, GPU time     36.95 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.04 sec, wall time      0.04 sec, GPU time     32.82 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.03 sec, wall time      0.03 sec, GPU time      7.22 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      7.89 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      7.47 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      4.87 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.00 sec, wall time      0.00 sec, GPU time      2.85 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.00 sec, wall time      0.00 sec, GPU time      5.63 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.94 ms
+kernel launches 21
+(ss|ss) wall time 18514.66
+(ps|ss) wall time 59768.83
+(ps|ps) wall time 32974.91
+(pp|ss) wall time 43147.20
+(pp|ps) wall time 69494.78
+(pp|pp) wall time 13414.40
+(ds|ss) wall time 31100.58
+(ds|ps) wall time 68286.66
+(ds|pp) wall time 13279.39
+(ds|ds) wall time 13025.15
+(dp|ss) wall time 56823.01
+(dp|ps) wall time 50682.79
+(dp|pp) wall time 36954.11
+(dp|ds) wall time 32822.43
+(dp|dp) wall time 7217.09
+(dd|ss) wall time 7888.99
+(dd|ps) wall time 7465.06
+(dd|pp) wall time 4872.54
+(dd|ds) wall time 2848.61
+(dd|dp) wall time 5632.54
+(dd|dd) wall time 944.10
+    CPU time for vj                                                      0.58 sec, wall time      0.58 sec, GPU time    581.88 ms
+    CPU time for vj                                                      0.58 sec, wall time      0.58 sec, GPU time    582.40 ms
+    CPU time for veff                                                    2.06 sec, wall time      2.06 sec, GPU time   2055.39 ms
+    CPU time for veff                                                    2.06 sec, wall time      2.06 sec, GPU time   2056.30 ms
+E1 = -2758.295602049137  E2 = 1154.4466946807374  Ecoul = 1246.0254235329317  Exc = -91.57872885219426
+    CPU time for cycle=15                                                2.07 sec, wall time      2.07 sec, GPU time   2072.19 ms
+cycle= 15 E= -679.452965010346  delta_E= -2.98e-11  |g|= 1.52e-05  |ddm|= 3.27e-05
+diis-c [-6.51124769e-12  8.86838590e-04  3.87749456e-03  2.85509568e-02
+  7.23031911e-02  2.35417462e-01  3.24563558e-01  3.34443551e-01
+ -4.30518657e-05]
+    CPU time for DIIS                                                    0.00 sec, wall time      0.00 sec, GPU time      2.55 ms
+    CPU time for eig                                                     0.01 sec, wall time      0.01 sec, GPU time     12.48 ms
+  HOMO = -0.207056034009177  LUMO = -0.0696069231765636  gap/eV = 3.74018
+294912 grids on Device 0
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3221.44 MB, used=67.84 MB, free=139.11 MB, free_blocks=37
+3523.789312 MB memory is available on Device 0, block_size None
+    CPU time for eval rho on Device 0                                    0.17 sec, wall time      0.17 sec, GPU time    310.60 ms
+    CPU time for eval vxc on Device 0                                    0.15 sec, wall time      0.15 sec, GPU time     12.23 ms
+0 - 294912 grids are calculated on Device 0.
+mem_info: unallocated=3213.44 MB, used=94.21 MB, free=112.74 MB, free_blocks=35
+3487.745536 MB memory is available on Device 0, block_size None
+    CPU time for eval integration on 0                                   0.40 sec, wall time      0.40 sec, GPU time   1149.15 ms
+    CPU time for nr_rks                                                  1.47 sec, wall time      1.47 sec, GPU time   1472.92 ms
+nelec by numeric integration = 101.99989777962074
+    CPU time for vxc                                                     1.47 sec, wall time      1.47 sec, GPU time   1472.98 ms
+dm_xyz_size = 71699, nao = 420, pair_mapping_size = 13913
+    CPU time for processing (ss|ss), scheme=(16, 16, 1, 32, 32, 25218) tasks ~= 24059025      0.00 sec, wall time      0.00 sec, GPU time     18.52 ms
+    CPU time for processing (ps|ss), scheme=(16, 16, 1, 32, 32, 33800) tasks ~= 26639055      0.02 sec, wall time      0.02 sec, GPU time     59.76 ms
+    CPU time for processing (ps|ps), scheme=(16, 16, 1, 16, 16, 44064) tasks ~= 29495761      0.06 sec, wall time      0.06 sec, GPU time     31.05 ms
+    CPU time for processing (pp|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 7485030      0.03 sec, wall time      0.03 sec, GPU time     42.76 ms
+    CPU time for processing (pp|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 8287706      0.04 sec, wall time      0.04 sec, GPU time     69.52 ms
+    CPU time for processing (pp|pp), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 2328676      0.07 sec, wall time      0.07 sec, GPU time     13.43 ms
+    CPU time for processing (ds|ss), scheme=(16, 16, 1, 32, 28, 46356) tasks ~= 6160680      0.01 sec, wall time      0.01 sec, GPU time     29.53 ms
+    CPU time for processing (ds|ps), scheme=(16, 8, 2, 32, 32, 42832) tasks ~= 6821336      0.03 sec, wall time      0.03 sec, GPU time     67.94 ms
+    CPU time for processing (ds|pp), scheme=(16, 8, 2, 32, 4, 46536) tasks ~= 1916656      0.07 sec, wall time      0.07 sec, GPU time     13.27 ms
+    CPU time for processing (ds|ds), scheme=(16, 8, 2, 4, 4, 46536) tasks ~= 1577536      0.01 sec, wall time      0.01 sec, GPU time     13.03 ms
+    CPU time for processing (dp|ss), scheme=(16, 8, 2, 32, 32, 37928) tasks ~= 3458025      0.01 sec, wall time      0.01 sec, GPU time     55.11 ms
+    CPU time for processing (dp|ps), scheme=(16, 8, 2, 32, 4, 46240) tasks ~= 3828855      0.06 sec, wall time      0.06 sec, GPU time     49.64 ms
+    CPU time for processing (dp|pp), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 1075830      0.05 sec, wall time      0.05 sec, GPU time     36.70 ms
+    CPU time for processing (dp|ds), scheme=(8, 8, 4, 32, 16, 48016) tasks ~= 885480      0.04 sec, wall time      0.04 sec, GPU time     32.36 ms
+    CPU time for processing (dp|dp), scheme=(8, 4, 8, 4, 4, 28704) tasks ~= 497025      0.03 sec, wall time      0.03 sec, GPU time      6.89 ms
+    CPU time for processing (dd|ss), scheme=(8, 8, 4, 32, 32, 33286) tasks ~= 441450      0.01 sec, wall time      0.01 sec, GPU time      7.77 ms
+    CPU time for processing (dd|ps), scheme=(8, 8, 4, 32, 24, 46808) tasks ~= 488790      0.01 sec, wall time      0.01 sec, GPU time      7.41 ms
+    CPU time for processing (dd|pp), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 137340      0.01 sec, wall time      0.01 sec, GPU time      4.76 ms
+    CPU time for processing (dd|ds), scheme=(8, 4, 8, 32, 4, 28284) tasks ~= 113040      0.00 sec, wall time      0.00 sec, GPU time      2.70 ms
+    CPU time for processing (dd|dp), scheme=(8, 4, 8, 32, 12, 45880) tasks ~= 63450      0.00 sec, wall time      0.00 sec, GPU time      5.47 ms
+    CPU time for processing (dd|dd), scheme=(4, 4, 16, 4, 4, 30962) tasks ~= 8100      0.01 sec, wall time      0.01 sec, GPU time      0.95 ms
+kernel launches 21
+(ss|ss) wall time 18515.78
+(ps|ss) wall time 59758.82
+(ps|ps) wall time 31053.76
+(pp|ss) wall time 42763.42
+(pp|ps) wall time 69518.24
+(pp|pp) wall time 13430.24
+(ds|ss) wall time 29532.70
+(ds|ps) wall time 67938.30
+(ds|pp) wall time 13271.04
+(ds|ds) wall time 13025.28
+(dp|ss) wall time 55113.28
+(dp|ps) wall time 49635.33
+(dp|pp) wall time 36698.37
+(dp|ds) wall time 32362.79
+(dp|dp) wall time 6887.33
+(dd|ss) wall time 7766.02
+(dd|ps) wall time 7407.55
+(dd|pp) wall time 4763.07
+(dd|ds) wall time 2704.00
+(dd|dp) wall time 5466.11
+(dd|dd) wall time 946.18
+    CPU time for vj                                                      0.57 sec, wall time      0.57 sec, GPU time    573.23 ms
+    CPU time for vj                                                      0.57 sec, wall time      0.57 sec, GPU time    573.74 ms
+    CPU time for veff                                                    2.05 sec, wall time      2.05 sec, GPU time   2046.81 ms
+    CPU time for veff                                                    2.05 sec, wall time      2.05 sec, GPU time   2047.71 ms
+E1 = -2758.2956619361603  E2 = 1154.4467545677007  Ecoul = 1246.0254852623814  Exc = -91.5787306946807
+    CPU time for cycle=16                                                2.06 sec, wall time      2.06 sec, GPU time   2063.68 ms
+cycle= 16 E= -679.452965010406  delta_E= -6e-11  |g|= 4.1e-06  |ddm|= 2e-05
+    CPU time for SCF                                                    37.22 sec, wall time     36.99 sec, GPU time  36984.27 ms
+converged SCF energy = -679.452965010406

@@ -1,0 +1,61 @@
+
+
+******** <class 'gpu4pyscf.dft.rks.RKS'> ********
+method = RKS
+initial guess = minao
+damping factor = None
+level_shift factor = None
+DIIS = <class 'gpu4pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 8
+diis_damp = 0
+SCF conv_tol = 1e-10
+SCF conv_tol_grad = None
+SCF max_cycles = 50
+direct_scf = True
+direct_scf_tol = 1e-13
+XC library gpu4pyscf.dft.libxc version 7.0.0 (CUDA)
+    unable to decode the reference due to https://github.com/NVIDIA/cuda-python/issues/29
+XC functionals = pbe
+small_rho_cutoff = 0
+Overwritten attributes  get_j get_ovlp get_grad get_veff get_hcore energy_tot get_jk get_init_guess get_fock eig get_k make_rdm1 get_occ  of <class 'gpu4pyscf.dft.rks.RKS'>
+Set gradient conv threshold to 1e-05
+Initial guess from minao
+init E= -681.172832414806
+  HOMO = -0.265894650606244  LUMO = -0.116946441247386  gap/eV = 4.05309
+cycle= 1 E= -678.625179861865  delta_E= 2.55  |g|= 1.42  |ddm|= 5.76
+  HOMO = -0.0524194022110304  LUMO = -0.0373812146095688  gap/eV = 0.40921
+cycle= 2 E= -671.006507113031  delta_E= 7.62  |g|= 4.97  |ddm|= 7.91
+  HOMO = -0.124547906341161  LUMO = -0.0241381339794852  gap/eV = 2.73229
+cycle= 3 E= -678.769802065323  delta_E= -7.76  |g|= 0.941  |ddm|= 7.68
+  HOMO = -0.185627191502323  LUMO = -0.0828538860245596  gap/eV = 2.79660
+cycle= 4 E= -679.000126417183  delta_E= -0.23  |g|= 0.404  |ddm|= 1.73
+  HOMO = -0.206469311752733  LUMO = -0.0807299913787643  gap/eV = 3.42154
+cycle= 5 E= -679.026800387632  delta_E= -0.0267  |g|= 0.236  |ddm|= 0.609
+  HOMO = -0.18620806317571  LUMO = -0.0719524147094288  gap/eV = 3.10905
+cycle= 6 E= -679.038049063517  delta_E= -0.0112  |g|= 0.0897  |ddm|= 0.321
+  HOMO = -0.191775512420176  LUMO = -0.0704402542249725  gap/eV = 3.30170
+cycle= 7 E= -679.039959138653  delta_E= -0.00191  |g|= 0.0399  |ddm|= 0.15
+  HOMO = -0.190746606764643  LUMO = -0.0704629677351415  gap/eV = 3.27308
+cycle= 8 E= -679.040323381185  delta_E= -0.000364  |g|= 0.0147  |ddm|= 0.059
+  HOMO = -0.191953627649132  LUMO = -0.0710166527459277  gap/eV = 3.29086
+cycle= 9 E= -679.04036411282  delta_E= -4.07e-05  |g|= 0.00539  |ddm|= 0.0232
+  HOMO = -0.191903080541166  LUMO = -0.0709764772123346  gap/eV = 3.29058
+cycle= 10 E= -679.04036835464  delta_E= -4.24e-06  |g|= 0.00315  |ddm|= 0.00777
+  HOMO = -0.191796524392066  LUMO = -0.0709011546313104  gap/eV = 3.28973
+cycle= 11 E= -679.040370573026  delta_E= -2.22e-06  |g|= 0.000829  |ddm|= 0.00337
+  HOMO = -0.191795298493253  LUMO = -0.0709036983858943  gap/eV = 3.28963
+cycle= 12 E= -679.040370700639  delta_E= -1.28e-07  |g|= 0.000274  |ddm|= 0.000938
+  HOMO = -0.191787153775355  LUMO = -0.0709115843102207  gap/eV = 3.28919
+cycle= 13 E= -679.040370715651  delta_E= -1.5e-08  |g|= 9.77e-05  |ddm|= 0.000467
+  HOMO = -0.191787523752833  LUMO = -0.0709197543644326  gap/eV = 3.28898
+cycle= 14 E= -679.040370716706  delta_E= -1.05e-09  |g|= 6.78e-05  |ddm|= 0.000159
+  HOMO = -0.191784952364389  LUMO = -0.0709143207483808  gap/eV = 3.28906
+cycle= 15 E= -679.04037071744  delta_E= -7.35e-10  |g|= 4.01e-05  |ddm|= 9.73e-05
+  HOMO = -0.191788036045929  LUMO = -0.0709145592235149  gap/eV = 3.28913
+cycle= 16 E= -679.040370717813  delta_E= -3.73e-10  |g|= 1.2e-05  |ddm|= 5.54e-05
+  HOMO = -0.191787648658704  LUMO = -0.0709145111116738  gap/eV = 3.28913
+cycle= 17 E= -679.040370717847  delta_E= -3.34e-11  |g|= 1.13e-05  |ddm|= 2.63e-05
+  HOMO = -0.19178808760842  LUMO = -0.0709146268049923  gap/eV = 3.28913
+cycle= 18 E= -679.040370717856  delta_E= -9.09e-12  |g|= 2.91e-06  |ddm|= 1.58e-05
+converged SCF energy = -679.040370717856
