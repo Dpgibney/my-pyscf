@@ -1,0 +1,14 @@
+# bench/gpu/jk_at_dm.py --dm scratch/dm_caf_b3lyp.npy --repeat 5 (caffeine/def2-SVP, converged B3LYP density),
+# v1.9.0 source build (gpu4pyscf-base) against the patched tree (gpu4pyscf exp/prim-screen, J+K and K kernels),
+# in this order, GTX 1650 Super
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: jk median 2.637 s of 5, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: jk median 1.234 s of 5, SM [1530.0, 1530.0, 1530.0] MHz
+  max |jk - ref| = 3.20e-14 (max |ref| 3.35e+01)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: k median 2.620 s of 5, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 1.37e-15 (max |ref| 9.79e+00)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: k median 1.189 s of 5, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 1.78e-15 (max |ref| 9.79e+00)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: jk median 2.634 s of 5, SM [1530.0, 1530.0, 1530.0] MHz
+  max |jk - ref| = 2.13e-14 (max |ref| 3.35e+01)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: jk median 1.235 s of 5, SM [1530.0, 1530.0, 1530.0] MHz
+  max |jk - ref| = 2.49e-14 (max |ref| 3.35e+01)

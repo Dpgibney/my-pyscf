@@ -26,7 +26,8 @@ CASES = {
     'uks_b3lyp': (1, 1, lambda mol: dft.UKS(mol, xc='b3lyp')),
     'rhf': (0, 0, lambda mol: scf.RHF(mol)),
     'uhf': (1, 1, lambda mol: scf.UHF(mol)),
-    'rks_wb97x': (0, 0, lambda mol: dft.RKS(mol, xc='wb97x')),  # range-separated: builders unchanged
+    'rks_wb97x': (0, 0, lambda mol: dft.RKS(mol, xc='wb97x')),  # range-separated: no one-pass, K with omega
+    'rks_hse06': (0, 0, lambda mol: dft.RKS(mol, xc='hse06')),  # short-range K only (_fill_sr_vk_tasks)
     'rks_pbe': (0, 0, lambda mol: dft.RKS(mol, xc='pbe')),      # pure: no K
 }
 

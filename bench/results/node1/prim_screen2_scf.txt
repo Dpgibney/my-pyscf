@@ -1,0 +1,41 @@
+gpu4pyscf 1.9.0 from /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+   rks_b3lyp perf one_pass=False: 37.59 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+   rks_b3lyp perf one_pass=True: 27.42 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+   rks_b3lyp perf one_pass=False: 37.40 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+   rks_b3lyp perf one_pass=True: 27.47 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+rks_b3lyp   off E -679.8127486398 (spread 9e-13) cyc  15   37.50 s  on  E -679.8127486398 (spread 5e-13) cyc  15   27.45 s  dE -5.7e-12  speed-up 1.366x
+   rhf perf one_pass=False: 24.91 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+   rhf perf one_pass=True: 15.82 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+   rhf perf one_pass=False: 24.88 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+   rhf perf one_pass=True: 15.84 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+rhf         off E -675.7536325663 (spread 5e-13) cyc  14   24.89 s  on  E -675.7536325664 (spread 7e-13) cyc  14   15.83 s  dE -1.3e-10  speed-up 1.573x
+gpu4pyscf 1.9.0 from /home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf
+   rks_b3lyp base one_pass=False: 57.88 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+   rks_b3lyp base one_pass=False: 57.64 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+rks_b3lyp   off E -679.8127486398 (spread 2e-13) cyc  15   57.76 s
+   rhf base one_pass=False: 43.48 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+   rhf base one_pass=False: 43.50 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+rhf         off E -675.7536325663 (spread 5e-13) cyc  14   43.49 s
+gpu4pyscf 1.9.0 from /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+   uks_b3lyp perf one_pass=False: 75.42 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+   uks_b3lyp perf one_pass=True: 58.92 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+uks_b3lyp   off E -679.5107200872 (spread 0e+00) cyc  26   75.42 s  on  E -679.5107200872 (spread 0e+00) cyc  26   58.92 s  dE -6.8e-12  speed-up 1.280x
+   rks_wb97x perf one_pass=False: 44.02 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+   rks_wb97x perf one_pass=True: 43.94 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+rks_wb97x   off E -679.6511313918 (spread 0e+00) cyc  14   44.02 s  on  E -679.6511313918 (spread 0e+00) cyc  14   43.94 s  dE -9.1e-13  speed-up 1.002x
+   rks_hse06 perf one_pass=False: 43.63 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+   rks_hse06 perf one_pass=True: 43.64 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+rks_hse06   off E -679.1205577678 (spread 0e+00) cyc  15   43.63 s  on  E -679.1205577678 (spread 0e+00) cyc  15   43.64 s  dE +2.3e-13  speed-up 1.000x
+   rks_pbe0 perf one_pass=False: 37.40 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+   rks_pbe0 perf one_pass=True: 27.38 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+rks_pbe0    off E -679.0638798054 (spread 0e+00) cyc  15   37.40 s  on  E -679.0638798055 (spread 0e+00) cyc  15   27.38 s  dE -3.2e-11  speed-up 1.366x
+gpu4pyscf 1.9.0 from /home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf
+   uks_b3lyp base one_pass=False: 109.14 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+uks_b3lyp   off E -679.5107200872 (spread 0e+00) cyc  26  109.14 s
+   rks_wb97x base one_pass=False: 78.96 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+rks_wb97x   off E -679.6511313918 (spread 0e+00) cyc  14   78.96 s
+   rks_hse06 base one_pass=False: 79.80 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+rks_hse06   off E -679.1205577678 (spread 0e+00) cyc  15   79.80 s
+   rks_pbe0 base one_pass=False: 57.53 s, SM MHz [1530.0, 1530.0, 1530.0], mem MHz [5750.0, 5750.0, 5750.0], ['P2'], reasons ['0x0000000000000000']
+rks_pbe0    off E -679.0638798054 (spread 0e+00) cyc  15   57.53 s
+GATE DONE

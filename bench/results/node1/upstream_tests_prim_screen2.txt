@@ -1,0 +1,18 @@
+# GPU4PySCF unit tests on node1 after the part-2 kernel patch (perf = gpu4pyscf exp/prim-screen, base = v1.9.0);
+# "on" uses bench/gpu/conf_jk_one_pass.py as PYSCF_CONFIG_FILE (scf_hf_SCF_jk_one_pass = True).
+=== base: test_scf_jk
+...........                                                              [100%]
+11 passed in 31.64s
+=== perf: test_scf_jk
+...........                                                              [100%]
+11 passed in 23.06s
+=== perf jk_one_pass off: rhf uhf rks uks one_pass
+....................s..s..s.......s...................................   [100%]
+66 passed, 4 skipped in 337.11s (0:05:37)
+=== perf jk_one_pass on: rhf uhf rks uks one_pass
+....................s..s..s.......s...................................   [100%]
+66 passed, 4 skipped in 269.37s (0:04:29)
+=== perf: test_diffuse_orbital
+
+11 passed, 2 warnings in 123.44s (0:02:03)
+TESTS DONE

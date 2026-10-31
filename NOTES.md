@@ -2734,6 +2734,152 @@ integrals) next to the times.
 - **Master.** It changed 27 files in gvhf-rys/gvhf-md since v1.9.0. The patch is script-generated, so it can be
   reapplied there.
 
+## GPU4PySCF investigation, part 2: the one-pass J+K kernels and the remaining K kernels (node1), 2026-10-31
+Asked by the user: apply part 1's fix to the one-pass J+K kernels and to the K kernels it left out.
+
+### What each kernel family allows (`gpu4pyscf/lib/gvhf-rys`)
+- **One-pass J+K, 19 one-thread kernels** (`unrolled_rys_jk.cu`). They have the same structure as the 19 K kernels
+  of part 1: one thread per quartet, `rys_roots_for_k` with stride 1, and shared memory used only for the
+  read-only bra cache and each thread's own root column (checked for every kernel). So all three changes apply:
+  no barrier, and zero or below-e^−60 ket and bra primitive pairs skipped.
+- **Multi-thread unrolled kernels, 6 for K and 6 for J+K** (2021, 2111, 2120, 2210, 3011, 3110). Four threads work
+  on one quartet. With `t_id = 64·gout_id + sq_id`, those four threads sit in four different warps and exchange
+  the g arrays, Rpq and the roots through shared memory, so the barriers are needed.
+  - Per-quartet skips would break the barrier count.
+  - A bra skip is safe: all threads of a block hold the same bra pair. It goes before the barrier, so the whole
+    block skips together.
+- **The generic kernels** (`rys_k_kernel`, `rys_jk_kernel`) use the same cooperative pattern with any block
+  shape. They get the same uniform bra skip.
+- **`PRIM_CUTOFF`** moves to `vhf.cuh` (e^−60 = 8.8e−27, libcint's expcutoff).
+  - A skipped primitive pair enters its integrals with a factor below that, many orders of magnitude under the
+    SCF's 1e−13 shell-quartet cutoff.
+  - libcint's own test also weighs an estimate of the integral's size (`CINTset_pairdata`). It drops less than
+    this test for diffuse pairs, and more for tight ones.
+
+### How much is left in the kernels the patch cannot change much (caffeine/def2-SVP, converged B3LYP density)
+- **Primitive pairs** (`prim_census.py`): pairs with the single-primitive d shells keep 89–100% of their
+  primitive pairs (d1,s5 100%; d1,s3 89%; d1,p3 98%; d1,d1 100%). For def2-SVP the multi-thread and generic kernels
+  all have a d shell, so a primitive skip saves little there. It matters for bases with contracted d or f shells.
+- **Padding** (`bench/gpu/task_census.py`, a host replay of `_fill_vk_tasks` for every shell-group quartet).
+  - A block takes one bra pair and runs its ket pairs nsq_per_block at a time.
+
+  | kernels | quartets per block | ket pairs per bra pair | padded slots | warps without a real quartet |
+  |---|---|---|---|---|
+  | one-thread unrolled | 256 | 86–296 | 44% | 40% |
+  | multi-thread unrolled | 64 × 4 threads | 95–287 | 18.5% | 10% |
+  | generic | 16–48 × 4–16 threads | 26–186 | 20% | 3% |
+
+  - In the one-thread kernels the padding threads now skip all their work (part 1). In the others only whole idle
+    warps could be saved, about 10% of the multi-thread kernels' 0.14 s, or 1% of the K build.
+  - That would need named barriers over the active warps. It is not worth the change for now.
+
+### Results (gpu4pyscf `exp/prim-screen` e52d6ef; all runs at 1530 MHz SM / 5750 MHz memory, P2)
+- **One build at the converged B3LYP density** (`jk_at_dm.py`, median of 5; `prim_screen2_fixed_dm.txt`):
+
+  | build | v1.9.0 | patched | max \|Δ\| vs v1.9.0 | v1.9.0 against itself |
+  |---|---|---|---|---|
+  | one-pass J+K (`get_jk`) | 2.637 s | 1.234 s (2.14×) | 3.2e−14 | 2.1e−14 |
+  | K only (`get_k`) | 2.620 s | 1.189 s (2.20×) | 1.8e−15 | 1.4e−15 |
+
+  One-pass J+K now costs only 4% more than K alone.
+- **SCF**, caffeine/def2-SVP, conv_tol 1e−10 (`one_pass_gate.py`; `prim_screen2_scf.jsonl`):
+
+  | case | v1.9.0 | patched, one-pass off | patched, one-pass on | \|ΔE\| off / on | cycles |
+  |---|---|---|---|---|---|
+  | RHF | 43.49 s | 24.89 s (1.75×) | 15.83 s (2.75×) | 6.8e−13 / 1.3e−10 | 14 |
+  | RKS B3LYP | 57.76 s | 37.50 s (1.54×) | 27.45 s (2.10×) | 1.4e−12 / 5.5e−12 | 15 |
+  | RKS PBE0 | 57.53 s | 37.40 s (1.54×) | 27.38 s (2.10×) | 4.5e−13 / 3.1e−11 | 15 |
+  | UKS B3LYP (caffeine⁺) | 109.14 s | 75.42 s (1.45×) | 58.92 s (1.85×) | 2.3e−13 / 7.0e−12 | 26 |
+  | RKS ωB97X (range-separated K) | 78.96 s | 44.02 s (1.79×) | (no one-pass) | 2.3e−13 | 14 |
+  | RKS HSE06 (short-range K only) | 79.80 s | 43.63 s (1.83×) | (no one-pass) | 1.1e−12 | 15 |
+
+  - With one-pass off, energies agree with v1.9.0 to 1.4e−12 Eh, the run-to-run spread of the atomics.
+  - One-pass on and off differ by up to 1.3e−10 (RHF). It23 measured the same 1.3e−10 with the unpatched
+    kernels: it comes from where the SCF stops at conv_tol 1e−10.
+  - Cycle counts are the same in all cases.
+  - The PBE0 one-pass-off run overlapped a short census run on the same GPU. Its time matches B3LYP's.
+- **Counters** (Nsight Compute, one build at the converged density; `ncu/summary_jk*.txt`, `summary_k_new.txt`):
+
+  | build | GPU time | FP64 | warp instructions | atomics |
+  |---|---|---|---|---|
+  | one-pass J+K, v1.9.0 | 2.656 s | 183.5 GFLOP | 11.69 G | 18.8 M |
+  | one-pass J+K, patched | 1.245 s | 65.3 GFLOP (−64%) | 4.59 G (−61%) | 18.8 M |
+  | K only, v1.9.0 | 2.635 s | 182.3 GFLOP | 11.55 G | 12.3 M |
+  | K only, part 1 prototype | 1.200 s | 62.2 GFLOP | 4.41 G | 12.3 M |
+  | K only, patched | 1.199 s | 62.2 GFLOP | 4.38 G | 12.3 M |
+
+  - In v1.9.0, one-pass J+K already cost only 1% more than K alone. Each quartet's integrals feed both J and K,
+    and the extra 6.4 M atomics are the J updates.
+  - Per class, the J+K kernels drop like the K ones: (ps|ss) 0.630 → 0.195 s, (ss|ss) 0.461 → 0.127 s,
+    (ps|ps) 0.378 → 0.129 s.
+  - The multi-thread and generic classes stay within ±0.002 s, as the census predicted. The largest change is
+    the generic (dp|dp) K, 0.038 → 0.036 s with 4% fewer instructions.
+- **def2-TZVP** (caffeine, 494 AOs, f functions on C/N/O; converged B3LYP density, median of 3;
+  `prim_screen2_fixed_dm_tzvp.txt`):
+
+  | build | v1.9.0 | patched | max \|Δ\| |
+  |---|---|---|---|
+  | K | 17.97 s | 12.83 s (1.40×) | 1.8e−15 |
+  | one-pass J+K | 18.58 s | 13.50 s (1.38×) | 5.7e−14 |
+
+  - The gain is smaller than with def2-SVP (2.2×). TZVP puts more of the time into the d and f classes, which the
+    patch barely changes.
+  - Patched K by kernel family (Nsight Compute; `ncu/summary_k_tzvp_new.txt`, `summary_k_new.txt`):
+
+    | kernels | def2-SVP: time | def2-TZVP: time | def2-TZVP: warp instructions |
+    |---|---|---|---|
+    | one-thread unrolled | 0.968 s (81%) | 4.81 s (37%) | 15.8 G |
+    | multi-thread unrolled | 0.140 s (12%) | 1.52 s (12%) | 5.9 G |
+    | generic `rys_k_kernel` | 0.091 s (8%) | 6.57 s (51%) | 52.1 G |
+
+  - The time spreads over about 60 classes, none above 5.3%. Every class outside the 25 unrolled ones goes to the
+    generic kernel: most classes with an f shell, and (dp|dp), (dd|pp) and higher.
+  - FP64 is 16–19% of that kernel's instructions, against 32–55% in the unrolled kernels. On this card the FP64
+    pipe still sets its time (79% busy). On FP64-rich cards, its 52 G instructions (70% of the build's) would
+    set it instead.
+- **Upstream tests** (`upstream_tests_prim_screen2.txt`):
+  - `scf/tests/test_scf_jk.py` passes, 11 of 11 (v1.9.0 too). It compares J and K with CPU PySCF to 1e−9 for
+    def2-TZVP with spread-out atoms and dense random densities, at ω = 0 and ±0.2, for hermi 0/1/2, general
+    contractions and l = 5.
+  - `test_rhf.py`, `test_uhf.py`, `dft/tests/test_rks.py`, `test_uks.py` and `test_jk_one_pass.py`: 66 passed,
+    4 skipped, with one-pass off (337 s) and on (269 s), as in It23 (442 and 377 s then).
+  - `test_diffuse_orbital.py` (diffuse bases against Q-Chem, including Hessians and frequencies): 11 passed.
+
+### The launch shape: one block per SM
+- Every Rys J/K launch has a grid of `multiProcessorCount` blocks (20 here): persistent blocks that pull bra
+  pairs from an atomic counter.
+- Each block has 256 threads, or 512 when the kernel needs at most 128 registers (`adjust_threads`). So occupancy
+  is 8 warps per SM, or 16 with 512 threads. That is 25% (50%) on Turing and 12.5% (25%) on A100/H100, which hold
+  64 warps.
+  - Part 1's register rise mattered only through that rule: the (ss|ss) kernel went from 88 to 136 registers,
+    so its block went from 512 threads to 256.
+- In the one-thread kernels 40% of the warp passes have no real quartet (census above). Without barriers those
+  warps finish early and wait for the block's next bra pair, so on average only about 5 of the 8 warps per SM
+  are busy.
+  - The FP64 pipe is no longer saturated in the cheap classes: 53% busy in (ss|ss), 63% in (ps|ss).
+- Kernels with 255 registers cannot hold more than 8 warps per SM on any current GPU (64 K registers per SM).
+  Those with 128–200 could run 2–3 blocks of 128 threads.
+  - Smaller blocks also shorten the idle tail (census model under Next).
+
+### Next
+- **Launch shape** (all GPUs). The cheap test first: 128-thread blocks and 2–3 blocks per SM for the one-thread
+  kernels.
+  - Census model (`task_census_caffeine_svp_model.txt`): the work-weighted idle share of the warp time falls
+    from 45% with 256 quartets per block to 26% with 128, 15% with 64 and 7% with one warp per bra pair.
+  - Their block size comes from `blockDim.x`, so only the dispatchers and the task pool (QUEUE_DEPTH entries per
+    block, sized in `jk.py`) change.
+  - If the idle tail remains, warp-level bra-pair scheduling: each warp fills and runs its own task list with
+    ballots, with no block barriers.
+- **The generic kernel** for larger bases: half of K with def2-TZVP and 70% of its instructions. Either unrolled
+  kernels for more classes (the generator is not in the repository) or less index and barrier overhead in it.
+- **One-pass J+K as the default for HF and global hybrids** (the user's decision; It23 made it opt-in). It is now
+  1.28–1.57× faster than the J-engine + K default on this card. The trade on FP64-rich cards is unmeasured.
+- **The MD J-engine** (0.69 s per caffeine cycle, half of a PBE cycle), **XC** (0.63 s) and the SCF host
+  overheads, as planned.
+- **The gradient kernels** (`unrolled_rys_jk_ip1.cu`, `unrolled_ejk_ip*.cu`) for primitive screening and padding.
+- **Master.** The generator applies to upstream master c4ce229 unchanged, with the same 19 + 19, 6 + 6 and 2
+  kernels. Since v1.9.0, master has only moved the CUDA includes of these files into `vhf.cuh`.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
