@@ -86,3 +86,8 @@ Run them in a configuration's pinned environment:
 | `scf_guess_study.py` | SCF cycles, energies and per-cycle traces per initial guess and DIIS class for the molecules of `bench/geom` and the bench set (JSON lines) | It21 |
 | `scf_diis_variants.py` | SCF cycles of DIIS variants (subspace size, start cycle, ADIIS+CDIIS blends and switching, the `pre_scf` guess), also for `bench/geom/hard`, water stretched, HF | It21 |
 | `scf_proj_guess.py` | a guess from a cheaper SCF (smaller basis, coarser grid, density fitting, another functional) projected onto the target basis: cycles and times against minao | It21 |
+| `scf_hard_trace.py` | caffeine+ UKS per cycle: frontier orbitals, their mirror parity, occupied-space overlap with the previous cycle | It22 |
+| `scf_hard_states.py` | caffeine+ UKS solutions: Cs π hole and σ hole with fixed irrep occupations, the broken-symmetry one by SOSCF, internal stability | It22 |
+| `scf_hard_remedies.py` | caffeine+ UKS from minao with each convergence remedy (level shift, damping, SOSCF, smearing, guesses) | It22 |
+| `scf_flipmix.py` | flip-pair mixing prototype, and rotations of the π-hole state's hole pair | It22 |
+| `scf_flip_scan.py` | where the flip-pair trigger fires on open-shell molecules under plain CDIIS | It22 |

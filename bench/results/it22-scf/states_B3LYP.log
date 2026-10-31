@@ -1,0 +1,11 @@
+sym_pi     conv True cyc  25 E -679.5107200871 <S2> 0.7714 beta: highest occ -0.42752 lowest empty -0.36972 (aufbau) t 10.8 s
+sym_pi     internally stable: True
+sym_sigma  conv True cyc  22 E -679.4930156235 <S2> 0.7564 beta: highest occ -0.41684 lowest empty -0.39376 (aufbau) t 12.1 s
+sym_sigma  internally stable: False
+cdiis      conv True cyc  23 E -679.5107200868 <S2> 0.7714 beta: highest occ -0.42752 lowest empty -0.36972 (aufbau) t 15.7 s
+bs_soscf   conv True cyc   0 E -679.5107200872 <S2> 0.7714 beta: highest occ -0.42752 lowest empty -0.36972 (aufbau) t 9.2 s
+bs_soscf   internally stable: True
+sym_pi     E - E(bs) = +0.000000 Eh = +0.000 kcal/mol
+sym_sigma  E - E(bs) = +0.017704 Eh = +11.110 kcal/mol
+bs         E - E(bs) = +0.000000 Eh = +0.000 kcal/mol
+exit 0

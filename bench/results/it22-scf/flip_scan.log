@@ -1,0 +1,16 @@
+benzene+           PBE    cycles  21 conv True  swaps(cycle,spin) [(4, 1), (5, 1), (6, 1), (7, 1)] trigger (5, 1)  t 1.6 s
+naphthalene+       PBE    cycles  10 conv True  swaps(cycle,spin) [] trigger None  t 2.1 s
+benzyl             PBE    cycles  14 conv True  swaps(cycle,spin) [] trigger None  t 1.6 s
+phenoxyl           PBE    cycles  14 conv True  swaps(cycle,spin) [] trigger None  t 1.3 s
+tempo              PBE    cycles  14 conv True  swaps(cycle,spin) [] trigger None  t 7.0 s
+diphenylcarbene_t  PBE    cycles  15 conv True  swaps(cycle,spin) [] trigger None  t 4.7 s
+caffeine+          PBE    cycles  88 conv True  swaps(cycle,spin) [(7, 1), (8, 1), (9, 1), (11, 1), (16, 1), (20, 1)] trigger (8, 1)  t 28.4 s
+fe_h2o6            PBE    cycles  54 conv True  swaps(cycle,spin) [(4, 1), (5, 1), (6, 1), (7, 1), (8, 1), (9, 1)] trigger (5, 1)  t 8.7 s
+benzene+           B3LYP  cycles   9 conv True  swaps(cycle,spin) [] trigger None  t 0.9 s
+naphthalene+       B3LYP  cycles  10 conv True  swaps(cycle,spin) [] trigger None  t 2.5 s
+benzyl             B3LYP  cycles  13 conv True  swaps(cycle,spin) [] trigger None  t 1.5 s
+phenoxyl           B3LYP  cycles  16 conv True  swaps(cycle,spin) [] trigger None  t 1.5 s
+tempo              B3LYP  cycles  14 conv True  swaps(cycle,spin) [] trigger None  t 10.3 s
+diphenylcarbene_t  B3LYP  cycles  14 conv True  swaps(cycle,spin) [] trigger None  t 5.1 s
+caffeine+          B3LYP  cycles  23 conv True  swaps(cycle,spin) [] trigger None  t 11.3 s
+fe_h2o6            B3LYP  cycles  64 conv True  swaps(cycle,spin) [(6, 1), (7, 1), (8, 1), (10, 0), (10, 1), (11, 0)] trigger (7, 1)  t 10.8 s

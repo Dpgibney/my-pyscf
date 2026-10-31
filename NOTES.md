@@ -2286,7 +2286,7 @@ CDIIS (122 against 121 cycles on 10 molecules) and hurt the hybrid (158–187).
   | same, UKS B3LYP | 64 | not converged in 100 | 45 |
   | same, UHF | 46, on a state 0.035 Eh higher | 66 | 88 (lowest) |
   | pentacene, coronene, beta-carotene (PBE), stretched water (RHF, PBE, B3LYP) | 10–14 | same | same or +1–2 |
-  | caffeine+ UKS PBE | not converged in 100 | | not converged in 100 |
+  | caffeine+ UKS PBE | not converged in 100 | | not converged in 100 (see It22) |
 
   On the Fe complex the variants end on different SCF solutions: there, any change of guess or DIIS changes the
   result, which is why none of this is a default.
@@ -2319,6 +2319,84 @@ CDIIS (122 against 121 cycles on 10 molecules) and hurt the hybrid (158–187).
   noise. It pays when the SCF's own Fock builds are expensive (TZVP, direct J/K, large grids, meta-GGA, UKS) and
   loses when they are cheap and density-fitted K is not: n-C20H42/SVP B3LYP is semi-direct (the integrals are
   read back after the first cycle) and needs only 9 cycles, while RI-K over 490 AOs costs more per cycle.
+
+## It22: why caffeine+ UKS PBE does not converge, 2026-10-31
+
+The user's direction after It21: keep the new guess and DIIS opt-in, and find out why caffeine+ UKS PBE/def2-SVP
+converges with nothing. This is a diagnosis; PySCF is unchanged. Scripts: `bench/diag/scf_hard_*.py`,
+`scf_flipmix.py`, `scf_flip_scan.py`; data in `results/it22-scf/`.
+
+- **Not a regression.** Unmodified master (`pyscf-base`) and the 2.12.1 wheel fail the same way as `pyscf`: 88
+  cycles, the same final state, and the same failed extra cycle (`trace_PBE_cdiis_{perf,base,wheel}.log`).
+- **Three SCF solutions** (`scf_hard_states.py`; the symmetric ones with Cs symmetry and fixed irrep occupations,
+  in the same frame and on the same grids; stability in the non-symmetric UKS, so symmetry-breaking rotations
+  count; `states_PBE.log`):
+
+  | solution | E − E_BS | β orbitals around the hole | stable |
+  |---|---|---|---|
+  | hole spread over a π and a σ orbital, mirror symmetry broken | 0 (−678.7490982 Eh) | aufbau, gap 0.0025 Eh (0.07 eV) | yes |
+  | hole in π (²A″) | +1.16 kcal/mol | the empty π orbital 0.0092 Eh *below* the highest occupied σ | yes |
+  | hole in the σ lone pair (²A′) | +4.66 kcal/mol | the empty σ orbital 0.0175 Eh below the highest occupied π | yes |
+
+- **What the SCF does** (`scf_hard_trace.py`: per cycle the frontier orbitals' mirror parity and the overlap of
+  the occupied space with the previous cycle's):
+  - The minao start puts the β hole in π. Both symmetric states violate aufbau, so each diagonalization moves the
+    hole to the other orbital. The β occupied space swaps (overlap 0 with the previous cycle's) at cycles 7, 8, 9,
+    11, 16, 20, ..., and the energy wanders between −678.74 and −678.66 Eh.
+  - Fock matrices of mirror-symmetric densities, and their DIIS combinations, keep the orbitals symmetric. This
+    goes on until numerical noise, amplified at the near-degeneracies (`HOMO >= LUMO` warnings), breaks the
+    symmetry, around cycle 60–65. CDIIS then converges to the broken-symmetry minimum in about 20 cycles.
+  - There it meets the loop's criteria (|g| 1–3e-5), but the extra cycle (a diagonalization without DIIS)
+    multiplies |g| by 20–36 and raises E by 4e-9 to 5e-7 Eh. So the run is flagged not converged, also at
+    conv_tol 1e-10 (|g| 2.4e-6 → 7.9e-5), although the last DIIS iterate is within 1e-9 Eh of the minimum.
+  - The swapping phase is chaotic: 81–97 cycles between builds and runs. With PySCF's default `max_cycle=50` the
+    run stops inside it, 0.059 Eh above the minimum.
+- **B3LYP has no such problem** (`states_B3LYP.log`). Its π-hole state obeys aufbau (β gap 1.57 eV), is stable,
+  and is where CDIIS goes in 23 cycles; the σ-hole state is 11.1 kcal/mol higher and unstable; there is no
+  broken-symmetry minimum. The PBE picture is the GGA's delocalization error: an emptied orbital drops below the
+  occupied ones, and spreading the hole over two orbitals lowers the energy.
+- **Remedies, from minao** (`scf_hard_remedies.py`, `remedies_PBE.jsonl`; E above E_BS, max_cycle 100):
+
+  | remedy | cycles | converged | ends on |
+  |---|---|---|---|
+  | CDIIS, `max_cycle=50` (PySCF's default) | 50 | no | mid-swap, +0.059 Eh |
+  | CDIIS | 92 | no (extra cycle) | broken symmetry, +5e-7 Eh |
+  | CDIIS, conv_tol 1e-10 | 91 | no (extra cycle) | broken symmetry, +4e-9 Eh |
+  | ADIIS+CDIIS | 97 | yes, by chance: the extra cycle's ΔE 9.8e-9 is just under 1e-8 | broken symmetry |
+  | damping 0.5 | 86 | no | broken symmetry |
+  | level shift 0.1 / 0.25 Eh | 21 / 42 | no: the loop converges on the σ-hole state, the extra cycle (no shift, aufbau) moves the hole | +0.052 Eh |
+  | level shift 0.5 Eh | 100 | no | π hole |
+  | SOSCF (`mf.newton()`) | 5 macro, 67 J/K | yes | π hole, +1.16 kcal/mol |
+  | 50 CDIIS cycles, then SOSCF | 7 macro, 157 J/K | yes | σ hole, +4.66 kcal/mol |
+  | Fermi smearing 0.005 / 0.01 Eh, then integer occupations | 32+100 / 28+97 | no | swapping / broken symmetry |
+  | the B3LYP density as guess | 23+100 | no | broken symmetry |
+  | `init_guess='pre_scf'` | 28 | no | broken symmetry |
+
+- **Breaking the symmetry on purpose** (`scf_flipmix.py`, `flipmix_PBE.jsonl`):
+  - From the converged π-hole state, rotating the π hole into the highest occupied σ orbital by 20° or 45°:
+    CDIIS reaches the broken-symmetry minimum in 19 or 27 cycles (the extra cycle still fails).
+  - Generic version, "flip-pair mixing". Per spin, watch the occupied space. When an orbital swaps out (smallest
+    singular value of the overlap with the previous cycle's below 0.1, from cycle 4) and the same orbital later
+    swaps back in (overlap above 0.9), replace the orbital that came in by the normalized sum of it and the one
+    that left, then restart CDIIS from that density.
+    - It fires at cycle 8 here, on the β π/σ pair (mirror parity of the mixed orbital −0.04).
+    - CDIIS then needs 26 cycles: 34 in all and 11.8 s, against 92 cycles and 28.8 s. ΔE is 1e-8 and the extra
+      cycle fails. With SOSCF after the mixing it takes 6 macro iterations and ΔE is 1.6e-10.
+    - A looser trigger (from cycle 3, overlap below 0.5) fired at cycle 5 on two σ orbitals during the initial
+      reordering. The mix then kept the symmetry, and the run failed.
+  - Trigger scan (`scf_flip_scan.py`, `flip_scan.log`; 8 open-shell molecules, PBE and B3LYP, plain CDIIS):
+    - It fires on four runs:
+      - caffeine+ PBE (cycle 8);
+      - benzene+ PBE (cycle 5; 21 cycles against B3LYP's 9; the hole sits in a degenerate pair);
+      - [Fe(H2O)6]2+ PBE (cycle 5; 54 cycles);
+      - [Fe(H2O)6]2+ B3LYP (cycle 7; 64 cycles).
+    - In the other 12 runs no orbital swaps at all.
+    - Whether mixing helps benzene+ and the Fe complex, and which Fe state it ends on, is untested.
+- **What works now, without code changes:**
+  - **The lowest solution:** `max_cycle=100` with `conv_check=False`, which accepts the DIIS iterate. Or polish
+    the end of a 100-cycle run with SOSCF (12.8 s).
+  - **The symmetric π-hole state:** `mol.symmetry=True` with `mf.irrep_nelec = {"A'": (41, 41), 'A"': (10, 9)}`
+    (25 cycles), or `mf.newton()` from minao.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
