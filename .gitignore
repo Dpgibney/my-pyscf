@@ -5,6 +5,7 @@
 /qcint/
 /libxc/
 /OpenBLAS/
+/gpu4pyscf/
 # Build products and environments
 /install/
 /build/

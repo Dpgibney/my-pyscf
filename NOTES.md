@@ -2517,9 +2517,79 @@ converges with nothing. This is a diagnosis; PySCF is unchanged. Scripts: `bench
   - **One-time costs** (first calls, GPU): XC 0.80 s, K 1.67 s, J 0.31 s (screening setup included), grids
     0.07 s, guess 0.03 s.
 - **Next candidates (not started):**
-  - J from the K pass for hybrids, in a `gpu4pyscf` clone with a `perf` branch and a reference build.
+  - J from the K pass for hybrids, in a `gpu4pyscf` clone with a `perf` branch and a reference build. See the
+    next section: it needs A100/H100 numbers first.
   - A kernel-level profile of K's s/p classes (Nsight Compute; needs a user-local CUDA toolkit).
   - Our perf PySCF built on node1, for a CPU baseline that isn't the stock wheel.
+
+## Why GPU4PySCF builds J and K in separate passes (node1), 2026-10-31
+Question: HF and hybrid DFT on the GPU build J with the MD J-engine and K with a K-only Rys pass. A single Rys pass
+produces both, and on the 1650 Super it is ~20% cheaper (profile above). Why the split?
+
+- **History.** Sources: a `gpu4pyscf` clone at master c4ce229 (gitignored, read-only so far) and the PRs via the
+  GitHub API.
+  - **v1.0 (2024, arXiv 2407.09700):** one Rys kernel builds J and K together.
+  - **#225 (Nov 2024):** the MD J-engine is added. The PR has no description.
+  - **v1.4.1 (May 2025):**
+    - The low-memory drivers for large systems (`hf_lowmem.py`, `rks_lowmem.py`) build J with the J-engine and K
+      with a K-only Rys call. The one-pass call is left as a comment: `#:vj, vk = vhfopt.get_jk(dm, hermi, True,
+      True, log)`.
+    - CHANGELOG: "The MD J-engine is utilized by default for large system HF and DFT computation."
+    - The regular RKS driver still calls `get_jk` for hybrids.
+  - **#442 (Jul 2025, v1.4.2):** "In the direct SCF driver, the MD-J is set as the default function for Coulomb
+    matrices."
+    - `get_veff` of RKS, UKS and HF now always builds J with `get_j` and adds K from `get_k`.
+    - The PR lists the multi-density MD-J kernels and the split into separate direct and DF drivers. It gives no
+      benchmark for hybrids.
+  - **#773 (May 2026):** K kernel optimizations (density contraction, general contractions, diffuse orbitals).
+    Master on 2026-10-31 is unchanged in this respect.
+  - **No measurement on record.** The repository's benchmark tables are from v1.0 (A100), before the switch.
+    Nothing measures the split for small or medium hybrids.
+- **What the split buys, in the code:**
+  - **Screening** (`gpu4pyscf/lib/gvhf-rys/create_tasks.cu`).
+    - The K-only filler (`_fill_vk_tasks`) keeps a quartet (ij|kl) when q_ij + q_kl plus the largest
+      log|D| over the exchange-type blocks (ik, jk, il, jl) passes the cutoff.
+    - The J+K filler (`_fill_vjk_tasks`) also accepts the Coulomb-type blocks (ij, kl). Those stay large for any
+      significant pair, however far apart bra and ket are.
+    - So one pass evaluates every quartet J needs (O(N²)), while K alone tends to O(N) in large insulators.
+    - The `s_cond` and diffuse-exponent screening seen in `get_k` belongs to the short-range (erfc) fillers only.
+  - **A faster J.** On this card the MD J-engine is 3.8–4.9× faster than the Rys J-only kernel (below). This
+    matters for pure functionals, where J is the only two-electron term.
+  - **One code path.** J is built the same way for HF, pure and hybrid DFT, range-separated Coulomb and several
+    densities (UKS builds J of the total density once). Range-separated K needs its own SR/LR passes anyway.
+  - So #442 generalized the large-system choice of the low-memory drivers.
+- **Measured on the 1650 Super.**
+  - Script: `bench/gpu/jk_scaling.py`. Results: `bench/results/node1/jk_scaling.{jsonl,txt}`.
+  - Converged PBE densities, all-trans chains; median of 3 calls after one untimed call; times in s.
+
+  | system | basis | nao | J-engine | Rys J | Rys K | Rys J+K | J inside K | one pass saves |
+  |---|---|---|---|---|---|---|---|---|
+  | caffeine | def2-SVP | 246 | 0.78 | 2.96 | 2.61 | 2.63 | 0.02 s (0.8% of K) | 22% |
+  | C10H22 | def2-SVP | 250 | 0.61 | 2.42 | 2.46 | 2.48 | 0.02 s (0.6%) | 19% |
+  | C20H42 | def2-SVP | 490 | 1.71 | 8.14 | 6.35 | 6.52 | 0.17 s (2.6%) | 19% |
+  | C30H62 | def2-SVP | 730 | 3.46 | 17.27 | 10.85 | 11.71 | 0.87 s (8.0%) | 18% |
+  | C40H82 | def2-SVP | 970 | 5.91 | 28.97 | 16.22 | 18.21 | 1.98 s (12.2%) | 18% |
+  | caffeine | def2-TZVP | 494 | 5.41 | 23.13 | 17.93 | 18.55 | 0.62 s (3.5%) | 21% |
+
+  - **The screening effect is real but small here.** J inside the K pass grows from 1% of K (caffeine, C10) to 12%
+    (C40H82, a 50 Å chain). That is 2.5% to 34% of the J-engine's own cost, so one pass wins at every size tested.
+  - **Incremental densities agree.** On the B3LYP SCF's density differences (caffeine, cycles 2, 6, 10), J inside
+    K costs 0.024–0.029 s against 0.65–0.77 s for the J-engine; one pass saves 22–23%.
+  - **Accuracy.** All J matrices agree to ≤ 2e-11 and all K matrices to ≤ 1.3e-12.
+  - **Where the crossover might be.** A chain is the worst case for one pass at a given size, since it has the
+    most far-apart bra–ket pairs; globular molecules should cross over later. From C30 to C40 the ratio rises
+    9 points; at that rate the crossover is near ~2700 basis functions (rough extrapolation).
+- **Not knowable on this card.**
+  - The developers' hardware (A100/H100) has ~60× this card's FP64 rate but only ~8–10× its memory bandwidth.
+  - The FP64-heavy MD J-engine may gain more there than the J accumulation added to the K kernel (atomics, memory
+    traffic). The split could then be faster on those cards even for small molecules.
+  - This is an untested hypothesis; `jk_scaling.py` measures it in ~30 minutes of A100/H100 time.
+- **Conclusion.**
+  - The split is deliberate, not an oversight: #442 made the large-system driver's choice the default, together
+    with a uniform J path.
+  - Its benefit, exchange screening, only shows in large, extended systems. On this card one pass is faster
+    everywhere up to 970 AOs, and nothing records the trade being measured for small and medium hybrids.
+  - A size- or hardware-aware choice between the two is an exact candidate, but only after A100/H100 numbers.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
