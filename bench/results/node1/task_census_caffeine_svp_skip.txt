@@ -28,17 +28,17 @@ class      kernel   nsq x gs bra pairs tasks/bra    pad idle warps prim quartets
 stride1: pad 44.2% of slots, 40.4% idle warps
 multi: pad 18.5% of slots, 10.3% idle warps
 generic: pad 19.8% of slots, 2.9% idle warps
-primitive quartets computed now, and the share a per-quartet skip would remove:
-(dp|pp)    multi           1716160   27.5%
-(dp|ds)    multi            706688   34.3%
-(dd|ps)    multi            570944   22.0%
-(ds|dp)    multi            543872   29.0%
-(dp|dp)    generic          334320   22.5%
-(dd|pp)    generic          163728   16.5%
-(dd|ds)    generic           75360   17.2%
-(ds|dd)    generic           52960   44.1%
-(dd|dp)    generic           43520   13.1%
-(dp|dd)    generic           31936   42.3%
-(dd|dd)    generic            3856   18.5%
-multi: 28.2% of the primitive quartets avoidable
-generic: 22.4% of the primitive quartets avoidable
+primitive quartets computed now, and the share removed by: a per-quartet skip | ket compaction over the block | ket compaction over groups of 32 quartets
+(dp|pp)    multi           1716160   27.5%    7.5%   19.4%
+(dp|ds)    multi            706688   34.3%    0.0%   18.3%
+(dd|ps)    multi            570944   22.0%    5.4%   11.9%
+(ds|dp)    multi            543872   29.0%    0.0%   15.1%
+(dp|dp)    generic          334320   22.5%    0.0%    7.6%
+(dd|pp)    generic          163728   16.5%    2.3%    7.1%
+(dd|ds)    generic           75360   17.2%    0.0%    0.0%
+(ds|dd)    generic           52960   44.1%    0.0%    0.0%
+(dd|dp)    generic           43520   13.1%    0.0%    0.0%
+(dp|dd)    generic           31936   42.3%    0.0%    0.0%
+(dd|dd)    generic            3856   18.5%    0.0%    0.0%
+multi: avoidable 28.2% per quartet, 4.5% by block compaction, 17.3% by 32-quartet compaction
+generic: avoidable 22.4% per quartet, 0.6% by block compaction, 5.3% by 32-quartet compaction

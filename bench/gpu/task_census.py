@@ -137,12 +137,28 @@ for i in range(ngroups):
                     klprim = smol.bas_nprim(loc[k]) * smol.bas_nprim(loc[l])
                     ideal = float((nb * (keep * nk[None, :]).sum(axis=1)).sum())
                     if kind == 'stride1':
-                        now = ideal
+                        now = compact = compact32 = ideal
                     else:
                         slots_ij = -(-nt_all // nsq) * nsq
                         now = float((slots_ij * nb).sum()) * klprim
+                        # ket compaction: a group of quartets runs as many ket iterations as its neediest quartet;
+                        # groups of nsq quartets (the block) or of 32 (named barriers per half block), in task order
+                        compact = compact32 = 0.
+                        for row in numpy.nonzero(nt_all)[0]:
+                            cnt = nk[keep[row]]
+                            for g, acc in ((nsq, 'b'), (min(32, nsq), 'h')):
+                                ng = -(-cnt.size // g)
+                                mx = numpy.zeros(ng)
+                                numpy.maximum.at(mx, numpy.arange(cnt.size) // g, cnt)
+                                w = float(mx.sum()) * g * nb[row]
+                                if acc == 'b':
+                                    compact += w
+                                else:
+                                    compact32 += w
                     r['work_now'] = r.get('work_now', 0.) + now
                     r['work_ideal'] = r.get('work_ideal', 0.) + ideal
+                    r['work_compact'] = r.get('work_compact', 0.) + compact
+                    r['work_compact32'] = r.get('work_compact32', 0.) + compact32
 
 print(f'{args.mol} {args.basis}: nbas {nbas}, nao {smol.nao}, log cutoff {log_cutoff:.2f}, dm_penalty {dm_penalty:.2f}')
 print(f"{'class':10s} {'kernel':8s} {'nsq x gs':>8s} {'bra pairs':>9s} {'tasks/bra':>9s} {'pad':>6s} "
@@ -176,13 +192,17 @@ if args.model:
         print(f"  {n:4d} quartets per block: {1 - used / slots:.1%} idle, weighted by primitive quartets per task")
 
 if args.skip:
-    print('primitive quartets computed now, and the share a per-quartet skip would remove:')
+    print('primitive quartets computed now, and the share removed by: a per-quartet skip | ket compaction over the '
+          'block | ket compaction over groups of 32 quartets')
     tot = {}
     for key, r in sorted(rows.items(), key=lambda kv: -kv[1]['work_now']):
         if r['kind'] == 'stride1':
             continue
-        print(f"{key:10s} {r['kind']:8s} {r['work_now']:14.0f} {1 - r['work_ideal'] / max(r['work_now'], 1):7.1%}")
-        t = tot.setdefault(r['kind'], [0., 0.])
-        t[0] += r['work_now']; t[1] += r['work_ideal']
+        now = max(r['work_now'], 1)
+        print(f"{key:10s} {r['kind']:8s} {r['work_now']:14.0f} {1 - r['work_ideal'] / now:7.1%} "
+              f"{1 - r['work_compact'] / now:7.1%} {1 - r['work_compact32'] / now:7.1%}")
+        t = tot.setdefault(r['kind'], [0., 0., 0., 0.])
+        t[0] += r['work_now']; t[1] += r['work_ideal']; t[2] += r['work_compact']; t[3] += r['work_compact32']
     for kind, t in tot.items():
-        print(f'{kind}: {1 - t[1] / t[0]:.1%} of the primitive quartets avoidable')
+        print(f'{kind}: avoidable {1 - t[1] / t[0]:.1%} per quartet, {1 - t[2] / t[0]:.1%} by block compaction, '
+              f'{1 - t[3] / t[0]:.1%} by 32-quartet compaction')

@@ -2982,6 +2982,49 @@ the derivative kernels: the fix of parts 1–2 removes work on every card, and t
 - **A J-engine for gradients**: pure-functional gradients compute J with the Rys kernels; GPU4PySCF has no MD
   gradient.
 
+## GPU4PySCF investigation, part 4 (scoping only): per-quartet skips in the multi-thread and generic kernels, 2026-10-31
+The user approved restructuring these kernels so that a quartet's threads share one warp and skip padding and ket
+primitive pairs on their own (part 3, Next). The design check stopped it before any kernel change.
+
+### Why the per-quartet design fails
+- **Divergence.** In the unrolled multi-thread kernels, each of a quartet's 4–16 threads accumulates its share of
+  the outputs in a `switch (gout_id)` with hard-coded indices. Today a warp holds 32 quartets of one `gout_id`, so
+  the switch is uniform. With a quartet's threads in one warp, that phase would serialize 4–16×.
+- **Bank conflicts.** Shared memory has one column per quartet, with a row stride of nsq doubles (48 or 64, a
+  multiple of 32 banks). A quartet's threads read different rows of their column, which all fall in one bank.
+  That gives 4–16-way conflicts, worst on FP64-rich cards, where shared memory would then set the pace.
+
+### What the warp-uniform alternatives would capture (`task_census.py --skip`; `task_census_caffeine_svp_skip.txt`)
+
+| | multi-thread | generic |
+|---|---|---|
+| per-quartet skip (the infeasible design) | 28.2% | 22.4% |
+| ket compaction over the block: it runs as many ket iterations as its neediest quartet | 4.5% | 0.6% |
+| the same over groups of 32 quartets, with named barriers so an all-padding half block exits | 17.3% | 5.3% |
+
+- These are shares of the primitive-quartet work on the def2-SVP K tasks.
+- Even the 32-quartet version would be about 2% of K and 3–4% of the gradient's two-electron time, so it was not
+  built.
+
+### Warp stalls (Nsight Compute, caffeine/def2-SVP, patched tree; `ncu/ncu_stall_{k,grad}.csv`)
+
+| kernels | stalled at a barrier | waiting on memory | FP64 pipe busy |
+|---|---|---|---|
+| one-thread, K | 44% | 43% | 72% ((ss\|ss) 53%) |
+| one-thread, gradient | 50% | 24% | 80% ((ss\|ss) 47%) |
+| multi-thread, K / gradient | 14% / 8% | 50% / 43% | 85% / 91% |
+| generic, K / gradient | 12% / 3% | 67% / 49% | 80% / 87% |
+
+- Stalls are percentages of active warps.
+- On this card the multi-thread and generic kernels are limited by double-precision throughput, so only less
+  arithmetic would speed them up.
+- The one-thread kernels have no barrier left inside their task loop. Their barrier stall is the idle tail: warps
+  done with their share of a bra pair wait at the block barrier for the slowest warp. The census model predicted
+  45%, and 44–50% is measured.
+- **Next, offered to the user:** the launch shape of the one-thread kernels (part 2): smaller blocks, more of them per
+  SM, then warp-level bra-pair scheduling. These kernels are 81% of SVP K, 37% of TZVP K and 39% of the gradient's
+  two-electron time.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
