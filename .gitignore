@@ -6,6 +6,7 @@
 /libxc/
 /OpenBLAS/
 /gpu4pyscf/
+/gpu4pyscf-*/
 # Build products and environments
 /install/
 /build/

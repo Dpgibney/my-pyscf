@@ -1,8 +1,9 @@
 """Gate and timing of the opt-in one-pass J+K (mf.jk_one_pass in the gpu4pyscf perf tree) on node1. For each case
 the SCF runs with jk_one_pass off and on, interleaved (off, on, off, on, ...); it prints both energies, the cycles
-and the median wall times. --tree wheel runs the unmodified wheel instead (off only), to check that the default
-path is unchanged. Source scripts/node1-gpu-env.sh with `perf` for the perf tree, without for the wheel.
-Usage: one_pass_gate.py [--cases rks_b3lyp,...] [--reps 2] [--tree perf|wheel] [--tol 1e-10] [--out FILE]"""
+and the median wall times. --tree base or wheel runs the unmodified v1.9.0 source build or wheel instead (off
+only), to check that the default path is unchanged. Source scripts/node1-gpu-env.sh with `perf` or `base` for those
+trees, without an argument for the wheel.
+Usage: one_pass_gate.py [--cases rks_b3lyp,...] [--reps 2] [--tree perf|base|wheel] [--tol 1e-10] [--out FILE]"""
 import argparse
 import json
 import os
@@ -12,6 +13,7 @@ import numpy
 here = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(here, '..'))
 from molecules import CAFFEINE  # noqa: E402
+from gpu_monitor import GpuMonitor  # noqa: E402
 import cupy  # noqa: E402
 from pyscf import gto  # noqa: E402
 import gpu4pyscf  # noqa: E402
@@ -31,12 +33,13 @@ CASES = {
 ap = argparse.ArgumentParser()
 ap.add_argument('--cases', default=','.join(CASES))
 ap.add_argument('--reps', type=int, default=2)
-ap.add_argument('--tree', default='perf', choices=['perf', 'wheel'])
+ap.add_argument('--tree', default='perf', choices=['perf', 'base', 'wheel'])
 ap.add_argument('--tol', type=float, default=1e-10)
 ap.add_argument('--out', default=None)
 args = ap.parse_args()
 in_tree = 'site-packages' not in gpu4pyscf.__file__
-assert in_tree == (args.tree == 'perf'), f'--tree {args.tree} but gpu4pyscf is {gpu4pyscf.__file__}'
+assert in_tree == (args.tree != 'wheel'), f'--tree {args.tree} but gpu4pyscf is {gpu4pyscf.__file__}'
+assert args.tree != 'base' or os.sep + 'gpu4pyscf-base' + os.sep in gpu4pyscf.__file__
 print(f'gpu4pyscf {gpu4pyscf.__version__} from {os.path.dirname(gpu4pyscf.__file__)}', flush=True)
 
 
@@ -47,12 +50,17 @@ def run(case, one_pass):
     mf.conv_tol = args.tol
     if args.tree == 'perf':
         mf.jk_one_pass = one_pass
-    cupy.cuda.Device().synchronize()
-    t0 = time.perf_counter()
-    mf.kernel()
-    cupy.cuda.Device().synchronize()
+    with GpuMonitor() as mon:
+        cupy.cuda.Device().synchronize()
+        t0 = time.perf_counter()
+        mf.kernel()
+        cupy.cuda.Device().synchronize()
+        wall = time.perf_counter() - t0
     r = {'case': case, 'tree': args.tree, 'jk_one_pass': one_pass, 'e_tot': float(mf.e_tot),
-         'cycles': int(mf.cycles), 'converged': bool(mf.converged), 'wall_s': round(time.perf_counter() - t0, 2)}
+         'cycles': int(mf.cycles), 'converged': bool(mf.converged), 'wall_s': round(wall, 2), 'gpu': mon.summary}
+    print(f"   {case} {args.tree} one_pass={one_pass}: {r['wall_s']:.2f} s, SM MHz {mon.summary.get('sm_mhz')}, "
+          f"mem MHz {mon.summary.get('mem_mhz')}, {mon.summary.get('pstates')}, reasons {mon.summary.get('reasons')}",
+          flush=True)
     if args.out:
         with open(args.out, 'a') as f:
             f.write(json.dumps(r) + '\n')

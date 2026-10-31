@@ -1,0 +1,8 @@
+{"case": "rks_b3lyp", "tree": "wheel", "jk_one_pass": false, "e_tot": -679.8127486398279, "cycles": 15, "converged": true, "wall_s": 46.32}
+{"case": "rks_pbe", "tree": "wheel", "jk_one_pass": false, "e_tot": -679.0403707178554, "cycles": 18, "converged": true, "wall_s": 20.3}
+{"case": "rks_b3lyp", "tree": "base", "jk_one_pass": false, "e_tot": -679.8127486398279, "cycles": 15, "converged": true, "wall_s": 56.37}
+{"case": "rks_pbe", "tree": "base", "jk_one_pass": false, "e_tot": -679.0403707178551, "cycles": 18, "converged": true, "wall_s": 25.09}
+{"case": "rks_b3lyp", "tree": "perf", "jk_one_pass": false, "e_tot": -679.8127486398281, "cycles": 15, "converged": true, "wall_s": 57.83}
+{"case": "rks_b3lyp", "tree": "perf", "jk_one_pass": true, "e_tot": -679.8127486398326, "cycles": 15, "converged": true, "wall_s": 47.41}
+{"case": "rks_pbe", "tree": "perf", "jk_one_pass": false, "e_tot": -679.0403707178554, "cycles": 18, "converged": true, "wall_s": 25.11}
+{"case": "rks_pbe", "tree": "perf", "jk_one_pass": true, "e_tot": -679.0403707178549, "cycles": 18, "converged": true, "wall_s": 25.12}

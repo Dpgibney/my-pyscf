@@ -1,0 +1,12 @@
+19 kernels: barrier remove, ket skip none, bra skip none
+V1 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: k median 1.838 s of 5
+V1   max |k - ref| = 2.22e-15 (max |ref| 9.79e+00)
+19 kernels: barrier remove, ket skip zero, bra skip zero
+V2 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: k median 1.278 s of 5
+V2   max |k - ref| = 1.78e-15 (max |ref| 9.79e+00)
+19 kernels: barrier remove, ket skip cutoff, bra skip zero
+V3 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: k median 1.247 s of 5
+V3   max |k - ref| = 1.82e-15 (max |ref| 9.79e+00)
+19 kernels: barrier remove, ket skip cutoff, bra skip cutoff
+V4 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: k median 1.191 s of 5
+V4   max |k - ref| = 2.26e-15 (max |ref| 9.79e+00)
