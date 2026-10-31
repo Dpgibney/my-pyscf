@@ -12,3 +12,5 @@ pyscf-dispersion==1.5.0
 geometric==1.1.0
 packaging~=24.0
 cuda-toolkit[cublas,cudart,cufft,curand,cusolver,cusparse,nvrtc]==12.9.*
+# tests (gpu4pyscf perf tree)
+pytest==9.2.0

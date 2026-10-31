@@ -1,0 +1,14 @@
+gpu4pyscf 1.9.0 from /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+rks_b3lyp   off E -679.8127486398 (spread 2e-13) cyc  15   57.66 s  on  E -679.8127486398 (spread 2e-13) cyc  15   47.36 s  dE -5.2e-12  speed-up 1.217x
+uks_b3lyp   off E -679.5107200872 (spread 2e-13) cyc  26  108.68 s  on  E -679.5107200872 (spread 0e+00) cyc  26   91.75 s  dE -7.3e-12  speed-up 1.184x
+rhf         off E -675.7536325663 (spread 7e-13) cyc  14   43.41 s  on  E -675.7536325664 (spread 5e-13) cyc  14   34.33 s  dE -1.3e-10  speed-up 1.265x
+gpu4pyscf 1.9.0 from /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+rks_pbe0    off E -679.0638798054 (spread 0e+00) cyc  15   57.56 s  on  E -679.0638798055 (spread 0e+00) cyc  15   47.21 s  dE -3.1e-11  speed-up 1.219x
+uhf         off E -675.4794420647 (spread 0e+00) cyc  31   93.52 s  on  E -675.4794420647 (spread 0e+00) cyc  31   74.36 s  dE -6.4e-11  speed-up 1.258x
+rks_wb97x   off E -679.6511313918 (spread 0e+00) cyc  14   78.82 s  on  E -679.6511313918 (spread 0e+00) cyc  14   78.80 s  dE -4.5e-13  speed-up 1.000x
+rks_pbe     off E -679.0403707179 (spread 0e+00) cyc  18   25.12 s  on  E -679.0403707179 (spread 0e+00) cyc  18   25.13 s  dE -4.5e-13  speed-up 1.000x
+gpu4pyscf 1.9.0 from /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/gpu4pyscf
+rks_b3lyp   off E -679.8127486398 (spread 0e+00) cyc  15   57.78 s
+uks_b3lyp   off E -679.5107200872 (spread 0e+00) cyc  26  108.68 s
+rhf         off E -675.7536325663 (spread 0e+00) cyc  14   43.39 s
+uhf         off E -675.4794420647 (spread 0e+00) cyc  31   93.51 s

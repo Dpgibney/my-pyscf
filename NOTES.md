@@ -2517,8 +2517,7 @@ converges with nothing. This is a diagnosis; PySCF is unchanged. Scripts: `bench
   - **One-time costs** (first calls, GPU): XC 0.80 s, K 1.67 s, J 0.31 s (screening setup included), grids
     0.07 s, guess 0.03 s.
 - **Next candidates (not started):**
-  - J from the K pass for hybrids, in a `gpu4pyscf` clone with a `perf` branch and a reference build. See the
-    next section: it needs A100/H100 numbers first.
+  - J from the K pass for hybrids: done as an opt-in in It23 (below). A default needs A100/H100 numbers first.
   - A kernel-level profile of K's s/p classes (Nsight Compute; needs a user-local CUDA toolkit).
   - Our perf PySCF built on node1, for a CPU baseline that isn't the stock wheel.
 
@@ -2590,6 +2589,57 @@ produces both, and on the 1650 Super it is ~20% cheaper (profile above). Why the
   - Its benefit, exchange screening, only shows in large, extended systems. On this card one pass is faster
     everywhere up to 970 AOs, and nothing records the trade being measured for small and medium hybrids.
   - A size- or hardware-aware choice between the two is an exact candidate, but only after A100/H100 numbers.
+
+## It23: opt-in one-pass J+K in GPU4PySCF (`SCF.jk_one_pass`), 2026-10-31
+- **Change.** gpu4pyscf `perf` c085eaf, on tag v1.9.0 (2fdc195); Python only.
+  - `SCF.jk_one_pass` defaults to False. It can also be set with `scf_hf_SCF_jk_one_pass` in a PySCF config
+    file, e.g. `bench/gpu/conf_jk_one_pass.py`.
+  - When on, `get_veff` of RHF, UHF (and ROHF), RKS and UKS (and ROKS) builds J and K with one Rys `get_jk`
+    pass, instead of the MD J-engine plus the K-only Rys pass.
+  - **DFT:** global hybrids only (omega == 0).
+    - The one-pass K is scaled by hyb. `get_k(omega=0, hyb, hyb)` applies the same factor in its kernel; they
+      agree to 1e-15.
+    - Range-separated hybrids keep their builders. With omega ≠ 0, `jk.get_jk` runs the K-only pass plus the
+      slow Rys J-only pass, so it offers no single pass.
+  - **UKS/UHF:** one pass over both spin densities, with J = J(α) + J(β).
+  - **Unaffected:** density fitting and the low-memory drivers, which have their own `get_veff`.
+  - **Flag off:** the same calls run in the same order as before.
+  - **Test:** `gpu4pyscf/scf/tests/test_jk_one_pass.py` runs 8 methods with the flag off and on (|ΔE| < 1e-9),
+    plus the K scaling against `get_k`.
+- **Running the perf tree on node1** (no CUDA toolkit there).
+  - The wheel's 304 `.py` files are byte-identical to tag v1.9.0, so the unmodified wheel is the reference build.
+  - `scripts/node1_gpu4pyscf_tree.sh` copies the tree and links the wheel's 11 compiled libraries and libxc into
+    it. It refuses if anything but `.py` files differs from v1.9.0, since the binaries would then not match.
+  - `source scripts/node1-gpu-env.sh perf` puts the tree first on PYTHONPATH.
+- **Gate.** Script: `bench/gpu/one_pass_gate.py`; results: `bench/results/node1/one_pass_gate.{jsonl,txt}`.
+  - Caffeine/def2-SVP, conv_tol 1e-10, flag off and on interleaved; median of 2 for the first three cases, 1 run
+    for the others.
+
+  | case | ΔE (on − off) | cycles | off | on | speed-up |
+  |---|---|---|---|---|---|
+  | RKS B3LYP | −5.2e-12 | 15 / 15 | 57.66 s | 47.36 s | 1.22× |
+  | UKS B3LYP (caffeine+) | −7.3e-12 | 26 / 26 | 108.68 s | 91.75 s | 1.18× |
+  | RHF | −1.3e-10 | 14 / 14 | 43.41 s | 34.33 s | 1.27× |
+  | RKS PBE0 | −3.1e-11 | 15 / 15 | 57.56 s | 47.21 s | 1.22× |
+  | UHF (caffeine+) | −6.4e-11 | 31 / 31 | 93.52 s | 74.36 s | 1.26× |
+  | RKS wB97X (flag does not apply) | −4.5e-13 | 14 / 14 | 78.82 s | 78.80 s | 1.00× |
+  | RKS PBE (flag does not apply) | −4.5e-13 | 18 / 18 | 25.12 s | 25.13 s | 1.00× |
+
+  - **Default path.** The perf tree with the flag off differs from the wheel by 0 to 6.8e-13 Eh. That is the
+    run-to-run spread of the GPU kernels (≤ 7e-13 between repeats of one build), so the default is unchanged.
+    The wheel takes the same times (57.78, 108.68, 43.39, 93.51 s).
+  - **One pass.** Energies shift by 5e-12 to 1.3e-10 Eh, reproducibly, with the same cycle counts. The speed-up
+    is larger than the estimate from the J-engine's time alone (~17%).
+- **Upstream tests** (`bench/results/node1/upstream_tests_jk_one_pass.txt`).
+  - Files: `scf/tests/test_rhf.py`, `test_uhf.py`, `dft/tests/test_rks.py`, `test_uks.py`, plus the new file.
+  - With the flag forced on through the config file: 66 passed, 4 skipped (376 s).
+  - With it off: the same 66 passed, 4 skipped (442 s).
+- **Not covered:**
+  - TDDFT/CPHF response, gradients and Hessians, which build their J/K themselves;
+  - GHF and range-separated hybrids;
+  - data-center GPUs. On those the J-engine may be the faster choice (see the J/K investigation), which is why
+    this stays opt-in.
+- **Usage:** `mf = gpu4pyscf.dft.RKS(mol, xc='b3lyp'); mf.jk_one_pass = True`.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
