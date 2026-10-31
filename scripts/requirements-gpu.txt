@@ -1,0 +1,14 @@
+# GPU4PySCF venv on node1 (the desktop with the GTX 1650 Super); scripts/node1_gpu_venv.sh installs it.
+# The pins follow upstream's requirements.txt (gpu4pyscf master on 2026-10-31), the configuration of its
+# nightly benchmarks: CuPy 13.4.1 with cuTENSOR 2.2.0. node1 has no CUDA toolkit, so the CUDA 12 runtime
+# libraries come from NVIDIA's pip packages.
+gpu4pyscf-cuda12x==1.9.0
+gpu4pyscf-libxc-cuda12x==0.8.1
+cupy-cuda12x==13.4.1
+cutensor-cu12==2.2.0
+pyscf==2.14.0
+basis-set-exchange==0.11
+pyscf-dispersion==1.5.0
+geometric==1.1.0
+packaging~=24.0
+cuda-toolkit[cublas,cudart,cufft,curand,cusolver,cusparse,nvrtc]==12.9.*

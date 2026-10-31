@@ -11,6 +11,7 @@
 /.venv/
 /.venv-wheel/
 /.venv-tools/
+/.venv-gpu/
 /scratch/
 __pycache__/
 *.pyc

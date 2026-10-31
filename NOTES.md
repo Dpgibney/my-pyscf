@@ -2398,6 +2398,59 @@ converges with nothing. This is a diagnosis; PySCF is unchanged. Scripts: `bench
   - **The symmetric π-hole state:** `mol.symmetry=True` with `mf.irrep_nelec = {"A'": (41, 41), 'A"': (10, 9)}`
     (25 cycles), or `mf.newton()` from minao.
 
+## node1: GPU4PySCF on the GTX 1650 Super (setup and smoke test), 2026-10-31
+- **Machine.** `ssh node1` reaches `danny-desktop`:
+  - GPU: GeForce GTX 1650 SUPER (TU116, compute capability 7.5, 4 GB, 20 SMs), driver 595.99.02 (CUDA 13.2).
+  - CPU: i7-11700K (8 cores, AVX-512), 31 GB, Ubuntu 24.04.5. No CUDA toolkit.
+- **What the card is for.**
+  - GPU4PySCF needs compute capability 7.0 or newer.
+  - The card's FP64 peak (~138 GFLOPS, 1/32 of FP32) is below the laptop CPU's DGEMM. It is a development and
+    verification card, not a fast one.
+  - FP64 kernel tuning needs a final run on an A100 or H100, because `gpu4pyscf/__config__.py` picks other
+    settings on small cards: blocks of 64 AOs instead of 256 under 16 GB, and shared memory sized from the device
+    (48 KB per block here).
+- **Setup.**
+  - Scripts:
+    - `scripts/node1_gpu_venv.sh` creates the venv; pins are in `scripts/requirements-gpu.txt`.
+    - `scripts/node1-gpu-env.sh` is sourced before runs.
+  - node1 has the same workspace path, `~/Chemistry/my-pyscf`, holding only the files the GPU runs need. The venv
+    is `.venv-gpu` (system Python 3.12.3, venv + pip, 4.3 GB).
+  - Pins:
+    - upstream's `requirements.txt`, the configuration of its nightly benchmarks: CuPy 13.4.1, cuTENSOR 2.2.0,
+      PySCF 2.14.0, gpu4pyscf-libxc 0.8.1;
+    - gpu4pyscf-cuda12x 1.9.0;
+    - NVIDIA's CUDA 12.9 pip libraries.
+
+    The full list is in `bench/results/node1/pip-freeze.txt`.
+  - **Two gotchas without a CUDA toolkit:**
+    - CuPy 13.4.1 does not look inside NVIDIA's pip packages, and fails with `libnvrtc.so.12: cannot open shared
+      object file`. `node1-gpu-env.sh` puts their `lib` directories, and cuTENSOR's, on `LD_LIBRARY_PATH`.
+    - GPU4PySCF loads cuSOLVER with `ctypes.util.find_library('cusolver')`, falling back to
+      `numpy.ctypeslib.load_library('libcusolver', .../nvidia/cusolver/lib)`. Both need an unversioned
+      `libcusolver.so`, which the pip package does not ship (only `libcusolver.so.11`). The setup script adds
+      the symlink inside the venv.
+  - **The desktop session runs on the card.** Xorg and GNOME use ~65 MiB, and CUDA reports the kernel watchdog
+    as enabled (`kernelExecTimeoutEnabled`). A kernel running longer than a few seconds would be killed; the smoke
+    test was not affected.
+- **Smoke test** (`bench/gpu/smoke.py`; `bench/results/node1/smoke.jsonl` and the three logs).
+  Caffeine B3LYP/def2-SVP (246 AOs), conv_tol 1e-10, PySCF on 8 CPU threads against GPU4PySCF:
+
+  | run | E (Eh) | cycles | grid points | wall |
+  |---|---|---|---|---|
+  | PySCF 2.14.0 wheel, CPU, 8 threads | −679.8127486398 | 15 | 294 800 | 45.3 s |
+  | GPU4PySCF 1.9.0, first run | −679.8127486398 | 15 | 294 912 | 58.0 s |
+  | GPU4PySCF 1.9.0, second run | −679.8127486398 | 15 | 294 912 | 57.6 s |
+
+  - **Agreement.** GPU − CPU is −1.6e-11 and −1.7e-11 Eh, with the same cycle count. Water B3LYP/def2-SVP
+    agrees to 7.3e-12 Eh.
+  - **Grid points.** The 112 extra points are GPU4PySCF's padding of the grid to a multiple of 256
+    (`grid_aligned`).
+  - **Start-up cost is small.** The two GPU runs differ by 0.4 s.
+  - **The GPU is 1.27× slower than the CPU here,** as the FP64 rates predict.
+    - The CPU run keeps the ERIs in memory: 246 AOs fit under the 4000 MB default.
+    - GPU4PySCF computes J/K directly every cycle.
+- **Next (not started):** profile the card per part (J/K, XC, the rest) before choosing what to optimize.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
