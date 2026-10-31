@@ -1,0 +1,15 @@
+# GPU4PySCF unit tests on node1 with the launch shape 128x4 (gpu4pyscf exp/prim-screen)
+=== scf_jk + diffuse
+22 passed, 2 warnings in 142.41s (0:02:22)
+=== rhf uhf rks uks one_pass (off)
+....................s..s..s.......s...................................   [100%]
+66 passed, 4 skipped in 340.44s (0:05:40)
+=== rhf uhf rks uks one_pass (on)
+....................s..s..s.......s...................................   [100%]
+66 passed, 4 skipped in 272.63s (0:04:32)
+=== grad rhf rks uhf uks + tdrks
+...............................................                          [100%]
+47 passed in 437.21s (0:07:17)
+=== hessian large_exponent rhf rks
+27 passed, 1 skipped, 2 warnings in 118.19s (0:01:58)
+TESTS DONE

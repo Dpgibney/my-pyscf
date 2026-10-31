@@ -3025,6 +3025,112 @@ primitive pairs on their own (part 3, Next). The design check stopped it before 
   SM, then warp-level bra-pair scheduling. These kernels are 81% of SVP K, 37% of TZVP K and 39% of the gradient's
   two-electron time.
 
+## GPU4PySCF investigation, part 5: the launch shape of the one-thread kernels (node1), 2026-10-31
+The user approved the change part 4 recommended.
+
+### The problem
+- Every Rys J/K kernel ran one persistent block per SM (grid = multiProcessorCount), with 256 threads, or 512
+  when the kernel needs at most 128 registers (`adjust_threads`).
+- The one-thread kernels have had no barrier inside their task loop since parts 1–3. A warp done with its share of
+  a bra pair waits at the next bra pair's barrier for the slowest warp: 44–50% of their warp time (part 4).
+- The task pools are larger than the kernels use. jk.py, grad/rhf.py and hessian/rhf.py allocate
+  multiProcessorCount × 262144 entries (+1 or 3 heads), while the kernels use QUEUE_DEPTH = 65536 per block. That
+  leaves room for 4 queues per SM.
+
+### Change (gpu4pyscf `exp/prim-screen` 5128d98; `bench/gpu/exp_prim_screen.py`, `--launch 128x4` now the default)
+- **The one-thread kernels** (K 19, J+K 19, gradient energy 11, Hessian energy 4 + 4, J/K derivative matrices 25)
+  run blocks of 128 threads. As many blocks per SM as the occupancy calculator allows are launched, up to
+  `POOL_BLOCKS_PER_SM` = 4 (`LAUNCH_JKMATRIX_KERNEL_PERSISTENT`, `LAUNCH_JKENERGY_KERNEL_PERSISTENT`).
+- **The heads** of the five entry points that launch them (`RYS_build_k`, `RYS_build_jk`, `RYS_build_jk_ip1`,
+  `RYS_per_atom_jk_ip1`, `RYS_per_atom_jk_ip2_type12/type3`) move behind the fourth queue.
+- **The energy-derivative kernels** fixed their block size at compile time (`constexpr int nsq_per_block = 256`, and
+  two root offsets written as `*256`). These are set to 128 to match.
+  - Their dispatchers no longer double the block below 129 registers. With the constant, a 512-thread launch would
+    have run each task twice and aliased the shared-memory columns.
+  - The wheel's sm_70/80/90 builds use 168–255 registers in these kernels, so it never happened, but nothing
+    guarded it.
+- Multi-thread and generic kernels keep one block per SM: 160–255 registers leave no room for a second block of 256
+  threads.
+
+### Block-shape sweep (K and J+K builds at the converged caffeine/def2-SVP density, median of 5, 1530 MHz)
+
+| threads per block × max blocks per SM | K | J+K |
+|---|---|---|
+| v1 shape: 256 × 1 (512 for ≤ 128 registers) | 1.189 s | 1.234 s |
+| 128 × 1 | 1.173 s | 1.204 s |
+| 128 × 2 | 1.028 s | 1.053 s |
+| 128 × 3 | 1.015 s | 1.045 s |
+| 128 × 4 (occupancy gives 2–4) | 1.010 s | 1.040 s |
+| 64 × 4 | 1.044 s | 1.067 s |
+| 32 × 4 | 1.038 s | 1.067 s |
+
+- The sweep used a run-time variant of the dispatcher (`--launch env`, GPU4PYSCF_RYS_NSQ / _BLOCKS).
+- All differences from v1.9.0 sit at the run-to-run noise.
+- Counters at 128 × (2–3) (`ncu/ncu_stall_k128.csv`): the one-thread K kernels take 0.787 s instead of 0.969 s.
+  - The FP64 pipe is 87% busy instead of 72% ((ss|ss) 53 → 81%, (ps|ss) 63 → 85%).
+  - The barrier stall falls from 44% to 28%; occupancy rises from 25% to 33%.
+- On this card these kernels are now limited by double-precision throughput, so warp-level bra-pair scheduling would
+  add little here. Whether it pays on FP64-rich cards is for the A100/H100 suite.
+
+### Results
+- **Fixed density** (caffeine/def2-SVP, converged B3LYP density, against v1.9.0; `launch_fixed_dm.txt`):
+
+  | build | v1.9.0 | before (parts 1–3) | launch shape | max \|Δ\| vs v1.9.0 |
+  |---|---|---|---|---|
+  | K | 2.620 s | 1.189 s | 1.011 s (2.59×) | 3.6e−15 |
+  | one-pass J+K | 2.637 s | 1.234 s | 1.037 s (2.54×) | 4.2e−14 |
+  | gradient J + K | 5.31 s | 4.58 s | 4.43 s (1.20×) | 8.3e−13 |
+  | gradient J alone | 5.09 s | 4.41 s | 4.26 s (1.20×) | 7.1e−13 |
+  | gradient short-range K | 9.94 s | 8.41 s | 8.18 s (1.22×) | 1.8e−14 |
+  | Hessian energy second derivatives | 53.2 s | 51.3 s | 50.9 s (1.04×) | 1.3e−12 |
+  | Hessian J/K derivative matrices | 14.6 s | 11.25 s | 10.88 s (1.34×) | 1.5e−13 |
+
+- The new shape against itself differs by 4e−14 to 1.3e−13 (`launch_fixed_dm.txt`), the same spread as v1.9.0
+    against itself.
+  - The larger differences from v1.9.0 (8e−13 for the gradient, 1.3e−12 for the Hessian term; about 3e−14
+    relative) come from the different summation order: with 128-thread blocks each thread accumulates other
+    tasks.
+  - Every unit test agrees with its reference.
+- **SCF** (caffeine/def2-SVP, conv_tol 1e−10; `launch_scf.jsonl`; v1.9.0 times from part 2, same clocks):
+
+  | case | v1.9.0 | one-pass off | one-pass on |
+  |---|---|---|---|
+  | RHF | 43.49 s | 22.42 s (1.94×) | 12.98 s (3.35×) |
+  | RKS B3LYP | 57.76 s | 34.78 s (1.66×) | 24.44 s (2.36×) |
+  | UKS B3LYP | 109.14 s | 70.72 s (1.54×) | 53.59 s (2.04×) |
+  | RKS ωB97X | 78.96 s | 40.42 s (1.95×) | (no one-pass) |
+
+  - Energies are those of v1.9.0 to the printed 10 decimals, with the same cycle counts. One-pass on and off
+    differ as before.
+- **Gradients** (`launch_grad.jsonl`): B3LYP 7.05 → 6.16 s (1.14×), PBE 6.84 → 6.00 s (1.14×); the two-electron
+  part is 4.43 and 4.26 s.
+- **def2-TZVP** (caffeine, fixed density): K 17.97 → 12.02 s (1.49×; 12.83 s before), J+K 18.58 → 12.60 s (1.47×;
+  13.50 s before), at the noise against v1.9.0. The generic kernel, unchanged here, is half of it.
+- **Unit tests** (`upstream_tests_launch.txt`), all passing:
+  - `test_scf_jk.py` with `test_diffuse_orbital.py`: 22.
+  - The SCF/DFT files and `test_jk_one_pass.py`: 66 with one-pass off and 66 with it on, 4 skipped each.
+  - Gradient and TDDFT-gradient tests: 47.
+  - Hessian tests, `test_large_exponent.py` included: 27, 1 skipped.
+- **End-to-end gradients** against v1.9.0: max |Δg| 9.6e−13 (B3LYP) and 1.2e−12 Eh/bohr (PBE), same SCF cycles.
+
+### Where things stand (caffeine/def2-SVP on the 1650 Super, against v1.9.0, parts 1–5)
+- SCF with one-pass off: RHF 1.94×, B3LYP 1.66×, UKS B3LYP 1.54×, ωB97X 1.95×. With one-pass on: RHF 3.35×,
+  B3LYP 2.36×, UKS B3LYP 2.04×.
+- K at a fixed density 2.59×; def2-TZVP K 1.49×.
+- Gradients 1.14×, Hessian 1.05× (part 3).
+
+### Next
+- **The generic kernel:** half of def2-TZVP K, 70% of its instructions, most of the Hessian's energy second
+  derivatives. On FP64-rich cards its instruction overhead would set its time.
+- **Warp-level bra-pair scheduling:** the one-thread kernels still wait at the bra-pair barrier 28% of the time.
+  They are FP64-bound on this card, so this is for FP64-rich cards: measure there.
+- **The rest of the Hessian** (230 of 292 s) and **a J-engine gradient**, as before.
+- **jk_one_pass as the default** for HF and global hybrids (the user's decision). It is now 1.32–1.73× faster than
+  the default path on this card.
+- **A test suite for the A100/H100 run:** the user wants to run one once more options are exhausted, so the card is
+  needed only briefly. `one_pass_gate.py`, `jk_at_dm.py`, `deriv_at_dm.py`, `grad_parts.py`, `hess_parts.py`,
+  `ncu_parts.py` and the upstream test lists already run unchanged.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

@@ -9,10 +9,14 @@ sources at BASE (a git revision of TREE, default perf) and written into TREE.
   the 6 + 6 multi-thread unrolled kernels and the generic rys_k_kernel / rys_jk_kernel (rys_contract_k.cu,
   rys_contract_jk.cu): their threads exchange data through shared memory, so the barriers stay. Only the --bra skip
   applies, placed before the barrier: all threads of a block test the same bra pair and skip together.
+--launch sets the launch shape of the one-thread kernels (K, J+K and the derivative families): blocks of NSQ threads,
+and as many per SM as the occupancy calculator allows, up to BLOCKS and the POOL_BLOCKS_PER_SM task queues the pool
+holds. env reads NSQ and BLOCKS for K and J+K at run time (GPU4PYSCF_RYS_NSQ, _BLOCKS), for sweeps; it leaves the
+derivative kernels alone, whose block size is a compile-time constant.
 PRIM_CUTOFF (vhf.cuh) is e^-60 = 8.8e-27, libcint's expcutoff. A skipped primitive pair enters its integrals with a
 factor below that, many orders of magnitude under the SCF's 1e-13 shell-quartet cutoff.
 Usage: exp_prim_screen.py TREE [--base perf] [--barrier keep|remove] [--ket none|zero|cutoff]
-                               [--bra none|zero|cutoff] [--multi on|off]"""
+                               [--bra none|zero|cutoff] [--multi on|off] [--launch 128x4|off|NSQxBLOCKS|env]"""
 import argparse
 import re
 import subprocess
@@ -25,6 +29,10 @@ ap.add_argument('--ket', default='cutoff', choices=['none', 'zero', 'cutoff'])
 ap.add_argument('--bra', default='cutoff', choices=['none', 'zero', 'cutoff'])
 ap.add_argument('--multi', default='on', choices=['on', 'off'],
                 help='also the bra skip in the multi-thread and generic kernels')
+ap.add_argument('--launch', default='128x4',
+                help="launch shape of the one-thread kernels: off (one block of 256 per SM, as in v1.9.0), NSQxBLOCKS "
+                     "(blocks of NSQ threads, at most BLOCKS per SM), or env (K and J+K from GPU4PYSCF_RYS_NSQ and "
+                     "GPU4PYSCF_RYS_BLOCKS at run time)")
 args = ap.parse_args()
 assert args.barrier == 'remove' or args.ket == 'none', 'a ket skip needs the barrier removed (threads diverge)'
 
@@ -164,7 +172,127 @@ assert s.count(pi_fac) == 1
 s = s.replace(pi_fac, pi_fac + '// exp(-60), the expcutoff of libcint: the Rys J/K kernels skip primitive pairs whose\n'
                                '// c_i c_j exp(-a_i a_j/(a_i+a_j) |R_ij|^2) is smaller\n'
                                '#define PRIM_CUTOFF     8.75651076269652e-27\n')
+if args.launch != 'off':
+    qd = '#define QUEUE_DEPTH     65536\n'
+    assert s.count(qd) == 1
+    s = s.replace(qd, qd + '// Task queues of QUEUE_DEPTH per SM in the pools jk.py allocates for RYS_build_k and RYS_build_jk\n'
+                           '// (multiProcessorCount * 262144 + 3 entries); the three heads follow the last queue.\n'
+                           '#define POOL_BLOCKS_PER_SM 4\n')
 open(f'{args.tree}/{D}/vhf.cuh', 'w').write(s)
+
+# Launch shape of the one-thread K and J+K kernels. Every Rys kernel ran one persistent block per SM, with 256
+# threads (512 below 129 registers). The one-thread kernels have no barrier inside their task loop, so a warp that has
+# finished its share of a bra pair waits at the next one for the slowest warp of the block: 44-50% of their warp time
+# (Nsight Compute). Smaller blocks shorten that tail, and the occupancy calculator then fills the SM with as many of
+# them as registers and shared memory allow, up to the queues the pool holds.
+if args.launch != 'off':
+    MULTI = {'2021', '2111', '2120', '2210', '3011', '3110'}
+    s = source(f'{D}/unrolled_kernels.cuh')
+    anchor = '#define JKENERGY_KERNEL_ARGS \\\n'
+    assert s.count(anchor) == 1
+    nsq, blocks = (int(x) for x in args.launch.split('x')) if args.launch != 'env' else ('rys_launch_param("GPU4PYSCF_RYS_NSQ", 128)', 'rys_launch_param("GPU4PYSCF_RYS_BLOCKS", POOL_BLOCKS_PER_SM)')
+    macro = ('// The one-thread kernels: as many persistent blocks per SM as fit, at most POOL_BLOCKS_PER_SM\n'
+             '#define LAUNCH_JKMATRIX_KERNEL_PERSISTENT(KERNEL) { \\\n'
+             '    int blocks_per_sm = 1; \\\n'
+             '    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks_per_sm, KERNEL, nsq_per_block, buflen*sizeof(double)); \\\n'
+             f'    blocks_per_sm = MAX(1, MIN(blocks_per_sm, MIN({blocks}, POOL_BLOCKS_PER_SM))); \\\n'
+             '    KERNEL<<<workers*blocks_per_sm, threads, buflen*sizeof(double)>>>( \\\n'
+             '    *envs, *jk, *bounds, q_cond_ij, q_cond_kl, dm_penalty, s_cond_ij, s_cond_kl, diffuse_exps, pool, head); }\n\n')
+    if args.launch == 'env':
+        macro = ('#include <stdlib.h>\n'
+                 'static inline int rys_launch_param(const char *name, int dflt)\n'
+                 '{\n    const char *v = getenv(name);\n    return v ? atoi(v) : dflt;\n}\n') + macro
+    s = s.replace(anchor, macro + anchor)
+    open(f'{args.tree}/{D}/unrolled_kernels.cuh', 'w').write(s)
+    for name in ('unrolled_rys_k.cu', 'unrolled_rys_jk.cu'):
+        p = f'{args.tree}/{D}/{name}'
+        s = open(p).read()
+        sig = 'int rys_jk_unrolled(' if name == 'unrolled_rys_jk.cu' else 'int rys_k_unrolled('
+        assert s.count(sig) == 1
+        head, disp = s.split(sig)
+        disp = sig + disp
+        assert disp.count('    int nsq_per_block = 256;\n') == 1
+        disp = disp.replace('    int nsq_per_block = 256;\n', f'    int nsq_per_block = {nsq};\n')
+        disp, n_adj = re.subn(r'\n        adjust_threads\(rys_k_\d{4}, nsq_per_block\);', '', disp)
+        n_launch = 0
+        for m in re.findall(r'LAUNCH_JKMATRIX_KERNEL\((rys_j?k_(\d{4}))\)', disp):
+            if m[1] not in MULTI:
+                disp = disp.replace(f'LAUNCH_JKMATRIX_KERNEL({m[0]})', f'LAUNCH_JKMATRIX_KERNEL_PERSISTENT({m[0]})')
+                n_launch += 1
+        assert n_launch == 19 and 'adjust_threads' not in disp, (name, n_launch, n_adj)
+        open(p, 'w').write(head + disp)
+    old_head = '    int *head = (int *)(pool + workers * QUEUE_DEPTH);\n'
+    new_head = '    int *head = (int *)(pool + POOL_BLOCKS_PER_SM * workers * QUEUE_DEPTH);\n'
+    for name in ('rys_contract_k.cu', 'rys_contract_jk.cu'):
+        p = f'{args.tree}/{D}/{name}'
+        s = open(p).read()
+        assert s.count(old_head) == 1
+        s = s.replace(old_head, new_head)
+        open(p, 'w').write(s)
+
+    # The same for the one-thread derivative kernels. The energy kernels fix their block size at compile time
+    # (constexpr nsq_per_block = 256, and two root offsets written as *256), so the size is fixed here too, and the
+    # dispatchers no longer double it below 129 registers (adjust_threads), which would not have matched the constant.
+    if args.launch != 'env':
+        p = f'{args.tree}/{D}/unrolled_kernels.cuh'
+        s = open(p).read()
+        anchor = '// The one-thread kernels: as many persistent blocks per SM as fit, at most POOL_BLOCKS_PER_SM\n'
+        s = s.replace(anchor, anchor.replace('kernels:', 'K, J+K and J/K-derivative kernels:'), 1)
+        s += ('\n// The one-thread energy-derivative kernels: as many persistent blocks per SM as fit, at most POOL_BLOCKS_PER_SM\n'
+              '#define LAUNCH_JKENERGY_KERNEL_PERSISTENT(KERNEL) { \\\n'
+              '    int blocks_per_sm = 1; \\\n'
+              '    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks_per_sm, KERNEL, nsq_per_block, buflen*sizeof(double)); \\\n'
+              f'    blocks_per_sm = MAX(1, MIN(blocks_per_sm, MIN({blocks}, POOL_BLOCKS_PER_SM))); \\\n'
+              '    KERNEL<<<workers*blocks_per_sm, threads, buflen*sizeof(double)>>>( \\\n'
+              '    *envs, *jk, *bounds, q_cond_ij, q_cond_kl, dm_penalty, s_cond_ij, s_cond_kl, diffuse_exps, pool, dd_pool, head); }\n')
+        open(p, 'w').write(s)
+        dispatchers = {'unrolled_ejk_ip1.cu': ('int rys_ejk_ip1_unrolled(', 'LAUNCH_JKENERGY_KERNEL'),
+                       'unrolled_ejk_ip2_type12.cu': ('int rys_ejk_ip2_type12_unrolled(', 'LAUNCH_JKENERGY_KERNEL'),
+                       'unrolled_ejk_ip2_type3.cu': ('int rys_ejk_ip2_type3_unrolled(', 'LAUNCH_JKENERGY_KERNEL'),
+                       'unrolled_rys_jk_ip1.cu': ('int rys_vjk_ip1_unrolled(', 'LAUNCH_JKMATRIX_KERNEL')}
+        for name, (sig, launch) in dispatchers.items():
+            p = f'{args.tree}/{D}/{name}'
+            s = open(p).read()
+            assert s.count(sig) == 1, name
+            body, disp = s.split(sig)
+            parts = re.split(r'(?=__global__ static\nvoid )', body)
+            one_thread = set()
+            for k, part in enumerate(parts):
+                m = re.match(r'__global__ static\nvoid (\w+)\(', part)
+                if not m or 'nsq_per_block, 1, 0);' not in part:
+                    continue
+                one_thread.add(m.group(1))
+                if name != 'unrolled_rys_jk_ip1.cu':
+                    assert part.count('    constexpr int nsq_per_block = 256;\n') == 1
+                    part = part.replace('    constexpr int nsq_per_block = 256;\n', f'    constexpr int nsq_per_block = {nsq};\n')
+                    part = part.replace('rw[(2*irys+1)*256]', 'rw[(2*irys+1)*nsq_per_block]')
+                    part = part.replace('rw[ 2*irys   *256]', 'rw[ 2*irys   *nsq_per_block]')
+                    assert not re.search(r'\b256\b', part), m.group(1)
+                else:
+                    assert 'int nsq_per_block = _nsq_per_block;' in part
+                parts[k] = part
+            disp = sig + disp
+            assert disp.count('    int nsq_per_block = 256;\n') == 1
+            disp = disp.replace('    int nsq_per_block = 256;\n', f'    int nsq_per_block = {nsq};\n')
+            disp = re.sub(r'\n        adjust_threads\(\w+, nsq_per_block\);', '', disp)
+            n_launch = 0
+            for kern in sorted(one_thread):
+                old = f'{launch}({kern});'
+                assert disp.count(old) == 1, (name, kern)
+                disp = disp.replace(old, f'{launch}_PERSISTENT({kern});')
+                n_launch += 1
+            assert 'adjust_threads' not in disp and n_launch == len(one_thread)
+            open(p, 'w').write(''.join(parts) + disp)
+        for name, funcs in (('rys_contract_jk_ip1.cu', ('int RYS_build_jk_ip1(', 'int RYS_per_atom_jk_ip1(')),
+                            ('rys_contract_jk_ip2.cu', ('int RYS_per_atom_jk_ip2_type12(', 'int RYS_per_atom_jk_ip2_type3('))):
+            p = f'{args.tree}/{D}/{name}'
+            s = open(p).read()
+            for f in funcs:
+                i = s.index(f)
+                j = s.index(old_head, i)
+                assert s.index('\n}\n', i) > j, f   # the head line lies inside this function
+                s = s[:j] + new_head + s[j + len(old_head):]
+            open(p, 'w').write(s)
 print(f'one-thread kernels (K, J+K): {counts["unrolled_rys_k.cu"][0]} + {counts["unrolled_rys_jk.cu"][0]}: '
       f'barrier {args.barrier}, ket skip {args.ket}, bra skip {args.bra}; multi-thread kernels '
       f'{counts["unrolled_rys_k.cu"][1]} + {counts["unrolled_rys_jk.cu"][1]} and the two generic kernels: '

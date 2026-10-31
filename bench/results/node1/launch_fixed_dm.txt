@@ -1,0 +1,37 @@
+# Launch shape 128x4 (exp_prim_screen.py --launch 128x4): K, J+K and derivative builds at the converged caffeine/def2-SVP
+# B3LYP density against v1.9.0, the derivative builds against themselves (noise floor), and def2-TZVP K, J+K. GTX 1650 Super.
+== fixed density, patched (launch shape) against v1.9.0
+gpu4pyscf/gpu4pyscf: k median 1.011 s of 5, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 3.55e-15 (max |ref| 9.79e+00)
+gpu4pyscf/gpu4pyscf: jk median 1.037 s of 5, SM [1530.0, 1530.0, 1530.0] MHz
+  max |jk - ref| = 4.21e-14 (max |ref| 3.35e+01)
+gpu4pyscf/gpu4pyscf: ejk1_jk     median   4.428 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk1_b3lyp  median   4.426 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk1_j      median   4.255 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk1_srk    median   8.179 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk2        median  50.942 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: jk1         median  10.879 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  ejk1_jk     max |d - ref| = 8.33e-13 (max |ref| 3.01e+01)
+  ejk1_b3lyp  max |d - ref| = 4.71e-13 (max |ref| 3.08e+01)
+  ejk1_j      max |d - ref| = 7.07e-13 (max |ref| 3.10e+01)
+  ejk1_srk    max |d - ref| = 1.76e-14 (max |ref| 3.46e-01)
+  ejk2        max |d - ref| = 1.29e-12 (max |ref| 5.30e+01)
+  jk1         max |d - ref| = 1.49e-13 (max |ref| 1.15e+01)
+== derivative builds, new shape against itself (noise floor)
+gpu4pyscf/gpu4pyscf: ejk1_jk     median   4.426 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk1_b3lyp  median   4.425 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk1_j      median   4.255 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk1_srk    median   8.182 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk2        median  50.934 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: jk1         median  10.898 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  ejk1_jk     max |d - ref| = 4.97e-14 (max |ref| 3.01e+01)
+  ejk1_b3lyp  max |d - ref| = 1.17e-13 (max |ref| 3.08e+01)
+  ejk1_j      max |d - ref| = 4.62e-14 (max |ref| 3.10e+01)
+  ejk1_srk    max |d - ref| = 7.22e-16 (max |ref| 3.46e-01)
+  ejk2        max |d - ref| = 1.31e-13 (max |ref| 5.30e+01)
+  jk1         max |d - ref| = 3.55e-14 (max |ref| 1.15e+01)
+== def2-TZVP, new shape against v1.9.0
+gpu4pyscf/gpu4pyscf: k median 12.024 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 2.50e-15 (max |ref| 1.06e+01)
+gpu4pyscf/gpu4pyscf: jk median 12.600 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  max |jk - ref| = 4.62e-14 (max |ref| 3.55e+01)

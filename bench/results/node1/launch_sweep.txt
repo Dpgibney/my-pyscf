@@ -1,0 +1,18 @@
+# Launch-shape sweep (exp_prim_screen.py --launch env): jk_at_dm.py --part k|jk --repeat 5 at scratch/dm_caf_b3lyp.npy,
+# GPU4PYSCF_RYS_NSQ x GPU4PYSCF_RYS_BLOCKS, against v1.9.0 (k_base.npy, jk_base.npy); GTX 1650 Super
+256x1 k: gpu4pyscf/gpu4pyscf: k median 1.189 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |k - ref| = 1.78e-15 (max |ref| 9.79e+00) 
+256x1 jk: gpu4pyscf/gpu4pyscf: jk median 1.221 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |jk - ref| = 2.49e-14 (max |ref| 3.35e+01) 
+128x1 k: gpu4pyscf/gpu4pyscf: k median 1.173 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |k - ref| = 2.28e-15 (max |ref| 9.79e+00) 
+128x1 jk: gpu4pyscf/gpu4pyscf: jk median 1.204 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |jk - ref| = 4.21e-14 (max |ref| 3.35e+01) 
+128x2 k: gpu4pyscf/gpu4pyscf: k median 1.028 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |k - ref| = 3.11e-15 (max |ref| 9.79e+00) 
+128x2 jk: gpu4pyscf/gpu4pyscf: jk median 1.053 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |jk - ref| = 4.12e-14 (max |ref| 3.35e+01) 
+128x3 k: gpu4pyscf/gpu4pyscf: k median 1.015 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |k - ref| = 3.11e-15 (max |ref| 9.79e+00) 
+128x3 jk: gpu4pyscf/gpu4pyscf: jk median 1.045 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |jk - ref| = 4.21e-14 (max |ref| 3.35e+01) 
+128x4 k: gpu4pyscf/gpu4pyscf: k median 1.010 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |k - ref| = 3.11e-15 (max |ref| 9.79e+00) 
+128x4 jk: gpu4pyscf/gpu4pyscf: jk median 1.040 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |jk - ref| = 4.21e-14 (max |ref| 3.35e+01) 
+64x4 k: gpu4pyscf/gpu4pyscf: k median 1.044 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |k - ref| = 4.22e-15 (max |ref| 9.79e+00) 
+64x4 jk: gpu4pyscf/gpu4pyscf: jk median 1.067 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |jk - ref| = 4.07e-14 (max |ref| 3.35e+01) 
+32x4 k: gpu4pyscf/gpu4pyscf: k median 1.038 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |k - ref| = 3.98e-15 (max |ref| 9.79e+00) 
+32x4 jk: gpu4pyscf/gpu4pyscf: jk median 1.067 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |jk - ref| = 4.07e-14 (max |ref| 3.35e+01) 
+256x2 k: gpu4pyscf/gpu4pyscf: k median 1.189 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |k - ref| = 2.22e-15 (max |ref| 9.79e+00) 
+256x2 jk: gpu4pyscf/gpu4pyscf: jk median 1.192 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |jk - ref| = 2.66e-14 (max |ref| 3.35e+01) 
