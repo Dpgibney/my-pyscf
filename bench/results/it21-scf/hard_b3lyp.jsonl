@@ -1,0 +1,15 @@
+{"mol": "fe_h2o6", "variant": "cdiis", "xc": "B3LYP", "basis": "def2-svp", "guess": "minao", "cycles": 64, "converged": true, "e_tot": -1721.3603445667177, "time": 10.460264794994146}
+{"mol": "fe_h2o6", "variant": "cdiis_s12", "xc": "B3LYP", "basis": "def2-svp", "guess": "minao", "cycles": 100, "converged": false, "e_tot": -1721.3603961894191, "time": 15.606495379004627}
+{"mol": "fe_h2o6", "variant": "hyb_lin", "xc": "B3LYP", "basis": "def2-svp", "guess": "minao", "cycles": 45, "converged": true, "e_tot": -1721.3603445798126, "time": 7.301419896015432}
+{"mol": "fe_h2o6", "variant": "pre_cdiis", "xc": "B3LYP", "basis": "def2-svp", "guess": "pre_scf", "cycles": 45, "converged": true, "e_tot": -1721.3603446371199, "time": 9.687764551024884}
+{"mol": "fe_h2o6", "variant": "pre_hyb", "xc": "B3LYP", "basis": "def2-svp", "guess": "pre_scf", "cycles": 39, "converged": true, "e_tot": -1721.36034455966, "time": 8.242711077036802}
+{"mol": "water_2x", "variant": "cdiis", "xc": "B3LYP", "basis": "def2-svp", "guess": "minao", "cycles": 10, "converged": true, "e_tot": -76.02393485980352, "time": 0.10940659901825711}
+{"mol": "water_2x", "variant": "cdiis_s12", "xc": "B3LYP", "basis": "def2-svp", "guess": "minao", "cycles": 10, "converged": true, "e_tot": -76.02393485923116, "time": 0.09656014502979815}
+{"mol": "water_2x", "variant": "hyb_lin", "xc": "B3LYP", "basis": "def2-svp", "guess": "minao", "cycles": 12, "converged": true, "e_tot": -76.02393485980656, "time": 0.14881917799357325}
+{"mol": "water_2x", "variant": "pre_cdiis", "xc": "B3LYP", "basis": "def2-svp", "guess": "pre_scf", "cycles": 4, "converged": true, "e_tot": -76.02393485910726, "time": 0.09056175302248448}
+{"mol": "water_2x", "variant": "pre_hyb", "xc": "B3LYP", "basis": "def2-svp", "guess": "pre_scf", "cycles": 4, "converged": true, "e_tot": -76.02393485913234, "time": 0.12951407895889133}
+{"mol": "pentacene", "variant": "cdiis", "xc": "B3LYP", "basis": "def2-svp", "guess": "minao", "cycles": 11, "converged": true, "e_tot": -846.18339945814, "time": 11.259305490006227}
+{"mol": "pentacene", "variant": "cdiis_s12", "xc": "B3LYP", "basis": "def2-svp", "guess": "minao", "cycles": 11, "converged": true, "e_tot": -846.1833994582792, "time": 11.0437796980259}
+{"mol": "pentacene", "variant": "hyb_lin", "xc": "B3LYP", "basis": "def2-svp", "guess": "minao", "cycles": 11, "converged": true, "e_tot": -846.1833994581768, "time": 11.232684335962404}
+{"mol": "pentacene", "variant": "pre_cdiis", "xc": "B3LYP", "basis": "def2-svp", "guess": "pre_scf", "cycles": 5, "converged": true, "e_tot": -846.18339945915, "time": 12.077057687973138}
+{"mol": "pentacene", "variant": "pre_hyb", "xc": "B3LYP", "basis": "def2-svp", "guess": "pre_scf", "cycles": 5, "converged": true, "e_tot": -846.1833994591559, "time": 11.946611482009757}

@@ -1,0 +1,10 @@
+aspirin        def2-svp: minao  13 cyc    7.7 s | pre def2-svp   9 cyc   3.2 s +   5 cyc    8.8 s =   12.0 s  dE 0.0e+00
+caffeine       def2-svp: minao  15 cyc   34.3 s | pre def2-svp  10 cyc   2.8 s +   5 cyc    5.1 s =    7.9 s  dE 1.9e-10
+tryptophan     def2-svp: minao  13 cyc   25.0 s | pre def2-svp   9 cyc   5.9 s +   5 cyc   13.0 s =   18.9 s  dE 1.3e-10
+porphine       def2-svp: minao  11 cyc  123.8 s | pre def2-svp   9 cyc  23.8 s +   5 cyc   53.3 s =   77.1 s  dE -1.5e-09
+tempo          def2-svp: minao  14 cyc   55.8 s | pre def2-svp  10 cyc   9.0 s +   5 cyc   17.2 s =   26.1 s  dE 1.5e-11
+aspirin        def2-svp: minao  13 cyc    7.6 s | pre def2-svp   7 cyc   2.8 s +   7 cyc   12.2 s =   15.0 s  dE -4.7e-11
+caffeine       def2-svp: minao  15 cyc   41.6 s | pre def2-svp   8 cyc   4.0 s +   7 cyc    8.8 s =   12.8 s  dE 4.1e-11
+tryptophan     def2-svp: minao  13 cyc   37.4 s | pre def2-svp   7 cyc   5.0 s +   6 cyc   12.5 s =   17.4 s  dE 5.4e-10
+porphine       def2-svp: minao  11 cyc  121.1 s | pre def2-svp   7 cyc  18.8 s +   7 cyc   55.0 s =   73.8 s  dE -2.0e-09
+tempo          def2-svp: minao  14 cyc   51.7 s | pre def2-svp   8 cyc   7.5 s +   7 cyc   19.5 s =   27.0 s  dE -2.8e-10

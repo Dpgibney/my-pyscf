@@ -83,3 +83,6 @@ Run them in a configuration's pinned environment:
 | `grad_jk_native.py` (`ejk` argument) | leaf functions of `jk_energy_per_atom` instead of `get_jk` | It20: B |
 | `deriv_jk_kernels.py` | the derivative J/K calls of the gradient, `make_h1` (RKS and UKS scripts) and `_partial_hess_2e` (`int2e_ip1ip2`, `int2e_ipvip1`): matrices saved to compare trees bit for bit, and times | It20: A |
 | `deriv_jk_scripts.py` | marginal cost of each contraction script of the Hessian's derivative J/K calls | It20: A |
+| `scf_guess_study.py` | SCF cycles, energies and per-cycle traces per initial guess and DIIS class for the molecules of `bench/geom` and the bench set (JSON lines) | It21 |
+| `scf_diis_variants.py` | SCF cycles of DIIS variants (subspace size, start cycle, ADIIS+CDIIS blends and switching, the `pre_scf` guess), also for `bench/geom/hard`, water stretched, HF | It21 |
+| `scf_proj_guess.py` | a guess from a cheaper SCF (smaller basis, coarser grid, density fitting, another functional) projected onto the target basis: cycles and times against minao | It21 |

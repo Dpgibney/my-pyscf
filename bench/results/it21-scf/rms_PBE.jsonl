@@ -1,0 +1,15 @@
+{"mol": "fe_h2o6", "variant": "cdiis", "xc": "PBE", "basis": "def2-svp", "guess": "minao", "cycles": 54, "converged": true, "e_tot": -1720.5719535474277, "time": 8.464963141013868}
+{"mol": "fe_h2o6", "variant": "hyb_lin", "xc": "PBE", "basis": "def2-svp", "guess": "minao", "cycles": 20, "converged": true, "e_tot": -1720.572218720868, "time": 3.5043704719864763}
+{"mol": "fe_h2o6", "variant": "hyb_rms", "xc": "PBE", "basis": "def2-svp", "guess": "minao", "cycles": 68, "converged": true, "e_tot": -1720.572218725135, "time": 10.876968858996406}
+{"mol": "caffeine+", "variant": "cdiis", "xc": "PBE", "basis": "def2-svp", "guess": "minao", "cycles": 85, "converged": false, "e_tot": -678.7490981323955, "time": 26.074235643958673}
+{"mol": "caffeine+", "variant": "hyb_lin", "xc": "PBE", "basis": "def2-svp", "guess": "minao", "cycles": 96, "converged": false, "e_tot": -678.7490981266027, "time": 29.896497834008187}
+{"mol": "caffeine+", "variant": "hyb_rms", "xc": "PBE", "basis": "def2-svp", "guess": "minao", "cycles": 100, "converged": false, "e_tot": -678.695782879072, "time": 30.376530524983536}
+{"mol": "aspirin", "variant": "cdiis", "xc": "PBE", "basis": "def2-svp", "guess": "minao", "cycles": 14, "converged": true, "e_tot": -647.4865959355109, "time": 2.867533889017068}
+{"mol": "aspirin", "variant": "hyb_lin", "xc": "PBE", "basis": "def2-svp", "guess": "minao", "cycles": 15, "converged": true, "e_tot": -647.4865959354049, "time": 2.3695283829583786}
+{"mol": "aspirin", "variant": "hyb_rms", "xc": "PBE", "basis": "def2-svp", "guess": "minao", "cycles": 14, "converged": true, "e_tot": -647.4865959350161, "time": 2.2214438850060105}
+{"mol": "tempo", "variant": "cdiis", "xc": "PBE", "basis": "def2-svp", "guess": "minao", "cycles": 14, "converged": true, "e_tot": -482.69321403881554, "time": 6.688568778976332}
+{"mol": "tempo", "variant": "hyb_lin", "xc": "PBE", "basis": "def2-svp", "guess": "minao", "cycles": 13, "converged": true, "e_tot": -482.69321403743925, "time": 5.215113707003184}
+{"mol": "tempo", "variant": "hyb_rms", "xc": "PBE", "basis": "def2-svp", "guess": "minao", "cycles": 14, "converged": true, "e_tot": -482.693214037527, "time": 5.441516374005005}
+{"mol": "phenoxyl", "variant": "cdiis", "xc": "PBE", "basis": "def2-svp", "guess": "minao", "cycles": 14, "converged": true, "e_tot": -306.22289614874205, "time": 1.2971605699858628}
+{"mol": "phenoxyl", "variant": "hyb_lin", "xc": "PBE", "basis": "def2-svp", "guess": "minao", "cycles": 15, "converged": true, "e_tot": -306.22289615043644, "time": 1.3123704979661852}
+{"mol": "phenoxyl", "variant": "hyb_rms", "xc": "PBE", "basis": "def2-svp", "guess": "minao", "cycles": 15, "converged": true, "e_tot": -306.22289614652993, "time": 1.3113248249865137}

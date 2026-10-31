@@ -37,9 +37,20 @@ def _full_jk_rebuild(mf):
 
 
 def make_ks(mol, xc, tight, density_fit=False, full_jk=False):
-    from pyscf import dft
+    from pyscf import dft, scf
     mf = dft.RKS(mol, xc=xc) if mol.spin == 0 else dft.UKS(mol, xc=xc)
     mf.chkfile = None
+    # SCF guess and convergence knobs (It21), for A/B runs within one tree
+    if os.environ.get('BENCH_INIT_GUESS'):
+        mf.init_guess = os.environ['BENCH_INIT_GUESS']
+    if os.environ.get('BENCH_DIIS'):
+        mf.DIIS = getattr(scf.diis, os.environ['BENCH_DIIS'])
+    if os.environ.get('BENCH_DIIS_SPACE'):
+        mf.diis_space = int(os.environ['BENCH_DIIS_SPACE'])
+    if os.environ.get('BENCH_PRE_SCF_TOL'):
+        mf.pre_scf_conv_tol = float(os.environ['BENCH_PRE_SCF_TOL'])
+    if os.environ.get('BENCH_PRE_SCF_LEVEL'):
+        mf.pre_scf_grids_level = int(os.environ['BENCH_PRE_SCF_LEVEL'])
     if tight:
         mf.conv_tol = 1e-12 if mol.natm <= LARGE_NATM else 1e-11
         mf.conv_tol_grad = 1e-8

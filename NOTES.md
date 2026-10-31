@@ -2230,6 +2230,96 @@ counted as "other").
   It20 40 and 39, It19 41 and 44, energies within 5e-12 Eh. This is the run-dependent endpoint of tight direct
   SCFs, noted since It7.
 
+## It21: SCF initial guess and ADIIS+CDIIS, 2026-10-30
+
+The user's direction after It20: fewer SCF cycles, from a better initial guess and a hybrid ADIIS/CDIIS. These
+change the cycle counts by design, so the "same cycle counts" check does not apply here. Both are opt-in; the
+defaults (`minao`, CDIIS with 8 vectors) are unchanged, so every bench and validation case is too.
+
+`pyscf` `perf` commits:
+- `0ddec1161`: `scf.diis.ADIIS_CDIIS`.
+- `802f7e744`: `init_guess='pre_scf'`.
+- Workspace: a test set of 28 molecules (`bench/geom/*.xyz`, RDKit ETKDG + MMFF94 from `bench/geom/make_geoms.py`,
+  run in the tools venv `.venv-tools`), harder cases in `bench/geom/hard/` (pentacene, coronene, beta-carotene,
+  high-spin [Fe(H2O)6]2+), bench knobs `BENCH_INIT_GUESS`, `BENCH_DIIS`, `BENCH_DIIS_SPACE`, `BENCH_PRE_SCF_TOL`,
+  `BENCH_PRE_SCF_LEVEL`, and the study data in `results/it21-scf/`.
+
+### The guesses PySCF has (`scf_guess_study.py`, B3LYP/def2-SVP, CDIIS, conv_tol 1e-9)
+16 molecules with all six guesses (12–74 atoms, RKS, UKS radicals, a triplet, ions):
+
+| guess | cycles against minao |
+|---|---|
+| `minao` (default) | best or tied on every molecule (9–16 cycles) |
+| `atom` | +0 to +2 |
+| `huckel`, `mod_huckel` | +1 to +8 |
+| `sap`, `vsap` | +3 to +15 |
+
+No built-in guess beats the default. The traces also show the step that every variant wastes: cycle 2 is the
+plain Roothaan step from the first density (DIIS holds one Fock matrix then) and often raises the energy (aspirin
+0.36 → 1.41 Eh above the final). Putting the guess's Fock matrix into DIIS (`diis_start_cycle=0`) did not help
+CDIIS (122 against 121 cycles on 10 molecules) and hurt the hybrid (158–187).
+
+### ADIIS+CDIIS (`scf.diis.ADIIS_CDIIS`)
+- **Method.** ADIIS (Hu and Yang 2010) far from convergence, CDIIS close to it, switched by the largest element of
+  the CDIIS error vector as in EDIIS+DIIS (Kudin, Scuseria and Cancès 2002): ADIIS above 1e-1, CDIIS below 1e-4,
+  the blend w F_ADIIS + (1-w) F_CDIIS in between. Upstream `ADIIS` minimizes over all `space` slots of its buffer,
+  so the empty ones (zero density and Fock matrices) take part in the first iterations; the hybrid keeps only the
+  iterations seen. ROHF (total density, effective Fock matrix) gets CDIIS alone.
+- **Organic molecules** (`scf_diis_variants.py`, 32 molecules, minao): total cycles
+
+  | variant | cycles | |
+  |---|---|---|
+  | CDIIS, 8 vectors (default) | 384 | |
+  | CDIIS, 12 vectors | 374 | −2.6% |
+  | ADIIS+CDIIS, linear blend | 376 | −2.1%; caffeine+ UKS 27 against 23 |
+  | ADIIS+CDIIS, 12 vectors | 373 | −2.9% |
+  | ADIIS+CDIIS, log blend | 398 | +3.6% |
+  | ADIIS+CDIIS, RMS switching (Psi4's measure) | as CDIIS | the ADIIS phase hardly starts |
+
+  No variant failed. Where CDIIS behaves, the ADIIS phase is the slow part (caffeine+: CDIIS takes |g| from 3.5
+  to 0.13 in 4 cycles, ADIIS needs 8 to get below 0.1).
+- **Hard cases** (`results/it21-scf/hard_*.jsonl`; cycles, minao):
+
+  | case | CDIIS | 12 vectors | ADIIS+CDIIS |
+  |---|---|---|---|
+  | [Fe(H2O)6]2+ quintet UKS PBE | 54, on a state 2.7e-4 Eh higher | 48 | 20 (lower state) |
+  | same, UKS B3LYP | 64 | not converged in 100 | 45 |
+  | same, UHF | 46, on a state 0.035 Eh higher | 66 | 88 (lowest) |
+  | pentacene, coronene, beta-carotene (PBE), stretched water (RHF, PBE, B3LYP) | 10–14 | same | same or +1–2 |
+  | caffeine+ UKS PBE | not converged in 100 | | not converged in 100 |
+
+  On the Fe complex the variants end on different SCF solutions: there, any change of guess or DIIS changes the
+  result, which is why none of this is a default.
+
+### The guess from a cheaper SCF (`init_guess='pre_scf'`)
+- **Method.** A copy of the SCF object with density fitting for J and K (unless it fits already) and, for DFT,
+  grids of level 1, converged from minao to 1e-6; its density starts the SCF, which runs unchanged (Psi4's
+  DF_SCF_GUESS). The copy gets its own grids, DIIS and integral caches and no chkfile. A smaller basis
+  projected (minao or STO-3G into def2-SVP: 1–3 cycles saved) and a PBE pre-SCF for hybrids (9–10 cycles left
+  instead of 5) were tried and dropped.
+- **Cycles of the SCF itself:** 4–8 instead of 9–23 everywhere (RKS, UKS, ROKS, RHF, DF), 11–12 instead of 54 on
+  the Fe complex with PBE. Energies agree with the minao start to 2e-9 Eh at the default thresholds.
+- **Wall time** (10 threads, 20 GB, `results/20261030-185741_it21-guess.json` and `-192547_it21-guess-tzvp.json`;
+  the pre-SCF included):
+
+  | case | minao | pre_scf | |
+  |---|---|---|---|
+  | caffeine def2-TZVP B3LYP | 73.0 s (14) | 37.7 s (5) | 1.94× |
+  | n-C20H42 def2-TZVP PBE | 148.6 s (10) | 92.6 s (5) | 1.60× |
+  | caffeine def2-TZVP DF-PBE | 8.61 s (16) | 6.53 s (5) | 1.32× |
+  | benzene+ SVP r2SCAN UKS | 1.81 s (11) | 1.43 s (5) | 1.27× |
+  | caffeine SVP PBE | 4.10 s (16) | 3.45 s (6) | 1.19× |
+  | caffeine SVP r2SCAN | 6.13 s (14) | 5.44 s (7) | 1.13× |
+  | caffeine+ SVP B3LYP UKS | 8.95 s (23) | 8.32 s (8) | 1.08× |
+  | caffeine SVP CAM-B3LYP | 6.23 s (13) | 5.85 s (4) | 1.06× |
+  | caffeine SVP B3LYP | 4.21 s (15) | 4.08 s (5) | 1.03× |
+  | n-C20H42 SVP B3LYP | 13.91 s (9) | 17.98 s (4) | 0.77× |
+
+  beta-carotene/SVP PBE (`hard_pbe.jsonl`): about 110 → 76 s. A pre-SCF tolerance of 1e-4 gives the same within
+  noise. It pays when the SCF's own Fock builds are expensive (TZVP, direct J/K, large grids, meta-GGA, UKS) and
+  loses when they are cheap and density-fitted K is not: n-C20H42/SVP B3LYP is semi-direct (the integrals are
+  read back after the first cycle) and needs only 9 cycles, while RI-K over 490 AOs costs more per cycle.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

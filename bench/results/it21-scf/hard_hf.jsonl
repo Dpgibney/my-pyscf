@@ -1,0 +1,10 @@
+{"mol": "water_2x", "variant": "cdiis", "xc": "HF", "basis": "def2-svp", "guess": "minao", "cycles": 11, "converged": true, "e_tot": -75.5304201418102, "time": 0.03467983898008242}
+{"mol": "water_2x", "variant": "cdiis_s12", "xc": "HF", "basis": "def2-svp", "guess": "minao", "cycles": 11, "converged": true, "e_tot": -75.53042014180568, "time": 0.0310628010192886}
+{"mol": "water_2x", "variant": "hyb_lin", "xc": "HF", "basis": "def2-svp", "guess": "minao", "cycles": 12, "converged": true, "e_tot": -75.53042014181037, "time": 0.06740641297074035}
+{"mol": "water_2x", "variant": "pre_cdiis", "xc": "HF", "basis": "def2-svp", "guess": "pre_scf", "cycles": 7, "converged": true, "e_tot": -75.53042014181054, "time": 0.029752911999821663}
+{"mol": "water_2x", "variant": "pre_hyb", "xc": "HF", "basis": "def2-svp", "guess": "pre_scf", "cycles": 7, "converged": true, "e_tot": -75.53042014181057, "time": 0.05049963894998655}
+{"mol": "fe_h2o6", "variant": "cdiis", "xc": "HF", "basis": "def2-svp", "guess": "minao", "cycles": 46, "converged": true, "e_tot": -1717.710062248616, "time": 2.3295587290194817}
+{"mol": "fe_h2o6", "variant": "cdiis_s12", "xc": "HF", "basis": "def2-svp", "guess": "minao", "cycles": 66, "converged": true, "e_tot": -1717.7454579123741, "time": 2.9451771590393037}
+{"mol": "fe_h2o6", "variant": "hyb_lin", "xc": "HF", "basis": "def2-svp", "guess": "minao", "cycles": 88, "converged": true, "e_tot": -1717.7454949235116, "time": 4.0930325469817035}
+{"mol": "fe_h2o6", "variant": "pre_cdiis", "xc": "HF", "basis": "def2-svp", "guess": "pre_scf", "cycles": 10, "converged": true, "e_tot": -1717.7454539726637, "time": 3.471564556006342}
+{"mol": "fe_h2o6", "variant": "pre_hyb", "xc": "HF", "basis": "def2-svp", "guess": "pre_scf", "cycles": 18, "converged": true, "e_tot": -1717.7454781662036, "time": 2.0555685360450298}

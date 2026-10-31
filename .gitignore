@@ -10,6 +10,7 @@
 /build/
 /.venv/
 /.venv-wheel/
+/.venv-tools/
 /scratch/
 __pycache__/
 *.pyc

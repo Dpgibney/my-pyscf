@@ -1,0 +1,7509 @@
+{
+ "meta": {
+  "tag": "it21-guess",
+  "time": "2026-10-30 18:57:41",
+  "reps": 2,
+  "threads": 10,
+  "cases": [
+   "scf_caffeine_svp_pbe",
+   "scf_caffeine_svp_b3lyp",
+   "scf_caffeine_svp_r2scan",
+   "scf_caffeine_svp_camb3lyp",
+   "scf_caffeine+_svp_b3lyp_uks",
+   "scf_benzene+_svp_r2scan_uks",
+   "scf_caffeine_tzvp_dfpbe",
+   "scf_c20h42_svp_b3lyp"
+  ],
+  "machine_start": {
+   "ac": "1",
+   "profile": "performance",
+   "scaling_max_freq": {
+    "0": "2000000",
+    "8": "2000000"
+   },
+   "epp": "performance",
+   "loadavg": "6.21 9.44 10.93 1/2128 1817320",
+   "benchmark_ready": true
+  },
+  "shas": {
+   "workspace": "5dff3e9f31-dirty",
+   "pyscf": "9ab2db1e01-dirty",
+   "pyscf-base": "44313dfb45",
+   "libcint": "42ec76d6b5",
+   "qcint": "a95651f0ec",
+   "libxc": "f1eb21e8d6",
+   "OpenBLAS": "e0166008be"
+  },
+  "configs": {
+   "B": {
+    "tree": "pyscf",
+    "env": {
+     "PYSCF_MAX_MEMORY": "20000"
+    },
+    "variant": "cint=qcint-pgo xc=libxc-stock blas=openblas"
+   },
+   "P": {
+    "tree": "pyscf",
+    "env": {
+     "PYSCF_MAX_MEMORY": "20000",
+     "BENCH_INIT_GUESS": "pre_scf"
+    },
+    "variant": "cint=qcint-pgo xc=libxc-stock blas=openblas"
+   },
+   "Q": {
+    "tree": "pyscf",
+    "env": {
+     "PYSCF_MAX_MEMORY": "20000",
+     "BENCH_INIT_GUESS": "pre_scf",
+     "BENCH_PRE_SCF_TOL": "1e-4"
+    },
+    "variant": "cint=qcint-pgo xc=libxc-stock blas=openblas"
+   },
+   "S": {
+    "tree": "pyscf",
+    "env": {
+     "PYSCF_MAX_MEMORY": "20000",
+     "BENCH_DIIS_SPACE": "12"
+    },
+    "variant": "cint=qcint-pgo xc=libxc-stock blas=openblas"
+   }
+  },
+  "machine_end": {
+   "ac": "1",
+   "profile": "performance",
+   "scaling_max_freq": {
+    "0": "2000000",
+    "8": "2000000"
+   },
+   "epp": "performance",
+   "loadavg": "10.32 9.61 10.36 1/2115 1822230",
+   "benchmark_ready": true
+  }
+ },
+ "runs": [
+  {
+   "case": "scf_caffeine_svp_pbe",
+   "tight": false,
+   "wall": 3.9620193349546753,
+   "values": {
+    "e_tot": -679.0403707170075,
+    "cycles": 16,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.18900929500000005,
+    "linalg": 0.17348149400000004,
+    "blas": 0.015579616000000001,
+    "ints1e": 0.00580515,
+    "jk": 1.6421622280000001,
+    "grids": 0.038876534000000004,
+    "xc_post": 0.01225611,
+    "libxc": 0.17165054700000001,
+    "xc_kernels": 1.5817093990000002,
+    "ao_eval": 0.038800275,
+    "numpy": 0.08510614100000004
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     0.9644,
+     90
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.8738,
+     18
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.7681,
+     1
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.6173,
+     90
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1725,
+     34
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1717,
+     90
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0494,
+     189
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0442,
+     18
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0388,
+     1
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0215,
+     24
+    ],
+    [
+     "_core/numeric.py:2471(array_equal)",
+     0.0201,
+     68
+    ],
+    [
+     "<method 'split' of 're.Pattern' objects>",
+     0.0185,
+     4
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4122.21484375,
+   "freq": {
+    "zen5_ghz": 4.5698046,
+    "zen5c_ghz": 3.3177637333333334,
+    "zen5_ghz_min": 4.231702,
+    "zen5_ghz_max": 4.79093
+   },
+   "battery_start": {
+    "status": "Charging",
+    "capacity": "94",
+    "power_now": "15924000"
+   },
+   "battery_end": {
+    "status": "Charging",
+    "capacity": "94",
+    "power_now": "15924000"
+   },
+   "config": "B",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_pbe",
+   "tight": false,
+   "wall": 3.410483126004692,
+   "values": {
+    "e_tot": -679.0403707177032,
+    "cycles": 6,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.3407873680000002,
+    "linalg": 0.19306099500000004,
+    "blas": 0.016772708,
+    "ints1e": 0.020186899,
+    "jk": 1.2438390160000001,
+    "grids": 0.059947681,
+    "xc_post": 0.009831809,
+    "libxc": 0.122060634,
+    "xc_kernels": 1.1329371790000002,
+    "ao_eval": 0.05227136,
+    "numpy": 0.20998485999999997
+   },
+   "top": [
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.7855,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.693,
+     66
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.44,
+     66
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.3875,
+     8
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.192,
+     38
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.1712,
+     317
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1221,
+     66
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.1039,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.0707,
+     1
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0523,
+     2
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0451,
+     21
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0354,
+     48
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4151.5859375,
+   "freq": {
+    "zen5_ghz": 4.536088846153846,
+    "zen5c_ghz": 3.3099585384615384,
+    "zen5_ghz_min": 4.170234,
+    "zen5_ghz_max": 4.718265
+   },
+   "battery_start": {
+    "status": "Charging",
+    "capacity": "94",
+    "power_now": "15924000"
+   },
+   "battery_end": {
+    "status": "Charging",
+    "capacity": "94",
+    "power_now": "15924000"
+   },
+   "config": "P",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_pbe",
+   "tight": false,
+   "wall": 3.3300911679980345,
+   "values": {
+    "e_tot": -679.040370717407,
+    "cycles": 7,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.30319538999999995,
+    "linalg": 0.15469533300000002,
+    "blas": 0.014946709,
+    "ints1e": 0.019793999000000003,
+    "jk": 1.3117998370000001,
+    "grids": 0.064745688,
+    "xc_post": 0.008594827000000001,
+    "libxc": 0.11800529500000001,
+    "xc_kernels": 1.104905977,
+    "ao_eval": 0.052429042,
+    "numpy": 0.16887780000000005
+   },
+   "top": [
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.7991,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.6762,
+     65
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.4379,
+     9
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.4287,
+     65
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1538,
+     34
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.1275,
+     271
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.118,
+     65
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.0808,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.0748,
+     1
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0524,
+     2
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0362,
+     48
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0345,
+     19
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4153.65234375,
+   "freq": {
+    "zen5_ghz": 4.4114056153846155,
+    "zen5c_ghz": 3.2971688461538458,
+    "zen5_ghz_min": 3.761689,
+    "zen5_ghz_max": 4.736348
+   },
+   "battery_start": {
+    "status": "Charging",
+    "capacity": "94",
+    "power_now": "15924000"
+   },
+   "battery_end": {
+    "status": "Charging",
+    "capacity": "94",
+    "power_now": "15924000"
+   },
+   "config": "Q",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_pbe",
+   "tight": false,
+   "wall": 3.741923704976216,
+   "values": {
+    "e_tot": -679.0403707173228,
+    "cycles": 14,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.18229590099999998,
+    "linalg": 0.147703893,
+    "blas": 0.014147873,
+    "ints1e": 0.0056054749999999995,
+    "jk": 1.599765869,
+    "grids": 0.044604789000000006,
+    "xc_post": 0.010771673,
+    "libxc": 0.157094535,
+    "xc_kernels": 1.438087376,
+    "ao_eval": 0.038327376,
+    "numpy": 0.095114378
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     0.8766,
+     80
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8203,
+     1
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.7792,
+     16
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.5615,
+     80
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1571,
+     80
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1468,
+     30
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0603,
+     167
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0529,
+     16
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0383,
+     1
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0227,
+     24
+    ],
+    [
+     "_core/numeric.py:2471(array_equal)",
+     0.0159,
+     60
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.0149,
+     13
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4125.1015625,
+   "freq": {
+    "zen5_ghz": 4.3347590714285715,
+    "zen5c_ghz": 3.3114625714285713,
+    "zen5_ghz_min": 3.358963,
+    "zen5_ghz_max": 4.675937
+   },
+   "battery_start": {
+    "status": "Charging",
+    "capacity": "94",
+    "power_now": "15924000"
+   },
+   "battery_end": {
+    "status": "Charging",
+    "capacity": "94",
+    "power_now": "15924000"
+   },
+   "config": "S",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_pbe",
+   "tight": false,
+   "wall": 3.825207664980553,
+   "values": {
+    "e_tot": -679.0403707173228,
+    "cycles": 14,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.23338285200000006,
+    "linalg": 0.11110143,
+    "blas": 0.012992083000000001,
+    "ints1e": 0.0047001130000000006,
+    "jk": 1.6189127070000002,
+    "grids": 0.043712899000000006,
+    "xc_post": 0.010924602000000002,
+    "libxc": 0.15955365900000001,
+    "xc_kernels": 1.4625512070000002,
+    "ao_eval": 0.038700726000000005,
+    "numpy": 0.12229353000000001
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     0.8949,
+     80
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8392,
+     1
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.7795,
+     16
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.5677,
+     80
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1596,
+     80
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1103,
+     30
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0875,
+     167
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.074,
+     16
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.0421,
+     13
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0387,
+     1
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0221,
+     24
+    ],
+    [
+     "_core/numeric.py:2471(array_equal)",
+     0.0176,
+     60
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4126.9765625,
+   "freq": {
+    "zen5_ghz": 4.276251933333333,
+    "zen5c_ghz": 3.3091918000000002,
+    "zen5_ghz_min": 3.17495,
+    "zen5_ghz_max": 4.719819
+   },
+   "battery_start": {
+    "status": "Charging",
+    "capacity": "94",
+    "power_now": "15924000"
+   },
+   "battery_end": {
+    "status": "Charging",
+    "capacity": "94",
+    "power_now": "15924000"
+   },
+   "config": "S",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_svp_pbe",
+   "tight": false,
+   "wall": 3.546196334005799,
+   "values": {
+    "e_tot": -679.040370717407,
+    "cycles": 7,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.34078113199999915,
+    "linalg": 0.16672402600000003,
+    "blas": 0.014709173,
+    "ints1e": 0.019866883000000002,
+    "jk": 1.381411519,
+    "grids": 0.06998431999999996,
+    "xc_post": 0.008912669,
+    "libxc": 0.122757008,
+    "xc_kernels": 1.139504478,
+    "ao_eval": 0.049151662000000006,
+    "numpy": 0.22186417099999997
+   },
+   "top": [
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8686,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.7055,
+     65
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.4386,
+     9
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.434,
+     65
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.1787,
+     271
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1658,
+     34
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1228,
+     65
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.0826,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.0741,
+     1
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0492,
+     2
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0485,
+     19
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0397,
+     48
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4153.52734375,
+   "freq": {
+    "zen5_ghz": 4.152679714285714,
+    "zen5c_ghz": 3.294927357142857,
+    "zen5_ghz_min": 2.81686,
+    "zen5_ghz_max": 4.766066
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "Q",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_svp_pbe",
+   "tight": false,
+   "wall": 3.498594325967133,
+   "values": {
+    "e_tot": -679.0403707177032,
+    "cycles": 6,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.3300026540000001,
+    "linalg": 0.185168312,
+    "blas": 0.016458954,
+    "ints1e": 0.01825993,
+    "jk": 1.32916156,
+    "grids": 0.050167352000000005,
+    "xc_post": 0.008715865000000001,
+    "libxc": 0.12289923500000001,
+    "xc_kernels": 1.125843976,
+    "ao_eval": 0.052684299000000004,
+    "numpy": 0.251150595
+   },
+   "top": [
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8681,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.6952,
+     66
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.4307,
+     66
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.3896,
+     8
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.213,
+     317
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1841,
+     38
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1229,
+     66
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.0971,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.0713,
+     1
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0527,
+     2
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0413,
+     21
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0268,
+     48
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4153.19921875,
+   "freq": {
+    "zen5_ghz": 4.036561384615385,
+    "zen5c_ghz": 3.3135689230769234,
+    "zen5_ghz_min": 2.878911,
+    "zen5_ghz_max": 4.67086
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "P",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_svp_pbe",
+   "tight": false,
+   "wall": 4.246432103973348,
+   "values": {
+    "e_tot": -679.0403707170075,
+    "cycles": 16,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.28844155700000024,
+    "linalg": 0.147578968,
+    "blas": 0.016458185,
+    "ints1e": 0.0052191650000000004,
+    "jk": 1.7492086310000001,
+    "grids": 0.03965025000000001,
+    "xc_post": 0.012111441,
+    "libxc": 0.176120627,
+    "xc_kernels": 1.612770034,
+    "ao_eval": 0.038533129,
+    "numpy": 0.15286112300000002
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     0.9859,
+     90
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.8766,
+     18
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8724,
+     1
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.6269,
+     90
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1761,
+     90
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1466,
+     34
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.1159,
+     189
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0914,
+     18
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.0527,
+     15
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0385,
+     1
+    ],
+    [
+     "_core/numeric.py:2471(array_equal)",
+     0.0239,
+     68
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0213,
+     24
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4124.21875,
+   "freq": {
+    "zen5_ghz": 4.195788375,
+    "zen5c_ghz": 3.314023375,
+    "zen5_ghz_min": 2.863817,
+    "zen5_ghz_max": 4.650953
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "B",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_svp_b3lyp",
+   "tight": false,
+   "wall": 4.12353881605668,
+   "values": {
+    "e_tot": -679.8127486398145,
+    "cycles": 15,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.244843344,
+    "linalg": 0.152266103,
+    "blas": 0.015042189000000001,
+    "ints1e": 0.0049401340000000005,
+    "jk": 1.8019255,
+    "grids": 0.049143402999999995,
+    "xc_post": 0.011942743,
+    "libxc": 0.137651729,
+    "xc_kernels": 1.546885113,
+    "ao_eval": 0.0383983,
+    "numpy": 0.11160917500000002
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     0.948,
+     85
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.9284,
+     17
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8733,
+     1
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.5989,
+     85
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1515,
+     32
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1377,
+     85
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0766,
+     17
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0721,
+     178
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0384,
+     1
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.0322,
+     14
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0283,
+     24
+    ],
+    [
+     "gto/mole.py:2097(get_overlap_cond)",
+     0.0189,
+     51
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4123.06640625,
+   "freq": {
+    "zen5_ghz": 4.0037818125,
+    "zen5c_ghz": 3.306067375,
+    "zen5_ghz_min": 2.891435,
+    "zen5_ghz_max": 4.672756
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "B",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_b3lyp",
+   "tight": false,
+   "wall": 4.105872927000746,
+   "values": {
+    "e_tot": -679.8127486395164,
+    "cycles": 5,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.7114412219999994,
+    "linalg": 0.163326767,
+    "blas": 0.27987531800000004,
+    "ints1e": 0.024202614,
+    "jk": 1.3794513360000002,
+    "grids": 0.06478318000000001,
+    "xc_post": 0.007895954,
+    "libxc": 0.09087866600000001,
+    "xc_kernels": 0.997391495,
+    "ao_eval": 0.053000703,
+    "numpy": 0.3240485310000001
+   },
+   "top": [
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8896,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.6147,
+     57
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.3827,
+     57
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.3799,
+     7
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     0.2941,
+     11
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.2807,
+     312
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.2799,
+     119
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.191,
+     1
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1625,
+     32
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.1098,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.0909,
+     57
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.053,
+     2
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4173.55078125,
+   "freq": {
+    "zen5_ghz": 3.9598049375,
+    "zen5c_ghz": 3.309316,
+    "zen5_ghz_min": 2.722782,
+    "zen5_ghz_max": 4.69743
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "P",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_b3lyp",
+   "tight": false,
+   "wall": 4.080899082007818,
+   "values": {
+    "e_tot": -679.8127486394282,
+    "cycles": 6,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.6787433699999984,
+    "linalg": 0.14448041600000003,
+    "blas": 0.252089418,
+    "ints1e": 0.02843797,
+    "jk": 1.4363449380000002,
+    "grids": 0.056609571,
+    "xc_post": 0.007884662,
+    "libxc": 0.093136363,
+    "xc_kernels": 1.033861079,
+    "ao_eval": 0.052533333,
+    "numpy": 0.287575059
+   },
+   "top": [
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8944,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.6373,
+     58
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.4382,
+     8
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.3966,
+     58
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.2521,
+     103
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.2483,
+     277
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     0.2456,
+     9
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.1945,
+     1
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1436,
+     30
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.1036,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.0931,
+     58
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0533,
+     17
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4172.9140625,
+   "freq": {
+    "zen5_ghz": 3.873660625,
+    "zen5c_ghz": 3.2873121875,
+    "zen5_ghz_min": 2.675788,
+    "zen5_ghz_max": 4.573919
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "Q",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_b3lyp",
+   "tight": false,
+   "wall": 3.9411832130281255,
+   "values": {
+    "e_tot": -679.8127486398038,
+    "cycles": 14,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.2208460310000001,
+    "linalg": 0.145927847,
+    "blas": 0.013487948000000001,
+    "ints1e": 0.0046164050000000005,
+    "jk": 1.768614549,
+    "grids": 0.03963185599999999,
+    "xc_post": 0.011109606,
+    "libxc": 0.127794981,
+    "xc_kernels": 1.450905128,
+    "ao_eval": 0.038429289000000005,
+    "numpy": 0.11020370000000002
+   },
+   "top": [
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8887,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.8857,
+     80
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.8797,
+     16
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.5653,
+     80
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1451,
+     30
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1278,
+     80
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0757,
+     167
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0738,
+     16
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0384,
+     1
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.0302,
+     13
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0222,
+     24
+    ],
+    [
+     "_core/numeric.py:2471(array_equal)",
+     0.0179,
+     60
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4129.62109375,
+   "freq": {
+    "zen5_ghz": 3.9219248666666666,
+    "zen5c_ghz": 3.3050922,
+    "zen5_ghz_min": 2.766896,
+    "zen5_ghz_max": 4.674376
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "S",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_b3lyp",
+   "tight": false,
+   "wall": 3.9585311629925855,
+   "values": {
+    "e_tot": -679.8127486398038,
+    "cycles": 14,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.22269640900000015,
+    "linalg": 0.12375541500000001,
+    "blas": 0.014361107000000001,
+    "ints1e": 0.004688829,
+    "jk": 1.7753984590000003,
+    "grids": 0.036952811999999995,
+    "xc_post": 0.011017797,
+    "libxc": 0.1330684,
+    "xc_kernels": 1.486388615,
+    "ao_eval": 0.038790863,
+    "numpy": 0.103675985
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     0.9094,
+     80
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8906,
+     1
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.8846,
+     16
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.577,
+     80
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1331,
+     80
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1229,
+     30
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0693,
+     167
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0576,
+     16
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0388,
+     1
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.0329,
+     13
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0201,
+     24
+    ],
+    [
+     "<method 'split' of 're.Pattern' objects>",
+     0.019,
+     4
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4125.38671875,
+   "freq": {
+    "zen5_ghz": 3.606941,
+    "zen5c_ghz": 3.298895266666667,
+    "zen5_ghz_min": 2.75228,
+    "zen5_ghz_max": 4.655464
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "S",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_svp_b3lyp",
+   "tight": false,
+   "wall": 4.002863984031137,
+   "values": {
+    "e_tot": -679.8127486394282,
+    "cycles": 6,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.6569635849999989,
+    "linalg": 0.13866669799999998,
+    "blas": 0.24053316100000002,
+    "ints1e": 0.021989930999999997,
+    "jk": 1.435968764,
+    "grids": 0.059936419,
+    "xc_post": 0.008253590000000002,
+    "libxc": 0.09626377800000001,
+    "xc_kernels": 1.063778115,
+    "ao_eval": 0.052539590000000004,
+    "numpy": 0.21925948499999992
+   },
+   "top": [
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.891,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.6524,
+     58
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.4329,
+     8
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.4114,
+     58
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     0.2451,
+     9
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.2405,
+     103
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.1833,
+     1
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.178,
+     277
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1379,
+     30
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.112,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.0963,
+     58
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0525,
+     2
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4171.1875,
+   "freq": {
+    "zen5_ghz": 3.6641268,
+    "zen5c_ghz": 3.288946533333333,
+    "zen5_ghz_min": 2.730858,
+    "zen5_ghz_max": 4.699722
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "Q",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_svp_b3lyp",
+   "tight": false,
+   "wall": 4.05993764399318,
+   "values": {
+    "e_tot": -679.8127486395164,
+    "cycles": 5,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.7161773700000003,
+    "linalg": 0.149276181,
+    "blas": 0.279531113,
+    "ints1e": 0.022486942,
+    "jk": 1.378183392,
+    "grids": 0.06552397399999998,
+    "xc_post": 0.008041194,
+    "libxc": 0.09268598600000001,
+    "xc_kernels": 1.026662344,
+    "ao_eval": 0.052627955000000004,
+    "numpy": 0.2612855119999999
+   },
+   "top": [
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8895,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.6324,
+     57
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.3943,
+     57
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.3821,
+     7
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     0.2963,
+     11
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.2795,
+     119
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.2223,
+     312
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.1836,
+     1
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1484,
+     32
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.1064,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.0927,
+     57
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0526,
+     2
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4173.046875,
+   "freq": {
+    "zen5_ghz": 3.786225125,
+    "zen5c_ghz": 3.2926369375,
+    "zen5_ghz_min": 2.599366,
+    "zen5_ghz_max": 4.680244
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "P",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_svp_b3lyp",
+   "tight": false,
+   "wall": 4.2965082000009716,
+   "values": {
+    "e_tot": -679.8127486398145,
+    "cycles": 15,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.24802243600000023,
+    "linalg": 0.127430069,
+    "blas": 0.020368869,
+    "ints1e": 0.020743164,
+    "jk": 1.8469150630000002,
+    "grids": 0.060851922,
+    "xc_post": 0.011836622000000002,
+    "libxc": 0.148190552,
+    "xc_kernels": 1.677234189,
+    "ao_eval": 0.050614215000000004,
+    "numpy": 0.075448818
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     1.0189,
+     85
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.9585,
+     17
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8882,
+     1
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.6584,
+     85
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1482,
+     85
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1266,
+     32
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0572,
+     17
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0506,
+     1
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0421,
+     24
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0385,
+     178
+    ],
+    [
+     "gto/mole.py:2097(get_overlap_cond)",
+     0.0357,
+     51
+    ],
+    [
+     "lib/numpy_helper.py:1226(condense)",
+     0.0216,
+     34
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4122.625,
+   "freq": {
+    "zen5_ghz": 3.517756588235294,
+    "zen5c_ghz": 3.2903023529411763,
+    "zen5_ghz_min": 2.636273,
+    "zen5_ghz_max": 4.654725
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "B",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_svp_r2scan",
+   "tight": false,
+   "wall": 6.194893378007691,
+   "values": {
+    "e_tot": -679.4529650101016,
+    "cycles": 14,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.2774549550000001,
+    "linalg": 0.141158545,
+    "blas": 0.015141389000000002,
+    "ints1e": 0.005089689000000001,
+    "jk": 1.709084383,
+    "grids": 0.037655673,
+    "xc_post": 0.014943073,
+    "libxc": 0.35406422000000004,
+    "xc_kernels": 3.496928199,
+    "ao_eval": 0.038067398,
+    "numpy": 0.09656279699999999
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     2.5986,
+     80
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.8983,
+     80
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8843,
+     1
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.8246,
+     16
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.3541,
+     80
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1403,
+     30
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0802,
+     16
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0622,
+     167
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0381,
+     1
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.026,
+     13
+    ],
+    [
+     "gto/mole.py:2097(get_overlap_cond)",
+     0.0254,
+     48
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0205,
+     24
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4143.27734375,
+   "freq": {
+    "zen5_ghz": 3.7638843333333334,
+    "zen5c_ghz": 3.25686575,
+    "zen5_ghz_min": 2.65567,
+    "zen5_ghz_max": 4.754505
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "B",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_r2scan",
+   "tight": false,
+   "wall": 5.448457885009702,
+   "values": {
+    "e_tot": -679.4529650103469,
+    "cycles": 7,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.37912206599999954,
+    "linalg": 0.172882167,
+    "blas": 0.017018851,
+    "ints1e": 0.020591448,
+    "jk": 1.4244504140000003,
+    "grids": 0.07188772200000003,
+    "xc_post": 0.012046033000000001,
+    "libxc": 0.28360081000000004,
+    "xc_kernels": 2.8057093460000004,
+    "ao_eval": 0.051323346000000006,
+    "numpy": 0.20227627799999998
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     2.1053,
+     69
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8822,
+     1
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.7004,
+     69
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.4665,
+     9
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.2836,
+     69
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1718,
+     38
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.1569,
+     309
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.1038,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.0756,
+     1
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0536,
+     21
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0513,
+     2
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0428,
+     48
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4174.4375,
+   "freq": {
+    "zen5_ghz": 4.069108238095238,
+    "zen5c_ghz": 3.230681,
+    "zen5_ghz_min": 2.848708,
+    "zen5_ghz_max": 4.757683
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "P",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_r2scan",
+   "tight": false,
+   "wall": 5.201465329970233,
+   "values": {
+    "e_tot": -679.452965010228,
+    "cycles": 7,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.34460641400000014,
+    "linalg": 0.167765342,
+    "blas": 0.017583641,
+    "ints1e": 0.028515339000000004,
+    "jk": 1.4087444180000002,
+    "grids": 0.056837804000000006,
+    "xc_post": 0.011075734,
+    "libxc": 0.268661706,
+    "xc_kernels": 2.664166616,
+    "ao_eval": 0.059986357000000004,
+    "numpy": 0.165337751
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     1.9885,
+     65
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8738,
+     1
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.6757,
+     65
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.4552,
+     9
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.2687,
+     65
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1669,
+     34
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.1251,
+     271
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.0853,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.0796,
+     1
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.06,
+     2
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0484,
+     19
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0292,
+     48
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4171.62890625,
+   "freq": {
+    "zen5_ghz": 3.8584114,
+    "zen5c_ghz": 3.22523445,
+    "zen5_ghz_min": 2.771966,
+    "zen5_ghz_max": 4.683253
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "Q",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_r2scan",
+   "tight": false,
+   "wall": 6.112667078035884,
+   "values": {
+    "e_tot": -679.4529650102012,
+    "cycles": 14,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.2520116510000002,
+    "linalg": 0.12540946699999997,
+    "blas": 0.0153159,
+    "ints1e": 0.004797525,
+    "jk": 1.6937362090000003,
+    "grids": 0.04370688600000002,
+    "xc_post": 0.014689154000000001,
+    "libxc": 0.353383323,
+    "xc_kernels": 3.4707905520000004,
+    "ao_eval": 0.038698726,
+    "numpy": 0.09319052199999998
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     2.5814,
+     80
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.8894,
+     80
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8778,
+     1
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.8157,
+     16
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.3534,
+     80
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1245,
+     30
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0792,
+     16
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0572,
+     167
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0387,
+     1
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0239,
+     24
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.0235,
+     13
+    ],
+    [
+     "gto/mole.py:2097(get_overlap_cond)",
+     0.022,
+     48
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4146.953125,
+   "freq": {
+    "zen5_ghz": 3.7534621666666665,
+    "zen5c_ghz": 3.2407860416666665,
+    "zen5_ghz_min": 2.707323,
+    "zen5_ghz_max": 4.577317
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "S",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_r2scan",
+   "tight": false,
+   "wall": 6.040104871033691,
+   "values": {
+    "e_tot": -679.4529650102012,
+    "cycles": 14,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.253882749,
+    "linalg": 0.125912561,
+    "blas": 0.014743019000000001,
+    "ints1e": 0.0053696790000000005,
+    "jk": 1.7052236880000002,
+    "grids": 0.045364925,
+    "xc_post": 0.014621872000000003,
+    "libxc": 0.351069801,
+    "xc_kernels": 3.3779749310000002,
+    "ao_eval": 0.038045608,
+    "numpy": 0.09972016500000003
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     2.5176,
+     80
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8647,
+     1
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.8604,
+     80
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.8403,
+     16
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.3511,
+     80
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.125,
+     30
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0806,
+     16
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0607,
+     167
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.038,
+     1
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.0334,
+     13
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0228,
+     24
+    ],
+    [
+     "_core/numeric.py:2471(array_equal)",
+     0.0182,
+     60
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4147.2265625,
+   "freq": {
+    "zen5_ghz": 3.9808102916666663,
+    "zen5c_ghz": 3.2056799166666665,
+    "zen5_ghz_min": 2.74368,
+    "zen5_ghz_max": 4.782523
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "S",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_svp_r2scan",
+   "tight": false,
+   "wall": 5.280597019998822,
+   "values": {
+    "e_tot": -679.452965010228,
+    "cycles": 7,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.36503814599999973,
+    "linalg": 0.179161085,
+    "blas": 0.016275547,
+    "ints1e": 0.021368715000000003,
+    "jk": 1.419919675,
+    "grids": 0.058961113,
+    "xc_post": 0.011784905,
+    "libxc": 0.271259547,
+    "xc_kernels": 2.668157438,
+    "ao_eval": 0.051538449,
+    "numpy": 0.20768805500000004
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     2.001,
+     65
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8806,
+     1
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.6671,
+     65
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.4623,
+     9
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.2713,
+     65
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1782,
+     34
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.1647,
+     271
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.0858,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.0769,
+     1
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0689,
+     19
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0515,
+     2
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0326,
+     48
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4172.7265625,
+   "freq": {
+    "zen5_ghz": 3.9191229047619047,
+    "zen5c_ghz": 3.2374573333333334,
+    "zen5_ghz_min": 2.642967,
+    "zen5_ghz_max": 4.621981
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "Q",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_svp_r2scan",
+   "tight": false,
+   "wall": 5.439450689998921,
+   "values": {
+    "e_tot": -679.4529650103469,
+    "cycles": 7,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.39723130500000003,
+    "linalg": 0.15721486799999998,
+    "blas": 0.017792953,
+    "ints1e": 0.020659197000000004,
+    "jk": 1.401618988,
+    "grids": 0.05877925800000001,
+    "xc_post": 0.012306153,
+    "libxc": 0.288219862,
+    "xc_kernels": 2.8303630330000003,
+    "ao_eval": 0.053138554000000005,
+    "numpy": 0.193892437
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     2.1153,
+     69
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8662,
+     1
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.715,
+     69
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.4567,
+     9
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.2882,
+     69
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1562,
+     38
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.149,
+     309
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.1009,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.0786,
+     1
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0589,
+     21
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0531,
+     2
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0298,
+     48
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4173.140625,
+   "freq": {
+    "zen5_ghz": 4.04164680952381,
+    "zen5c_ghz": 3.2464966666666664,
+    "zen5_ghz_min": 2.76776,
+    "zen5_ghz_max": 4.787353
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "P",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_svp_r2scan",
+   "tight": false,
+   "wall": 6.074237558990717,
+   "values": {
+    "e_tot": -679.4529650101016,
+    "cycles": 14,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.24367247100000006,
+    "linalg": 0.118894352,
+    "blas": 0.022332727,
+    "ints1e": 0.004343711,
+    "jk": 1.7091509390000001,
+    "grids": 0.03773082900000001,
+    "xc_post": 0.014014092000000002,
+    "libxc": 0.33919553700000005,
+    "xc_kernels": 3.431997577,
+    "ao_eval": 0.037484086,
+    "numpy": 0.10776172799999999
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     2.55,
+     80
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8864,
+     1
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.882,
+     80
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.8225,
+     16
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.3392,
+     80
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1182,
+     30
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0739,
+     167
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0727,
+     16
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0375,
+     1
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.0331,
+     13
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0223,
+     53
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0203,
+     24
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4144.32421875,
+   "freq": {
+    "zen5_ghz": 3.8468028333333333,
+    "zen5c_ghz": 3.2414337916666667,
+    "zen5_ghz_min": 2.71013,
+    "zen5_ghz_max": 4.68667
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "B",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_svp_camb3lyp",
+   "tight": false,
+   "wall": 6.241082180000376,
+   "values": {
+    "e_tot": -679.5022291672566,
+    "cycles": 13,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.18371677700000005,
+    "linalg": 0.153671393,
+    "blas": 0.016791962,
+    "ints1e": 0.005713609,
+    "jk": 4.148340994,
+    "grids": 0.04065515999999999,
+    "xc_post": 0.010416420000000001,
+    "libxc": 0.18902775900000002,
+    "xc_kernels": 1.3626137170000001,
+    "ao_eval": 0.038920416,
+    "numpy": 0.07850529400000002
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     2.3325,
+     15
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.9148,
+     15
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8873,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.8286,
+     75
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.534,
+     75
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.189,
+     75
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1528,
+     28
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0423,
+     15
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0393,
+     156
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0389,
+     1
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0189,
+     24
+    ],
+    [
+     "<method 'split' of 're.Pattern' objects>",
+     0.0177,
+     4
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 6543.1875,
+   "freq": {
+    "zen5_ghz": 3.7466977499999996,
+    "zen5c_ghz": 3.1782725833333334,
+    "zen5_ghz_min": 2.240022,
+    "zen5_ghz_max": 4.432404
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "B",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_camb3lyp",
+   "tight": false,
+   "wall": 5.858177374000661,
+   "values": {
+    "e_tot": -679.5022291670879,
+    "cycles": 4,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.8548380250000022,
+    "linalg": 0.22280728500000002,
+    "blas": 0.5635619660000001,
+    "ints1e": 0.03452839,
+    "jk": 2.8119683750000006,
+    "grids": 0.055550878,
+    "xc_post": 0.007028338,
+    "libxc": 0.115742439,
+    "xc_kernels": 0.8607099600000001,
+    "ao_eval": 0.051828435000000006,
+    "numpy": 0.2647020600000001
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     1.334,
+     6
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8835,
+     1
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.5636,
+     136
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.5287,
+     50
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     0.4372,
+     20
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.3585,
+     6
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.332,
+     50
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.2229,
+     2
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.2225,
+     278
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.222,
+     29
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.1873,
+     2
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1157,
+     50
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 6603.5703125,
+   "freq": {
+    "zen5_ghz": 3.7034447391304344,
+    "zen5c_ghz": 3.190004260869565,
+    "zen5_ghz_min": 2.542398,
+    "zen5_ghz_max": 4.655603
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "P",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_camb3lyp",
+   "tight": false,
+   "wall": 6.384222548047546,
+   "values": {
+    "e_tot": -679.502229167283,
+    "cycles": 7,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.7586214060000003,
+    "linalg": 0.254866007,
+    "blas": 0.454935619,
+    "ints1e": 0.035607857,
+    "jk": 3.2806816469999998,
+    "grids": 0.057496315000000006,
+    "xc_post": 0.00862943,
+    "libxc": 0.15131730200000001,
+    "xc_kernels": 1.0970182130000001,
+    "ao_eval": 0.053384228000000006,
+    "numpy": 0.21834468500000007
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     1.6192,
+     9
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8801,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.6748,
+     61
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.5349,
+     9
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.4549,
+     122
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.4223,
+     61
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     0.3362,
+     16
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.254,
+     31
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.2334,
+     2
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.189,
+     2
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.1708,
+     265
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1513,
+     61
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 6604.578125,
+   "freq": {
+    "zen5_ghz": 3.7784684399999997,
+    "zen5c_ghz": 3.18108728,
+    "zen5_ghz_min": 2.772926,
+    "zen5_ghz_max": 4.637494
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "Q",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_camb3lyp",
+   "tight": false,
+   "wall": 6.177264655008912,
+   "values": {
+    "e_tot": -679.5022291672643,
+    "cycles": 13,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.2379874360000002,
+    "linalg": 0.14094026,
+    "blas": 0.014219984000000001,
+    "ints1e": 0.006123319,
+    "jk": 4.033912589,
+    "grids": 0.04140156300000001,
+    "xc_post": 0.010437479000000001,
+    "libxc": 0.188735698,
+    "xc_kernels": 1.357942875,
+    "ao_eval": 0.038572217000000006,
+    "numpy": 0.09359127800000001
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     2.2299,
+     15
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.9106,
+     15
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8789,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.8269,
+     75
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.531,
+     75
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1887,
+     75
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.14,
+     28
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0612,
+     15
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0536,
+     156
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0386,
+     1
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.0343,
+     12
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.021,
+     24
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 6544.11328125,
+   "freq": {
+    "zen5_ghz": 3.7488203749999998,
+    "zen5c_ghz": 3.1604912916666668,
+    "zen5_ghz_min": 2.623199,
+    "zen5_ghz_max": 4.366337
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "S",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_svp_camb3lyp",
+   "tight": false,
+   "wall": 6.1121711320010945,
+   "values": {
+    "e_tot": -679.5022291672652,
+    "cycles": 13,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.18628346099999976,
+    "linalg": 0.14426008900000004,
+    "blas": 0.016517728000000002,
+    "ints1e": 0.005801021000000001,
+    "jk": 4.030491808999999,
+    "grids": 0.044570174,
+    "xc_post": 0.010214520000000001,
+    "libxc": 0.18375586000000002,
+    "xc_kernels": 1.360219796,
+    "ao_eval": 0.038413034000000006,
+    "numpy": 0.07806116400000003
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     2.2359,
+     15
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.9055,
+     15
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8751,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.8278,
+     75
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.5324,
+     75
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1838,
+     75
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1434,
+     28
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.048,
+     15
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0388,
+     156
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0384,
+     1
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.024,
+     24
+    ],
+    [
+     "_core/numeric.py:2471(array_equal)",
+     0.0167,
+     101
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 6545.734375,
+   "freq": {
+    "zen5_ghz": 3.698763,
+    "zen5c_ghz": 3.1578934583333336,
+    "zen5_ghz_min": 2.0,
+    "zen5_ghz_max": 4.430444
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "S",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_svp_camb3lyp",
+   "tight": false,
+   "wall": 6.409480620990507,
+   "values": {
+    "e_tot": -679.5022291672843,
+    "cycles": 7,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.7647022189999996,
+    "linalg": 0.25497186499999996,
+    "blas": 0.465774986,
+    "ints1e": 0.03903931800000001,
+    "jk": 3.3044634120000005,
+    "grids": 0.058684697,
+    "xc_post": 0.008489133,
+    "libxc": 0.152480803,
+    "xc_kernels": 1.0880269830000002,
+    "ao_eval": 0.05265425000000001,
+    "numpy": 0.20568416200000011
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     1.6322,
+     9
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8954,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.6665,
+     61
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.537,
+     9
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.4658,
+     122
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.4216,
+     61
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     0.3354,
+     16
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.2541,
+     31
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.2262,
+     2
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.1931,
+     2
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.1613,
+     265
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1525,
+     61
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 6607.625,
+   "freq": {
+    "zen5_ghz": 3.76468476,
+    "zen5c_ghz": 3.17566996,
+    "zen5_ghz_min": 2.65559,
+    "zen5_ghz_max": 4.65951
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "Q",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_svp_camb3lyp",
+   "tight": false,
+   "wall": 5.8499705730355345,
+   "values": {
+    "e_tot": -679.5022291670876,
+    "cycles": 4,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.8577818449999998,
+    "linalg": 0.23079134100000004,
+    "blas": 0.5283393190000001,
+    "ints1e": 0.035298157000000004,
+    "jk": 2.8035175969999995,
+    "grids": 0.05643766099999999,
+    "xc_post": 0.007291087,
+    "libxc": 0.12426924600000001,
+    "xc_kernels": 0.8982529770000001,
+    "ao_eval": 0.051764664,
+    "numpy": 0.24264261800000003
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     1.318,
+     6
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8881,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.5538,
+     50
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.5283,
+     136
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     0.4216,
+     20
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.3588,
+     6
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.3445,
+     50
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.23,
+     29
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.2262,
+     2
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.1979,
+     2
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.1973,
+     278
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1243,
+     50
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 6602.0078125,
+   "freq": {
+    "zen5_ghz": 3.8755893913043478,
+    "zen5c_ghz": 3.1996048695652175,
+    "zen5_ghz_min": 2.749143,
+    "zen5_ghz_max": 4.639695
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "P",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_svp_camb3lyp",
+   "tight": false,
+   "wall": 6.213630941987503,
+   "values": {
+    "e_tot": -679.5022291672568,
+    "cycles": 13,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.18632767700000044,
+    "linalg": 0.136603756,
+    "blas": 0.015258104000000001,
+    "ints1e": 0.006203823,
+    "jk": 4.038016172,
+    "grids": 0.05408357100000001,
+    "xc_post": 0.010592865000000002,
+    "libxc": 0.20042399200000002,
+    "xc_kernels": 1.416332379,
+    "ao_eval": 0.038649502,
+    "numpy": 0.097351861
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     2.2305,
+     15
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.9002,
+     15
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8928,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     0.8707,
+     75
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.5457,
+     75
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.2004,
+     75
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.1357,
+     28
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0569,
+     15
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0564,
+     156
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0386,
+     1
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0297,
+     24
+    ],
+    [
+     "_core/numeric.py:2471(array_equal)",
+     0.0179,
+     101
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 6541.30859375,
+   "freq": {
+    "zen5_ghz": 3.7453597916666665,
+    "zen5c_ghz": 3.1498041249999997,
+    "zen5_ghz_min": 2.727851,
+    "zen5_ghz_max": 4.483426
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "B",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine+_svp_b3lyp_uks",
+   "tight": false,
+   "wall": 8.823100007954054,
+   "values": {
+    "e_tot": -679.5107200868387,
+    "cycles": 23,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.5631379600000002,
+    "linalg": 0.35756872999999995,
+    "blas": 0.06084914500000001,
+    "ints1e": 0.006683840999999999,
+    "jk": 2.6749134880000005,
+    "grids": 0.043376124999999995,
+    "xc_post": 0.038100037,
+    "libxc": 0.702204416,
+    "xc_kernels": 4.05803573,
+    "ao_eval": 0.037497800000000005,
+    "numpy": 0.272782242
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     2.6087,
+     125
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     1.7888,
+     25
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.4493,
+     125
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8858,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.7022,
+     125
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.3561,
+     72
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.2309,
+     25
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.1631,
+     408
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.0631,
+     22
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0608,
+     177
+    ],
+    [
+     "<built-in method numpy.asarray>",
+     0.0449,
+     2176
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0375,
+     1
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4154.0703125,
+   "freq": {
+    "zen5_ghz": 3.933197142857143,
+    "zen5c_ghz": 3.2009118857142855,
+    "zen5_ghz_min": 2.717888,
+    "zen5_ghz_max": 4.627148
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "B",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine+_svp_b3lyp_uks",
+   "tight": false,
+   "wall": 8.253303303034045,
+   "values": {
+    "e_tot": -679.510720087041,
+    "cycles": 8,
+    "converged": true
+   },
+   "categories": {
+    "other": 1.5768423949999995,
+    "linalg": 0.506424445,
+    "blas": 0.9090173460000001,
+    "ints1e": 0.024451516,
+    "jk": 1.6515354300000002,
+    "grids": 0.05541214199999999,
+    "xc_post": 0.020356671,
+    "libxc": 0.41634417,
+    "xc_kernels": 2.532283568,
+    "ao_eval": 0.052306952000000004,
+    "numpy": 0.498957967
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     1.6331,
+     82
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     0.9634,
+     16
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.909,
+     361
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.8992,
+     82
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8382,
+     1
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.6995,
+     10
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.505,
+     72
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.4163,
+     82
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.4134,
+     603
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.1719,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.1137,
+     1
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.0841,
+     26
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4207.72265625,
+   "freq": {
+    "zen5_ghz": 4.05045059375,
+    "zen5c_ghz": 3.20864790625,
+    "zen5_ghz_min": 2.720924,
+    "zen5_ghz_max": 4.725995
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "P",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine+_svp_b3lyp_uks",
+   "tight": false,
+   "wall": 8.357417081017047,
+   "values": {
+    "e_tot": -679.5107200858141,
+    "cycles": 12,
+    "converged": true
+   },
+   "categories": {
+    "other": 1.3496477809999996,
+    "linalg": 0.39538397700000005,
+    "blas": 0.7096556420000001,
+    "ints1e": 0.023991002,
+    "jk": 1.959451399,
+    "grids": 0.05351450999999999,
+    "xc_post": 0.022654636,
+    "libxc": 0.466195442,
+    "xc_kernels": 2.868432468,
+    "ao_eval": 0.052402686000000004,
+    "numpy": 0.449359302
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     1.8504,
+     92
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.018,
+     92
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.9894,
+     14
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.857,
+     1
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     0.714,
+     11
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.7097,
+     293
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.4662,
+     92
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.394,
+     69
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.3591,
+     526
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.1771,
+     1
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.121,
+     25
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.1129,
+     1
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4212.59375,
+   "freq": {
+    "zen5_ghz": 4.019457606060606,
+    "zen5c_ghz": 3.1988370303030305,
+    "zen5_ghz_min": 2.674564,
+    "zen5_ghz_max": 4.715884
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "Q",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine+_svp_b3lyp_uks",
+   "tight": false,
+   "wall": 8.402086817019153,
+   "values": {
+    "e_tot": -679.5107200870694,
+    "cycles": 22,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.4607972230000001,
+    "linalg": 0.3887439240000001,
+    "blas": 0.054806928000000005,
+    "ints1e": 0.005920687,
+    "jk": 2.605059106,
+    "grids": 0.038090257,
+    "xc_post": 0.038387617000000006,
+    "libxc": 0.682628715,
+    "xc_kernels": 3.866397451,
+    "ao_eval": 0.037996711,
+    "numpy": 0.214711495
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     2.4777,
+     120
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     1.7243,
+     24
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.3887,
+     120
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8805,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.6826,
+     120
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.3872,
+     69
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.1627,
+     24
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.1106,
+     391
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0548,
+     169
+    ],
+    [
+     "<built-in method numpy.asarray>",
+     0.0448,
+     2091
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.038,
+     1
+    ],
+    [
+     "dft/xc_deriv.py:489(_unfold_gga)",
+     0.0358,
+     120
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4163.38671875,
+   "freq": {
+    "zen5_ghz": 3.9187689090909092,
+    "zen5c_ghz": 3.2007334545454547,
+    "zen5_ghz_min": 2.704894,
+    "zen5_ghz_max": 4.593686
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "S",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine+_svp_b3lyp_uks",
+   "tight": false,
+   "wall": 8.41588051902363,
+   "values": {
+    "e_tot": -679.5107200870694,
+    "cycles": 22,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.5263730260000001,
+    "linalg": 0.3610173920000001,
+    "blas": 0.050714596,
+    "ints1e": 0.005860181000000002,
+    "jk": 2.589104105,
+    "grids": 0.03999784,
+    "xc_post": 0.03865774,
+    "libxc": 0.681962544,
+    "xc_kernels": 3.8566838760000004,
+    "ao_eval": 0.038393698000000004,
+    "numpy": 0.2189395160000001
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     2.4679,
+     120
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     1.7091,
+     24
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.3888,
+     120
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8797,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.682,
+     120
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.3594,
+     69
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.2007,
+     24
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.1152,
+     391
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0507,
+     169
+    ],
+    [
+     "<built-in method numpy.asarray>",
+     0.0445,
+     2091
+    ],
+    [
+     "gto/mole.py:2097(get_overlap_cond)",
+     0.04,
+     120
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0384,
+     1
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4163.484375,
+   "freq": {
+    "zen5_ghz": 3.9037278787878784,
+    "zen5c_ghz": 3.1680959090909093,
+    "zen5_ghz_min": 2.603836,
+    "zen5_ghz_max": 4.541617
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "S",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine+_svp_b3lyp_uks",
+   "tight": false,
+   "wall": 8.741353314020671,
+   "values": {
+    "e_tot": -679.5107200858141,
+    "cycles": 12,
+    "converged": true
+   },
+   "categories": {
+    "other": 1.3976991250000017,
+    "linalg": 0.5896395289999999,
+    "blas": 0.69662919,
+    "ints1e": 0.024388683999999997,
+    "jk": 1.98901517,
+    "grids": 0.054345891999999986,
+    "xc_post": 0.023436816000000003,
+    "libxc": 0.48547065600000006,
+    "xc_kernels": 2.955670389,
+    "ao_eval": 0.057849925,
+    "numpy": 0.45947066400000003
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     1.9021,
+     92
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.0536,
+     92
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     1.0077,
+     14
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8677,
+     1
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     0.7164,
+     11
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.6966,
+     293
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.5883,
+     69
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.4855,
+     92
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.371,
+     526
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.1888,
+     1
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.1337,
+     25
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.1134,
+     1
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4209.0546875,
+   "freq": {
+    "zen5_ghz": 3.8383684411764705,
+    "zen5c_ghz": 3.245648911764706,
+    "zen5_ghz_min": 2.680581,
+    "zen5_ghz_max": 4.706669
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "Q",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine+_svp_b3lyp_uks",
+   "tight": false,
+   "wall": 8.389015496999491,
+   "values": {
+    "e_tot": -679.510720087041,
+    "cycles": 8,
+    "converged": true
+   },
+   "categories": {
+    "other": 1.678893994999999,
+    "linalg": 0.38634265400000006,
+    "blas": 0.9527652350000001,
+    "ints1e": 0.024181464,
+    "jk": 1.66020411,
+    "grids": 0.051371170999999986,
+    "xc_post": 0.020450287,
+    "libxc": 0.424554714,
+    "xc_kernels": 2.5564642090000005,
+    "ao_eval": 0.053248723000000005,
+    "numpy": 0.5720555359999998
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     1.6376,
+     82
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     0.9816,
+     16
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.9528,
+     361
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.9188,
+     82
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.8431,
+     1
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.7083,
+     10
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.4809,
+     603
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.4246,
+     82
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.3848,
+     72
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.2278,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.1087,
+     1
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.1029,
+     26
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4206.3828125,
+   "freq": {
+    "zen5_ghz": 3.9083223333333335,
+    "zen5c_ghz": 3.227851424242424,
+    "zen5_ghz_min": 2.683188,
+    "zen5_ghz_max": 4.711809
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "P",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine+_svp_b3lyp_uks",
+   "tight": false,
+   "wall": 9.075682267954107,
+   "values": {
+    "e_tot": -679.5107200868387,
+    "cycles": 23,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.5531818390000001,
+    "linalg": 0.499709091,
+    "blas": 0.067694316,
+    "ints1e": 0.0056359010000000005,
+    "jk": 2.6582829410000004,
+    "grids": 0.040243179,
+    "xc_post": 0.039424438,
+    "libxc": 0.715043408,
+    "xc_kernels": 4.189690957,
+    "ao_eval": 0.038897198,
+    "numpy": 0.2586809560000001
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     2.6847,
+     125
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     1.786,
+     25
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.505,
+     125
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.872,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.715,
+     125
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.4982,
+     72
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.1969,
+     25
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.1523,
+     408
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0677,
+     177
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.0461,
+     22
+    ],
+    [
+     "<built-in method numpy.asarray>",
+     0.0455,
+     2176
+    ],
+    [
+     "gto/mole.py:2097(get_overlap_cond)",
+     0.0452,
+     125
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 4155.6171875,
+   "freq": {
+    "zen5_ghz": 3.756007055555555,
+    "zen5c_ghz": 3.2100708055555556,
+    "zen5_ghz_min": 2.571729,
+    "zen5_ghz_max": 4.570432
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "B",
+   "rep": 1
+  },
+  {
+   "case": "scf_benzene+_svp_r2scan_uks",
+   "tight": false,
+   "wall": 1.7995358550106175,
+   "values": {
+    "e_tot": -231.59689739624744,
+    "cycles": 11,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.1453916039999999,
+    "linalg": 0.049903696,
+    "blas": 0.0047669570000000005,
+    "ints1e": 0.002141947,
+    "jk": 0.117373842,
+    "grids": 0.012117550999999999,
+    "xc_post": 0.020993981000000002,
+    "libxc": 0.375483872,
+    "xc_kernels": 1.008237147,
+    "ao_eval": 0.016820603,
+    "numpy": 0.04496556399999999
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     0.7963,
+     39
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.3755,
+     39
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.2119,
+     39
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.0661,
+     1
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.0552,
+     13
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.0511,
+     13
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.0492,
+     36
+    ],
+    [
+     "dft/xc_deriv.py:489(_unfold_gga)",
+     0.0201,
+     39
+    ],
+    [
+     "<built-in method numpy.asarray>",
+     0.0184,
+     962
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0168,
+     1
+    ],
+    [
+     "dft/numint.py:2085(nr_uks)",
+     0.0134,
+     13
+    ],
+    [
+     "<method 'split' of 're.Pattern' objects>",
+     0.0112,
+     2
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 462.17578125,
+   "freq": {
+    "zen5_ghz": 3.458796142857143,
+    "zen5c_ghz": 3.2896371428571425,
+    "zen5_ghz_min": 3.172261,
+    "zen5_ghz_max": 3.722909
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "B",
+   "rep": 0
+  },
+  {
+   "case": "scf_benzene+_svp_r2scan_uks",
+   "tight": false,
+   "wall": 1.4331589820212685,
+   "values": {
+    "e_tot": -231.5968973962267,
+    "cycles": 5,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.14350100299999993,
+    "linalg": 0.05317746400000001,
+    "blas": 0.0062672430000000005,
+    "ints1e": 0.005001799000000001,
+    "jk": 0.10326047,
+    "grids": 0.016249326999999994,
+    "xc_post": 0.007983477,
+    "libxc": 0.26251994700000003,
+    "xc_kernels": 0.7652752710000001,
+    "ao_eval": 0.021645103000000002,
+    "numpy": 0.04735666400000001
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     0.6233,
+     30
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.2625,
+     30
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.142,
+     30
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.0669,
+     1
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.0524,
+     42
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.0349,
+     16
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.0273,
+     7
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0216,
+     2
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0175,
+     277
+    ],
+    [
+     "<built-in method numpy.asarray>",
+     0.0102,
+     1098
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.009,
+     1
+    ],
+    [
+     "<method 'split' of 're.Pattern' objects>",
+     0.0079,
+     6
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 479.62890625,
+   "freq": {
+    "zen5_ghz": 3.9760827999999995,
+    "zen5c_ghz": 3.3160106,
+    "zen5_ghz_min": 2.509943,
+    "zen5_ghz_max": 4.588533
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "P",
+   "rep": 0
+  },
+  {
+   "case": "scf_benzene+_svp_r2scan_uks",
+   "tight": false,
+   "wall": 1.4759529390139505,
+   "values": {
+    "e_tot": -231.5968973962267,
+    "cycles": 5,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.14501303099999982,
+    "linalg": 0.053260832,
+    "blas": 0.005109117000000001,
+    "ints1e": 0.005073821000000001,
+    "jk": 0.105709003,
+    "grids": 0.015710131000000002,
+    "xc_post": 0.008139539000000001,
+    "libxc": 0.29376414500000003,
+    "xc_kernels": 0.771284221,
+    "ao_eval": 0.021350443,
+    "numpy": 0.050725048999999994
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     0.6268,
+     30
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.2938,
+     30
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.1445,
+     30
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.0675,
+     1
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.0526,
+     42
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.0332,
+     16
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.028,
+     7
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0232,
+     277
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0214,
+     2
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.0101,
+     1
+    ],
+    [
+     "<built-in method numpy.asarray>",
+     0.0089,
+     1098
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.0081,
+     1
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 477.5859375,
+   "freq": {
+    "zen5_ghz": 4.4152932,
+    "zen5c_ghz": 3.2784146,
+    "zen5_ghz_min": 4.203304,
+    "zen5_ghz_max": 4.687927
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "Q",
+   "rep": 0
+  },
+  {
+   "case": "scf_benzene+_svp_r2scan_uks",
+   "tight": false,
+   "wall": 1.8350198340485804,
+   "values": {
+    "e_tot": -231.59689739624545,
+    "cycles": 11,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.16665941700000028,
+    "linalg": 0.047207821000000004,
+    "blas": 0.005148730000000001,
+    "ints1e": 0.0021675080000000003,
+    "jk": 0.11673023100000002,
+    "grids": 0.01297792,
+    "xc_post": 0.021233112000000002,
+    "libxc": 0.38228988500000005,
+    "xc_kernels": 1.0143271520000001,
+    "ao_eval": 0.016724963000000002,
+    "numpy": 0.04867431600000001
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     0.8039,
+     39
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.3823,
+     39
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.2104,
+     39
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.0694,
+     13
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.0657,
+     1
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.0509,
+     13
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.0464,
+     36
+    ],
+    [
+     "dft/xc_deriv.py:489(_unfold_gga)",
+     0.0201,
+     39
+    ],
+    [
+     "<built-in method numpy.asarray>",
+     0.019,
+     962
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0167,
+     1
+    ],
+    [
+     "dft/numint.py:2085(nr_uks)",
+     0.0127,
+     13
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0125,
+     204
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 462.51171875,
+   "freq": {
+    "zen5_ghz": 3.8871865714285714,
+    "zen5c_ghz": 3.300036714285714,
+    "zen5_ghz_min": 3.258392,
+    "zen5_ghz_max": 4.618176
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "S",
+   "rep": 0
+  },
+  {
+   "case": "scf_benzene+_svp_r2scan_uks",
+   "tight": false,
+   "wall": 1.8897584180231206,
+   "values": {
+    "e_tot": -231.59689739624545,
+    "cycles": 11,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.19588861699999977,
+    "linalg": 0.04393082800000001,
+    "blas": 0.004877877,
+    "ints1e": 0.0022247310000000006,
+    "jk": 0.119931483,
+    "grids": 0.01233908,
+    "xc_post": 0.021306852,
+    "libxc": 0.38934901600000005,
+    "xc_kernels": 1.0228061830000001,
+    "ao_eval": 0.016330849,
+    "numpy": 0.058521069999999994
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     0.8115,
+     39
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.3893,
+     39
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.2114,
+     39
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.0792,
+     13
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.0691,
+     1
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.0506,
+     13
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.0431,
+     36
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.0283,
+     10
+    ],
+    [
+     "<built-in method numpy.asarray>",
+     0.0208,
+     962
+    ],
+    [
+     "dft/xc_deriv.py:489(_unfold_gga)",
+     0.0202,
+     39
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0193,
+     204
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0163,
+     1
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 462.8984375,
+   "freq": {
+    "zen5_ghz": 3.9051415714285715,
+    "zen5c_ghz": 3.2797877142857144,
+    "zen5_ghz_min": 2.761793,
+    "zen5_ghz_max": 4.626846
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "S",
+   "rep": 1
+  },
+  {
+   "case": "scf_benzene+_svp_r2scan_uks",
+   "tight": false,
+   "wall": 1.4333486700197682,
+   "values": {
+    "e_tot": -231.5968973962267,
+    "cycles": 5,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.15068681900000006,
+    "linalg": 0.053436683000000006,
+    "blas": 0.008511597000000001,
+    "ints1e": 0.005450989000000001,
+    "jk": 0.10360397400000002,
+    "grids": 0.015688716000000005,
+    "xc_post": 0.008047925,
+    "libxc": 0.263219682,
+    "xc_kernels": 0.7517740150000001,
+    "ao_eval": 0.02109381,
+    "numpy": 0.050992659
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     0.6126,
+     30
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.2632,
+     30
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.1391,
+     30
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.067,
+     1
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.0528,
+     42
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.035,
+     16
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.0274,
+     7
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0235,
+     277
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0211,
+     2
+    ],
+    [
+     "<method 'split' of 're.Pattern' objects>",
+     0.0098,
+     6
+    ],
+    [
+     "<built-in method numpy.asarray>",
+     0.0091,
+     1098
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.0091,
+     1
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 481.20703125,
+   "freq": {
+    "zen5_ghz": 4.1993878,
+    "zen5c_ghz": 3.295928,
+    "zen5_ghz_min": 3.858643,
+    "zen5_ghz_max": 4.638172
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "Q",
+   "rep": 1
+  },
+  {
+   "case": "scf_benzene+_svp_r2scan_uks",
+   "tight": false,
+   "wall": 1.429164781991858,
+   "values": {
+    "e_tot": -231.5968973962267,
+    "cycles": 5,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.1400284189999999,
+    "linalg": 0.05523467600000001,
+    "blas": 0.007452213,
+    "ints1e": 0.005636156,
+    "jk": 0.103576547,
+    "grids": 0.016195561000000004,
+    "xc_post": 0.008142621000000001,
+    "libxc": 0.256135962,
+    "xc_kernels": 0.762943138,
+    "ao_eval": 0.021337129,
+    "numpy": 0.051719097
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     0.6222,
+     30
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.2561,
+     30
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.1407,
+     30
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.0664,
+     1
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.0545,
+     42
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.0281,
+     7
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.0276,
+     16
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0225,
+     277
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0213,
+     2
+    ],
+    [
+     "<built-in method numpy.asarray>",
+     0.01,
+     1098
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.0094,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.009,
+     1
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 480.83984375,
+   "freq": {
+    "zen5_ghz": 4.0152186,
+    "zen5c_ghz": 3.3116076,
+    "zen5_ghz_min": 3.793412,
+    "zen5_ghz_max": 4.283842
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "P",
+   "rep": 1
+  },
+  {
+   "case": "scf_benzene+_svp_r2scan_uks",
+   "tight": false,
+   "wall": 1.815370020980481,
+   "values": {
+    "e_tot": -231.59689739624744,
+    "cycles": 11,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.15137079600000006,
+    "linalg": 0.045409347999999995,
+    "blas": 0.004726623,
+    "ints1e": 0.004584776,
+    "jk": 0.11700353500000002,
+    "grids": 0.012900123999999997,
+    "xc_post": 0.020897487000000003,
+    "libxc": 0.373286538,
+    "xc_kernels": 1.013792751,
+    "ao_eval": 0.01667221,
+    "numpy": 0.05321457
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     0.7978,
+     39
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.3733,
+     39
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.216,
+     39
+    ],
+    [
+     "gto/moleintor.py:601(getints4c)",
+     0.0654,
+     1
+    ],
+    [
+     "dft/numint.py:1401(nr_uks)",
+     0.0604,
+     13
+    ],
+    [
+     "scf/_vhf.py:513(_incore_s8_batch)",
+     0.0515,
+     13
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.0447,
+     36
+    ],
+    [
+     "dft/xc_deriv.py:489(_unfold_gga)",
+     0.0199,
+     39
+    ],
+    [
+     "<built-in method numpy.asarray>",
+     0.0184,
+     962
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0183,
+     204
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0167,
+     1
+    ],
+    [
+     "dft/numint.py:2085(nr_uks)",
+     0.0156,
+     13
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 464.22265625,
+   "freq": {
+    "zen5_ghz": 3.8678392857142856,
+    "zen5c_ghz": 3.308798714285714,
+    "zen5_ghz_min": 3.435646,
+    "zen5_ghz_max": 4.281415
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "B",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_tzvp_dfpbe",
+   "tight": false,
+   "wall": 8.542870501987636,
+   "values": {
+    "e_tot": -679.7854394900174,
+    "cycles": 16,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.6932983190000008,
+    "linalg": 0.530216192,
+    "blas": 0.06872470500000001,
+    "ints1e": 0.022889349000000003,
+    "jk": 0.23358758300000002,
+    "grids": 0.051808059,
+    "xc_post": 0.012218032000000002,
+    "libxc": 0.173619341,
+    "xc_kernels": 6.087160714,
+    "ao_eval": 0.048843302000000005,
+    "numpy": 0.6125950909999999
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     4.5721,
+     90
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.515,
+     90
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.5607,
+     333
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.5291,
+     34
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.3362,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.2336,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1736,
+     90
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.099,
+     18
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0687,
+     61
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0488,
+     1
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.032,
+     24
+    ],
+    [
+     "<method 'split' of 're.Pattern' objects>",
+     0.0238,
+     12
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 2260.19921875,
+   "freq": {
+    "zen5_ghz": 3.591855794117647,
+    "zen5c_ghz": 3.309693323529412,
+    "zen5_ghz_min": 2.693041,
+    "zen5_ghz_max": 4.789675
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "B",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_tzvp_dfpbe",
+   "tight": false,
+   "wall": 6.508225264959037,
+   "values": {
+    "e_tot": -679.7854394907455,
+    "cycles": 5,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.6705960879999996,
+    "linalg": 0.6077009879999998,
+    "blas": 0.072348928,
+    "ints1e": 0.029476285000000005,
+    "jk": 0.230561485,
+    "grids": 0.070214937,
+    "xc_post": 0.009264185000000001,
+    "libxc": 0.124844593,
+    "xc_kernels": 3.952773784,
+    "ao_eval": 0.06631310900000001,
+    "numpy": 0.6669595509999999
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     2.99,
+     61
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.9627,
+     61
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.6065,
+     36
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.6061,
+     362
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.3354,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.2306,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1248,
+     61
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0723,
+     61
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0663,
+     2
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0542,
+     20
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0412,
+     48
+    ],
+    [
+     "gto/mole.py:2097(get_overlap_cond)",
+     0.0246,
+     60
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 1901.7578125,
+   "freq": {
+    "zen5_ghz": 3.83478956,
+    "zen5c_ghz": 3.3140124400000004,
+    "zen5_ghz_min": 2.752587,
+    "zen5_ghz_max": 4.709718
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "P",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_tzvp_dfpbe",
+   "tight": false,
+   "wall": 6.736668200988788,
+   "values": {
+    "e_tot": -679.7854394897687,
+    "cycles": 7,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.6365895270000003,
+    "linalg": 0.5846014610000001,
+    "blas": 0.068162628,
+    "ints1e": 0.032574509,
+    "jk": 0.22972731600000001,
+    "grids": 0.05443968600000001,
+    "xc_post": 0.009532028,
+    "libxc": 0.136098095,
+    "xc_kernels": 4.2537121010000005,
+    "ao_eval": 0.073032172,
+    "numpy": 0.6516812760000001
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     3.2155,
+     65
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.0383,
+     65
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.5916,
+     343
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.5835,
+     34
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.331,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.2297,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1361,
+     65
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.073,
+     2
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0682,
+     57
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0582,
+     19
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0283,
+     48
+    ],
+    [
+     "gto/moleintor.py:473(getints2c)",
+     0.0191,
+     10
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 1899.625,
+   "freq": {
+    "zen5_ghz": 3.8910631153846156,
+    "zen5c_ghz": 3.310076384615385,
+    "zen5_ghz_min": 2.60058,
+    "zen5_ghz_max": 4.754992
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "Q",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_tzvp_dfpbe",
+   "tight": false,
+   "wall": 8.16372885502642,
+   "values": {
+    "e_tot": -679.785439490926,
+    "cycles": 15,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.6691762,
+    "linalg": 0.53203626,
+    "blas": 0.064214637,
+    "ints1e": 0.024755254,
+    "jk": 0.231199111,
+    "grids": 0.04586582999999999,
+    "xc_post": 0.012175426,
+    "libxc": 0.166602623,
+    "xc_kernels": 5.788372385,
+    "ao_eval": 0.049170124,
+    "numpy": 0.5725406580000002
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     4.3378,
+     85
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.4506,
+     85
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.531,
+     32
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.5204,
+     314
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.3246,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.2312,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1666,
+     85
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0947,
+     17
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0642,
+     57
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0492,
+     1
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0272,
+     24
+    ],
+    [
+     "_core/numeric.py:2471(array_equal)",
+     0.0197,
+     64
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 2260.5703125,
+   "freq": {
+    "zen5_ghz": 3.6489030625,
+    "zen5c_ghz": 3.308016,
+    "zen5_ghz_min": 2.775497,
+    "zen5_ghz_max": 4.830189
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "S",
+   "rep": 0
+  },
+  {
+   "case": "scf_caffeine_tzvp_dfpbe",
+   "tight": false,
+   "wall": 8.193096550996415,
+   "values": {
+    "e_tot": -679.785439490926,
+    "cycles": 15,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.678126194,
+    "linalg": 0.5185529550000001,
+    "blas": 0.059502888000000004,
+    "ints1e": 0.024396977,
+    "jk": 0.248894627,
+    "grids": 0.042964138,
+    "xc_post": 0.011756722,
+    "libxc": 0.167043767,
+    "xc_kernels": 5.801063201,
+    "ao_eval": 0.047684509,
+    "numpy": 0.5844352619999997
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     4.3489,
+     85
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.4522,
+     85
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.5323,
+     314
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.5174,
+     32
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.3297,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.2489,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.167,
+     85
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0871,
+     17
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0595,
+     57
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0477,
+     1
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.0243,
+     14
+    ],
+    [
+     "<method 'split' of 're.Pattern' objects>",
+     0.0232,
+     12
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 2260.75390625,
+   "freq": {
+    "zen5_ghz": 3.54130109375,
+    "zen5c_ghz": 3.3070596875,
+    "zen5_ghz_min": 2.734381,
+    "zen5_ghz_max": 4.738836
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "S",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_tzvp_dfpbe",
+   "tight": false,
+   "wall": 6.726995197997894,
+   "values": {
+    "e_tot": -679.7854394897687,
+    "cycles": 7,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.6676378289999998,
+    "linalg": 0.5426598540000002,
+    "blas": 0.06264143700000001,
+    "ints1e": 0.030103312,
+    "jk": 0.234680094,
+    "grids": 0.052822597,
+    "xc_post": 0.009741319000000002,
+    "libxc": 0.14048622700000002,
+    "xc_kernels": 4.276092263000001,
+    "ao_eval": 0.066464615,
+    "numpy": 0.6371926779999998
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     3.21,
+     65
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.0661,
+     65
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.581,
+     343
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.5417,
+     34
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.3294,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.2347,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1405,
+     65
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0665,
+     2
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.064,
+     19
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0626,
+     57
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0304,
+     48
+    ],
+    [
+     "dft/numint.py:1963(nr_rks)",
+     0.0222,
+     19
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 1901.54296875,
+   "freq": {
+    "zen5_ghz": 3.7398156538461538,
+    "zen5c_ghz": 3.3097901923076924,
+    "zen5_ghz_min": 2.759954,
+    "zen5_ghz_max": 4.72957
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "Q",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_tzvp_dfpbe",
+   "tight": false,
+   "wall": 6.542428654036485,
+   "values": {
+    "e_tot": -679.7854394907455,
+    "cycles": 5,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.6791362429999994,
+    "linalg": 0.609697861,
+    "blas": 0.076238158,
+    "ints1e": 0.03142208,
+    "jk": 0.23460940700000002,
+    "grids": 0.06878642600000001,
+    "xc_post": 0.009590769,
+    "libxc": 0.12878967900000002,
+    "xc_kernels": 3.96574191,
+    "ao_eval": 0.0678807,
+    "numpy": 0.6651170229999999
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     3.0004,
+     61
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     0.9653,
+     61
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.6086,
+     36
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.604,
+     362
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.3352,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.2346,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1288,
+     61
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0762,
+     61
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0679,
+     2
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0568,
+     20
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.0417,
+     48
+    ],
+    [
+     "dft/numint.py:1963(nr_rks)",
+     0.0249,
+     20
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 1901.21484375,
+   "freq": {
+    "zen5_ghz": 3.809793653846154,
+    "zen5c_ghz": 3.311067346153846,
+    "zen5_ghz_min": 2.598806,
+    "zen5_ghz_max": 4.763596
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "P",
+   "rep": 1
+  },
+  {
+   "case": "scf_caffeine_tzvp_dfpbe",
+   "tight": false,
+   "wall": 8.672777790983673,
+   "values": {
+    "e_tot": -679.7854394900174,
+    "cycles": 16,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.7309091200000019,
+    "linalg": 0.5334011150000001,
+    "blas": 0.069351667,
+    "ints1e": 0.025179316000000004,
+    "jk": 0.230445016,
+    "grids": 0.04274554800000001,
+    "xc_post": 0.012730263,
+    "libxc": 0.184138309,
+    "xc_kernels": 6.151186041000001,
+    "ao_eval": 0.048970035,
+    "numpy": 0.636112724
+   },
+   "top": [
+    [
+     "dft/numint.py:1178(dot)",
+     4.608,
+     90
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.5432,
+     90
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.5786,
+     333
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.5322,
+     34
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     0.3524,
+     1
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.2304,
+     1
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1841,
+     90
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.1135,
+     18
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0694,
+     61
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.049,
+     1
+    ],
+    [
+     "lib/diis.py:202(update)",
+     0.0253,
+     15
+    ],
+    [
+     "<method 'split' of 're.Pattern' objects>",
+     0.0241,
+     12
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 2260.46484375,
+   "freq": {
+    "zen5_ghz": 3.5118575588235292,
+    "zen5c_ghz": 3.3108224411764704,
+    "zen5_ghz_min": 2.563459,
+    "zen5_ghz_max": 4.717811
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "B",
+   "rep": 1
+  },
+  {
+   "case": "scf_c20h42_svp_b3lyp",
+   "tight": false,
+   "wall": 13.903861735016108,
+   "values": {
+    "e_tot": -786.8956345860786,
+    "cycles": 9,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.27364223500000046,
+    "linalg": 0.31201272500000005,
+    "blas": 0.036306338,
+    "ints1e": 0.017109939000000008,
+    "jk": 9.247348838,
+    "grids": 0.35150650600000005,
+    "xc_post": 0.016929835,
+    "libxc": 0.20747611700000002,
+    "xc_kernels": 3.1443810560000003,
+    "ao_eval": 0.099816557,
+    "numpy": 0.17437277600000006
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     9.168,
+     11
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     1.8025,
+     121
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.3419,
+     121
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.3113,
+     20
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.3088,
+     62
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.2075,
+     121
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0998,
+     1
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0828,
+     112
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0786,
+     11
+    ],
+    [
+     "scf/_vhf.py:299(__init__)",
+     0.0746,
+     1
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0363,
+     33
+    ],
+    [
+     "_core/numeric.py:2471(array_equal)",
+     0.027,
+     73
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 10874.0078125,
+   "freq": {
+    "zen5_ghz": 3.532820545454545,
+    "zen5c_ghz": 3.050548290909091,
+    "zen5_ghz_min": 2.633231,
+    "zen5_ghz_max": 4.722803
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "B",
+   "rep": 0
+  },
+  {
+   "case": "scf_c20h42_svp_b3lyp",
+   "tight": false,
+   "wall": 17.9454105499899,
+   "values": {
+    "e_tot": -786.8956345859167,
+    "cycles": 4,
+    "converged": true
+   },
+   "categories": {
+    "other": 4.378803571000008,
+    "linalg": 0.39685107299999994,
+    "blas": 2.218781022,
+    "ints1e": 0.06900284400000001,
+    "jk": 6.597947113000001,
+    "grids": 0.513943942,
+    "xc_post": 0.014878426,
+    "libxc": 0.160167014,
+    "xc_kernels": 2.493879588,
+    "ao_eval": 0.129957798,
+    "numpy": 0.9490809970000003
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     5.9727,
+     6
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     2.2685,
+     8
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     2.2188,
+     117
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     1.7594,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     1.4672,
+     98
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.0267,
+     98
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.8429,
+     296
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.5486,
+     1
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.4577,
+     124
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.396,
+     24
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1602,
+     98
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.13,
+     2
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 10938.375,
+   "freq": {
+    "zen5_ghz": 3.671975323943662,
+    "zen5c_ghz": 3.1300471971830985,
+    "zen5_ghz_min": 2.683913,
+    "zen5_ghz_max": 4.758445
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "P",
+   "rep": 0
+  },
+  {
+   "case": "scf_c20h42_svp_b3lyp",
+   "tight": false,
+   "wall": 17.40309342200635,
+   "values": {
+    "e_tot": -786.895634586065,
+    "cycles": 5,
+    "converged": true
+   },
+   "categories": {
+    "other": 3.842016245000007,
+    "linalg": 0.35634766700000003,
+    "blas": 1.721888839,
+    "ints1e": 0.070728242,
+    "jk": 7.181612384,
+    "grids": 0.5102465860000001,
+    "xc_post": 0.015518787000000003,
+    "libxc": 0.169883631,
+    "xc_kernels": 2.588184716,
+    "ao_eval": 0.128714508,
+    "numpy": 0.795363315
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     6.5588,
+     7
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     1.7604,
+     1
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     1.7392,
+     6
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     1.7219,
+     93
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     1.5108,
+     101
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.0774,
+     101
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.6865,
+     245
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.5458,
+     1
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.4475,
+     124
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.3556,
+     22
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1699,
+     101
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.1287,
+     2
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 10944.30859375,
+   "freq": {
+    "zen5_ghz": 3.6031441304347824,
+    "zen5c_ghz": 3.1282499130434784,
+    "zen5_ghz_min": 2.799803,
+    "zen5_ghz_max": 4.765993
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "Q",
+   "rep": 0
+  },
+  {
+   "case": "scf_c20h42_svp_b3lyp",
+   "tight": false,
+   "wall": 13.900743032980245,
+   "values": {
+    "e_tot": -786.8956345860809,
+    "cycles": 9,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.29473969700000036,
+    "linalg": 0.312019851,
+    "blas": 0.039184921000000004,
+    "ints1e": 0.017141435,
+    "jk": 9.222804330999997,
+    "grids": 0.33595443500000005,
+    "xc_post": 0.017652878,
+    "libxc": 0.20159152700000002,
+    "xc_kernels": 3.1546184310000003,
+    "ao_eval": 0.09883750000000001,
+    "numpy": 0.18707503799999997
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     9.1421,
+     11
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     1.8058,
+     121
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.3488,
+     121
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.3112,
+     20
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.2937,
+     62
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.2016,
+     121
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0988,
+     1
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.096,
+     112
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.08,
+     11
+    ],
+    [
+     "scf/_vhf.py:299(__init__)",
+     0.0754,
+     1
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0392,
+     33
+    ],
+    [
+     "_core/numeric.py:2471(array_equal)",
+     0.0262,
+     73
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 10874.19140625,
+   "freq": {
+    "zen5_ghz": 3.6237842545454546,
+    "zen5c_ghz": 3.0516935636363636,
+    "zen5_ghz_min": 2.721945,
+    "zen5_ghz_max": 4.737626
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "S",
+   "rep": 0
+  },
+  {
+   "case": "scf_c20h42_svp_b3lyp",
+   "tight": false,
+   "wall": 13.881649527989794,
+   "values": {
+    "e_tot": -786.8956345860795,
+    "cycles": 9,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.27277914000000014,
+    "linalg": 0.2990421040000001,
+    "blas": 0.043543911000000005,
+    "ints1e": 0.017180640000000004,
+    "jk": 9.232032415,
+    "grids": 0.3515146479999999,
+    "xc_post": 0.017769283,
+    "libxc": 0.21061395300000002,
+    "xc_kernels": 3.1495172570000003,
+    "ao_eval": 0.09861333100000001,
+    "numpy": 0.168309843
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     9.1527,
+     11
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     1.8043,
+     121
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.3453,
+     121
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.3041,
+     62
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.2978,
+     20
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.2106,
+     121
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.0986,
+     1
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0794,
+     11
+    ],
+    [
+     "scf/_vhf.py:299(__init__)",
+     0.0741,
+     1
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0724,
+     112
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0435,
+     33
+    ],
+    [
+     "_core/numeric.py:2471(array_equal)",
+     0.0282,
+     73
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 10874.2109375,
+   "freq": {
+    "zen5_ghz": 3.5741174363636365,
+    "zen5c_ghz": 3.0353617818181817,
+    "zen5_ghz_min": 2.635205,
+    "zen5_ghz_max": 4.695974
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "S",
+   "rep": 1
+  },
+  {
+   "case": "scf_c20h42_svp_b3lyp",
+   "tight": false,
+   "wall": 17.32735065201996,
+   "values": {
+    "e_tot": -786.8956345860659,
+    "cycles": 5,
+    "converged": true
+   },
+   "categories": {
+    "other": 3.9158031220000002,
+    "linalg": 0.3524070140000001,
+    "blas": 1.697843344,
+    "ints1e": 0.06815550499999999,
+    "jk": 7.1611736850000005,
+    "grids": 0.5055338570000001,
+    "xc_post": 0.015028302,
+    "libxc": 0.161521396,
+    "xc_kernels": 2.5723499050000003,
+    "ao_eval": 0.134517673,
+    "numpy": 0.7233408439999998
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     6.5374,
+     7
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     1.8291,
+     1
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     1.7687,
+     6
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     1.6978,
+     93
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     1.5013,
+     101
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.071,
+     101
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.6188,
+     245
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.5474,
+     1
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.4491,
+     124
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.3517,
+     22
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1615,
+     101
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.1345,
+     2
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 10942.9609375,
+   "freq": {
+    "zen5_ghz": 3.7326097826086957,
+    "zen5c_ghz": 3.1061329420289856,
+    "zen5_ghz_min": 2.810348,
+    "zen5_ghz_max": 4.757056
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "Q",
+   "rep": 1
+  },
+  {
+   "case": "scf_c20h42_svp_b3lyp",
+   "tight": false,
+   "wall": 18.020004635036457,
+   "values": {
+    "e_tot": -786.8956345859126,
+    "cycles": 4,
+    "converged": true
+   },
+   "categories": {
+    "other": 4.440881166000002,
+    "linalg": 0.402943979,
+    "blas": 2.22702095,
+    "ints1e": 0.069579716,
+    "jk": 6.586535616000001,
+    "grids": 0.5048606010000002,
+    "xc_post": 0.015114886000000001,
+    "libxc": 0.161552053,
+    "xc_kernels": 2.494981194,
+    "ao_eval": 0.130031734,
+    "numpy": 0.9665367129999999
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     5.9608,
+     6
+    ],
+    [
+     "df/df_jk.py:303(get_jk)",
+     2.2713,
+     8
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     2.227,
+     117
+    ],
+    [
+     "df/incore.py:129(cholesky_eri)",
+     1.7967,
+     1
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     1.4676,
+     98
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.0274,
+     98
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.8553,
+     296
+    ],
+    [
+     "gto/moleintor.py:528(getints3c)",
+     0.5497,
+     1
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.4478,
+     124
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.4021,
+     24
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.1616,
+     98
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.13,
+     2
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 10941.984375,
+   "freq": {
+    "zen5_ghz": 3.710613042253521,
+    "zen5c_ghz": 3.14244323943662,
+    "zen5_ghz_min": 2.818938,
+    "zen5_ghz_max": 4.760749
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "P",
+   "rep": 1
+  },
+  {
+   "case": "scf_c20h42_svp_b3lyp",
+   "tight": false,
+   "wall": 13.909532896010205,
+   "values": {
+    "e_tot": -786.8956345860813,
+    "cycles": 9,
+    "converged": true
+   },
+   "categories": {
+    "other": 0.28854971299999976,
+    "linalg": 0.30738631199999994,
+    "blas": 0.040260046,
+    "ints1e": 0.017582557,
+    "jk": 9.236168712000003,
+    "grids": 0.33646600599999993,
+    "xc_post": 0.01725644,
+    "libxc": 0.205860605,
+    "xc_kernels": 3.1635146130000003,
+    "ao_eval": 0.098032114,
+    "numpy": 0.17820621199999997
+   },
+   "top": [
+    [
+     "scf/_vhf.py:587(_direct_s8_batch)",
+     9.158,
+     11
+    ],
+    [
+     "dft/numint.py:1178(dot)",
+     1.8158,
+     121
+    ],
+    [
+     "dft/numint.py:1105(_rho_kernel)",
+     1.3478,
+     121
+    ],
+    [
+     "linalg/_decomp.py:311(eigh)",
+     0.3067,
+     20
+    ],
+    [
+     "dft/gen_grid.py:376(gen_grid_partition)",
+     0.2888,
+     62
+    ],
+    [
+     "dft/libxc.py:1077(_eval_xc)",
+     0.2059,
+     121
+    ],
+    [
+     "dft/numint.py:988(build_radial)",
+     0.098,
+     1
+    ],
+    [
+     "dft/numint.py:1379(nr_rks)",
+     0.0855,
+     11
+    ],
+    [
+     "<method 'dot' of 'numpy.ndarray' objects>",
+     0.0813,
+     112
+    ],
+    [
+     "scf/_vhf.py:299(__init__)",
+     0.0728,
+     1
+    ],
+    [
+     "lib/numpy_helper.py:980(_dgemm)",
+     0.0403,
+     33
+    ],
+    [
+     "_core/numeric.py:2471(array_equal)",
+     0.0278,
+     73
+    ]
+   ],
+   "pyscf_file": "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py",
+   "pyscf_version": "2.14.0",
+   "omp_threads": 10,
+   "libs": [
+    "/home/danny/Chemistry/my-pyscf/install/libxc-stock/lib/libxc.so.15",
+    "/home/danny/Chemistry/my-pyscf/install/openblas/lib/libopenblasp-r0.3.34.so",
+    "/home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libdft.so",
+    "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/lib/libxc_itrf.so",
+    "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0"
+   ],
+   "blas_core": "Cooperlake",
+   "max_rss_mb": 10873.68359375,
+   "freq": {
+    "zen5_ghz": 3.5902239090909087,
+    "zen5c_ghz": 3.0534422727272728,
+    "zen5_ghz_min": 2.689876,
+    "zen5_ghz_max": 4.734965
+   },
+   "battery_start": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "battery_end": {
+    "status": "Not charging",
+    "capacity": "95",
+    "power_now": "0"
+   },
+   "config": "B",
+   "rep": 1
+  }
+ ]
+}
