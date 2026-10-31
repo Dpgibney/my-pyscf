@@ -1,0 +1,4 @@
+# bench/gpu/hess_parts.py: caffeine/def2-SVP B3LYP analytical Hessian, v1.9.0 then the patched tree (derivative kernels), GTX 1650 Super
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: caffeine def2-svp b3lyp Hessian 305.69 s (SCF 15 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp Hessian 291.58 s (SCF 15 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 9.41e-12 (max |ref| 9.95e-01)

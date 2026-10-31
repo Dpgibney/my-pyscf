@@ -1,0 +1,47 @@
+# bench/gpu/deriv_at_dm.py --dm scratch/dm_caf_b3lyp.npy (caffeine/def2-SVP, converged B3LYP density), median of 3;
+# order: v1.9.0 (saves the reference), patched (compare), v1.9.0 again (noise floor), patched again. GTX 1650 Super.
+# The last run's ejk2 and jk1 times are not valid: an Nsight Compute run of the gradient overlapped them on the same GPU.
+# Its differences are valid; the first patched run is clean.
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: ejk1_jk     median   5.313 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: ejk1_b3lyp  median   5.314 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: ejk1_j      median   5.086 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: ejk1_srk    median   9.942 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: ejk2        median  53.204 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: jk1         median  14.630 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: ejk1_jk     median   4.578 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: ejk1_b3lyp  median   4.578 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: ejk1_j      median   4.408 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: ejk1_srk    median   8.414 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: ejk2        median  51.343 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: jk1         median  11.250 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  ejk1_jk     max |d - ref| = 5.33e-14 (max |ref| 3.01e+01)
+  ejk1_b3lyp  max |d - ref| = 6.39e-14 (max |ref| 3.08e+01)
+  ejk1_j      max |d - ref| = 6.39e-14 (max |ref| 3.10e+01)
+  ejk1_srk    max |d - ref| = 5.00e-16 (max |ref| 3.46e-01)
+  ejk2        max |d - ref| = 3.06e-13 (max |ref| 5.30e+01)
+  jk1         max |d - ref| = 1.14e-13 (max |ref| 1.15e+01)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: ejk1_jk     median   5.318 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: ejk1_b3lyp  median   5.319 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: ejk1_j      median   5.090 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: ejk1_srk    median   9.951 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: ejk2        median  53.233 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: jk1         median  14.537 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  ejk1_jk     max |d - ref| = 3.02e-14 (max |ref| 3.01e+01)
+  ejk1_b3lyp  max |d - ref| = 8.17e-14 (max |ref| 3.08e+01)
+  ejk1_j      max |d - ref| = 4.62e-14 (max |ref| 3.10e+01)
+  ejk1_srk    max |d - ref| = 5.55e-16 (max |ref| 3.46e-01)
+  ejk2        max |d - ref| = 1.28e-13 (max |ref| 5.30e+01)
+  jk1         max |d - ref| = 6.39e-14 (max |ref| 1.15e+01)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: ejk1_jk     median   4.579 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: ejk1_b3lyp  median   4.579 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: ejk1_j      median   4.409 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: ejk1_srk    median   8.419 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: ejk2        median  76.917 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: jk1         median  12.679 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  ejk1_jk     max |d - ref| = 4.44e-14 (max |ref| 3.01e+01)
+  ejk1_b3lyp  max |d - ref| = 4.80e-14 (max |ref| 3.08e+01)
+  ejk1_j      max |d - ref| = 6.22e-14 (max |ref| 3.10e+01)
+  ejk1_srk    max |d - ref| = 6.11e-16 (max |ref| 3.46e-01)
+  ejk2        max |d - ref| = 2.98e-13 (max |ref| 5.30e+01)
+  jk1         max |d - ref| = 1.14e-13 (max |ref| 1.15e+01)
+[exited with code 0]

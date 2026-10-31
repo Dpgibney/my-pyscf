@@ -1,0 +1,44 @@
+caffeine def2-svp: nbas 114, nao 260, log cutoff -29.93, dm_penalty 0.76
+class      kernel   nsq x gs bra pairs tasks/bra    pad idle warps prim quartets
+(ps|ss)    stride1   256x1       12204     241.7  40.5%      37.4%      33717045
+(ps|ps)    stride1   256x1        9846     183.5  44.0%      39.7%      19830559
+(ss|ss)    stride1   256x1        9653     125.0  59.7%      55.4%      14352522
+(pp|ss)    stride1   256x1        3860     247.4  39.6%      36.6%      10063325
+(pp|ps)    stride1   256x1        3589     220.6  36.9%      32.9%       7832473
+(ds|ps)    stride1   256x1        4301     291.6  28.2%      24.6%       7491646
+(ds|ss)    stride1   256x1        4320     236.9  41.1%      37.9%       6338959
+(dp|ps)    stride1   256x1        2642     296.1  27.4%      24.0%       4546810
+(ps|pp)    stride1   256x1        4411      85.6  66.8%      60.9%       3904288
+(dp|ss)    stride1   256x1        2660     240.0  40.5%      37.4%       3886047
+(ds|pp)    stride1   256x1        2141     189.7  45.8%      41.6%       2223588
+(pp|pp)    stride1   256x1        1735     109.2  58.4%      53.0%       1727107
+(dp|pp)    multi      64x4        1339     189.4  17.0%      10.9%       1339310
+(ds|ds)    stride1   256x1        2095     103.9  64.2%      58.6%        708113
+(dd|ps)    multi      64x4         519     287.1   8.3%       3.7%        492145
+(dp|ds)    multi      64x4        1305     112.8  23.4%      12.4%        469828
+(dd|ss)    stride1   256x1         522     231.9  42.0%      38.8%        420790
+(ds|dp)    multi      64x4        1306      95.3  25.6%      13.5%        389614
+(dp|dp)    generic    48x4         879      97.1  20.1%       9.7%        261107
+(dd|pp)    generic    48x4         262     185.6   9.1%       2.2%        146011
+(dd|ds)    generic    32x8         257     133.6  10.7%       0.0%         62829
+(dd|dp)    generic    32x8         175     123.3  11.3%       0.0%         37928
+(ds|dd)    generic    32x8         648      26.2  43.0%       0.0%         29780
+(dp|dd)    generic    32x8         401      27.0  41.6%       0.0%         18523
+(dd|dd)    generic    16x16         86      36.5  18.5%       0.0%          3141
+stride1: pad 44.2% of slots, 40.4% idle warps
+multi: pad 18.5% of slots, 10.3% idle warps
+generic: pad 19.8% of slots, 2.9% idle warps
+primitive quartets computed now, and the share a per-quartet skip would remove:
+(dp|pp)    multi           1716160   27.5%
+(dp|ds)    multi            706688   34.3%
+(dd|ps)    multi            570944   22.0%
+(ds|dp)    multi            543872   29.0%
+(dp|dp)    generic          334320   22.5%
+(dd|pp)    generic          163728   16.5%
+(dd|ds)    generic           75360   17.2%
+(ds|dd)    generic           52960   44.1%
+(dd|dp)    generic           43520   13.1%
+(dp|dd)    generic           31936   42.3%
+(dd|dd)    generic            3856   18.5%
+multi: 28.2% of the primitive quartets avoidable
+generic: 22.4% of the primitive quartets avoidable

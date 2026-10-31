@@ -2880,6 +2880,108 @@ Asked by the user: apply part 1's fix to the one-pass J+K kernels and to the K k
 - **Master.** The generator applies to upstream master c4ce229 unchanged, with the same 19 + 19, 6 + 6 and 2
   kernels. Since v1.9.0, master has only moved the CUDA includes of these files into `vhf.cuh`.
 
+## GPU4PySCF investigation, part 3: the derivative kernels (gradients, Hessians) (node1), 2026-10-31
+The user: "continue with whatever you think will provide the largest transferable speed up". A short scoping chose
+the derivative kernels: the fix of parts 1–2 removes work on every card, and these kernels had the same waste.
+
+### Scoping
+- **Gradients.** Caffeine/def2-SVP, patched tree (`bench/gpu/grad_parts.py`). The two-electron part
+  (`jk_energy_per_atom`) is 75% of the gradient: B3LYP 5.31 of 7.05 s, PBE 5.10 of 6.83 s.
+  - Every DFT gradient sends J and K through the Rys energy-derivative kernels (`RYS_per_atom_jk_ip1`). Pure
+    functionals pass k_factor 0 and pay the same, because there is no J-engine gradient.
+  - The task filler already drops exchange-only quartets when k_factor is 0.
+- **The kernels** (`gvhf-rys`):
+
+  | file | used by | one-thread | multi-thread | generic |
+  |---|---|---|---|---|
+  | `unrolled_ejk_ip1.cu` | SCF and TDDFT gradients, NACs | 11 | 7 | 3 (`rys_contract_jk_ip1.cu`) |
+  | `unrolled_ejk_ip2_type12.cu`, `_type3.cu` | Hessian energy second derivatives | 4 + 4 | 3 + 3 | 2 (`rys_contract_jk_ip2.cu`) |
+  | `unrolled_rys_jk_ip1.cu` | J/K derivative matrices (Hessian, response) | 25 | 8 | 1 (unchanged) |
+
+  - None skips primitive pairs.
+  - Padding threads run the full primitive loops, including all Rys roots; they skip only the accumulation.
+  - The energy kernels have no barrier at the top of the bra loop.
+  - The 25 one-thread J/K-matrix kernels have one per primitive pair. Thread 0 publishes aij, aj/aij and 2ai
+    through shared memory (`aij_cache`), though every thread has just computed the same values.
+
+### Change (gpu4pyscf `exp/prim-screen` 258a730, from `bench/gpu/exp_prim_screen.py`)
+- **One-thread energy kernels:** padding threads leave the task loop at once (no barrier follows inside it).
+  Zero or below-e^−60 ket and bra primitive pairs are skipped: ckcl and cicj scale every term.
+- **One-thread J/K-matrix kernels:** each thread uses its own aij, aj/aij and 2ai. The barrier and the shared
+  copies go, and then the same skips apply (ckcl carries fac_sym, which is 0 on padding threads). The values are the
+  same expressions on the same inputs.
+- **Multi-thread and generic kernels:** the block-uniform bra skip, as in part 2.
+- The K and J+K files come out of the generator byte for byte as in part 2.
+
+### Results
+- **Fixed density** (`bench/gpu/deriv_at_dm.py`, converged caffeine/def2-SVP B3LYP density, median of 3;
+  `deriv_fixed_dm.txt`):
+
+  | build | v1.9.0 | patched | max \|Δ\| | v1.9.0 against itself |
+  |---|---|---|---|---|
+  | gradient J + K (also B3LYP's factors) | 5.31 s | 4.58 s (1.16×) | 6e−14 | 3–8e−14 |
+  | gradient J alone (pure functionals) | 5.09 s | 4.41 s (1.15×) | 6e−14 | 5e−14 |
+  | gradient short-range K (ωB97X, ω −0.3) | 9.94 s | 8.41 s (1.18×) | 6e−16 | 6e−16 |
+  | Hessian energy second derivatives (`_partial_ejk_ip2`) | 53.2 s | 51.3 s (1.04×) | 3e−13 | 1.3e−13 |
+  | Hessian J/K derivative matrices (`_get_jk_ip1`) | 14.6 s | 11.25 s (1.30×) | 1.1e−13 | 6e−14 |
+
+  - My mistake: in the last patched repeat, an Nsight Compute run of the gradient overlapped the ip2 and jk_ip1
+    builds on the GPU (76.9 and 12.7 s). Those two times are not used; the first patched run is clean.
+- **End to end** (`grad_parts.py`, `hess_parts.py`; `deriv_grad_e2e.jsonl`, `deriv_hess_e2e.txt`; the trees
+  converge their own SCF, conv_tol 1e−10):
+
+  | calculation | v1.9.0 | patched | max difference |
+  |---|---|---|---|
+  | B3LYP gradient | 7.05 s | 6.32 s (1.12×) | 5.0e−13 Eh/bohr |
+  | PBE gradient | 6.84 s | 6.15 s (1.11×) | 5.4e−13 Eh/bohr |
+  | ωB97X gradient | 16.93 s | 14.67 s (1.15×) | 4.6e−13 Eh/bohr |
+  | B3LYP Hessian | 305.7 s | 291.6 s (1.05×) | 9.4e−12 |
+
+  - At this density, one call each of the two derivative builds takes 51 + 11 s of the Hessian's 292 s. The rest,
+    not profiled yet, includes the CPHF response and the XC second derivatives.
+
+- **Where the gradient's time goes now** (Nsight Compute, `ncu/summary_grad*.txt`):
+
+  | kernels | v1.9.0 | patched |
+  |---|---|---|
+  | one-thread | 2.55 s, 175 GFLOP | 1.80 s (−29%), 103 GFLOP |
+  | multi-thread | 1.93 s | 1.92 s |
+  | generic | 0.87 s | 0.88 s |
+
+  - The one-thread kernels lose 29% here, against about 60% for K's one-thread kernels, because K's barrier came off
+    too.
+  - Multi-thread and generic kernels are 61% of the patched gradient, against 19% of SVP K. The gradient's extra
+    angular momentum puts (pp|pp), (dp|ps), (ds|pp) and (dp|pp) in multi-thread kernels.
+  - Those classes keep the FP64 pipe 91% busy, and FP64 is 63–70% of their instructions, so their time is real
+    arithmetic.
+  - What remains avoidable there is per-quartet: ket primitive pairs below the cutoff, and padding lanes. Their
+    block-wide barriers prevent skipping either.
+- **Unit tests** (`upstream_tests_deriv.txt`), all passing:
+  - `grad/tests/test_rhf_grad.py`, `test_rks_grad.py`, `test_uhf_grad.py`, `test_uks_grad.py`: 40.
+  - `hessian/tests/test_large_exponent.py`, `test_rhf_hessian.py`, `test_rks_hessian.py`: 27, 1 skipped.
+  - `grad/tests/test_tdrks_grad.py`: 7.
+
+### What is left in the multi-thread and generic kernels (`task_census.py --skip`; `task_census_caffeine_svp_skip.txt`)
+- Their threads share a quartet across warps, so they run every padding slot and every ket primitive pair. Only
+  bra pairs below e^−60 are skipped, block-wide.
+- Counted on the K tasks of caffeine/def2-SVP, per-quartet skips would remove 28% of the multi-thread kernels'
+  primitive quartets ((dp|pp) 28%, (dp|ds) 34%) and 22% of the generic kernel's.
+- **A way to get there:** put a quartet's threads in one warp (`t = gout_stride·sq_id + gout_id`) and replace the
+  block barriers inside the task loop with `__syncwarp` on the quartet's lanes. Quartets then skip independently,
+  padding quartets leave at once, and no block-wide barrier remains in the integral loops.
+  - Shared memory is already one column per quartet.
+  - `rys_roots_for_k` needs a variant whose barriers sync the quartet's lanes.
+  - For gout_stride ≤ 32, which covers every multi-thread kernel and the generic classes up to about (ff|pd).
+
+### Next
+- **The multi-thread and generic kernels, warp-local** (above): they are 61% of the gradient's two-electron time,
+  63% of K with def2-TZVP and most of the Hessian's energy second derivatives. The 22–28% of their work removed
+  carries over to every card, and the block barriers removed matter more on cards with more warps per SM.
+- **The launch shape** of the one-thread kernels (part 2): 45% of their warp time is idle tail.
+- **The rest of the Hessian** (CPHF response, XC second derivatives): 230 of its 292 s is outside these kernels.
+- **A J-engine for gradients**: pure-functional gradients compute J with the Rys kernels; GPU4PySCF has no MD
+  gradient.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

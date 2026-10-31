@@ -8,7 +8,10 @@ x 4 threads; generic rys_k_kernel: threads_scheme_for_k):
   pad        idle share of those slots
   idle warps share of warps with no real quartet (they still run the full loops in kernels with barriers)
 With --model 256,128,64,32 it also gives the stride-1 kernels' idle warp time for those block sizes.
-Usage: task_census.py --dm DM.npy [--basis def2-svp] [--mol caffeine] [--nsq1 256] [--model 256,128,64]"""
+With --skip it counts the primitive quartets the patched kernels compute, against those a per-quartet skip would
+leave: the multi-thread and generic kernels skip only bra pairs below e^-60, block-wide, and run every padding slot
+and every ket primitive pair.
+Usage: task_census.py --dm DM.npy [--basis def2-svp] [--mol caffeine] [--nsq1 256] [--model 256,128,64] [--skip]"""
 import argparse
 import math
 import os
@@ -28,6 +31,8 @@ ap.add_argument('--basis', default='def2-svp')
 ap.add_argument('--mol', default='caffeine')
 ap.add_argument('--nsq1', type=int, default=256, help='block size of the stride-1 kernels (512 if <= 128 registers)')
 ap.add_argument('--model', default=None, help='comma-separated block sizes: padding of the stride-1 kernels at each')
+ap.add_argument('--skip', action='store_true', help='primitive-quartet work of the multi-thread and generic '
+                'kernels that per-quartet skips (no padding, ket pairs below e^-60) would remove')
 args = ap.parse_args()
 
 mol = gto.M(atom={'caffeine': CAFFEINE, 'benzene': BENZENE}[args.mol], basis=args.basis, verbose=0)
@@ -59,6 +64,23 @@ def generic_nsq(li, lj, lk, ll, ijprim):
     gout_stride = min(nt[0] * nt[1] * nt[2] * nt[3], 256)
     nsq = min(counts, 256 // gout_stride)
     return (nsq & ~7 if nsq > 8 else nsq), gout_stride
+
+
+shell_r = smol.atom_coords()[smol._bas[:, 0]]
+grp_exp = [numpy.array([smol.bas_exp(b) for b in range(loc[g], loc[g + 1])]) for g in range(ngroups)]
+grp_cof = [numpy.array([abs(smol._libcint_ctr_coeff(b)[:, 0]) for b in range(loc[g], loc[g + 1])])
+           for g in range(ngroups)]
+
+
+def kept_prim_pairs(pairs, gi, gj):
+    '''primitive pairs per shell pair with |c_i c_j exp(-theta R^2)| >= e^-60, the kernels' PRIM_CUTOFF'''
+    ish, jsh = pairs // nbas, pairs % nbas
+    ai, aj = grp_exp[gi][ish - loc[gi]], grp_exp[gj][jsh - loc[gj]]
+    ci, cj = grp_cof[gi][ish - loc[gi]], grp_cof[gj][jsh - loc[gj]]
+    rr = ((shell_r[ish] - shell_r[jsh])**2).sum(axis=1)
+    theta = ai[:, :, None] * aj[:, None, :] / (ai[:, :, None] + aj[:, None, :])
+    x = theta * rr[:, None, None] - numpy.log(ci[:, :, None] * cj[:, None, :])
+    return (x <= 60).sum(axis=(1, 2))
 
 
 rows = {}
@@ -108,6 +130,19 @@ for i in range(ngroups):
                 r['idle'] += int(idle_last.sum())
                 r['quartets'] += int(ntasks.sum()) * ijprim * smol.bas_nprim(loc[k]) * smol.bas_nprim(loc[l])
                 r.setdefault('ntasks', []).append(ntasks)
+                if args.skip:
+                    nb = kept_prim_pairs(pij, i, j)
+                    nk = kept_prim_pairs(pkl, k, l)
+                    nt_all = keep.sum(axis=1)
+                    klprim = smol.bas_nprim(loc[k]) * smol.bas_nprim(loc[l])
+                    ideal = float((nb * (keep * nk[None, :]).sum(axis=1)).sum())
+                    if kind == 'stride1':
+                        now = ideal
+                    else:
+                        slots_ij = -(-nt_all // nsq) * nsq
+                        now = float((slots_ij * nb).sum()) * klprim
+                    r['work_now'] = r.get('work_now', 0.) + now
+                    r['work_ideal'] = r.get('work_ideal', 0.) + ideal
 
 print(f'{args.mol} {args.basis}: nbas {nbas}, nao {smol.nao}, log cutoff {log_cutoff:.2f}, dm_penalty {dm_penalty:.2f}')
 print(f"{'class':10s} {'kernel':8s} {'nsq x gs':>8s} {'bra pairs':>9s} {'tasks/bra':>9s} {'pad':>6s} "
@@ -139,3 +174,15 @@ if args.model:
         used = sum(nt.sum() * w for nt, w in zip(nt_all, w_all))
         slots = sum((-(-nt // n) * n).sum() * w for nt, w in zip(nt_all, w_all))
         print(f"  {n:4d} quartets per block: {1 - used / slots:.1%} idle, weighted by primitive quartets per task")
+
+if args.skip:
+    print('primitive quartets computed now, and the share a per-quartet skip would remove:')
+    tot = {}
+    for key, r in sorted(rows.items(), key=lambda kv: -kv[1]['work_now']):
+        if r['kind'] == 'stride1':
+            continue
+        print(f"{key:10s} {r['kind']:8s} {r['work_now']:14.0f} {1 - r['work_ideal'] / max(r['work_now'], 1):7.1%}")
+        t = tot.setdefault(r['kind'], [0., 0.])
+        t[0] += r['work_now']; t[1] += r['work_ideal']
+    for kind, t in tot.items():
+        print(f'{kind}: {1 - t[1] / t[0]:.1%} of the primitive quartets avoidable')

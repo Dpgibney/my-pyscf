@@ -4,7 +4,9 @@ the converged density is then bracketed with cudaProfilerStart/Stop, so run it a
 For the J/K builders it records, in launch order, the angular-momentum class of each call of the integral launcher
 (RYS_build_k, RYS_build_jk, MD_build_j) and writes them to --labels, so ncu's per-launch rows can be grouped by
 class (ncu_summary.py).
-Usage: ncu_parts.py --part k|j|jk|xc [--xc b3lyp] [--basis def2-svp] [--mol caffeine] [--labels FILE]"""
+Part grad is the gradient's two-electron energy derivatives (jk_energy_per_atom with B3LYP's factors,
+RYS_per_atom_jk_ip1).
+Usage: ncu_parts.py --part k|j|jk|xc|grad [--xc b3lyp] [--basis def2-svp] [--mol caffeine] [--labels FILE]"""
 import argparse
 import ctypes
 import json
@@ -18,9 +20,10 @@ import cupy  # noqa: E402
 from pyscf import gto, lib  # noqa: E402
 from gpu4pyscf.dft import rks  # noqa: E402
 from gpu4pyscf.scf import jk, j_engine  # noqa: E402
+from gpu4pyscf.grad import rhf as rhf_grad  # noqa: E402
 
 ap = argparse.ArgumentParser()
-ap.add_argument('--part', required=True, choices=['k', 'j', 'jk', 'xc'])
+ap.add_argument('--part', required=True, choices=['k', 'j', 'jk', 'xc', 'grad'])
 ap.add_argument('--xc', default='b3lyp')
 ap.add_argument('--basis', default='def2-svp')
 ap.add_argument('--mol', default='caffeine')
@@ -33,9 +36,11 @@ mol = gto.M(atom=atom, basis=args.basis, verbose=0)
 mf = rks.RKS(mol, xc=args.xc)
 mf.kernel()
 dm = cupy.asarray(mf.make_rdm1())
+g = mf.nuc_grad_method()
 build = {'k': lambda: mf.get_k(mol, dm, 1), 'j': lambda: mf.get_j(mol, dm, 1),
          'jk': lambda: mf.get_jk(mol, dm, 1),
-         'xc': lambda: mf._numint.nr_rks(mol, mf.grids, mf.xc, dm)}[args.part]
+         'xc': lambda: mf._numint.nr_rks(mol, mf.grids, mf.xc, dm),
+         'grad': lambda: g.jk_energy_per_atom(dm, 1., .2)}[args.part]
 build()  # screening data, module loading, memory pool
 
 labels = []
@@ -65,6 +70,8 @@ elif args.part == 'jk':
     record(jk.libvhf_rys, 'RYS_build_jk', opt_k)
 elif args.part == 'j':
     record(j_engine.libvhf_md, 'MD_build_j', opt_j)
+elif args.part == 'grad':
+    record(rhf_grad.libvhf_rys, 'RYS_per_atom_jk_ip1', opt_k)
 
 cupy.cuda.Device().synchronize()
 cupy.cuda.runtime.profilerStart()

@@ -1,0 +1,11 @@
+# GPU4PySCF unit tests on node1 after the derivative-kernel patch (perf = gpu4pyscf exp/prim-screen)
+=== perf: grad rhf rks uhf uks
+........................................                                 [100%]
+40 passed in 299.31s (0:04:59)
+=== perf: hessian large_exponent rhf rks
+
+27 passed, 1 skipped, 2 warnings in 125.41s (0:02:05)
+=== perf: tdrks grad
+.......                                                                  [100%]
+7 passed in 139.54s (0:02:19)
+TESTS DONE
