@@ -1,0 +1,41 @@
+# The Hessian XC second derivatives' per-AO dot products in a fused kernel, cupy_helper.dot_rows (gpu4pyscf perf 1bb59c8, merged into exp/prim-screen ffc0018).
+# 1) vxc_deriv_check.py (then named vxc_deriv2_check.py): _get_vxc_deriv2 at identical orbitals (the perf tree's SCF, scratch/mo_*.npz), this tree then v1.9.0
+gpu4pyscf/gpu4pyscf: RKS svwn def2-svp _get_vxc_deriv2 7.03 s
+gpu4pyscf-base/gpu4pyscf: RKS svwn def2-svp _get_vxc_deriv2 18.38 s
+  max |v - ref| = 3.41e-13 (max |ref| 1.95e+02)
+gpu4pyscf/gpu4pyscf: RKS b3lyp def2-svp _get_vxc_deriv2 12.55 s
+gpu4pyscf-base/gpu4pyscf: RKS b3lyp def2-svp _get_vxc_deriv2 23.90 s
+  max |v - ref| = 1.14e-13 (max |ref| 1.81e+02)
+gpu4pyscf/gpu4pyscf: RKS r2scan def2-svp _get_vxc_deriv2 25.90 s
+gpu4pyscf-base/gpu4pyscf: RKS r2scan def2-svp _get_vxc_deriv2 37.34 s
+  max |v - ref| = 1.71e-13 (max |ref| 2.23e+02)
+gpu4pyscf/gpu4pyscf: UKS svwn def2-svp _get_vxc_deriv2 13.88 s
+gpu4pyscf-base/gpu4pyscf: UKS svwn def2-svp _get_vxc_deriv2 36.57 s
+  max |v - ref| = 1.78e-13 (max |ref| 9.77e+01)
+gpu4pyscf/gpu4pyscf: UKS b3lyp def2-svp _get_vxc_deriv2 27.11 s
+gpu4pyscf-base/gpu4pyscf: UKS b3lyp def2-svp _get_vxc_deriv2 49.84 s
+  max |v - ref| = 5.68e-14 (max |ref| 9.07e+01)
+gpu4pyscf/gpu4pyscf: UKS r2scan def2-svp _get_vxc_deriv2 54.83 s
+gpu4pyscf-base/gpu4pyscf: UKS r2scan def2-svp _get_vxc_deriv2 77.88 s
+  max |v - ref| = 7.82e-14 (max |ref| 1.12e+02)
+# 2) the gate (dot_gate.sh): Hessians against v1.9.0, the B3LYP stage breakdown, and the Hessian unit tests
+== caffeine def2-SVP B3LYP Hessian with the fused per-AO dot products (dot_rows), against v1.9.0 (scratch/hess_base.npy)
+gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp Hessian 196.92 s (SCF 15 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 1.90e-11 (max |ref| 9.95e-01)
+== stage times
+gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp Hessian: 197.36 s, SM [1530.0, 1530.0, 1530.0] MHz
+     88.75 s  45.0%  CPHF (solve_mo1), 1 calls
+     52.24 s  26.5%  CPHF XC response (nr_rks_fxc_mo), 7 calls
+     50.84 s  25.8%  2e second derivatives (_partial_ejk_ip2), 1 calls
+     35.05 s  17.8%  CPHF J/K in the MO basis (get_jk_mo), 7 calls
+     28.86 s  14.6%  XC first derivatives of V (_get_vxc_deriv1), 1 calls
+     16.07 s   8.1%  XC second derivatives (_get_exc_deriv2), 1 calls
+     10.89 s   5.5%  J/K derivative matrices (_get_jk_ip1), 1 calls
+      0.92 s   0.5%  ground-state XC kernel (cache_xc_kernel), 7 calls
+== caffeine def2-SVP r2SCAN Hessian against v1.9.0 (scratch/hess_r2scan_base.npy, part 10)
+gpu4pyscf/gpu4pyscf: caffeine def2-svp r2scan Hessian 327.48 s (SCF 16 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 8.69e-12 (max |ref| 9.97e-01)
+=== hessian rhf rks uhf uks
+37 passed in 164.25s (0:02:44)
+=== hessian large_exponent level_shift
+11 passed, 1 skipped, 2 warnings in 22.76s

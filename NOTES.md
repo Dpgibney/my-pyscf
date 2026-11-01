@@ -3652,6 +3652,51 @@ The user approved profiling the XC derivative terms (56 of the B3LYP Hessian's 2
    for larger molecules. A larger refactor (per-atom AO lists in the sorted basis).
 3. One grid pass for both derivative terms: about 4 s. A larger refactor across `partial_hess_elec` and `make_h1`.
 
+## GPU4PySCF investigation, part 12: the per-AO dot products of the Hessian's XC second derivatives in a fused kernel (node1), 2026-11-01
+The user approved options 1 and then 2 of part 11; this is option 1.
+
+### Change (gpu4pyscf `perf` 1bb59c8, merged into `exp/prim-screen` ffc0018)
+- **`cupy_helper.dot_rows(a, b, out=None, beta=0.)`** computes out[x,y,j] = beta·out[x,y,j] + Σ_g a[x,j,g] b[y,j,g],
+  i.e. `contract('xjg,yjg->xyj')`. With a 2-D b[j,g] it gives out[x,j].
+  - **Kernel:** one 256-thread block per row j. Each thread sums the na·nb products over a stride of g, then a warp
+    shuffle and shared memory reduce the 8 warps. One thread writes each output; beta = 0 overwrites.
+  - **Caching:** a RawKernel is compiled per (na, nb) and cached in `_kernel_registery`, like the other helpers there.
+  - **Requirements:** FP64, a contiguous last axis in a and b, and a contiguous j in out (all asserted).
+- **Where it replaces cuTENSOR:** `_get_vxc_deriv2`, every per-atom `contract('yjg,xjg->xyj')`, `'xjg,jg->xj'` and
+  `'jg,xjg->xj'`. That is 14 call sites in `hessian/rks.py` and 28 in `hessian/uks.py` (LDA, GGA, meta-GGA, both spins).
+- **Exactness:** the same sums in another order.
+
+### Results (caffeine def2-SVP, GTX 1650 Super; `hess_dot_rows.txt`)
+- **`_get_vxc_deriv2` at identical orbitals against v1.9.0** (`vxc_deriv_check.py`, which was `vxc_deriv2_check.py`
+  then; the orbitals are saved once and loaded by both trees):
+
+  | | SVWN | B3LYP | r2SCAN |
+  |---|---|---|---|
+  | RKS | 18.4 → 7.0 s (2.61×) | 23.9 → 12.6 s (1.90×) | 37.3 → 25.9 s (1.44×) |
+  | UKS (cation) | 36.6 → 13.9 s (2.63×) | 49.8 → 27.1 s (1.84×) | 77.9 → 54.8 s (1.42×) |
+
+  - All agree to 3.4e−13 or better, with values up to 2e2.
+- **Hessians** (with the `exp/prim-screen` kernels):
+
+  | caffeine def2-SVP Hessian | v1.9.0 | before (part 10) | now | max \|ΔH\| against v1.9.0 |
+  |---|---|---|---|---|
+  | B3LYP | 306 s | 208 s | 197 s | 1.9e−11 |
+  | r2SCAN | 450 s | 339 s | 327 s | 8.7e−12 |
+
+  - The SCF cycle counts are unchanged (15 and 16).
+  - `_get_exc_deriv2` went from 27.4 to 16.1 s.
+- **Tests:** the RHF, RKS, UHF and UKS Hessian tests pass (37), as do `test_large_exponent.py` and
+  `test_level_shift_hessian.py` (11, 1 skipped).
+- **Where the B3LYP Hessian stands (197 s; `hess_dot_rows_stages.jsonl`):**
+
+  | stage | time |
+  |---|---|
+  | CPHF (`solve_mo1`) | 89 s, of which XC response 52 s and J/K 35 s |
+  | two-electron second derivatives | 51 s |
+  | XC first derivatives of V (`_get_vxc_deriv1`) | 29 s |
+  | XC second derivatives (`_get_exc_deriv2`) | 16 s |
+  | J/K derivative matrices | 11 s |
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
