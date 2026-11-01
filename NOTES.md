@@ -3962,6 +3962,120 @@ B's first version brought to light.
      It needs a ctypes call into cuBLAS.
    - `_tau_grad_dot_` without the fancy-index copies (the meta-GGA pool excess above).
 
+## GPU4PySCF investigation, part 15 (profile only): the Hessian's two-electron second derivatives (node1), 2026-11-01
+Option 2 of part 14, approved by the user: where `_partial_ejk_ip2` spends its time, and whether part 8's generated
+kernels carry over. Nothing was changed.
+
+### What was known (`hess_ejk2_profile.txt`, taken 2026-10-31 and not written up until now)
+- **The stage:** 50.8 s at the converged caffeine def2-SVP B3LYP density, all in `RYS_per_atom_jk_ip2_type12`
+  (28.0 s; ∂²i, ∂i∂j, ∂²j on the bra, the same on the ket) and `_type3` (22.8 s; ∂i∂k, ∂i∂l, ∂j∂k, ∂j∂l).
+- **Kernels:** every class with d functions runs GPU4PySCF's generic kernels (38.0 s, 75%); the s and p classes run
+  its unrolled ones (12.7 s).
+- **The largest classes**, type12 + type3: (dp|ps) 7.5 s, (dp|pp) 6.8 s, (ds|pp) 3.8 s, (pp|pp) 3.6 s, (ds|ps)
+  3.4 s, (dp|dp) 3.2 s.
+- **Bound:** FP64. The FP64 pipe is 80–91% busy in all of them, although FP64 is only 24–39% of the generic kernels'
+  instructions (57–83% of the unrolled ones').
+
+### Method (`ncu_ejk2_class.py`, `ncu_source_regions.py`; `hess_ejk2_source.txt`)
+- **Launches:** one per class and kernel (the first of each in the stage's order), 16 classes, under Nsight
+  Compute's SourceCounters. The library is built with `-lineinfo`.
+- **Attribution:** the source page (`--print-source cuda,sass`) gives each SASS instruction's executions and
+  warp-stall samples. An instruction is listed under every line of its inlining stack; it is counted once, at its line
+  in `rys_contract_jk_ip2.cu`.
+- **Regions:** setup and task screening, density products, primitive pairs, Rys roots, the g recursions
+  (`BUILD_4C_GXYZ`), the output phase (the loop over outputs inside the loop over roots), atomics.
+- **Iterations:** the output phase's are counted by a line that runs once per output and root (the density
+  product's load).
+
+### What the generic kernels do per output and root
+- **Per direction:** type12 builds the first-derivative factors of i, j, k and l and the second-derivative factors
+  ii, ij, jj, kk, kl and ll, then adds 42 sums. type3 builds the first-derivative factors and the mixed factors ik,
+  il, jk and jl, then adds 36 sums.
+- **Measured,** nearly the same in all 11 classes:
+
+  | kernel | warp instructions per output and root | of them FP64 |
+  |---|---|---|
+  | type12 | 545–571 | 178–190 |
+  | type3 | 454–502 | 152–173 |
+
+  - The gradient's generic kernel spends about 42 FP64 per output (part 8).
+- **The other two thirds** are the outputs' Cartesian powers read from tables, address arithmetic, the conditional
+  terms of zero powers, and about 30 shared-memory loads of g values.
+
+### Where the time goes (shares of the warp-stall samples; `hess_ejk2_source.txt`, section 2)
+| class | kernel (block) | output phase | g recursions | roots, primitive pairs |
+|---|---|---|---|---|
+| (dp\|ps) | type12 (16×16) / type3 (64×4) | 82% / 93% | 14% / 5% | 4% / 2% |
+| (dp\|pp) | type12 (16×16) / type3 (32×8) | 94% / 96% | 5% / 3% | 1% / 1% |
+| (dp\|dp) | type12 (8×32) / type3 (16×16) | 95% / 96% | 4% / 3% | 1% / 1% |
+| (dd\|pp) | type12 (8×32) / type3 (16×16) | 94% / 96% | 4% / 3% | 1% / 1% |
+| (ds\|ps) | type12 (32×8) / type3 (64×4) | 74% / 80% | 20% / 14% | 6% / 6% |
+| (dp\|ss) | type12 (32×8) / type3 (64×4) | 73% / 38% | 21% / 41% | 6% / 20% |
+| (ds\|ss) | type12 (32×8) / type3 (128×2) | 41% / 16% | 43% / 55% | 16% / 28% |
+
+- **The output phase** takes 82–97% of the time in the classes that carry most of it.
+- **In the smallest generic classes the g recursions take 41–55%.** Only one thread per quartet runs
+  `BUILD_4C_GXYZ` (`if (gout_id == 0)`), and the others wait at the barrier. The blocks give a quartet 2 to 64
+  threads.
+
+### Do part 8's sums per tuple carry over? (`ip2_tuple_model.py`)
+- **Same-direction terms** (xx, yy, zz: 18 of type12's 42 sums, 12 of type3's 36) work exactly as in the gradient.
+  With S_x(t) = Σ dd · Iy · Iz over the outputs with x tuple t, each term is Σ_t F(t) S_x(t). F is the tuple's
+  second-derivative factor: ii, ij, ... for type12, ik, il, ... for type3.
+- **Mixed terms** (xy, xz, yz: 24 sums in each kernel) save less, such as Σ f2x · f1y · Iz · dd.
+  - An output's x and y tuples fix its z tuple, so no sum is shared over pairs of tuples.
+  - Grouped by the x tuple, T(t_x) = Σ f1y(t_y) · Iz · dd costs one FMA per output.
+  - The four factors of the other direction (type12: f1 and f2 of the bra, f1′ and f2′ of the ket; type3: fi, fj,
+    fk, fl) give four such sums per pair of directions. Each tuple multiplies them by its own factors, 8 FMAs per
+    pair.
+- **Count:**
+  - Per output and root: 20 FP64 in three passes (by x with S_x, T_xy and T_xz; by y with S_y and T_yz; by z with
+    S_z), if the other directions' factors come from per-tuple tables. 44 if each output recomputes them from its
+    g values.
+  - Per tuple and root: about 150 FP64 (type12) or 132 (type3) for its factors and contributions.
+  - Against about 180 (type12) and 160 (type3) FP64 per output now:
+
+  | class | outputs | tuples per direction | type12 FP64 per root, now → with tables |
+  |---|---|---|---|
+  | (ds\|ps) | 18 | 6 | 3,258 → 1,260 (2.6×) |
+  | (dp\|ps) | 54 | 12 | 9,774 → 2,880 (3.4×) |
+  | (dp\|pp) | 162 | 24 | 29,322 → 6,840 (4.3×) |
+  | (dp\|dp) | 324 | 36 | 58,644 → 11,880 (4.9×) |
+  | (dd\|dd) | 1,296 | 81 | 234,576 → 38,070 (6.2×) |
+
+- **Predicted time:** the output phase's time scaled by its FP64 ratio, the rest unchanged.
+  - The 11 profiled generic classes (33.0 of the 38.0 s) go to 12.8 s (2.6×) with tables, or 16.7 s (2.0×)
+    recomputing the factors. For all generic classes that means 38.0 → about 15–19 s.
+  - The unrolled s and p classes (12.7 s) would gain 1.5–3.6× by the same count ((ps|ss) to (pp|pp)), if their cost
+    per output is like the generic kernels'. That was not measured: they have no iteration marker.
+  - So the stage would go from 51 s to roughly 20–28 s, and the caffeine B3LYP Hessian from 177 s to about 150 s,
+    on this card.
+- **Caveat:** the estimate counts FP64 only. Generated code would also drop most of the index arithmetic, the other
+  two thirds of the instructions. Part 8's generated kernels executed 4.2× fewer warp instructions on the gradient's
+  generic classes. That matters more on GPUs where FP64 is not the bottleneck.
+
+### What the work would be
+- **A generator for the ip2 kernels** on the pattern of `gen_rys_ejk.py` (part 8). The multi-thread template, the
+  block shapes, the runs of outputs per thread and the warp-uniform lane scheme carry over. The recursions come from
+  `gen_rys_k.recursions`: type12 needs i+1, j+1, k+1 and l+1, with the HRR for the second derivatives, as now. Threads
+  0–2 run them one direction each, which also helps the smallest classes.
+- **New:**
+  - the second-derivative and mixed factors per tuple;
+  - the four partial sums per pair of directions;
+  - 42 (type12) or 36 (type3) sums per thread instead of the gradient's 12, which raises register pressure;
+  - the tables of the other directions' factors, 3 × tuples × 4 values per quartet in shared memory: 2.3 KB for
+    (dp|pp), 7.8 KB for (dd|dd).
+- **Validation as in part 8:** the stage at a fixed density against v1.9.0 (whose own rounding is about 1e−13
+  relative), Hessians end to end, the Hessian tests.
+- **Branch:** like parts 7 and 8, CUDA sources on `exp/prim-screen`, rebuilt on node1.
+
+### Options (exact; not started)
+1. **Generated ip2 kernels with sums per tuple:** about 20–30 s of the caffeine B3LYP Hessian's 177 s on this card,
+   probably more on GPUs with fast FP64. A job the size of part 8. Start with the generic classes of both kernels,
+   then measure whether the unrolled s and p classes are worth replacing.
+2. **Batch `_get_vxc_deriv1`'s per-atom GEMMs over atoms** (part 13): about 4 s.
+3. **Profile the CPHF's J/K** (35 s in 7 calls), not looked at since part 9.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

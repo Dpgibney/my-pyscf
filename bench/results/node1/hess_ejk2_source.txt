@@ -1,0 +1,418 @@
+# GPU4PySCF investigation part 15 (NOTES.md): where the Hessian's two-electron second-derivative kernels spend their
+# instructions, and a model of part 8's sums per Cartesian tuple for them. GTX 1650 Super; caffeine def2-SVP at the
+# converged B3LYP density (scratch/dm_caf_b3lyp.npy), B3LYP's factors; gpu4pyscf exp/prim-screen 5ef6c7d (the ip2
+# kernels carry only parts 3 and 6's changes: the bra-pair skip and the one-thread launch). Per-class times of the whole stage are in
+# hess_ejk2_profile.txt (ncu_parts.py --part ejk2, 2026-10-31, 50.79 s in the kernels).
+#
+# Commands (node1, scratch/ncu_src_classes.sh):
+#   ncu --profile-from-start off --section SourceCounters --section SpeedOfLight --import-source on \
+#       -o scratch/ncu_ejk2_src python bench/gpu/ncu_ejk2_class.py --dm scratch/dm_caf_b3lyp.npy --classes '(dp|ps),(dp|pp),(ds|pp),(ds|ps),(dp|dp),(dp|ss),(dd|pp),(dd|ps),(dp|ds),(ds|ss),(dd|dd),(pp|pp),(pp|ps),(ps|ps),(ps|ss),(ss|ss)'
+#   ncu --import scratch/ncu_ejk2_src.ncu-rep --page source --print-source cuda,sass --csv > scratch/ncu_ejk2_src_sass.csv
+#   ncu_source_regions.py scratch/ncu_ejk2_src_sass.csv --order bench/results/node1/ncu/labels_ejk2_svp.json --classes ...
+#   ip2_tuple_model.py --profile ... --order ... --classes ... --times bench/results/node1/hess_ejk2_profile.txt
+# One launch per class and kernel: the first call of each in the stage's order (the report, 254 MB, and the source
+# CSV, 607,130 lines, stay in node1's scratch).
+#
+# 1) the profiled launches: kernel, block shape (quartets x threads per quartet) and time
+(ss|ss) t12 rys_ejk_ip2_type12_0000      block (128, 1, 1)      6.95 ms
+(ss|ss) t3  rys_ejk_ip2_type3_0000       block (128, 1, 1)      5.97 ms
+(ps|ss) t12 rys_ejk_ip2_type12_1000      block (128, 1, 1)     21.25 ms
+(ps|ss) t3  rys_ejk_ip2_type3_1000       block (128, 1, 1)     18.53 ms
+(ps|ps) t12 rys_ejk_ip2_type12_1010      block (128, 1, 1)     66.68 ms
+(ps|ps) t3  rys_ejk_ip2_type3_1010       block (128, 1, 1)     54.61 ms
+(pp|ps) t12 rys_ejk_ip2_type12_1110      block (32, 8, 1)     183.25 ms
+(pp|ps) t3  rys_ejk_ip2_type3_1110       block (64, 4, 1)     164.32 ms
+(pp|pp) t12 rys_ejk_ip2_type12_1111      block (16, 16, 1)    441.44 ms
+(pp|pp) t3  rys_ejk_ip2_type3_1111       block (32, 8, 1)     213.01 ms
+(ds|ss) t12 rys_ejk_ip2_type12_kernel    block (32, 8, 1)      57.15 ms
+(ds|ss) t3  rys_ejk_ip2_type3_kernel     block (128, 2, 1)     50.41 ms
+(ds|ps) t12 rys_ejk_ip2_type12_kernel    block (32, 8, 1)     208.10 ms
+(ds|ps) t3  rys_ejk_ip2_type3_kernel     block (64, 4, 1)     160.86 ms
+(ds|pp) t12 rys_ejk_ip2_type12_kernel    block (16, 16, 1)    375.82 ms
+(ds|pp) t3  rys_ejk_ip2_type3_kernel     block (64, 4, 1)     309.54 ms
+(dp|ss) t12 rys_ejk_ip2_type12_kernel    block (32, 8, 1)     117.61 ms
+(dp|ss) t3  rys_ejk_ip2_type3_kernel     block (64, 4, 1)      90.41 ms
+(dp|ps) t12 rys_ejk_ip2_type12_kernel    block (16, 16, 1)    656.47 ms
+(dp|ps) t3  rys_ejk_ip2_type3_kernel     block (64, 4, 1)     583.30 ms
+(dp|pp) t12 rys_ejk_ip2_type12_kernel    block (16, 16, 1)   1040.15 ms
+(dp|pp) t3  rys_ejk_ip2_type3_kernel     block (32, 8, 1)     912.90 ms
+(dp|ds) t12 rys_ejk_ip2_type12_kernel    block (16, 16, 1)    221.58 ms
+(dp|ds) t3  rys_ejk_ip2_type3_kernel     block (32, 8, 1)     212.07 ms
+(dp|dp) t12 rys_ejk_ip2_type12_kernel    block (8, 32, 1)     707.15 ms
+(dp|dp) t3  rys_ejk_ip2_type3_kernel     block (16, 16, 1)    633.82 ms
+(dd|ps) t12 rys_ejk_ip2_type12_kernel    block (16, 16, 1)    224.20 ms
+(dd|ps) t3  rys_ejk_ip2_type3_kernel     block (32, 8, 1)     207.40 ms
+(dd|pp) t12 rys_ejk_ip2_type12_kernel    block (8, 32, 1)     410.78 ms
+(dd|pp) t3  rys_ejk_ip2_type3_kernel     block (16, 16, 1)    360.93 ms
+(dd|dd) t12 rys_ejk_ip2_type12_kernel    block (4, 64, 1)      96.06 ms
+(dd|dd) t3  rys_ejk_ip2_type3_kernel     block (8, 32, 1)      90.66 ms
+#
+# 2) per launch (ncu_source_regions.py): warp instructions, FP64 warp instructions and warp-stall samples by region.
+#    Each SASS instruction counts once, under its line in rys_contract_jk_ip2.cu (the outermost inlining frame). The
+#    unrolled kernels of the s and p classes have their own files and fall under "other". The stall samples are a
+#    fixed number per launch, so only their shares mean anything.
+(ss|ss) t12: rys_ejk_ip2_type12_0000: 0.010 G warp instructions, 0.006 G FP64 (60%), 118686 stall samples
+  region                      inst    FP64   stall  FP64 share of the region
+  task screening              0.2%    0.0%    0.0%    0.2%
+  Rys roots                  30.7%   16.3%    5.3%   31.9%
+  other                      69.1%   83.7%   94.7%   73.2%
+(ss|ss) t3: rys_ejk_ip2_type3_0000: 0.009 G warp instructions, 0.005 G FP64 (57%), 100803 stall samples
+  region                      inst    FP64   stall  FP64 share of the region
+  task screening              0.2%    0.0%    0.0%    0.2%
+  Rys roots                  33.8%   18.8%    9.5%   31.9%
+  other                      66.0%   81.2%   90.5%   70.5%
+(ps|ss) t12: rys_ejk_ip2_type12_1000: 0.043 G warp instructions, 0.032 G FP64 (73%), 418965 stall samples
+  region                      inst    FP64   stall  FP64 share of the region
+  task screening              0.2%    0.0%    0.0%    0.3%
+  Rys roots                  25.1%   13.6%    5.3%   39.5%
+  other                      74.6%   86.4%   94.6%   84.6%
+(ps|ss) t3: rys_ejk_ip2_type3_1000: 0.039 G warp instructions, 0.027 G FP64 (70%), 367898 stall samples
+  region                      inst    FP64   stall  FP64 share of the region
+  task screening              0.3%    0.0%    0.0%    0.3%
+  Rys roots                  27.7%   15.6%    6.8%   39.5%
+  other                      72.0%   84.4%   93.1%   82.3%
+(ps|ps) t12: rys_ejk_ip2_type12_1010: 0.119 G warp instructions, 0.099 G FP64 (83%), 1216625 stall samples
+  region                      inst    FP64   stall  FP64 share of the region
+  task screening              0.1%    0.0%    0.0%    0.5%
+  Rys roots                  12.2%    5.6%    3.9%   38.6%
+  other                      87.7%   94.4%   96.1%   89.7%
+(ps|ps) t3: rys_ejk_ip2_type3_1010: 0.105 G warp instructions, 0.085 G FP64 (81%), 1031533 stall samples
+  region                      inst    FP64   stall  FP64 share of the region
+  task screening              0.1%    0.0%    0.0%    0.5%
+  Rys roots                  13.8%    6.6%    4.6%   38.6%
+  other                      86.1%   93.4%   95.4%   88.2%
+(pp|ps) t12: rys_ejk_ip2_type12_1110: 0.426 G warp instructions, 0.301 G FP64 (71%), 3656515 stall samples
+  region                      inst    FP64   stall  FP64 share of the region
+  task screening              0.0%    0.0%    0.0%    0.4%
+  Rys roots                   6.7%    3.0%    3.1%   31.5%
+  other                      93.2%   97.0%   96.9%   73.5%
+(pp|ps) t3: rys_ejk_ip2_type3_1110: 0.350 G warp instructions, 0.276 G FP64 (79%), 3330742 stall samples
+  region                      inst    FP64   stall  FP64 share of the region
+  task screening              0.0%    0.0%    0.0%    0.4%
+  Rys roots                   6.7%    2.7%    2.7%   31.6%
+  other                      93.3%   97.3%   97.3%   82.3%
+(pp|pp) t12: rys_ejk_ip2_type12_1111: 0.923 G warp instructions, 0.729 G FP64 (79%), 3670014 stall samples
+  region                      inst    FP64   stall  FP64 share of the region
+  task screening              0.0%    0.0%    0.0%    0.2%
+  Rys roots                   1.7%    0.7%    0.7%   30.2%
+  other                      98.3%   99.3%   99.3%   79.8%
+(pp|pp) t3: rys_ejk_ip2_type3_1111: 0.430 G warp instructions, 0.355 G FP64 (82%), 3670016 stall samples
+  region                      inst    FP64   stall  FP64 share of the region
+  task screening              0.0%    0.0%    0.0%    0.2%
+  Rys roots                   3.1%    1.1%    1.3%   30.3%
+  other                      96.9%   98.9%   98.7%   84.1%
+(ds|ss) t12: rys_ejk_ip2_type12_kernel: 0.315 G warp instructions, 0.065 G FP64 (21%), 1042951 stall samples
+  per output and root (warp level): 562.3 instructions, 178.0 FP64; 0.23 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.7%    0.0%    0.1%    0.2%
+  task screening              0.1%    0.0%    0.0%    0.1%
+  task, density products      0.1%    0.0%    0.0%    4.2%
+  primitive pairs             4.8%    6.2%   12.3%   26.9%
+  Rys roots                   3.9%    5.8%    3.5%   30.3%
+  g recursions               48.7%   23.9%   42.7%   10.2%
+  outputs                    41.7%   64.0%   41.2%   31.7%
+  atomics                     0.0%    0.0%    0.0%   13.3%
+  other                       0.0%    0.0%    0.0%    0.0%
+(ds|ss) t3: rys_ejk_ip2_type3_kernel: 0.231 G warp instructions, 0.058 G FP64 (25%), 921032 stall samples
+  per output and root (warp level): 462.7 instructions, 152.0 FP64; 0.23 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.1%    0.0%    0.2%    2.0%
+  task screening              0.1%    0.0%    0.0%    0.1%
+  task, density products      0.2%    0.0%    0.1%    5.8%
+  primitive pairs             7.6%    8.7%   21.9%   28.8%
+  Rys roots                   8.1%   10.7%    6.5%   32.9%
+  g recursions               36.9%   19.0%   55.1%   12.9%
+  outputs                    47.0%   61.5%   16.1%   32.9%
+  atomics                     0.0%    0.0%    0.0%    0.0%
+  other                       0.0%    0.0%    0.0%    0.0%
+(ds|ps) t12: rys_ejk_ip2_type12_kernel: 1.026 G warp instructions, 0.259 G FP64 (25%), 3670012 stall samples
+  per output and root (warp level): 545.3 instructions, 178.0 FP64; 1.19 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.5%    0.0%    0.0%    0.1%
+  task screening              0.0%    0.0%    0.0%    0.4%
+  task, density products      0.1%    0.0%    0.1%    5.1%
+  primitive pairs             2.5%    2.7%    4.9%   26.9%
+  Rys roots                   2.0%    2.4%    1.5%   30.6%
+  g recursions               31.4%   12.7%   19.6%   10.2%
+  outputs                    63.5%   82.2%   73.9%   32.6%
+  atomics                     0.0%    0.0%    0.1%   13.4%
+  other                       0.0%    0.0%    0.0%    0.0%
+(ds|ps) t3: rys_ejk_ip2_type3_kernel: 0.688 G warp instructions, 0.214 G FP64 (31%), 3158214 stall samples
+  per output and root (warp level): 470.7 instructions, 159.0 FP64; 1.19 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.5%    0.4%    0.3%   22.8%
+  task screening              0.0%    0.0%    0.0%    0.4%
+  task, density products      0.1%    0.0%    0.0%    6.0%
+  primitive pairs             2.1%    1.8%    4.3%   27.4%
+  Rys roots                   2.4%    2.7%    1.9%   33.9%
+  g recursions               13.0%    6.4%   13.5%   15.4%
+  outputs                    81.8%   88.7%   79.9%   33.8%
+  atomics                     0.0%    0.0%    0.0%    0.0%
+  other                       0.0%    0.0%    0.0%    0.0%
+(ds|pp) t12: rys_ejk_ip2_type12_kernel: 1.690 G warp instructions, 0.474 G FP64 (28%), 3670012 stall samples
+  per output and root (warp level): 550.5 instructions, 181.0 FP64; 2.36 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.3%    0.0%    0.0%    0.1%
+  task screening              0.0%    0.0%    0.0%    0.3%
+  task, density products      0.1%    0.0%    0.1%    5.4%
+  primitive pairs             1.5%    1.4%    2.8%   26.8%
+  Rys roots                   0.9%    0.9%    0.5%   28.5%
+  g recursions               20.2%    7.4%   13.2%   10.3%
+  outputs                    76.9%   90.2%   83.3%   32.9%
+  atomics                     0.0%    0.0%    0.0%   13.5%
+  other                       0.0%    0.0%    0.0%    0.0%
+(ds|pp) t3: rys_ejk_ip2_type3_kernel: 1.335 G warp instructions, 0.429 G FP64 (32%), 3670016 stall samples
+  per output and root (warp level): 485.0 instructions, 166.0 FP64; 2.46 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.2%    0.2%    0.2%   23.0%
+  task screening              0.0%    0.0%    0.0%    0.3%
+  task, density products      0.2%    0.0%    0.0%    6.2%
+  primitive pairs             0.6%    0.5%    4.2%   27.3%
+  Rys roots                   0.9%    1.0%    0.8%   35.0%
+  g recursions                8.7%    3.2%   15.3%   11.8%
+  outputs                    89.3%   95.1%   79.5%   34.2%
+  atomics                     0.0%    0.0%    0.0%    0.0%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dp|ss) t12: rys_ejk_ip2_type12_kernel: 0.601 G warp instructions, 0.146 G FP64 (24%), 2323793 stall samples
+  per output and root (warp level): 554.6 instructions, 181.0 FP64; 0.66 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.7%    0.0%    0.1%    0.2%
+  task screening              0.0%    0.0%    0.0%    0.1%
+  task, density products      0.1%    0.0%    0.0%    5.0%
+  primitive pairs             2.6%    2.8%    4.9%   26.7%
+  Rys roots                   1.9%    2.5%    1.5%   30.6%
+  g recursions               34.1%   13.1%   20.7%    9.3%
+  outputs                    60.6%   81.6%   72.7%   32.6%
+  atomics                     0.0%    0.0%    0.1%   13.3%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dp|ss) t3: rys_ejk_ip2_type3_kernel: 0.417 G warp instructions, 0.120 G FP64 (29%), 1780454 stall samples
+  per output and root (warp level): 454.3 instructions, 152.0 FP64; 0.66 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.4%    0.0%    0.3%    0.4%
+  task screening              0.1%    0.0%    0.0%    0.1%
+  task, density products      0.2%    0.0%    0.1%    5.9%
+  primitive pairs             3.9%    3.7%   17.9%   27.2%
+  Rys roots                   3.4%    3.9%    2.5%   32.9%
+  g recursions               20.6%    9.0%   41.0%   12.5%
+  outputs                    71.5%   83.4%   38.2%   33.5%
+  atomics                     0.0%    0.0%    0.0%    0.0%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dp|ps) t12: rys_ejk_ip2_type12_kernel: 3.064 G warp instructions, 0.850 G FP64 (28%), 3670011 stall samples
+  per output and root (warp level): 550.5 instructions, 181.0 FP64; 4.23 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.4%    0.0%    0.0%    0.1%
+  task screening              0.0%    0.0%    0.0%    0.4%
+  task, density products      0.1%    0.0%    0.1%    5.4%
+  primitive pairs             1.6%    1.5%    3.0%   26.6%
+  Rys roots                   0.9%    1.0%    0.6%   28.8%
+  g recursions               20.9%    7.4%   14.1%    9.8%
+  outputs                    76.0%   90.0%   82.2%   32.9%
+  atomics                     0.0%    0.0%    0.1%   13.5%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dp|ps) t3: rys_ejk_ip2_type3_kernel: 2.511 G warp instructions, 0.804 G FP64 (32%), 3670012 stall samples
+  per output and root (warp level): 466.9 instructions, 159.0 FP64; 4.82 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.5%    0.2%    0.1%   12.4%
+  task screening              0.0%    0.0%    0.0%    0.4%
+  task, density products      0.1%    0.0%    0.0%    6.2%
+  primitive pairs             0.6%    0.5%    1.0%   27.1%
+  Rys roots                   0.8%    0.9%    0.8%   35.5%
+  g recursions                8.3%    3.1%    5.4%   11.8%
+  outputs                    89.6%   95.3%   92.6%   34.1%
+  atomics                     0.0%    0.0%    0.0%    0.0%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dp|pp) t12: rys_ejk_ip2_type12_kernel: 4.440 G warp instructions, 1.346 G FP64 (30%), 3670016 stall samples
+  per output and root (warp level): 554.5 instructions, 184.0 FP64; 7.00 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.2%    0.0%    0.0%    0.1%
+  task screening              0.0%    0.0%    0.0%    0.3%
+  task, density products      0.2%    0.0%    0.1%    6.0%
+  primitive pairs             0.6%    0.5%    0.9%   26.5%
+  Rys roots                   0.3%    0.3%    0.2%   28.9%
+  g recursions               11.2%    3.4%    5.2%    9.2%
+  outputs                    87.4%   95.7%   93.6%   33.2%
+  atomics                     0.0%    0.0%    0.0%   13.5%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dp|pp) t3: rys_ejk_ip2_type3_kernel: 3.775 G warp instructions, 1.238 G FP64 (33%), 3670010 stall samples
+  per output and root (warp level): 484.3 instructions, 166.0 FP64; 7.27 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.2%    0.1%    0.0%   10.4%
+  task screening              0.0%    0.0%    0.0%    0.3%
+  task, density products      0.2%    0.0%    0.1%    6.3%
+  primitive pairs             0.4%    0.3%    0.7%   26.1%
+  Rys roots                   0.3%    0.3%    0.3%   32.2%
+  g recursions                5.6%    1.7%    3.2%   10.1%
+  outputs                    93.3%   97.6%   95.7%   34.3%
+  atomics                     0.0%    0.0%    0.0%    0.0%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dp|ds) t12: rys_ejk_ip2_type12_kernel: 0.936 G warp instructions, 0.277 G FP64 (30%), 3670012 stall samples
+  per output and root (warp level): 546.7 instructions, 181.0 FP64; 1.44 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.3%    0.0%    0.0%    0.3%
+  task screening              0.0%    0.0%    0.0%    0.3%
+  task, density products      0.3%    0.1%    0.1%    5.8%
+  primitive pairs             0.9%    0.8%    1.5%   26.3%
+  Rys roots                   0.5%    0.5%    0.3%   28.7%
+  g recursions               13.9%    4.6%    7.9%    9.7%
+  outputs                    84.0%   94.0%   90.0%   33.1%
+  atomics                     0.0%    0.0%    0.1%   13.4%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dp|ds) t3: rys_ejk_ip2_type3_kernel: 0.871 G warp instructions, 0.284 G FP64 (33%), 3670016 stall samples
+  per output and root (warp level): 475.9 instructions, 162.5 FP64; 1.69 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.3%    0.1%    0.1%   10.2%
+  task screening              0.0%    0.0%    0.0%    0.4%
+  task, density products      0.4%    0.1%    0.1%    6.2%
+  primitive pairs             0.6%    0.5%    1.0%   25.7%
+  Rys roots                   0.5%    0.5%    0.4%   31.9%
+  g recursions                5.9%    2.2%    4.6%   12.2%
+  outputs                    92.3%   96.7%   93.8%   34.1%
+  atomics                     0.0%    0.0%    0.0%    0.0%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dp|dp) t12: rys_ejk_ip2_type12_kernel: 2.785 G warp instructions, 0.867 G FP64 (31%), 3670016 stall samples
+  per output and root (warp level): 558.1 instructions, 185.0 FP64; 4.54 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.1%    0.0%    0.0%    0.2%
+  task screening              0.0%    0.0%    0.0%    0.4%
+  task, density products      0.5%    0.1%    0.2%    6.0%
+  primitive pairs             0.5%    0.4%    0.7%   25.9%
+  Rys roots                   0.3%    0.2%    0.1%   27.5%
+  g recursions                7.6%    2.4%    4.4%    9.8%
+  outputs                    91.0%   96.8%   94.5%   33.1%
+  atomics                     0.0%    0.0%    0.1%   13.5%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dp|dp) t3: rys_ejk_ip2_type3_kernel: 2.518 G warp instructions, 0.837 G FP64 (33%), 3670013 stall samples
+  per output and root (warp level): 493.2 instructions, 169.5 FP64; 4.85 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.1%    0.0%    0.0%    8.6%
+  task screening              0.0%    0.0%    0.0%    0.4%
+  task, density products      0.5%    0.1%    0.1%    6.3%
+  primitive pairs             0.3%    0.2%    0.5%   25.2%
+  Rys roots                   0.2%    0.2%    0.1%   29.9%
+  g recursions                3.8%    1.3%    2.8%   11.0%
+  outputs                    95.0%   98.2%   96.4%   34.4%
+  atomics                     0.0%    0.0%    0.0%    0.0%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dd|ps) t12: rys_ejk_ip2_type12_kernel: 0.961 G warp instructions, 0.283 G FP64 (29%), 3670012 stall samples
+  per output and root (warp level): 551.2 instructions, 182.5 FP64; 1.45 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.3%    0.0%    0.0%    0.1%
+  task screening              0.0%    0.0%    0.0%    0.4%
+  task, density products      0.3%    0.1%    0.2%    5.8%
+  primitive pairs             1.2%    1.1%    1.8%   25.7%
+  Rys roots                   0.5%    0.5%    0.3%   28.9%
+  g recursions               14.3%    4.6%    8.0%    9.5%
+  outputs                    83.3%   93.7%   89.7%   33.1%
+  atomics                     0.0%    0.0%    0.1%   13.5%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dd|ps) t3: rys_ejk_ip2_type3_kernel: 0.856 G warp instructions, 0.276 G FP64 (32%), 3670012 stall samples
+  per output and root (warp level): 466.9 instructions, 159.0 FP64; 1.67 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.4%    0.1%    0.1%   10.3%
+  task screening              0.0%    0.0%    0.0%    0.4%
+  task, density products      0.4%    0.1%    0.1%    6.2%
+  primitive pairs             0.8%    0.6%    1.1%   25.0%
+  Rys roots                   0.5%    0.5%    0.4%   32.0%
+  g recursions                6.7%    2.4%    4.6%   11.4%
+  outputs                    91.1%   96.3%   93.6%   34.1%
+  atomics                     0.0%    0.0%    0.0%    0.0%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dd|pp) t12: rys_ejk_ip2_type12_kernel: 1.700 G warp instructions, 0.527 G FP64 (31%), 3670012 stall samples
+  per output and root (warp level): 562.0 instructions, 186.3 FP64; 2.73 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.2%    0.0%    0.0%    0.2%
+  task screening              0.0%    0.0%    0.0%    0.3%
+  task, density products      0.5%    0.1%    0.2%    6.0%
+  primitive pairs             0.7%    0.6%    0.8%   25.4%
+  Rys roots                   0.2%    0.2%    0.1%   27.6%
+  g recursions                8.0%    2.5%    4.4%    9.6%
+  outputs                    90.4%   96.6%   94.4%   33.2%
+  atomics                     0.0%    0.0%    0.1%   13.5%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dd|pp) t3: rys_ejk_ip2_type3_kernel: 1.504 G warp instructions, 0.494 G FP64 (33%), 3670014 stall samples
+  per output and root (warp level): 484.2 instructions, 166.0 FP64; 2.92 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.2%    0.1%    0.1%   10.2%
+  task screening              0.0%    0.0%    0.0%    0.3%
+  task, density products      0.5%    0.1%    0.1%    6.3%
+  primitive pairs             0.4%    0.3%    0.6%   24.6%
+  Rys roots                   0.2%    0.2%    0.1%   30.0%
+  g recursions                4.8%    1.4%    3.0%    9.6%
+  outputs                    93.9%   97.9%   96.0%   34.3%
+  atomics                     0.0%    0.0%    0.0%    0.0%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dd|dd) t12: rys_ejk_ip2_type12_kernel: 0.362 G warp instructions, 0.113 G FP64 (31%), 1762232 stall samples
+  per output and root (warp level): 571.4 instructions, 189.5 FP64; 0.59 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.1%    0.0%    0.0%    1.3%
+  task screening              0.0%    0.0%    0.0%    0.3%
+  task, density products      3.2%    0.6%    0.9%    6.1%
+  primitive pairs             0.3%    0.2%    0.2%   21.6%
+  Rys roots                   0.1%    0.1%    0.0%   25.4%
+  g recursions                3.8%    1.1%    2.4%    9.4%
+  outputs                    92.4%   97.9%   96.2%   33.2%
+  atomics                     0.1%    0.1%    0.2%   13.5%
+  other                       0.0%    0.0%    0.0%    0.0%
+(dd|dd) t3: rys_ejk_ip2_type3_kernel: 0.334 G warp instructions, 0.110 G FP64 (33%), 1612816 stall samples
+  per output and root (warp level): 501.6 instructions, 173.0 FP64; 0.63 M iterations
+  region                      inst    FP64   stall  FP64 share of the region
+  setup, bra pair             0.1%    0.0%    0.1%    6.8%
+  task screening              0.0%    0.0%    0.0%    0.3%
+  task, density products      3.5%    0.7%    0.8%    6.3%
+  primitive pairs             0.2%    0.1%    0.1%   19.0%
+  Rys roots                   0.1%    0.0%    0.0%   27.0%
+  g recursions                2.1%    0.6%    1.8%    9.9%
+  outputs                    93.9%   98.5%   97.1%   34.5%
+  atomics                     0.1%    0.0%    0.1%    0.0%
+  other                       0.0%    0.0%    0.0%    0.0%
+#
+# 3) ip2_tuple_model.py: the FP64 per root of a quartet now and with sums per tuple (by class), and the predicted
+#    times of the profiled generic launches (the output phase's time scaled by its FP64 ratio, the rest kept)
+class    outputs tuples   FP64 per root now -> per tuple (t12)   now -> per tuple (t3)
+(ss|ss)       1      1        181 ->     170 ( 1.1x)         159 ->     152 ( 1.0x)
+(ps|ss)       3      2        543 ->     360 ( 1.5x)         477 ->     324 ( 1.5x)
+(ps|ps)       9      4       1629 ->     780 ( 2.1x)        1431 ->     708 ( 2.0x)
+(pp|ss)       9      4       1629 ->     780 ( 2.1x)        1431 ->     708 ( 2.0x)
+(pp|ps)      27      8       4887 ->    1740 ( 2.8x)        4293 ->    1596 ( 2.7x)
+(pp|pp)      81     16      14661 ->    4020 ( 3.6x)       12879 ->    3732 ( 3.5x)
+(ds|ss)       6      3       1086 ->     570 ( 1.9x)         954 ->     516 ( 1.8x)
+(ds|ps)      18      6       3258 ->    1260 ( 2.6x)        2862 ->    1152 ( 2.5x)
+(ds|pp)      54     12       9774 ->    2880 ( 3.4x)        8586 ->    2664 ( 3.2x)
+(dp|ss)      18      6       3258 ->    1260 ( 2.6x)        2862 ->    1152 ( 2.5x)
+(dp|ps)      54     12       9774 ->    2880 ( 3.4x)        8586 ->    2664 ( 3.2x)
+(dp|pp)     162     24      29322 ->    6840 ( 4.3x)       25758 ->    6408 ( 4.0x)
+(ds|ds)      36      9       6516 ->    2070 ( 3.1x)        5724 ->    1908 ( 3.0x)
+(dp|ds)     108     18      19548 ->    4860 ( 4.0x)       17172 ->    4536 ( 3.8x)
+(dp|dp)     324     36      58644 ->   11880 ( 4.9x)       51516 ->   11232 ( 4.6x)
+(dd|ss)      36      9       6516 ->    2070 ( 3.1x)        5724 ->    1908 ( 3.0x)
+(dd|ps)     108     18      19548 ->    4860 ( 4.0x)       17172 ->    4536 ( 3.8x)
+(dd|pp)     324     36      58644 ->   11880 ( 4.9x)       51516 ->   11232 ( 4.6x)
+(dd|ds)     216     27      39096 ->    8370 ( 4.7x)       34344 ->    7884 ( 4.4x)
+(dd|dp)     648     54     117288 ->   21060 ( 5.6x)      103032 ->   20088 ( 5.1x)
+(dd|dd)    1296     81     234576 ->   38070 ( 6.2x)      206064 ->   36612 ( 5.6x)
+
+profiled launches (time from hess_ejk2_profile.txt, all classes 50.79 s):
+class    kind  time    output share  FP64/out/root   FP64 ratio (table, recompute)   predicted time
+(dp|ps) t12   4.107 s   82.2%        181.0          3.4x,  2.3x                 1.726,  2.174 s
+(dp|pp) t12   3.636 s   93.6%        184.0          4.4x,  2.8x                 1.014,  1.458 s
+(dp|ps) t3    3.363 s   92.6%        159.0          3.2x,  2.2x                 1.215,  1.685 s
+(dp|pp) t3    3.151 s   95.7%        166.0          4.2x,  2.6x                 0.853,  1.289 s
+(ds|pp) t12   2.068 s   83.3%        181.0          3.4x,  2.3x                 0.852,  1.081 s
+(ds|ps) t12   1.909 s   73.9%        178.0          2.5x,  1.9x                 1.054,  1.244 s
+(ds|pp) t3    1.754 s   79.5%        166.0          3.4x,  2.3x                 0.774,  0.975 s
+(dp|dp) t12   1.692 s   94.5%        185.0          5.0x,  3.0x                 0.410,  0.617 s
+(dp|dp) t3    1.494 s   96.4%        169.5          4.9x,  2.9x                 0.348,  0.552 s
+(ds|ps) t3    1.474 s   79.9%        159.0          2.5x,  1.8x                 0.770,  0.948 s
+(dp|ss) t12   1.082 s   72.7%        181.0          2.6x,  1.9x                 0.600,  0.704 s
+(dd|pp) t12   0.955 s   94.4%        186.3          5.1x,  3.1x                 0.231,  0.347 s
+(dd|ps) t12   0.866 s   89.7%        182.5          4.1x,  2.6x                 0.281,  0.383 s
+(dp|ds) t12   0.837 s   90.0%        181.0          4.0x,  2.6x                 0.271,  0.371 s
+(dd|pp) t3    0.811 s   96.0%        166.0          4.8x,  2.8x                 0.195,  0.307 s
+(dp|ss) t3    0.776 s   38.2%        152.0          2.4x,  1.7x                 0.604,  0.651 s
+(dp|ds) t3    0.773 s   93.8%        162.5          3.9x,  2.5x                 0.235,  0.342 s
+(ds|ss) t12   0.755 s   41.2%        178.0          1.9x,  1.5x                 0.610,  0.652 s
+(dd|ps) t3    0.731 s   93.6%        159.0          3.8x,  2.4x                 0.227,  0.331 s
+(ds|ss) t3    0.537 s   16.1%        152.0          1.8x,  1.4x                 0.500,  0.513 s
+(dd|dd) t12   0.098 s   96.2%        189.5          6.5x,  3.6x                 0.018,  0.030 s
+(dd|dd) t3    0.092 s   97.1%        173.0          6.1x,  3.3x                 0.017,  0.030 s
+profiled generic launches: 32.96 s -> 12.81 s (2.57x, table) or 16.68 s (1.98x, recompute), of 50.79 s in all
