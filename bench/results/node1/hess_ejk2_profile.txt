@@ -1,0 +1,92 @@
+# Hessian energy second derivatives (_partial_ejk_ip2, B3LYP's factors; RYS_per_atom_jk_ip2_type12 'trailing t12' and _type3 't3'):
+# Nsight Compute per class at the converged caffeine def2-SVP density, gpu4pyscf e1626eb (ncu_parts.py --part ejk2 --dm).
+# The build takes 50.67 s outside ncu, within 1.3e-12 of v1.9.0 (unchanged by parts 7-8). A and B are the same profile.
+class     kernel A -> B                                 time A -> B     GFLOP A/B   G inst A/B   G fp64 A/B  fp64 %inst      pipe %     regs
+(dp|ps) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   4.107 ->  4.107 (1.00x) 204.6/204.6 18.98/18.98 6.415/6.415 33.8/33.8 84.9/84.9 255/255
+(dp|pp) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   3.636 ->  3.636 (1.00x) 180.0/180.0 15.48/15.48 5.793/5.793 37.4/37.4 86.2/86.2 255/255
+(dp|ps) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   3.363 ->  3.363 (1.00x) 168.5/168.5 14.54/14.54 5.385/5.385 37.0/37.0 87.2/87.2 244/244
+(dp|pp) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   3.151 ->  3.151 (1.00x) 160.3/160.3 13.19/13.19 5.057/5.057 38.4/38.4 87.5/87.5 244/244
+(pp|pp) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   2.504 ->  2.504 (1.00x) 107.2/107.2  5.37/ 5.37 4.200/4.200 78.2/78.2 90.4/90.4 255/255
+(ds|pp) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   2.068 ->  2.068 (1.00x) 101.7/101.7  9.55/ 9.55 3.257/3.257 34.1/34.1 85.3/85.3 255/255
+(ds|ps) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   1.909 ->  1.909 (1.00x)  88.9/ 88.9  9.72/ 9.72 2.937/2.937 30.2/30.2 83.6/83.6 255/255
+(ds|pp) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   1.754 ->  1.754 (1.00x)  85.2/ 85.2  7.54/ 7.54 2.835/2.835 37.6/37.6 87.1/87.1 244/244
+(dp|dp) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   1.692 ->  1.692 (1.00x)  82.5/ 82.5  6.77/ 6.77 2.605/2.605 38.5/38.5 86.3/86.3 255/255
+(pp|ps) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   1.587 ->  1.587 (1.00x) 129.4/129.4  3.82/ 3.82 2.646/2.646 69.2/69.2 89.7/89.7 250/250
+(dp|dp) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   1.494 ->  1.494 (1.00x)  75.1/ 75.1  6.03/ 6.03 2.355/2.355 39.0/39.0 87.7/87.7 244/244
+(ds|ps) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   1.474 ->  1.474 (1.00x)  70.1/ 70.1  6.56/ 6.56 2.335/2.335 35.6/35.6 86.2/86.2 244/244
+(pp|ps) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   1.341 ->  1.341 (1.00x) 111.4/111.4  2.93/ 2.93 2.253/2.253 77.0/77.0 90.9/90.9 255/255
+(pp|pp) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   1.118 ->  1.118 (1.00x)  95.7/ 95.7  2.33/ 2.33 1.891/1.891 81.1/81.1 91.4/91.4 255/255
+(dp|ss) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   1.082 ->  1.082 (1.00x)  48.2/ 48.2  5.62/ 5.62 1.644/1.644 29.2/29.2 82.7/82.7 255/255
+(ps|ps) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   1.027 ->  1.027 (1.00x)  65.9/ 65.9  2.06/ 2.06 1.680/1.680 81.6/81.6 90.4/90.4 255/255
+(ps|pp) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.961 ->  0.961 (1.00x)  77.2/ 77.2  2.28/ 2.28 1.576/1.576 69.3/69.3 89.4/89.4 255/255
+(dd|pp) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.955 ->  0.955 (1.00x)  48.1/ 48.1  3.90/ 3.90 1.499/1.499 38.4/38.4 86.3/86.3 255/255
+(ps|pp) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.929 ->  0.929 (1.00x)  78.4/ 78.4  2.04/ 2.04 1.576/1.576 77.3/77.3 90.9/90.9 255/255
+(ps|ps) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.885 ->  0.885 (1.00x)  55.8/ 55.8  1.83/ 1.83 1.449/1.449 79.3/79.3 90.1/90.1 255/255
+(dd|ps) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.866 ->  0.866 (1.00x)  42.0/ 42.0  3.70/ 3.70 1.331/1.331 36.0/36.0 86.2/86.2 255/255
+(dp|ds) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.837 ->  0.837 (1.00x)  38.5/ 38.5  3.59/ 3.59 1.292/1.292 36.0/36.0 86.0/86.0 255/255
+(dd|pp) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.811 ->  0.811 (1.00x)  43.4/ 43.4  3.36/ 3.36 1.293/1.293 38.4/38.4 87.7/87.7 244/244
+(dp|ss) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.776 ->  0.776 (1.00x)  37.3/ 37.3  3.64/ 3.64 1.217/1.217 33.5/33.5 85.3/85.3 244/244
+(dp|ds) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.773 ->  0.773 (1.00x)  33.5/ 33.5  3.22/ 3.22 1.214/1.214 37.8/37.8 87.2/87.2 244/244
+(ds|ss) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.755 ->  0.755 (1.00x)  33.2/ 33.2  4.49/ 4.49 1.086/1.086 24.2/24.2 79.7/79.7 255/255
+(dd|ps) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.731 ->  0.731 (1.00x)  36.0/ 36.0  3.06/ 3.06 1.140/1.140 37.2/37.2 87.1/87.1 244/244
+(ds|dp) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.712 ->  0.712 (1.00x)  32.4/ 32.4  2.95/ 2.95 1.074/1.074 36.4/36.4 86.2/86.2 255/255
+(ds|dp) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.688 ->  0.688 (1.00x)  28.6/ 28.6  2.74/ 2.74 1.051/1.051 38.3/38.3 87.0/87.0 244/244
+(pp|ss) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.561 ->  0.561 (1.00x)  36.1/ 36.1  1.07/ 1.07 0.889/0.889 83.4/83.4 89.0/89.0 255/255
+(ps|ss) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.554 ->  0.554 (1.00x)  33.7/ 33.7  1.25/ 1.25 0.888/0.888 71.1/71.1 87.9/87.9 255/255
+(ds|ss) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.537 ->  0.537 (1.00x)  24.2/ 24.2  2.56/ 2.56 0.786/0.786 30.7/30.7 81.5/81.5 244/244
+(ps|ss) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.484 ->  0.484 (1.00x)  28.2/ 28.2  1.13/ 1.13 0.771/0.771 68.2/68.2 87.5/87.5 255/255
+(dd|dp) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.482 ->  0.482 (1.00x)  22.9/ 22.9  1.82/ 1.82 0.713/0.713 39.3/39.3 87.0/87.0 255/255
+(pp|ss) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.479 ->  0.479 (1.00x)  30.3/ 30.3  0.96/ 0.96 0.767/0.767 79.7/79.7 88.8/88.8 255/255
+(ds|ds) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.461 ->  0.461 (1.00x)  19.8/ 19.8  2.07/ 2.07 0.667/0.667 32.2/32.2 83.5/83.5 255/255
+(ds|ds) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.422 ->  0.422 (1.00x)  16.1/ 16.1  1.73/ 1.73 0.634/0.634 36.7/36.7 86.5/86.5 244/244
+(dd|dp) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.417 ->  0.417 (1.00x)  21.1/ 21.1  1.62/ 1.62 0.633/0.633 39.0/39.0 87.9/87.9 244/244
+(dp|dd) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.278 ->  0.278 (1.00x)  11.8/ 11.8  1.06/ 1.06 0.414/0.414 39.2/39.2 87.0/87.0 255/255
+(dp|dd) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.274 ->  0.274 (1.00x)  11.0/ 11.0  1.07/ 1.07 0.422/0.422 39.3/39.3 87.8/87.8 244/244
+(dd|ss) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.273 ->  0.273 (1.00x)  12.8/ 12.8  1.33/ 1.33 0.410/0.410 30.9/30.9 83.3/83.3 255/255
+(dd|ds) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.262 ->  0.262 (1.00x)  12.0/ 12.0  1.02/ 1.02 0.378/0.378 37.1/37.1 85.8/85.8 255/255
+(dd|ds) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.247 ->  0.247 (1.00x)  10.5/ 10.5  0.96/ 0.96 0.366/0.366 38.1/38.1 87.6/87.6 244/244
+(dd|ss) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.216 ->  0.216 (1.00x)   9.9/  9.9  0.94/ 0.94 0.328/0.328 34.8/34.8 86.3/86.3 244/244
+(ds|dd) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.205 ->  0.205 (1.00x)   5.6/  5.6  0.83/ 0.83 0.322/0.322 39.0/39.0 87.3/87.3 244/244
+(ss|ss) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.168 ->  0.168 (1.00x)   7.4/  7.4  0.43/ 0.43 0.247/0.247 57.2/57.2 80.6/80.6 255/255
+(ds|dd) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.151 ->  0.151 (1.00x)   6.3/  6.3  0.60/ 0.60 0.221/0.221 36.8/36.8 86.0/86.0 255/255
+(ss|ss) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.147 ->  0.147 (1.00x)   6.1/  6.1  0.40/ 0.40 0.215/0.215 54.4/54.4 80.9/80.9 248/248
+(dd|dd) t12 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.098 ->  0.098 (1.00x)   4.5/  4.5  0.36/ 0.36 0.142/0.142 39.4/39.4 86.9/86.9 255/255
+(dd|dd) t3 rys_ejk_ip2_typ -> rys_ejk_ip2_typ   0.092 ->  0.092 (1.00x)   4.2/  4.2  0.33/ 0.33 0.131/0.131 39.1/39.1 88.1/88.1 244/244
+listed classes: 50.793 -> 50.793 s; all integral kernels: 50.793 -> 50.793 s (1.000x)
+still generic in B: 38.048 of 50.793 s (75%)
+  (dp|ps) t12   4.107 s     54 outputs (7 per thread at 8 threads per quartet)
+  (dp|pp) t12   3.636 s    162 outputs (21 per thread at 8 threads per quartet)
+  (dp|ps) t3   3.363 s     54 outputs (7 per thread at 8 threads per quartet)
+  (dp|pp) t3   3.151 s    162 outputs (21 per thread at 8 threads per quartet)
+  (ds|pp) t12   2.068 s     54 outputs (7 per thread at 8 threads per quartet)
+  (ds|ps) t12   1.909 s     18 outputs (3 per thread at 8 threads per quartet)
+  (ds|pp) t3   1.754 s     54 outputs (7 per thread at 8 threads per quartet)
+  (dp|dp) t12   1.692 s    324 outputs (41 per thread at 8 threads per quartet)
+  (dp|dp) t3   1.494 s    324 outputs (41 per thread at 8 threads per quartet)
+  (ds|ps) t3   1.474 s     18 outputs (3 per thread at 8 threads per quartet)
+  (dp|ss) t12   1.082 s     18 outputs (3 per thread at 8 threads per quartet)
+  (dd|pp) t12   0.955 s    324 outputs (41 per thread at 8 threads per quartet)
+  (dd|ps) t12   0.866 s    108 outputs (14 per thread at 8 threads per quartet)
+  (dp|ds) t12   0.837 s    108 outputs (14 per thread at 8 threads per quartet)
+  (dd|pp) t3   0.811 s    324 outputs (41 per thread at 8 threads per quartet)
+  (dp|ss) t3   0.776 s     18 outputs (3 per thread at 8 threads per quartet)
+  (dp|ds) t3   0.773 s    108 outputs (14 per thread at 8 threads per quartet)
+  (ds|ss) t12   0.755 s      6 outputs (1 per thread at 8 threads per quartet)
+  (dd|ps) t3   0.731 s    108 outputs (14 per thread at 8 threads per quartet)
+  (ds|dp) t12   0.712 s    108 outputs (14 per thread at 8 threads per quartet)
+  (ds|dp) t3   0.688 s    108 outputs (14 per thread at 8 threads per quartet)
+  (ds|ss) t3   0.537 s      6 outputs (1 per thread at 8 threads per quartet)
+  (dd|dp) t12   0.482 s    648 outputs (81 per thread at 8 threads per quartet)
+  (ds|ds) t12   0.461 s     36 outputs (5 per thread at 8 threads per quartet)
+  (ds|ds) t3   0.422 s     36 outputs (5 per thread at 8 threads per quartet)
+  (dd|dp) t3   0.417 s    648 outputs (81 per thread at 8 threads per quartet)
+  (dp|dd) t12   0.278 s    648 outputs (81 per thread at 8 threads per quartet)
+  (dp|dd) t3   0.274 s    648 outputs (81 per thread at 8 threads per quartet)
+  (dd|ss) t12   0.273 s     36 outputs (5 per thread at 8 threads per quartet)
+  (dd|ds) t12   0.262 s    216 outputs (27 per thread at 8 threads per quartet)
+  (dd|ds) t3   0.247 s    216 outputs (27 per thread at 8 threads per quartet)
+  (dd|ss) t3   0.216 s     36 outputs (5 per thread at 8 threads per quartet)
+  (ds|dd) t3   0.205 s    216 outputs (27 per thread at 8 threads per quartet)
+  (ds|dd) t12   0.151 s    216 outputs (27 per thread at 8 threads per quartet)
+  (dd|dd) t12   0.098 s   1296 outputs (162 per thread at 8 threads per quartet)
+  (dd|dd) t3   0.092 s   1296 outputs (162 per thread at 8 threads per quartet)

@@ -5,9 +5,10 @@ For the J/K builders it records, in launch order, the angular-momentum class of 
 (RYS_build_k, RYS_build_jk, MD_build_j) and writes them to --labels, so ncu's per-launch rows can be grouped by
 class (ncu_summary.py).
 Part grad is the gradient's two-electron energy derivatives (jk_energy_per_atom with B3LYP's factors,
-RYS_per_atom_jk_ip1). --dm DM.npy (jk_at_dm.py --save-dm) takes a saved density in the original AO basis instead of
+RYS_per_atom_jk_ip1); part ejk2 the Hessian's second derivatives (_partial_ejk_ip2 with B3LYP's factors,
+RYS_per_atom_jk_ip2_type12 and _type3, labelled 't12' and 't3'). --dm DM.npy (jk_at_dm.py --save-dm) takes a saved density in the original AO basis instead of
 running the SCF.
-Usage: ncu_parts.py --part k|j|jk|xc|grad [--xc b3lyp] [--basis def2-svp] [--mol caffeine] [--labels FILE]
+Usage: ncu_parts.py --part k|j|jk|xc|grad|ejk2 [--xc b3lyp] [--basis def2-svp] [--mol caffeine] [--labels FILE]
                     [--dm DM.npy]"""
 import argparse
 import ctypes
@@ -23,9 +24,10 @@ from pyscf import gto, lib  # noqa: E402
 from gpu4pyscf.dft import rks  # noqa: E402
 from gpu4pyscf.scf import jk, j_engine  # noqa: E402
 from gpu4pyscf.grad import rhf as rhf_grad  # noqa: E402
+from gpu4pyscf.hessian import rhf as rhf_hess  # noqa: E402
 
 ap = argparse.ArgumentParser()
-ap.add_argument('--part', required=True, choices=['k', 'j', 'jk', 'xc', 'grad'])
+ap.add_argument('--part', required=True, choices=['k', 'j', 'jk', 'xc', 'grad', 'ejk2'])
 ap.add_argument('--xc', default='b3lyp')
 ap.add_argument('--basis', default='def2-svp')
 ap.add_argument('--mol', default='caffeine')
@@ -48,14 +50,15 @@ g = mf.nuc_grad_method()
 build = {'k': lambda: mf.get_k(mol, dm, 1), 'j': lambda: mf.get_j(mol, dm, 1),
          'jk': lambda: mf.get_jk(mol, dm, 1),
          'xc': lambda: mf._numint.nr_rks(mol, mf.grids, mf.xc, dm),
-         'grad': lambda: g.jk_energy_per_atom(dm, 1., .2)}[args.part]
+         'grad': lambda: g.jk_energy_per_atom(dm, 1., .2),
+         'ejk2': lambda: rhf_hess._partial_ejk_ip2(mol, dm, j_factor=1., k_factor=.2)}[args.part]
 build()  # screening data, module loading, memory pool
 
 labels = []
 
 
-def record(clib, name, opt):
-    '''Wrap the launcher clib.name so that each call appends its class to labels'''
+def record(clib, name, opt, suffix=''):
+    '''Wrap the launcher clib.name so that each call appends its class (and suffix) to labels'''
     orig = getattr(clib, name)
     smol = opt.sorted_mol
     loc = numpy.append(0, numpy.cumsum(smol.l_ctr_counts))
@@ -64,7 +67,7 @@ def record(clib, name, opt):
     def call(*a):
         shls = next(x for x in a if isinstance(x, ctypes.Array) and len(x) == 8)
         g = [int(numpy.searchsorted(loc, shls[2 * n], side='right')) - 1 for n in range(4)]
-        labels.append({'launcher': name, 'class': f'({symb[g[0]]}{symb[g[1]]}|{symb[g[2]]}{symb[g[3]]})',
+        labels.append({'launcher': name, 'class': f'({symb[g[0]]}{symb[g[1]]}|{symb[g[2]]}{symb[g[3]]}){suffix}',
                        'groups': g})
         return orig(*a)
     setattr(clib, name, call)
@@ -80,6 +83,10 @@ elif args.part == 'j':
     record(j_engine.libvhf_md, 'MD_build_j', opt_j)
 elif args.part == 'grad':
     record(rhf_grad.libvhf_rys, 'RYS_per_atom_jk_ip1', opt_k)
+elif args.part == 'ejk2':
+    opt_h = rhf_hess._VHFOpt(mol).build()   # the screening _partial_ejk_ip2 builds for itself
+    record(rhf_hess.libvhf_rys, 'RYS_per_atom_jk_ip2_type12', opt_h, ' t12')
+    record(rhf_hess.libvhf_rys, 'RYS_per_atom_jk_ip2_type3', opt_h, ' t3')
 
 cupy.cuda.Device().synchronize()
 cupy.cuda.runtime.profilerStart()

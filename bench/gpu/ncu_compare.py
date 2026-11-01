@@ -1,7 +1,7 @@
 """Per-class comparison of two Nsight Compute K-build profiles (ncu_parts.py, the same class labels): time, FP64
 flops (thread level, so padding lanes count), warp instructions, FP64 warp instructions and their share, FP64 pipe
-utilization and registers, with the kernel each class ran in A and B. Classes are sorted by A's time. --generic then lists the classes that B still runs in the
-generic kernel ({prefix}kernel), with their outputs per thread at 8 threads per quartet.
+utilization and registers, with the kernel each class ran in A and B. Classes are sorted by A's time. --generic then lists the classes that B still runs in a
+generic kernel (a name ending in kernel), with their outputs per thread at 8 threads per quartet.
 Usage: ncu_compare.py A.csv A_labels.json B.csv B_labels.json [--prefix rys_k_] [--top 30] [--generic]"""
 import argparse
 import csv
@@ -72,7 +72,7 @@ TA = sum(g['t'] for g in a.values())
 TB = sum(g['t'] for g in b.values())
 print(f'listed classes: {ta:.3f} -> {tb:.3f} s; all integral kernels: {TA:.3f} -> {TB:.3f} s ({TA / TB:.3f}x)')
 if args.generic:
-    generic = {c: g['t'] for c, g in b.items() if kb[c] == {args.prefix + 'kernel'}}
+    generic = {c: g['t'] for c, g in b.items() if all(k.endswith('kernel') for k in kb[c])}
     print(f'still generic in B: {sum(generic.values()):.3f} of {TB:.3f} s ({100 * sum(generic.values()) / TB:.0f}%)')
     for c, t in sorted(generic.items(), key=lambda kv: -kv[1]):
         nout = 1
