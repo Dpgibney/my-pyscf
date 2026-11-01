@@ -3529,6 +3529,78 @@ kernels inside the Hessian's CPHF, the path they had kept as their call for the 
 - Otherwise: the XC derivative terms (56 s), the Hessian's second-derivative kernels (51 s), the TDDFT-gradient
   kernels (9 s of 58 s), and the A100/H100 suite.
 
+## GPU4PySCF investigation, part 10: the Hessian CPHF's XC response in the occupied-MO basis (node1), 2026-11-01
+The user approved reworking the CPHF's XC response (part 9: 71 of the Hessian's 227 s).
+
+### Where the time went (`fxc_mo_parts.py`, `hess_fxc_mo.txt`)
+- **Inputs:** one call of `hessian.rks.nr_rks_fxc_mo` for 72 densities on the 102,400-point CPHF grid, caffeine def2-SVP.
+- **Split:** in the AO integration, each density builds the full AO matrix V of every grid block. That is a GEMM of
+  nao_sub × nao_sub, transformed to C^T V C_occ only at the end. The AO integration takes 55% (B3LYP), 80% (SVWN)
+  and 82% (r2SCAN). The response densities (`eval_rho4`, one GEMM of nao_sub × nocc per density) take the rest.
+- **The response densities are already at their minimum FP64 work:** χ_i = aoᵀ mo1_i is needed for every component.
+  On this card they also run at about 65% of the FP64 peak, so batching them would gain little here.
+
+### Change (gpu4pyscf `perf` 1213746, merged into `exp/prim-screen` 5108750)
+- **The idea:** each grid block adds its part of V C_occ directly, with the occupied orbitals on the grid
+  (ψ = aoᵀ C_occ, with gradients). The terms are:
+
+  | functional | V C_occ per grid block |
+  |---|---|
+  | LDA | ao (w ψ)ᵀ |
+  | GGA (V = A + Aᵀ) | ao₀ Xᵀ + aow ψ₀ᵀ, with X = Σ_k w_k ψ_k |
+  | meta-GGA | the GGA terms plus Σ_k ao_k (w_τ ψ_k)ᵀ |
+
+  - That is a GEMM of nao_sub × nocc per density instead of nao_sub × nao_sub, two for GGA and five for meta-GGA.
+  - The halving of w₀ (and w_τ) is unchanged.
+- **Batching:** the densities go through cuBLAS in batches (about 256 MB of intermediates), in the layouts it takes
+  directly. Through cuTENSOR, the (density, AO, occupied) output layout made one GEMM 1.5× slower.
+- **Fallback:** blocks where GEMMs per density × nocc ≥ GEMMs × nao_sub keep the old integration. That happens in
+  small bases and in sparse blocks of large molecules, where the old path is cheaper. The result is added through
+  V C_occ at the end.
+- **Exactness:** the same sums, in another order. The results agree with the old algorithm to 1e−16 in every case,
+  and bit for bit where every block falls back (caffeine STO-3G, GGA).
+- **Not covered:** the UKS Hessian uses the general `numint.nr_uks_fxc`, which TDDFT shares, and it is unchanged.
+
+### Results (caffeine, GTX 1650 Super)
+- **One call for 72 densities:**
+
+  | basis | B3LYP | SVWN | r2SCAN |
+  |---|---|---|---|
+  | def2-SVP (nao 246) | 14.2 → 10.3 s (1.37×) | 9.4 → 3.4 s (2.76×) | 36.7 → 14.8 s (2.49×) |
+  | 6-31G (nao 146) | 1.12× | 2.08× | 1.84× |
+  | STO-3G (nao 80) | 1.00× (all blocks fall back) | 1.69× | 1.48× |
+
+- **Hessians:**
+
+  | caffeine def2-SVP Hessian | v1.9.0 | before | now | max \|ΔH\| against v1.9.0 |
+  |---|---|---|---|---|
+  | B3LYP | 306 s | 227 s (part 9) | 208 s | 2.0e−11 |
+  | r2SCAN | 450 s | – | 339 s (1.33×) | 1.2e−11 |
+
+  - The B3LYP CPHF's XC response went from 71 to 52 s.
+  - Both Hessians kept their SCF cycles (15 and 16).
+  - r2SCAN has no exact exchange, so its CPHF J still goes through the J-engine's 9 passes per 72 densities.
+- **Tests:** the RHF, RKS, UHF and UKS Hessian tests pass (37; the RKS file covers LDA, PBE, B3LYP, M06, ωB97 and HF),
+  as do `test_large_exponent.py` and `test_level_shift_hessian.py` (11, 1 skipped).
+- **After the gate:** the NLC check moved before the loop and the GEMM counts were renamed. The A/Bs and the RKS
+  Hessian tests were run again on that code.
+- **Where the B3LYP Hessian stands (208 s):**
+
+  | stage | time |
+  |---|---|
+  | CPHF XC response | 52 s |
+  | two-electron second derivatives | 51 s |
+  | CPHF J/K | 35 s |
+  | XC derivative terms | 29 + 27 s |
+  | J/K derivative matrices | 11 s |
+
+### Next
+- **J for many densities without K** (pure functionals such as r2SCAN or PBE): the J-engine re-evaluates its integrals
+  per block of 8 densities. The fix would be a J-engine kernel change (integrals once, contraction per density), or a
+  working Rys J-only path.
+- **The XC derivative terms** (56 s, not profiled inside), **the second-derivative kernels** (51 s), **the
+  TDDFT-gradient kernels**, and **the A100/H100 suite**.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

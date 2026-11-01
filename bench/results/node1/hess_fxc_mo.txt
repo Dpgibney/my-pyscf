@@ -1,0 +1,32 @@
+# The RKS Hessian CPHF's XC response in the occupied-MO basis (gpu4pyscf perf 1213746, merged into exp/prim-screen 5108750).
+# 1) fxc_mo_parts.py: one call for 72 densities on mf.cphf_grids, v1.9.0's algorithm (copied, steps timed) against the library.
+#    def2-SVP (nao 246), then STO-3G (nao 80: every GGA block falls back to the AO integration) and 6-31G (nao 146: mixed).
+gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp (GGA): v1.9.0 algorithm 14.17 s (AO integration 7.72 s, eval_rho4 6.39 s) -> 10.32 s (1.37x), max diff 9.0e-17 (max |v| 3.8e-02)
+gpu4pyscf/gpu4pyscf: caffeine def2-svp svwn (LDA): 9.41 s (AO integration 7.52 s) -> 3.41 s (2.76x), max diff 1.6e-16
+gpu4pyscf/gpu4pyscf: caffeine def2-svp r2scan (MGGA): 36.72 s (AO integration 30.25 s) -> 14.76 s (2.49x), max diff 1.3e-16
+gpu4pyscf/gpu4pyscf: caffeine sto-3g b3lyp: 4.76 -> 4.76 s (1.00x), max diff 0.0; r2scan 10.76 -> 7.25 s (1.48x); svwn 2.81 -> 1.66 s (1.69x)
+gpu4pyscf/gpu4pyscf: caffeine 6-31g b3lyp: 7.96 -> 7.12 s (1.12x); r2scan 18.45 -> 10.02 s (1.84x); svwn 4.79 -> 2.30 s (2.08x); all within 1.1e-16
+# 2) the gate (fxc_gate.sh): Hessians against v1.9.0, the B3LYP stage breakdown, and the Hessian unit tests
+== caffeine def2-SVP B3LYP Hessian with the MO-basis XC response, against v1.9.0 (scratch/hess_base.npy)
+gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp Hessian 208.05 s (SCF 15 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 1.95e-11 (max |ref| 9.95e-01)
+== stage times
+gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp Hessian: 208.22 s, SM [1530.0, 1530.0, 1530.0] MHz
+     88.47 s  42.5%  CPHF (solve_mo1), 1 calls
+     52.04 s  25.0%  CPHF XC response (nr_rks_fxc_mo), 7 calls
+     50.65 s  24.3%  2e second derivatives (_partial_ejk_ip2), 1 calls
+     35.02 s  16.8%  CPHF J/K in the MO basis (get_jk_mo), 7 calls
+     28.82 s  13.8%  XC first derivatives of V (_get_vxc_deriv1), 1 calls
+     27.42 s  13.2%  XC second derivatives (_get_exc_deriv2), 1 calls
+     10.87 s   5.2%  J/K derivative matrices (_get_jk_ip1), 1 calls
+      0.92 s   0.4%  ground-state XC kernel (cache_xc_kernel), 7 calls
+== caffeine def2-SVP r2SCAN Hessian: v1.9.0, then this tree
+gpu4pyscf-base/gpu4pyscf: caffeine def2-svp r2scan Hessian 450.02 s (SCF 16 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: caffeine def2-svp r2scan Hessian 338.98 s (SCF 16 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 1.17e-11 (max |ref| 9.97e-01)
+=== hessian rhf rks uhf uks
+37 passed in 175.10s (0:02:55)
+=== hessian large_exponent level_shift
+11 passed, 1 skipped, 2 warnings in 23.31s
+# after the gate the NLC check moved before the loop and n_mo/n_ao became gemms_mo/gemms_ao; rerun on that code: the three def2-SVP
+# A/Bs above (1.37x, 2.76x, 2.49x, within 1.6e-16) and test_rks_hessian.py, 12 passed
