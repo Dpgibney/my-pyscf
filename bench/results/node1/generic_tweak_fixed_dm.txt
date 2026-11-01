@@ -1,0 +1,22 @@
+# Generic-kernel tweak: K, J+K (def2-TZVP, then def2-SVP) and derivative builds at the converged caffeine densities, against v1.9.0
+gpu4pyscf/gpu4pyscf: k median 11.750 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 3.55e-15 (max |ref| 1.06e+01)
+gpu4pyscf/gpu4pyscf: jk median 12.349 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  max |jk - ref| = 5.09e-14 (max |ref| 3.55e+01)
+gpu4pyscf/gpu4pyscf: k median 1.014 s of 5, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 2.66e-15 (max |ref| 9.79e+00)
+gpu4pyscf/gpu4pyscf: jk median 1.036 s of 5, SM [1530.0, 1530.0, 1530.0] MHz
+  max |jk - ref| = 3.99e-14 (max |ref| 3.35e+01)
+gpu4pyscf/gpu4pyscf: ejk1_jk     median   4.421 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk1_b3lyp  median   4.419 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk1_j      median   4.251 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk1_srk    median   8.172 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk2        median  50.686 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: jk1         median  10.812 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  ejk1_jk     max |d - ref| = 8.62e-13 (max |ref| 3.01e+01)
+  ejk1_b3lyp  max |d - ref| = 4.76e-13 (max |ref| 3.08e+01)
+  ejk1_j      max |d - ref| = 7.96e-13 (max |ref| 3.10e+01)
+  ejk1_srk    max |d - ref| = 1.64e-14 (max |ref| 3.46e-01)
+  ejk2        max |d - ref| = 1.31e-12 (max |ref| 5.30e+01)
+  jk1         max |d - ref| = 1.35e-13 (max |ref| 1.15e+01)
+CHECK DONE

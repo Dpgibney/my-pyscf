@@ -1,0 +1,13 @@
+# Generic-kernel tweak (gpu4pyscf exp/prim-screen): unit tests, then caffeine/def2-TZVP B3LYP SCF (conv_tol 1e-10), v1.9.0 then patched
+=== scf_jk + int4c2e
+.............                                                            [100%]
+13 passed in 24.58s
+=== grad rhf rks uhf uks + tdrks
+...............................................                          [100%]
+47 passed in 431.59s (0:07:11)
+=== hessian large_exponent rhf rks
+27 passed, 1 skipped, 2 warnings in 112.04s (0:01:52)
+TESTS DONE
+{"tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf", "e_tot": -680.5697781455807, "cycles": 15, "wall_s": 321.57, "sm_mhz": [1530.0, 1530.0, 1530.0]}
+{"tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "e_tot": -680.56977814558, "cycles": 15, "wall_s": 235.45, "sm_mhz": [1530.0, 1530.0, 1530.0]}
+SCF DONE

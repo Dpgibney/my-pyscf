@@ -16,7 +16,8 @@ derivative kernels alone, whose block size is a compile-time constant.
 PRIM_CUTOFF (vhf.cuh) is e^-60 = 8.8e-27, libcint's expcutoff. A skipped primitive pair enters its integrals with a
 factor below that, many orders of magnitude under the SCF's 1e-13 shell-quartet cutoff.
 Usage: exp_prim_screen.py TREE [--base perf] [--barrier keep|remove] [--ket none|zero|cutoff]
-                               [--bra none|zero|cutoff] [--multi on|off] [--launch 128x4|off|NSQxBLOCKS|env]"""
+                               [--bra none|zero|cutoff] [--multi on|off] [--launch 128x4|off|NSQxBLOCKS|env]
+                               [--generic on|off]"""
 import argparse
 import re
 import subprocess
@@ -29,6 +30,8 @@ ap.add_argument('--ket', default='cutoff', choices=['none', 'zero', 'cutoff'])
 ap.add_argument('--bra', default='cutoff', choices=['none', 'zero', 'cutoff'])
 ap.add_argument('--multi', default='on', choices=['on', 'off'],
                 help='also the bra skip in the multi-thread and generic kernels')
+ap.add_argument('--generic', default='on', choices=['on', 'off'],
+                help='generic kernels: aij and aj/aij from registers in the root loop, and no TRR on padding quartets')
 ap.add_argument('--launch', default='128x4',
                 help="launch shape of the one-thread kernels: off (one block of 256 per SM, as in v1.9.0), NSQxBLOCKS "
                      "(blocks of NSQ threads, at most BLOCKS per SM), or env (K and J+K from GPU4PYSCF_RYS_NSQ and "
@@ -165,6 +168,38 @@ for name in ('rys_contract_jk_ip1.cu', 'rys_contract_jk_ip2.cu'):
             n_generic += 1
     open(f'{args.tree}/{D}/{name}', 'w').write(''.join(parts))
 assert n_generic == 5
+
+# Generic kernels (rys_k_kernel, and the BUILD_4C_GXYZ macro behind rys_jk_kernel, the four generic gradient kernels,
+# the two generic Hessian kernels and int4c2e). Inside the root loop they re-read aij and aj/aij from shared memory
+# (aij_cache) after a barrier, although every thread holds the same values in registers, so .5/aij could not leave the
+# loop. And padding quartets ran the full TRR, whose g arrays nobody reads: the HRR, the products and the
+# accumulation all skip task_id >= ntasks. Both are bitwise exact; the barriers stay where they are.
+if args.generic == 'on':
+    s = source(f'{D}/build_rys_gxyz.cuh')
+    m4 = s.index('#define BUILD_4C_GXYZ(lj, ll, active)')
+    m3 = s.index('#define BUILD_3C_GXYZ')
+    mac = s[m4:m3]
+    for old, new in (('        double aij = aij_cache[0]; \\\n', ''),
+                     ('            double aj_aij = aij_cache[1]; \\\n', ''),
+                     ('            for (int n = gout_id; n < 3; n += gout_stride) { \\\n',
+                      '            for (int n = gout_id; n < 3 && (active); n += gout_stride) { \\\n')):
+        assert mac.count(old) == 1, old
+        mac = mac.replace(old, new)
+    mac, nrep = re.subn(r'if \(n < lij3\) \{ \\\n', 'if (n < lij3 && (active)) { \\\n', mac)
+    assert nrep == 2 and 'aij_cache' not in mac
+    open(f'{args.tree}/{D}/build_rys_gxyz.cuh', 'w').write(s[:m4] + mac + s[m3:])
+    p = f'{args.tree}/{D}/rys_contract_k.cu'
+    s = open(p).read()
+    for old, new in (('                    double aij = aij_cache[0];\n', ''),
+                     ('                        double aj_aij = aij_cache[1];\n', ''),
+                     ('                        for (int n = gout_id; n < 3; n += gout_stride) {\n',
+                      '                        for (int n = gout_id; n < 3 && task_id < ntasks; n += gout_stride) {\n'),
+                     # the deeper line first: the shallower pattern is a substring of it
+                     ('                                if (n < lij3) {\n', '                                if (n < lij3 && task_id < ntasks) {\n'),
+                     ('                            if (n < lij3) {\n', '                            if (n < lij3 && task_id < ntasks) {\n')):
+        assert s.count(old) == 1, old
+        s = s.replace(old, new)
+    open(p, 'w').write(s)
 
 s = source(f'{D}/vhf.cuh')
 pi_fac = '#define PI_FAC          34.98683665524972497\n'

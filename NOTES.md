@@ -3131,6 +3131,85 @@ The user approved the change part 4 recommended.
   needed only briefly. `one_pass_gate.py`, `jk_at_dm.py`, `deriv_at_dm.py`, `grad_parts.py`, `hess_parts.py`,
   `ncu_parts.py` and the upstream test lists already run unchanged.
 
+## GPU4PySCF investigation, part 6: the generic kernel (node1), 2026-10-31
+The user approved working on it.
+- **Why it matters:** with def2-TZVP the generic kernel is 51% of K and 70% of its instructions (part 2), and it runs
+  most of the Hessian's energy second derivatives.
+- **Lesson from part 4:** the code and the counters were checked before anything was built.
+
+### Where the generic kernel spends its work (`bench/gpu/ncu_class.py`, `generic_kernel_profile.txt`)
+- **Method:** Nsight Compute source counters, from a build with `-lineinfo` (line tables only; the generated code is
+  the same). One launch each of (dp|dp), (fs|dp), (fp|pp) and (fd|ps), at the converged def2-TZVP density.
+- **Phases:** the output products (`inner_dot`) carry 38–52% of the FP64 flops. The TRR along i and k carry 30–35%,
+  the HRR 5–10%, and the roots and primitive setup the rest.
+- **Instruction mix:** FP64 is 16–17% of the warp instructions. For (fp|pp): IMAD 21%, LDS 19%, IADD3 14%,
+  DFMA + DMUL 15%.
+  - Each product takes three shared-memory loads, whose addresses come from runtime index arrays, plus their
+    address arithmetic.
+  - The loop bounds are runtime class values, so the compiler can neither fold the addresses nor reuse repeated loads.
+- **Stalls and spills:** stalls are mostly long scoreboard. Spills are a few bytes (ptxas), so these stalls are not
+  local memory.
+- **Redundant divisions:** two per-root lines recompute double divisions in every thread of a quartet.
+  - `b10 = .5/aij·(1−rt_aij)` is 4.9% of the FP64 work. It re-reads `aij` from shared memory after a barrier, so
+    `.5/aij` cannot leave the loop. The equivalent `b01 = .5/akl` uses a register and was hoisted (0.6%).
+  - `rt_aa = rt/(aij+akl)` is 4.6%.
+
+### Change (gpu4pyscf `exp/prim-screen` 411a428; `exp_prim_screen.py --generic on`, the default)
+- **Registers instead of shared copies:** inside the root loop, `rys_k_kernel` and the `BUILD_4C_GXYZ` macro use the
+  `aij` and `aj/aij` every thread already holds, instead of the shared copies.
+  - The macro builds the g arrays of `rys_jk_kernel`, the four generic gradient kernels, the two generic Hessian
+    kernels and int4c2e.
+- **No TRR on padding quartets:** their arithmetic is skipped, and the barriers stay. Every user drops padding
+  quartets right after the TRR, so their g arrays are never read.
+- Both are bit-for-bit for real quartets. Spills stay at 12–28 bytes.
+- **Effect:** FP64 work falls 7–10% in the four classes, but warp instructions only 0.3–1.7%, and the FP64 pipe stays
+  about 79% busy. Padding quartets share warps with real ones, so skipping their TRR idles lanes but removes no warp
+  instructions.
+- **Times** (fixed density; `generic_tweak_fixed_dm.txt`):
+  - def2-TZVP K 12.02 → 11.75 s, J+K 12.60 → 12.35 s (−2%).
+  - def2-SVP and the derivative builds move by 0–0.6%.
+  - All at the noise against v1.9.0.
+
+### What specialized code would buy (`generic_vs_unrolled.txt`)
+- **Method:** a temporary dispatcher switch (not committed) sent every class of the def2-SVP K build through the
+  generic kernel, on the same build. The 25 classes that have unrolled kernels can then be compared directly.
+- **Results:**
+
+  | unrolled kernels | speed against the generic kernel | where the difference comes from |
+  |---|---|---|
+  | one-thread ((ss\|ss) 3.7×, (ps\|ss) 2.7×, (ps\|ps) 2.7×, (dp\|ps) 2.1×) | 2.1–3.7× | 2–6× less FP64 work: per-quartet primitive skips and no padding work |
+  | multi-thread ((dp\|pp), (dp\|ds), (dd\|ps), (ds\|dp)) | 1.2–1.3× | the same or more FP64 work, but 2.7× fewer instructions (FP64 39–45% of them against 16–18%) and an FP64 pipe 82–87% busy instead of 67–78% |
+
+  - The whole def2-SVP K build takes 1.016 s with its unrolled kernels and 2.277 s with the generic kernel alone.
+- **The f classes need the multi-thread design.** All of def2-TZVP's generic classes (f with p, d or f, and d with d)
+  have more outputs than one thread's registers can hold: (fp|pp) has 270, against 54 in the largest one-thread kernel.
+- **Estimate:** generated multi-thread kernels for those classes would be about 1.2–1.3× faster on this card, about
+  10% of def2-TZVP K. On FP64-rich cards the 2.7× fewer instructions would matter more.
+- **Cost:** a code generator, or C++ templates on (li, lj, lk, ll) with compile-time output tiles, plus per-class
+  checks. That covers about 40 K classes, then the J+K, gradient and Hessian families.
+- **Not done: skipping wasted f-tile slots.** f has 10 Cartesian components in 4 tiles of 3, so 2 of 12 slots are
+  wasted.
+  - A per-thread tile pattern would skip them, but it diverges in warps that mix tiles: classes with 48 quartets per
+    block or 16 threads per quartet.
+  - In those warps it would cost more than it saves.
+
+### Gate (`upstream_tests_generic.txt`)
+- **Unit tests**, all passing:
+  - `test_scf_jk.py` and `test_int4c2e.py`: 13.
+  - Gradients and TDDFT gradients: 47.
+  - Hessians, `test_large_exponent.py` included: 27, 1 skipped.
+- **Caffeine/def2-TZVP B3LYP SCF** (one-pass off, conv_tol 1e−10), against v1.9.0 with all of parts 1–6:
+  321.6 → 235.5 s (1.37×), E within 7e−13 Eh, 15 cycles each.
+- The node1 build now keeps `-DCMAKE_CUDA_FLAGS=-lineinfo` (line tables for source profiles). It does not change the
+  generated code.
+
+### Next
+- **Generated multi-thread kernels for the generic classes** (above): about 10% of def2-TZVP K on this card, and more
+  where FP64 is cheap. Several iterations: the generator or templates, then about 40 K classes, then the J+K,
+  gradient and Hessian families.
+- **Otherwise, as before:** the rest of the Hessian (230 of 292 s), a J-engine gradient, jk_one_pass as the default
+  (the user's call), and the A100/H100 test suite.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
