@@ -1,8 +1,9 @@
 """Where the RKS Hessian's XC derivative terms spend their time (node1): _get_vxc_diag and _get_vxc_deriv2 (the two
 halves of _get_exc_deriv2) and _get_vxc_deriv1 (make_h1), each run once at the converged SCF, with synchronizing
 timers around the helpers they call: contract by its subscripts, the AO values (each step of ni.block_loop),
-eval_rho2, eval_xc_eff, _scale_ao, _make_dR_rho1, _contract_rho1_fxc, the gradient helpers and add_sparse. Only the
-outermost timed call counts, so the parts add up to the timed total; the rest is untimed Python and small arrays.
+eval_rho2, eval_xc_eff, _scale_ao, _make_dR_rho1, _contract_rho1_fxc, the gradient helpers, add_sparse and the
+helpers of the block-AO code. The outermost timed calls add up to the timed total (the rest is untimed Python and small
+arrays); a timed call inside another is listed under it, with what remains of the outer call ("rest", e.g. a GEMM).
 Synchronizing after every call removes the overlap of launches, so the totals run somewhat above an untimed call.
 Source scripts/node1-gpu-env.sh perf|base first.
 Usage: hess_xc_parts.py [--xc b3lyp] [--basis def2-svp]"""
@@ -28,15 +29,17 @@ ap.add_argument('--basis', default='def2-svp')
 args = ap.parse_args()
 
 T, N = defaultdict(float), defaultdict(int)
-depth = [0]
+stack = []   # the keys of the timed calls in progress; a nested call's key is 'outer > inner'
 
 
 def timed(label, f, by_subscripts=False):
     def wrapper(*a, **kw):
-        if depth[0]:
-            return f(*a, **kw)
         key = f'contract {a[0]}' if by_subscripts else label
-        depth[0] += 1
+        if stack:
+            if ' > ' in stack[-1]:   # one level of nesting is listed
+                return f(*a, **kw)
+            key = f'{stack[-1]} > {key}'
+        stack.append(key)
         cupy.cuda.Device().synchronize()
         t0 = time.perf_counter()
         try:
@@ -45,7 +48,7 @@ def timed(label, f, by_subscripts=False):
             cupy.cuda.Device().synchronize()
             T[key] += time.perf_counter() - t0
             N[key] += 1
-            depth[0] -= 1
+            stack.pop()
     return wrapper
 
 
@@ -75,7 +78,9 @@ mo_coeff, mo_occ = mf.mo_coeff, mf.mo_occ
 
 rks_hess.contract = timed('contract', rks_hess.contract, by_subscripts=True)
 for mod, names in ((rks_hess, ('add_sparse', 'take_last2d', '_make_dR_rho1', '_d1d2_dot_', '_contract_rho1_fxc',
-                              'dot_rows', '_block_ao_subset', '_d1_dot_pair')),
+                              'dot_rows', '_block_ao_subset', '_d1_dot_pair', '_d1d2_dot_gemm', '_add_d1d2_',
+                              '_dR_rho1_vmat', '_dR_rho1_terms', '_atom_sums', '_contract_rho1_fxc_rows',
+                              '_add_atom_rows_')),
                    (numint, ('eval_rho2', '_scale_ao')),
                    (rks_grad, ('_make_dR_dao_w', '_gga_grad_sum_', '_d1_dot_', '_d1d2_dot_'))):
     for name in names:
@@ -96,6 +101,12 @@ for name in ('_get_vxc_diag', '_get_vxc_deriv2', '_get_vxc_deriv1'):
     f(hobj, mo_coeff, mo_occ, 4000)
     cupy.cuda.Device().synchronize()
     total = time.perf_counter() - t0
-    print(f'  {name}: {total:.2f} s, timed parts {sum(T.values()):.2f} s')
-    for k, v in sorted(T.items(), key=lambda kv: -kv[1])[:14]:
+    top = {k: v for k, v in T.items() if ' > ' not in k}
+    print(f'  {name}: {total:.2f} s, timed parts {sum(top.values()):.2f} s')
+    for k, v in sorted(top.items(), key=lambda kv: -kv[1])[:14]:
         print(f'    {v:7.2f} s {100 * v / total:5.1f}%  {k} ({N[k]} calls)')
+        inner = {kk: vv for kk, vv in T.items() if kk.startswith(k + ' > ')}
+        if inner:
+            for kk, vv in sorted(inner.items(), key=lambda kv: -kv[1]):
+                print(f'        {vv:7.2f} s  {kk[len(k) + 3:]} ({N[kk]} calls)')
+            print(f'        {v - sum(inner.values()):7.2f} s  rest')

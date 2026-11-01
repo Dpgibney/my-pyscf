@@ -2,7 +2,8 @@
 _get_vxc_deriv1 (--func deriv1), for identical orbitals in two trees: with --save-mo the SCF runs first and its
 mo_coeff and mo_occ go to MO.npz; otherwise they are loaded from MO.npz. The function runs once untimed (unless
 --no-warmup) and once timed; its result goes to --out, and --compare REF.npy prints the largest difference. UKS uses
-the cation (doublet). Source scripts/node1-gpu-env.sh perf|base first.
+the cation (doublet). The memory pool size printed is CuPy's high-water mark (the pool keeps freed blocks).
+Source scripts/node1-gpu-env.sh perf|base first.
 Usage: vxc_deriv_check.py --mo MO.npz [--save-mo] [--func deriv2|deriv1] [--mol caffeine|c20h42] [--xc b3lyp]
                           [--basis def2-svp] [--uks] [--no-warmup] [--out OUT.npy] [--compare REF.npy]"""
 import argparse
@@ -59,9 +60,10 @@ t = time.perf_counter() - t0
 # UKS: the alpha and beta parts, flattened (deriv1's have different numbers of occupied orbitals)
 v = numpy.concatenate([cupy.asnumpy(x).ravel() for x in v]) if isinstance(v, (tuple, list)) else cupy.asnumpy(v)
 print(f'{os.path.dirname(gpu4pyscf.__file__)}: {"UKS" if args.uks else "RKS"} {args.mol} {args.xc} {args.basis} '
-      f'_get_vxc_{args.func} {t:.2f} s')
+      f'_get_vxc_{args.func} {t:.2f} s, memory pool {cupy.get_default_memory_pool().total_bytes() / 1e6:.0f} MB')
 if args.out:
     numpy.save(args.out, v)
 if args.compare:
-    ref = numpy.load(args.compare)
+    ref = numpy.load(args.compare).ravel()  # earlier UKS references were saved unflattened
+    v = v.ravel()
     print(f'  max |v - ref| = {abs(v - ref).max():.2e} (max |ref| {abs(ref).max():.2e})')

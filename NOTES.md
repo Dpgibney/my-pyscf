@@ -3803,6 +3803,165 @@ Option 2 of part 11, approved together with option 1 (part 12).
    - Probably more on GPUs with many SMs; that needs the A100/H100 suite.
 3. **One grid pass for both derivative terms:** about 4 s (part 11).
 
+## GPU4PySCF investigation, part 14: the Hessian's XC second derivatives on each grid block's own AOs, the atoms' terms in one GEMM (node1), 2026-11-01
+Option 1 of part 13, approved by the user. Change A is that option. Change B, a separate commit, goes further in the
+same function: it replaces the per-atom loop that remained after A. Change C fixes a memory side effect of part 13 that
+B's first version brought to light.
+
+### Change A (gpu4pyscf `perf` 21bc83a, merged into `exp/prim-screen` 4469f87)
+- **Part 13's change in `_get_vxc_deriv2`** (RKS and UKS). Each grid block gathers its own AOs in the original order
+  (`_block_ao_subset`) instead of a GEMM with the permutation matrix `opt.coeff`.
+- **The AO-pair term `ipip`** was nine GEMMs of nao × nao per block (36 for meta-GGAs). It is now one GEMM of
+  3·nao_sub × 3·nao_sub (`_d1d2_dot_gemm`), plus three for the meta-GGA τ part, added at the block's AOs
+  (`_add_d1d2_`, through `add_sparse`).
+- **dm0 · AO** was computed twice per block: for all nao rows in the original basis (for dR_rho1) and on the mask in
+  the sorted basis (for the matrix elements). It is now computed once, on the block's AOs.
+- **Skipping:** atoms without AOs on the block are skipped (their dR_rho1 is zero there), and the results are
+  accumulated in the original basis, so the final unsort goes away.
+- **UKS:** fxc · dR_rho1 goes through `_contract_rho1_fxc` instead of cuTENSOR's `'xbyg,sxg->bsyg'` (as part 13 did in
+  `_get_vxc_deriv1`).
+
+### Change B (gpu4pyscf `perf` d318e8a, merged into `exp/prim-screen` 581c671)
+- **What remained after A:** a loop over the atoms of each block. Per atom it built dR_rho1 (21 row contractions plus
+  their adds for GGA), contracted it with fxc, and formed the atom's terms in vmat_dm with three `_make_dR_dao_w`,
+  three `_scale_ao` and four `dot_rows` passes over the block's AO values (13 `dot_rows` for meta-GGAs). All of these
+  are bound by memory bandwidth, and their number grows with the atoms per block.
+- **The identity:** both halves are made of the same per-AO products. Let t[x,j,c,g] be AO j's terms of dR_rho1
+  (direction x, density component c, grid point g):
+
+  | component | t[x,j,c] |
+  |---|---|
+  | ρ | 2 ∂_xφ_j D0_j |
+  | ∇_c ρ | 2 (∂_x∂_cφ_j D0_j + ∂_xφ_j D_c,j) |
+  | τ | Σ_c ∂_x∂_cφ_j D_c,j |
+
+  with D_c,j = Σ_i ∂̃_cφ_i dm0[i,j]. Then dR_rho1 of atom A is Σ_{j on A} t[:,j], and the atom's terms in vmat_dm are
+  v[A,i,x,j] = ½ Σ_{c,g} (fxc · dR_rho1_A)[i,c,g] t[x,j,c,g], for LDA, GGA and meta-GGA alike. The one factor ½
+  combines the old code's ½ on the ρ and τ components with the 2 of t's ∇ρ terms.
+- **One GEMM per block:** for all atoms with AOs on a block, the terms are one GEMM of (3·natm_blk) × (3·nao_sub)
+  with K = ncomp × ngrids. t takes one kernel (`_dR_rho1_terms`), the atoms' sums another (`_atom_sums`), and the fxc
+  contraction a third (`_contract_rho1_fxc_rows`).
+- **Memory:** t is built for grid sub-blocks of 4096/ncomp points, so it never exceeds three (nao_sub, 4096) arrays
+  and fits in the block's `aow` buffer. The fxc kernel has no temporaries (`_contract_rho1_fxc` makes
+  (rows, nv, nv, ngrids) ones). The UKS path, which allocated its arrays per block, uses fixed buffers like the RKS
+  path.
+  - A first version built t for the whole block and allocated it per block. It was as fast, but CuPy's memory pool
+    peaked at 2.7–3.2× v1.9.0's (859 against 319 MB for caffeine B3LYP; 2056 against 646 MB for the UKS alkane):
+    t's size changes with each block's AO count, so the freed blocks did not fit the next one.
+- **Exactness:** the same sums, in another order.
+- **Prototype** (`d2_atoms_gemm.py`, random inputs shaped like a caffeine block): the GEMM form agrees with the
+  per-atom form to 2e−15 relative. Per block it takes 22 ms (GGA) and 28 ms (meta-GGA), the GEMM 90% of that, at
+  60 GFLOP/s: the M dimension is only 3 × 24 atoms. Other GEMM orientations or K splits change it by less than 10%
+  (`d2_gemm_orient.py`).
+
+### Results (GTX 1650 Super; `hess_deriv2.txt`)
+- **`_get_vxc_deriv2` at identical orbitals** (`vxc_deriv_check.py`). v1.9.0 ran interleaved with the first version of
+  B; the B column is the final version, run right after it (0–5% faster than the first). Part 12 and A are from
+  their own runs:
+
+  | | v1.9.0 | part 12 | A | B |
+  |---|---|---|---|---|
+  | caffeine RKS SVWN | 18.4 s | 7.0 s | 4.0 s | 2.45 s (7.5×) |
+  | caffeine RKS B3LYP | 23.9 s | 12.6 s | 7.4 s | 4.56 s (5.2×) |
+  | caffeine RKS r2SCAN | 37.3 s | 25.9 s | 15.9 s | 10.1 s (3.7×) |
+  | caffeine⁺ UKS SVWN | 36.6 s | 13.9 s | 8.5 s | 4.84 s (7.6×) |
+  | caffeine⁺ UKS B3LYP | 49.9 s | 27.1 s | 15.6 s | 9.03 s (5.5×) |
+  | caffeine⁺ UKS r2SCAN | 77.9 s | 54.8 s | 34.8 s | 20.1 s (3.9×) |
+  | n-C20H42 RKS B3LYP | 160 s | – | – | 11.6 s (13.8×) |
+  | n-C20H42⁺ UKS B3LYP | 331 s | – | – | 22.7 s (14.6×) |
+
+  - The final outputs agree with v1.9.0 to 5.4e−13 or better, compared directly (values up to 2.2e2; the UKS alkane
+    through the first version of B, 1.1e−13 + 3.6e−14). A agrees with part 12 to 5.4e−13, B with A to 2.6e−13.
+  - The alkane gains the most: its blocks hold 35% of its AOs and 53% of its atoms (part 11).
+- **Memory** (`deriv_mem.py`: the peak in use is tracked at every allocation of CuPy's pool; the pool also holds the
+  freed blocks it caches):
+
+  | `_get_vxc_deriv2` | peak in use, v1.9.0 → B | pool, v1.9.0 → B |
+  |---|---|---|
+  | caffeine RKS SVWN / B3LYP / r2SCAN | 150 / 269 / 294 → 117 / 234 / 262 MB | 185 / 301 / 325 → 148 / 264 / 288 MB |
+  | caffeine⁺ UKS SVWN / B3LYP / r2SCAN | 241 / 364 / 418 → 155 / 302 / 307 MB | 421 / 667 / 611 → 188 / 329 / 346 MB |
+  | n-C20H42 RKS / UKS B3LYP | 455 / 561 → 385 / 539 MB | 507 / 852 → 442 / 573 MB |
+
+  - The first version of B had the same timings but pool peaks of 2.7–3.2× v1.9.0's (see Change B).
+- **Hessians** (caffeine def2-SVP, with the `exp/prim-screen` kernels):
+
+  | Hessian | v1.9.0 | before (part 13) | now | max \|ΔH\| against v1.9.0 |
+  |---|---|---|---|---|
+  | B3LYP | 306 s | 184 s | 177 s | 2.1e−11 |
+  | r2SCAN | 450 s | 272 s | 256 s | 7.4e−12 |
+
+  - The SCF cycle counts are unchanged (15 and 16). `_get_exc_deriv2` went from 16.1 to 8.1 s (B3LYP).
+  - Neutral benzene with UKS (spin 0) agrees with v1.9.0 to 2.9e−12 (SVWN), 2.4e−12 (B3LYP) and 5.4e−12 (r2SCAN),
+    with the same cycle counts. The times go 40.3 → 32.6, 62.5 → 41.7 and 85.4 → 71.3 s.
+- **Tests:** the RHF, RKS, UHF and UKS Hessian tests pass (37), as do `test_large_exponent.py` and
+  `test_level_shift_hessian.py` (11, 1 skipped), after each of A, B and C.
+- **Where `_get_vxc_deriv2` stands** (`hess_xc_parts.py`, synchronizing timers):
+
+  | part | B3LYP (4.7 s) | r2SCAN (10.3 s) |
+  |---|---|---|
+  | AO-pair GEMMs `_d1d2_dot_gemm` (3·nao_sub square, K = 4096) | 1.66 s | 6.63 s (with the three τ GEMMs) |
+  | the atoms' terms `_dR_rho1_vmat` | 1.70 s (GEMM 1.56 s) | 2.13 s (GEMM 1.95 s) |
+  | dm0 · AO | 0.70 s | 0.70 s |
+  | ρ, fxc, AO values | 0.48 s | 0.55 s |
+
+  - Taking every block at the mean of 167 AOs, the AO-pair GEMMs run at about 90 GFLOP/s (the card's FP64 peak at
+    1530 MHz is 122) and the atoms' GEMM at about 55: its M dimension is 3 × the atoms of a block.
+  - The meta-GGA τ part of the AO-pair term is symmetric, so cuBLAS's `dsyrkx` (one triangle) would halve its three
+    GEMMs, about 2.5 s for r2SCAN. CuPy does not wrap it.
+- **Where the B3LYP Hessian stands (177 s; `hess_deriv2_stages.jsonl`):**
+
+  | stage | time |
+  |---|---|
+  | CPHF (`solve_mo1`) | 89 s, of which XC response 52 s and J/K 35 s |
+  | two-electron second derivatives | 51 s |
+  | XC first derivatives of V | 16 s |
+  | J/K derivative matrices | 11 s |
+  | XC second derivatives | 8 s |
+- **Tools, new or changed:**
+  - `deriv_mem.py`: the peak memory in use and the pool's size for `_get_vxc_deriv1|2`.
+  - `vxc_deriv_check.py` also prints the pool's high-water mark and compares flattened outputs. The UKS references
+    of part 12 were saved unflattened.
+  - `hess_xc_parts.py` lists a timed call made inside another under it, with the outer call's own rest.
+  - `d2_atoms_gemm.py` and `d2_gemm_orient.py`: B's prototype and its GEMM shapes.
+
+### Change C (gpu4pyscf `perf` 87d85e8, merged into `exp/prim-screen` 5ef6c7d)
+- **Fixed buffers in the UKS `_get_vxc_deriv1`.** B's first version showed what per-block arrays sized by each
+  block's AO count do to CuPy's pool. Part 13's UKS `_get_vxc_deriv1` has the same pattern (`ao[:,order]`, dm0 · AO,
+  `aow`): its pool peaked at 789 MB for caffeine⁺ B3LYP and 782 MB for r2SCAN, against v1.9.0's 403 and 395 MB, while
+  its peak in use was lower (302 against 347 MB). v1.9.0 allocated these arrays at the full nao, the same size every
+  block.
+- **The change:** those arrays go in buffers allocated once, as in the RKS path. The results are bit for bit the same.
+- **Results** (`hess_deriv2.txt`, section 8):
+
+  | UKS `_get_vxc_deriv1` | time | pool, v1.9.0 / part 13 / now | peak in use, v1.9.0 / part 13 / now |
+  |---|---|---|---|
+  | caffeine⁺ SVWN | 28.4 s | – / – / 204 MB | – / – / 168 MB |
+  | caffeine⁺ B3LYP | 31.9 s | 403 / 789 / 377 MB | 347 / 302 / 344 MB |
+  | caffeine⁺ r2SCAN | 66.4 s | 395 / 782 / 477 MB | 350 / 310 / 353 MB |
+  | n-C20H42⁺ B3LYP | 140.6 s | 778 / – / 708 MB | 676 / – / 660 MB |
+
+  - The peak in use goes back to about v1.9.0's: the buffers are sized for all AOs.
+  - The meta-GGA pool stays above v1.9.0's, most likely from `rks_grad._tau_grad_dot_` (shared with the gradient
+    code), which gathers (3, nao_sub, ngrids) copies with fancy indices on every call. The RKS meta-GGA path has the
+    same excess (397 against 301 MB) at the same peak in use.
+  - The outputs are identical to part 13's (all differences exactly zero), at the same times.
+  - Neutral benzene UKS Hessians agree with v1.9.0 to 4.6e−12 (SVWN, r2SCAN) and 2.1e−12 (B3LYP); the Hessian tests
+    pass (37; 11 and 1 skipped).
+
+### Options (exact; not started)
+1. **Batch `_get_vxc_deriv1`'s per-atom GEMMs over atoms** (part 13's option 2). They take 11.4 of its 16 s for
+   caffeine B3LYP, at 64 GFLOP/s one atom at a time; batched they ran at 94 GFLOP/s (`d1_gemm_shapes.py`), about 4 s
+   less. Probably more on GPUs with many SMs, to measure in the A100/H100 suite.
+2. **Profile the two-electron second derivatives** (`_partial_ejk_ip2`, 51 s, the largest stage outside the CPHF):
+   which integral classes and kernels take the time, and whether the generated kernels of parts 7 and 8 carry over.
+   A profile first, as in part 11.
+3. **The CPHF** (89 s): its J/K (35 s in 7 calls) has not been profiled since part 9; its XC response (52 s) was
+   near the FP64 floor in part 10.
+4. **Small items:**
+   - `dsyrkx` for the symmetric meta-GGA τ part of `_get_vxc_deriv2`'s AO-pair term: about 2.5 s of r2SCAN's 10.3 s.
+     It needs a ctypes call into cuBLAS.
+   - `_tau_grad_dot_` without the fancy-index copies (the meta-GGA pool excess above).
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
