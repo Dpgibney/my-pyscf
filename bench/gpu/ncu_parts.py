@@ -8,8 +8,10 @@ Part grad is the gradient's two-electron energy derivatives (jk_energy_per_atom 
 RYS_per_atom_jk_ip1); part ejk2 the Hessian's second derivatives (_partial_ejk_ip2 with B3LYP's factors,
 RYS_per_atom_jk_ip2_type12 and _type3, labelled 't12' and 't3'). --dm DM.npy (jk_at_dm.py --save-dm) takes a saved density in the original AO basis instead of
 running the SCF.
-Usage: ncu_parts.py --part k|j|jk|xc|grad|ejk2 [--xc b3lyp] [--basis def2-svp] [--mol caffeine] [--labels FILE]
-                    [--dm DM.npy]"""
+Part cphfjk is the Hessian CPHF's one-pass J+K (_VHFOpt.get_jk, RYS_build_jk, as hessian.rhf._get_jk_mo runs it) at
+the response densities of --dms DMS.npz (cphf_jk_dms.py); --dm is still needed for the SCF-free setup.
+Usage: ncu_parts.py --part k|j|jk|xc|grad|ejk2|cphfjk [--xc b3lyp] [--basis def2-svp] [--mol caffeine]
+                    [--labels FILE] [--dm DM.npy] [--dms DMS.npz]"""
 import argparse
 import ctypes
 import json
@@ -27,7 +29,8 @@ from gpu4pyscf.grad import rhf as rhf_grad  # noqa: E402
 from gpu4pyscf.hessian import rhf as rhf_hess  # noqa: E402
 
 ap = argparse.ArgumentParser()
-ap.add_argument('--part', required=True, choices=['k', 'j', 'jk', 'xc', 'grad', 'ejk2'])
+ap.add_argument('--part', required=True, choices=['k', 'j', 'jk', 'xc', 'grad', 'ejk2', 'cphfjk'])
+ap.add_argument('--dms', default=None, help='part cphfjk: the response densities (cphf_jk_dms.py)')
 ap.add_argument('--xc', default='b3lyp')
 ap.add_argument('--basis', default='def2-svp')
 ap.add_argument('--mol', default='caffeine')
@@ -47,11 +50,16 @@ else:
     mf.kernel()
     dm = cupy.asarray(mf.make_rdm1())
 g = mf.nuc_grad_method()
+if args.part == 'cphfjk':
+    # the Hessian CPHF's one-pass J+K (hessian.rhf._get_jk_mo) at its response densities
+    kopt = jk._VHFOpt(mol, mf.direct_scf_tol).build()
+    cphf_dms = kopt.apply_coeff_C_mat_CT(cupy.asarray(numpy.load(args.dms)['dms']))
 build = {'k': lambda: mf.get_k(mol, dm, 1), 'j': lambda: mf.get_j(mol, dm, 1),
          'jk': lambda: mf.get_jk(mol, dm, 1),
          'xc': lambda: mf._numint.nr_rks(mol, mf.grids, mf.xc, dm),
          'grad': lambda: g.jk_energy_per_atom(dm, 1., .2),
-         'ejk2': lambda: rhf_hess._partial_ejk_ip2(mol, dm, j_factor=1., k_factor=.2)}[args.part]
+         'ejk2': lambda: rhf_hess._partial_ejk_ip2(mol, dm, j_factor=1., k_factor=.2),
+         'cphfjk': lambda: kopt.get_jk(cphf_dms, 1, 0)}[args.part]
 build()  # screening data, module loading, memory pool
 
 labels = []
@@ -79,6 +87,8 @@ if args.part == 'k':
     record(jk.libvhf_rys, 'RYS_build_k', opt_k)
 elif args.part == 'jk':
     record(jk.libvhf_rys, 'RYS_build_jk', opt_k)
+elif args.part == 'cphfjk':
+    record(jk.libvhf_rys, 'RYS_build_jk', kopt)
 elif args.part == 'j':
     record(j_engine.libvhf_md, 'MD_build_j', opt_j)
 elif args.part == 'grad':

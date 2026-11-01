@@ -1,0 +1,364 @@
+# GPU4PySCF investigation part 17 (NOTES.md; profile only): the Hessian CPHF's J/K. GTX 1650 Super at 1530 MHz;
+# caffeine def2-SVP B3LYP Hessian, gpu4pyscf exp/prim-screen ab75a1b. The CPHF's J/K is hessian.rhf._get_jk_mo: one
+# Rys J+K pass (_VHFOpt.get_jk -> RYS_build_jk) per call over all the call's densities (part 9).
+#
+# Commands (node1):
+#   cphf_jk_dms.py --out scratch/cphf_dms1.npz                       (section 1; scratch/cphf1.sh)
+#   cphf_jk_parts.py --dms scratch/cphf_dms1.npz --ndm 72,24,8,1     (section 2)
+#   ncu --profile-from-start off --csv --page raw --print-units base --metrics ... \
+#       ncu_parts.py --part cphfjk --dm scratch/dm_caf_b3lyp.npy --dms scratch/cphf_dms1.npz --labels ...
+#     with ncu_summary.py's metrics (scratch/ncu_cphf.sh -> ncu/ncu_cphfjk.csv, section 3) and with the L2 and
+#     stall metrics (scratch/ncu_cphf2.sh -> ncu/ncu_cphfjk_l2.csv, section 4); one J+K build at the 72 densities
+#     of the first call
+#   ncu --profile-from-start off --section SourceCounters --section WarpStateStats --import-source on \
+#       -o scratch/ncu_cphf_big ncu_class.py --dms scratch/cphf_dms1.npz --basis def2-svp --classes '(ps|ss)@4.2.2.2,...'
+#   ncu --import scratch/ncu_cphf_big.ncu-rep --page source --print-source cuda,sass --csv > scratch/ncu_cphf_big_sass.csv
+#   ncu_source_regions.py scratch/ncu_cphf_big_sass.csv --loops 'for (int i_dm' --labels ...   (section 5;
+#     scratch/ncu_cphf3.sh; the report, 253 MB, and the source CSV, 211,312 lines, stay in node1's scratch)
+#   ldg_sass_check.py --kernels rys_k_1000,rys_k_1010,rys_k_2010,rys_k_2110,rys_jk_2111   (section 6; compile only)
+#   atomic_patterns.py                                               (section 7)
+#
+# 1) the CPHF's get_jk_mo calls (the first call's densities saved for the rest); call 7 is solve_withs1's final
+#    hs += fvind(mo1)
+== the CPHF's get_jk_mo calls in a caffeine def2-SVP B3LYP Hessian; the first call's densities saved
+gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp Hessian, nao 246: 7 get_jk_mo calls, 35.00 s
+  call 1: 72 densities, 6.99 s {'hermi': 1}
+  call 2: 69 densities, 6.66 s {'hermi': 1}
+  call 3: 69 densities, 6.45 s {'hermi': 1}
+  call 4: 59 densities, 5.26 s {'hermi': 1}
+  call 5: 18 densities, 1.85 s {'hermi': 1}
+  call 6: 1 densities, 0.79 s {'hermi': 1}
+  call 7: 72 densities, 7.01 s {'hermi': 1}
+
+# 2) RYS_build_jk per class at the first N of the saved densities (each launch timed between synchronizations)
+gpu4pyscf/gpu4pyscf: caffeine def2-svp, nao 246, 72 densities saved
+  72 densities: 7.289 s, kernels 7.276 s (101.1 ms per density)
+      0.640 s   8.8%  (dp|pp) (6 launches)
+      0.609 s   8.4%  (dp|ps) (12 launches)
+      0.536 s   7.4%  (ds|ps) (18 launches)
+      0.524 s   7.2%  (ps|ps) (27 launches)
+      0.476 s   6.5%  (ps|ss) (36 launches)
+      0.404 s   5.5%  (dp|ds) (6 launches)
+      0.402 s   5.5%  (pp|ps) (15 launches)
+      0.325 s   4.5%  (dp|ss) (12 launches)
+      0.324 s   4.5%  (dp|dp) (4 launches)
+      0.311 s   4.3%  (pp|ss) (18 launches)
+      0.310 s   4.3%  (ds|dp) (6 launches)
+      0.309 s   4.2%  (dd|ps) (6 launches)
+      0.285 s   3.9%  (ds|pp) (9 launches)
+      0.241 s   3.3%  (ds|ss) (18 launches)
+      0.196 s   2.7%  (ps|pp) (12 launches)
+      0.193 s   2.7%  (pp|pp) (7 launches)
+      0.179 s   2.5%  (ds|ds) (9 launches)
+      0.172 s   2.4%  (dd|pp) (3 launches)
+      0.160 s   2.2%  (ss|ss) (25 launches)
+      0.149 s   2.1%  (dd|ds) (3 launches)
+      0.149 s   2.1%  (dd|dp) (2 launches)
+      0.121 s   1.7%  (ds|dd) (3 launches)
+      0.110 s   1.5%  (dp|dd) (2 launches)
+      0.107 s   1.5%  (dd|ss) (6 launches)
+      0.046 s   0.6%  (dd|dd) (1 launches)
+  24 densities: 2.977 s, kernels 2.967 s (123.6 ms per density)
+      0.242 s   8.1%  (dp|pp) (6 launches)
+      0.237 s   8.0%  (ps|ss) (36 launches)
+      0.234 s   7.9%  (dp|ps) (12 launches)
+      0.219 s   7.4%  (ds|ps) (18 launches)
+      0.217 s   7.3%  (ps|ps) (27 launches)
+      0.164 s   5.5%  (pp|ps) (15 launches)
+      0.151 s   5.1%  (dp|ds) (6 launches)
+      0.143 s   4.8%  (pp|ss) (18 launches)
+      0.129 s   4.4%  (dp|dp) (4 launches)
+      0.123 s   4.1%  (dd|ps) (6 launches)
+      0.118 s   4.0%  (dp|ss) (12 launches)
+      0.115 s   3.9%  (ds|pp) (9 launches)
+      0.107 s   3.6%  (ss|ss) (25 launches)
+      0.106 s   3.6%  (ds|dp) (6 launches)
+      0.102 s   3.4%  (ds|ss) (18 launches)
+      0.089 s   3.0%  (pp|pp) (7 launches)
+      0.086 s   2.9%  (ps|pp) (12 launches)
+      0.071 s   2.4%  (dd|pp) (3 launches)
+      0.066 s   2.2%  (ds|ds) (9 launches)
+      0.057 s   1.9%  (dd|ds) (3 launches)
+      0.054 s   1.8%  (dd|dp) (2 launches)
+      0.042 s   1.4%  (ds|dd) (3 launches)
+      0.040 s   1.3%  (dp|dd) (2 launches)
+      0.039 s   1.3%  (dd|ss) (6 launches)
+      0.017 s   0.6%  (dd|dd) (1 launches)
+  8 densities: 1.740 s, kernels 1.730 s (216.3 ms per density)
+      0.177 s  10.2%  (ps|ss) (36 launches)
+      0.163 s   9.4%  (ps|ps) (27 launches)
+      0.133 s   7.7%  (dp|ps) (12 launches)
+      0.130 s   7.5%  (dp|pp) (6 launches)
+      0.099 s   5.7%  (ds|ps) (18 launches)
+      0.095 s   5.5%  (pp|ps) (15 launches)
+      0.090 s   5.2%  (ss|ss) (25 launches)
+      0.087 s   5.0%  (pp|ss) (18 launches)
+      0.077 s   4.5%  (ds|ss) (18 launches)
+      0.076 s   4.4%  (ps|pp) (12 launches)
+      0.066 s   3.8%  (dp|dp) (4 launches)
+      0.066 s   3.8%  (ds|pp) (9 launches)
+      0.065 s   3.8%  (pp|pp) (7 launches)
+      0.061 s   3.5%  (dp|ds) (6 launches)
+      0.061 s   3.5%  (dp|ss) (12 launches)
+      0.053 s   3.1%  (dd|ps) (6 launches)
+      0.047 s   2.7%  (ds|dp) (6 launches)
+      0.038 s   2.2%  (dd|pp) (3 launches)
+      0.032 s   1.9%  (ds|ds) (9 launches)
+      0.025 s   1.5%  (dd|ds) (3 launches)
+      0.024 s   1.4%  (dd|dp) (2 launches)
+      0.019 s   1.1%  (ds|dd) (3 launches)
+      0.019 s   1.1%  (dd|ss) (6 launches)
+      0.018 s   1.1%  (dp|dd) (2 launches)
+      0.007 s   0.4%  (dd|dd) (1 launches)
+  1 densities: 1.286 s, kernels 1.277 s (1276.8 ms per density)
+      0.176 s  13.8%  (ps|ss) (36 launches)
+      0.130 s  10.2%  (ps|ps) (27 launches)
+      0.099 s   7.8%  (ss|ss) (25 launches)
+      0.095 s   7.4%  (pp|ps) (15 launches)
+      0.087 s   6.8%  (dp|ps) (12 launches)
+      0.080 s   6.3%  (ds|ps) (18 launches)
+      0.078 s   6.1%  (dp|pp) (6 launches)
+      0.076 s   5.9%  (pp|ss) (18 launches)
+      0.056 s   4.4%  (ds|ss) (18 launches)
+      0.047 s   3.7%  (ps|pp) (12 launches)
+      0.046 s   3.6%  (ds|pp) (9 launches)
+      0.043 s   3.4%  (dp|ss) (12 launches)
+      0.043 s   3.4%  (pp|pp) (7 launches)
+      0.039 s   3.1%  (dp|dp) (4 launches)
+      0.030 s   2.4%  (dp|ds) (6 launches)
+      0.026 s   2.1%  (dd|ps) (6 launches)
+      0.025 s   2.0%  (ds|dp) (6 launches)
+      0.022 s   1.7%  (dd|pp) (3 launches)
+      0.021 s   1.6%  (ds|ds) (9 launches)
+      0.012 s   0.9%  (dd|ss) (6 launches)
+      0.012 s   0.9%  (dd|ds) (3 launches)
+      0.011 s   0.9%  (dd|dp) (2 launches)
+      0.009 s   0.7%  (ds|dd) (3 launches)
+      0.009 s   0.7%  (dp|dd) (2 launches)
+      0.003 s   0.2%  (dd|dd) (1 launches)
+
+# 3) Nsight Compute, all launches of one J+K build at 72 densities, per class (ncu_summary.py ncu/ncu_cphfjk.csv
+#    --labels ncu/labels_cphfjk.json --kernel-prefix rys_ --top 25)
+total: 277 launches, 6.998 s GPU, 358.2 GFLOP FP64 (51.2 GFLOP/s), 19.27 G warp instructions, 1354.19 M atomic instructions, 258.95 GB DRAM
+class/kernel                                n  time s    %t  GFLOP64   %fl fp64 %inst fp64 util  simt   occ regs  M atom  MB dram
+(dp|pp)                                     6   0.624   8.9    39.40  11.0       46.5      60.9  0.93  25.0  208  134.26  14236.6
+(dp|ps)                                    12   0.600   8.6    39.10  10.9       41.8      64.4  0.94  24.8  255  106.72  27680.8
+(ds|ps)                                    18   0.516   7.4    20.28   5.7       38.7      42.9  0.93  24.8  174  110.81  31903.3
+(ps|ps)                                    27   0.504   7.2    17.28   4.8       32.9      44.6  0.87  36.9  168   97.09  31094.8
+(ps|ss)                                    36   0.432   6.2    12.79   3.6       25.8      42.7  0.87  37.2  140   84.64  18277.3
+(dp|ds)                                     6   0.399   5.7    13.66   3.8       36.9      38.1  0.89  25.0  168   91.78   9760.8
+(pp|ps)                                    15   0.390   5.6    20.72   5.8       47.6      56.1  0.91  24.8  200   68.45  18206.1
+(dp|dp)                                     4   0.321   4.6    26.00   7.3       34.7      83.2  0.84  18.8  255   49.92   6554.9
+(dp|ss)                                    12   0.316   4.5    10.56   2.9       38.8      37.0  0.92  24.9  176   56.87  10169.4
+(dd|ps)                                     6   0.304   4.3    14.05   3.9       37.1      47.6  0.96  25.0  168   73.41   5640.5
+(pp|ss)                                    18   0.297   4.2     9.38   2.6       32.9      40.1  0.89  36.6  156   50.16  10937.8
+(ds|dp)                                     6   0.295   4.2    11.80   3.3       36.6      44.7  0.87  25.0  168   67.45  10623.4
+(ds|pp)                                     9   0.278   4.0    20.34   5.7       42.8      74.6  0.91  24.8  255   56.84  14558.5
+(ds|ss)                                    18   0.229   3.3     6.23   1.7       26.9      36.5  0.90  36.8  160   51.60  11836.8
+(pp|pp)                                     7   0.185   2.6    14.92   4.2       52.5      87.7  0.86  24.6  255   26.07   8017.4
+(ps|pp)                                    12   0.182   2.6    10.14   2.8       46.2      66.3  0.81  24.8  208   36.35   9391.7
+(ds|ds)                                     9   0.173   2.5     6.59   1.8       44.7      45.6  0.86  24.8  236   34.91   8638.3
+(dd|pp)                                     3   0.170   2.4    14.99   4.2       34.3      87.7  0.92  18.8  255   26.28   1344.8
+(dd|ds)                                     3   0.147   2.1    13.44   3.8       32.5      91.4  0.90  25.0  255   25.26   1644.1
+(dd|dp)                                     2   0.142   2.0    12.67   3.5       36.9      90.9  0.89  25.0  255   23.73   1456.3
+(ss|ss)                                    25   0.130   1.9     3.44   1.0       27.7      52.9  0.74  48.1  128   18.27   3035.8
+(ds|dd)                                     3   0.109   1.6     6.66   1.9       31.7      91.8  0.59  25.0  255   19.45    605.8
+(dd|ss)                                     6   0.103   1.5     3.73   1.0       45.2      39.7  0.93  24.2  232   18.05   2381.2
+(dp|dd)                                     2   0.103   1.5     6.36   1.8       36.9      93.1  0.59  25.0  255   18.26    500.6
+(dd|dd)                                     1   0.046   0.7     3.63   1.0       37.8      93.1  0.81  25.0  255    7.56    166.8
+FP64 floor of the integral kernels (6.995 s): 199.7 G FP64 thread instructions (DFMA+DADD+DMUL) = 3.26 s at 2 per clock per SM; 7.26 G FP64-pipe warp instructions = 3.79 s at 16 clocks each; FP64 pipe busy 56.6% (time-weighted)
+
+# 4) the same build with the L2 and stall metrics (ncu_summary.py ncu/ncu_cphfjk_l2.csv --l2 ...): the L2 atomic
+#    unit's input busy share, L2 tag and crossbar throughput, DRAM throughput, L2 requests per atomic warp
+#    instruction and sectors per request, hit rates, and the largest warp-stall reasons
+class/kernel  time s atom unit %   L2 tag %  xbar>L2 %     DRAM % req/atom sec/req L2 atom hit L2 rd hit L1 ld hit |long_score lg_throttl    barrier tex_thrott       wait  (stalled % of active warp cycles)
+(dp|pp)        0.625       55.1       57.1       68.2       12.7    15.60    1.66        97.0      84.5      56.1 |      45.1       35.4        6.3        8.7        2.2
+(dp|ps)        0.600       46.9       42.7       50.0       25.1    17.49    1.42        91.3      32.8      56.8 |      49.1       25.3        8.5       13.2        2.0
+(ds|ps)        0.516       56.6       49.2       60.9       33.5    14.58    1.61        90.1      32.9      63.9 |      56.6       29.5        8.0        2.5        2.1
+(ps|ps)        0.500       49.9       43.8       54.2       33.4    13.87    1.61        88.6      38.7      62.3 |      58.8       21.0       14.6        2.2        1.7
+(ps|ss)        0.431       51.7       36.1       43.1       22.9    13.88    1.31        91.1      48.7      41.4 |      74.4        4.7       16.2        0.5        2.4
+(dp|ds)        0.398       55.7       53.7       69.5       13.3    16.27    1.50        96.9      76.7      68.1 |      53.6       34.2        6.6        2.2        1.6
+(pp|ps)        0.390       45.8       40.9       49.2       25.7    16.13    1.48        91.0      37.0      60.0 |      51.9       25.4       11.5        7.6        2.0
+(dp|dp)        0.321       36.0       35.6       46.1       11.0    15.30    1.61        96.2      51.8      81.7 |      82.8        0.1        4.9        0.1        8.0
+(dp|ss)        0.315       47.5       38.0       41.6       17.6    18.92    1.16        93.5      44.3      30.2 |      47.9       33.6       13.4        1.5        1.9
+(dd|ps)        0.305       63.4       53.5       66.1       10.3    14.54    1.59        97.5      78.7      63.3 |      78.5       12.5        3.1        2.5        2.0
+(pp|ss)        0.297       44.5       35.2       38.8       20.1    17.30    1.20        92.0      49.6      29.7 |      54.1       26.1       14.4        1.6        1.6
+(ds|dp)        0.295       54.2       57.4       73.9       19.7    15.69    1.61        95.7      74.0      74.2 |      54.3       31.8        7.2        3.2        1.7
+(ds|pp)        0.278       52.4       51.2       64.1       28.1    14.33    1.77        92.5      42.1      70.5 |      50.2       16.4       17.1       12.5        2.4
+(ds|ss)        0.228       59.4       42.2       49.0       28.1    14.43    1.29        90.4      43.5      38.0 |      59.9       21.4       14.2        0.7        2.1
+all            6.986       48.8       44.2       54.2       20.2    15.42    1.51        93.7      55.0      64.2 |      59.5       20.4       11.0        4.3        2.8
+#    FP64 atomic adds compile to ATOMG.E.ADD.F64 with RZ as destination on sm_75 (no RED), so ncu counts them as
+#    atomics: 1354 M warp instructions in this build, about 41 G thread operations (30.5 per instruction).
+
+# 5) source counters of the largest launch of each of 12 classes (1.42 s of the build's 7.0 s): the density loop
+#    (for (int i_dm ...) and its helpers load_dm/dot_dm) against the rest (integrals, task screening).
+#    The profiled launches (kernel, block size, grid size, time, L2 atomic unit input busy):
+(ps|ss)@4.2.2.2   rys_k_1000     block  128 grid   60    69.60 ms  atomic unit  63.9%
+(ps|ps)@4.2.3.2   rys_k_1010     block  128 grid   60   103.16 ms  atomic unit  54.1%
+(pp|ss)@4.3.2.2   rys_k_1100     block  128 grid   60    52.56 ms  atomic unit  50.7%
+(pp|ps)@4.4.4.2   rys_k_1110     block  128 grid   40    66.86 ms  atomic unit  48.0%
+(ds|ps)@5.2.4.2   rys_k_2010     block  128 grid   40   161.67 ms  atomic unit  57.3%
+(ds|dp)@5.2.5.4   rys_jk_2021    block  256 grid   20   130.70 ms  atomic unit  56.2%
+(dp|ss)@5.4.2.2   rys_k_2100     block  128 grid   40    82.17 ms  atomic unit  52.7%
+(dp|ps)@5.4.4.2   rys_k_2110     block  128 grid   40   156.96 ms  atomic unit  48.8%
+(dp|pp)@5.4.4.3   rys_jk_2111    block  256 grid   20   170.47 ms  atomic unit  56.0%
+(dp|ds)@5.4.5.2   rys_jk_2120    block  256 grid   20   179.17 ms  atomic unit  56.9%
+(dp|dp)@5.4.5.4   rys_jk_kernel  block  192 grid   20   113.92 ms  atomic unit  39.8%
+(dd|ps)@5.5.4.2   rys_jk_2210    block  256 grid   20   129.13 ms  atomic unit  65.1%
+(ps|ss): rys_k_1000: 0.163 G warp instructions, 1454748 stall samples
+  density loop      89.9% of instructions,  92.2% of stalls: FP64 15.1%/68.0%, other 54.7%/14.4%, atomics (ATOM) 10.1%/5.6%, global loads 10.1%/4.2%
+                   stalls by reason: long_sb 83.1%, lg 6.5%, wait 1.3%, selected 0.6%, branch_resolving 0.5%
+                   global loads: 517.5 M thread operations (31.5 per warp instruction), 77.2 M L2 sectors, 1.28x the coalesced count
+                   atomics (ATOM): 517.5 M thread operations (31.5 per warp instruction), 75.5 M L2 sectors, 1.25x the coalesced count
+  integrals, rest   10.1% of instructions,   7.8% of stalls: other 6.7%/6.1%, FP64 2.5%/1.4%, shared memory 0.5%/0.2%, global loads 0.4%/0.1%, atomics (ATOM) 0.0%/0.0%
+                   stalls by reason: barrier 5.0%, long_sb 2.2%, wait 0.2%, short_sb 0.1%, lg 0.1%
+                   global loads: 17.6 M thread operations (30.5 per warp instruction), 3.2 M L2 sectors, 1.51x the coalesced count
+                   atomics (ATOM): 0.0 M thread operations (1.0 per warp instruction), 0.0 M L2 sectors, 1.00x the coalesced count
+(ps|ps): rys_k_1010: 0.204 G warp instructions, 2144920 stall samples
+  density loop      84.4% of instructions,  90.6% of stalls: FP64 24.9%/41.3%, atomics (ATOM) 10.1%/18.7%, global loads 10.1%/15.7%, other 39.2%/15.0%
+                   stalls by reason: long_sb 56.1%, lg 31.6%, wait 0.9%, mio 0.5%, tex 0.5%
+                   global loads: 649.3 M thread operations (31.4 per warp instruction), 191.4 M L2 sectors, 1.53x the coalesced count
+                   atomics (ATOM): 649.3 M thread operations (31.4 per warp instruction), 162.3 M L2 sectors, 1.30x the coalesced count
+  integrals, rest   15.6% of instructions,   9.4% of stalls: other 8.0%/4.3%, FP64 5.7%/3.7%, global loads 1.4%/1.0%, shared memory 0.5%/0.4%, atomics (ATOM) 0.0%/0.0%
+                   stalls by reason: long_sb 4.0%, barrier 3.0%, lg 1.0%, short_sb 0.5%, wait 0.3%
+                   global loads: 77.8 M thread operations (27.6 per warp instruction), 10.1 M L2 sectors, 1.12x the coalesced count
+                   atomics (ATOM): 0.0 M thread operations (1.0 per warp instruction), 0.0 M L2 sectors, 1.00x the coalesced count
+(pp|ss): rys_k_1100: 0.098 G warp instructions, 1091893 stall samples
+  density loop      85.7% of instructions,  88.6% of stalls: FP64 24.7%/40.3%, atomics (ATOM) 10.1%/20.0%, global loads 10.1%/16.7%, other 40.8%/11.7%
+                   stalls by reason: long_sb 51.6%, lg 33.8%, wait 0.9%, mio 0.7%, tex 0.6%
+                   global loads: 310.2 M thread operations (31.5 per warp instruction), 35.4 M L2 sectors, 1.19x the coalesced count
+                   atomics (ATOM): 310.2 M thread operations (31.5 per warp instruction), 34.9 M L2 sectors, 1.17x the coalesced count
+  integrals, rest   14.3% of instructions,  11.4% of stalls: other 7.2%/6.7%, FP64 5.3%/3.1%, global loads 1.3%/1.2%, shared memory 0.5%/0.4%, atomics (ATOM) 0.0%/0.0%
+                   stalls by reason: barrier 5.3%, long_sb 3.5%, lg 1.1%, short_sb 0.7%, wait 0.2%
+                   global loads: 37.8 M thread operations (29.5 per warp instruction), 4.9 M L2 sectors, 1.08x the coalesced count
+                   atomics (ATOM): 0.0 M thread operations (1.0 per warp instruction), 0.0 M L2 sectors, 1.00x the coalesced count
+(pp|ps): rys_k_1110: 0.120 G warp instructions, 1356556 stall samples
+  density loop      94.9% of instructions,  91.6% of stalls: FP64 44.8%/40.8%, global loads 10.0%/19.3%, atomics (ATOM) 10.0%/19.0%, other 30.2%/12.5%
+                   stalls by reason: long_sb 49.5%, lg 35.0%, tex 4.4%, wait 1.3%, selected 0.7%
+                   global loads: 373.8 M thread operations (31.1 per warp instruction), 81.2 M L2 sectors, 1.40x the coalesced count
+                   atomics (ATOM): 373.8 M thread operations (31.1 per warp instruction), 70.5 M L2 sectors, 1.21x the coalesced count
+  integrals, rest    5.1% of instructions,   8.4% of stalls: other 2.8%/6.7%, FP64 1.7%/1.3%, global loads 0.3%/0.3%, shared memory 0.3%/0.2%, atomics (ATOM) 0.0%/0.0%
+                   stalls by reason: barrier 5.9%, long_sb 1.6%, lg 0.3%, short_sb 0.2%, tex 0.2%
+                   global loads: 12.0 M thread operations (28.8 per warp instruction), 1.7 M L2 sectors, 1.22x the coalesced count
+                   atomics (ATOM): 0.0 M thread operations (1.0 per warp instruction), 0.0 M L2 sectors, 1.00x the coalesced count
+(ds|ps): rys_k_2010: 0.281 G warp instructions, 3406477 stall samples
+  density loop      94.8% of instructions,  93.3% of stalls: FP64 35.6%/38.8%, atomics (ATOM) 12.2%/22.8%, global loads 12.2%/19.1%, other 34.9%/12.6%
+                   stalls by reason: long_sb 53.2%, lg 36.1%, wait 1.5%, tex 1.3%, selected 0.7%
+                   global loads: 1077.8 M thread operations (31.5 per warp instruction), 266.4 M L2 sectors, 1.39x the coalesced count
+                   atomics (ATOM): 1077.8 M thread operations (31.5 per warp instruction), 239.1 M L2 sectors, 1.25x the coalesced count
+  integrals, rest    5.2% of instructions,   6.7% of stalls: other 2.9%/4.9%, FP64 1.7%/1.3%, global loads 0.4%/0.3%, shared memory 0.2%/0.1%, atomics (ATOM) 0.0%/0.0%
+                   stalls by reason: barrier 4.3%, long_sb 1.7%, lg 0.3%, short_sb 0.2%, wait 0.1%
+                   global loads: 32.9 M thread operations (29.4 per warp instruction), 4.8 M L2 sectors, 1.23x the coalesced count
+                   atomics (ATOM): 0.0 M thread operations (1.0 per warp instruction), 0.0 M L2 sectors, 1.00x the coalesced count
+(ds|dp): rys_jk_2021: 0.274 G warp instructions, 2713768 stall samples
+  density loop      95.1% of instructions,  92.7% of stalls: FP64 34.7%/37.1%, atomics (ATOM) 10.9%/20.1%, global loads 10.3%/18.5%, other 39.2%/17.0%
+                   stalls by reason: long_sb 53.4%, lg 35.0%, tex 1.6%, wait 1.3%, selected 0.8%
+                   global loads: 804.0 M thread operations (28.5 per warp instruction), 436.8 M L2 sectors, 2.42x the coalesced count
+                   atomics (ATOM): 854.3 M thread operations (28.5 per warp instruction), 401.3 M L2 sectors, 2.20x the coalesced count
+  integrals, rest    4.9% of instructions,   7.3% of stalls: other 2.6%/5.8%, FP64 1.4%/1.1%, shared memory 0.7%/0.4%, global loads 0.2%/0.0%, atomics (ATOM) 0.0%/0.0%
+                   stalls by reason: barrier 5.5%, long_sb 1.1%, tex 0.4%, wait 0.1%, no_inst 0.1%
+                   global loads: 13.6 M thread operations (29.9 per warp instruction), 1.5 M L2 sectors, 1.17x the coalesced count
+                   atomics (ATOM): 0.0 M thread operations (1.0 per warp instruction), 0.0 M L2 sectors, 1.00x the coalesced count
+(dp|ss): rys_k_2100: 0.131 G warp instructions, 1726143 stall samples
+  density loop      94.9% of instructions,  91.3% of stalls: FP64 35.6%/35.0%, atomics (ATOM) 12.2%/27.0%, global loads 12.2%/19.9%, other 34.9%/9.5%
+                   stalls by reason: long_sb 46.4%, lg 41.1%, wait 1.5%, tex 1.3%, selected 0.6%
+                   global loads: 504.2 M thread operations (31.5 per warp instruction), 49.1 M L2 sectors, 1.13x the coalesced count
+                   atomics (ATOM): 504.2 M thread operations (31.5 per warp instruction), 48.6 M L2 sectors, 1.12x the coalesced count
+  integrals, rest    5.1% of instructions,   8.7% of stalls: other 2.8%/6.9%, FP64 1.7%/1.1%, global loads 0.4%/0.4%, shared memory 0.2%/0.2%, atomics (ATOM) 0.0%/0.0%
+                   stalls by reason: barrier 6.3%, long_sb 1.5%, lg 0.4%, short_sb 0.2%, wait 0.1%
+                   global loads: 16.0 M thread operations (30.6 per warp instruction), 2.2 M L2 sectors, 1.19x the coalesced count
+                   atomics (ATOM): 0.0 M thread operations (1.0 per warp instruction), 0.0 M L2 sectors, 1.00x the coalesced count
+(dp|ps): rys_k_2110: 0.416 G warp instructions, 3243265 stall samples
+  density loop      95.9% of instructions,  92.2% of stalls: FP64 38.6%/36.0%, atomics (ATOM) 6.8%/20.5%, global loads 6.8%/18.2%, other 43.7%/17.6%
+                   stalls by reason: long_sb 45.7%, lg 33.1%, tex 10.2%, wait 1.5%, selected 1.1%
+                   global loads: 890.8 M thread operations (31.5 per warp instruction), 176.7 M L2 sectors, 1.32x the coalesced count
+                   atomics (ATOM): 890.8 M thread operations (31.5 per warp instruction), 162.1 M L2 sectors, 1.21x the coalesced count
+  integrals, rest    4.1% of instructions,   7.8% of stalls: other 2.4%/5.8%, FP64 1.3%/1.5%, global loads 0.2%/0.3%, shared memory 0.1%/0.2%, atomics (ATOM) 0.0%/0.0%
+                   stalls by reason: barrier 5.2%, long_sb 1.7%, lg 0.3%, tex 0.2%, short_sb 0.1%
+                   global loads: 23.4 M thread operations (29.3 per warp instruction), 3.4 M L2 sectors, 1.17x the coalesced count
+                   atomics (ATOM): 0.0 M thread operations (1.0 per warp instruction), 0.0 M L2 sectors, 1.00x the coalesced count
+(dp|pp): rys_jk_2111: 0.387 G warp instructions, 3514648 stall samples
+  density loop      89.9% of instructions,  90.0% of stalls: FP64 42.2%/37.2%, atomics (ATOM) 9.4%/21.9%, global loads 9.4%/20.6%, other 28.9%/10.2%
+                   stalls by reason: long_sb 42.2%, lg 40.0%, tex 4.6%, wait 1.7%, selected 0.8%
+                   global loads: 1111.6 M thread operations (30.6 per warp instruction), 412.5 M L2 sectors, 1.78x the coalesced count
+                   atomics (ATOM): 1111.6 M thread operations (30.6 per warp instruction), 417.0 M L2 sectors, 1.80x the coalesced count
+  integrals, rest   10.1% of instructions,  10.0% of stalls: other 3.8%/5.2%, FP64 4.2%/3.7%, shared memory 1.9%/1.1%, global loads 0.3%/0.0%, atomics (ATOM) 0.0%/0.0%
+                   stalls by reason: barrier 4.8%, long_sb 2.9%, tex 1.7%, wait 0.3%, no_inst 0.2%
+                   global loads: 31.4 M thread operations (27.7 per warp instruction), 5.4 M L2 sectors, 1.30x the coalesced count
+                   atomics (ATOM): 0.0 M thread operations (1.0 per warp instruction), 0.0 M L2 sectors, 1.00x the coalesced count
+(dp|ds): rys_jk_2120: 0.305 G warp instructions, 3670010 stall samples
+  density loop      95.7% of instructions,  95.8% of stalls: FP64 35.1%/35.0%, atomics (ATOM) 13.0%/22.6%, global loads 12.4%/22.5%, other 35.2%/15.8%
+                   stalls by reason: long_sb 53.8%, lg 38.6%, wait 1.3%, tex 0.8%, selected 0.7%
+                   global loads: 1126.7 M thread operations (29.9 per warp instruction), 317.8 M L2 sectors, 1.53x the coalesced count
+                   atomics (ATOM): 1186.0 M thread operations (29.9 per warp instruction), 278.4 M L2 sectors, 1.27x the coalesced count
+  integrals, rest    4.3% of instructions,   4.2% of stalls: other 2.1%/3.0%, FP64 1.3%/0.8%, shared memory 0.7%/0.3%, global loads 0.2%/0.0%, atomics (ATOM) 0.0%/0.0%
+                   stalls by reason: barrier 2.8%, long_sb 0.9%, tex 0.2%, wait 0.1%, no_inst 0.1%
+                   global loads: 14.3 M thread operations (30.3 per warp instruction), 1.8 M L2 sectors, 1.22x the coalesced count
+                   atomics (ATOM): 0.0 M thread operations (1.0 per warp instruction), 0.0 M L2 sectors, 1.00x the coalesced count
+(dp|dp): rys_jk_kernel: 0.470 G warp instructions, 2347820 stall samples
+  density loop      91.0% of instructions,  91.6% of stalls: FP64 36.5%/74.4%, other 46.4%/9.5%, atomics (ATOM) 4.1%/7.2%, global loads 4.1%/0.5%
+                   stalls by reason: long_sb 81.8%, wait 7.1%, selected 2.1%, branch_resolving 0.3%, math 0.1%
+                   global loads: 527.0 M thread operations (27.7 per warp instruction), 194.7 M L2 sectors, 1.80x the coalesced count
+                   atomics (ATOM): 527.0 M thread operations (27.7 per warp instruction), 194.7 M L2 sectors, 1.80x the coalesced count
+  integrals, rest    9.0% of instructions,   8.4% of stalls: other 6.0%/6.1%, FP64 1.2%/1.6%, shared memory 1.7%/0.7%, global loads 0.1%/0.0%, atomics (ATOM) 0.0%/0.0%
+                   stalls by reason: barrier 5.1%, long_sb 2.1%, wait 0.4%, short_sb 0.3%, selected 0.2%
+                   global loads: 8.7 M thread operations (29.2 per warp instruction), 1.3 M L2 sectors, 1.22x the coalesced count
+                   atomics (ATOM): 0.0 M thread operations (1.0 per warp instruction), 0.0 M L2 sectors, 1.00x the coalesced count
+(dd|ps): rys_jk_2210: 0.278 G warp instructions, 2610028 stall samples
+  density loop      95.9% of instructions,  96.2% of stalls: FP64 35.5%/48.6%, other 38.6%/24.3%, global loads 10.5%/12.7%, atomics (ATOM) 11.2%/10.6%
+                   stalls by reason: long_sb 78.3%, lg 13.8%, wait 1.7%, tex 1.0%, selected 0.9%
+                   global loads: 921.4 M thread operations (31.5 per warp instruction), 210.8 M L2 sectors, 1.33x the coalesced count
+                   atomics (ATOM): 979.0 M thread operations (31.5 per warp instruction), 202.4 M L2 sectors, 1.21x the coalesced count
+  integrals, rest    4.1% of instructions,   3.8% of stalls: other 2.1%/2.3%, FP64 1.3%/1.1%, shared memory 0.6%/0.4%, global loads 0.1%/0.0%, atomics (ATOM) 0.0%/0.0%
+                   stalls by reason: barrier 2.1%, long_sb 1.0%, tex 0.4%, wait 0.1%, no_inst 0.0%
+                   global loads: 12.4 M thread operations (30.3 per warp instruction), 1.7 M L2 sectors, 1.27x the coalesced count
+                   atomics (ATOM): 0.0 M thread operations (1.0 per warp instruction), 0.0 M L2 sectors, 1.00x the coalesced count
+#    The first launch of each class in the loop order (contracted core shells, 4-55 ms, scratch/ncu_cphf_src) is not
+#    representative: there the density loop has 2-70% of the stall samples and barriers in task screening most of
+#    the rest.
+
+# 6) the density loop's SASS as written, with __restrict__ on its pointers, and with the density loads through
+#    __ldg (ldg_sass_check.py; L = global loads, F = FP64, A = atomics, in order from the first density load)
+orig     rys_jk_2111: 208 registers, 0 bytes spilled; 216 ATOMG.E.ADD.F64.RN.STRONG.GPU, 111 DADD, 1897 DFMA, 502 DMUL, 481 LDG.E.64.SYS
+         loop order: 35 loads behind atomics; L5 F5 A1 L4 F35 A1 F1 A7 L9 F39 A1 F2 A8 L5 F5 A1 L4 F35 A1 F1 A7 L5 F5 A1 L4 F35 A1 F1 A7 L9 F39 A1 F1 A1 F1 A7 L9 F39 A1 F1 A1 F1 A7 L5 F5 A1 L4 F36 ...
+orig     rys_k_2110: 255 registers, 32 bytes spilled; 57 ATOMG.E.ADD.F64.RN.STRONG.GPU, 111 DADD, 1150 DFMA, 317 DMUL, 311 LDG.E.64.SYS
+         loop order: 5 loads behind atomics; L8 F8 A1 F2 A1 F3 A1 F16 A1 F1 A1 F13 A2 F1 A1 F5 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A5 L18 F54 A3 L9 F51 A1 F2 A1 F1 A4 L3 F5 A1 F4 A1 F30 A1 F1 A1 F7 A1 ...
+orig     rys_k_2010: 174 registers, 0 bytes spilled; 37 ATOMG.E.ADD.F64.RN.STRONG.GPU, 106 DADD, 894 DFMA, 264 DMUL, 291 LDG.E.64.SYS
+         loop order: 5 loads behind atomics; L8 F15 A1 F1 A1 F1 A1 F1 A3 L6 F18 A3 L3 F16 A1 F1 A1 F1 A4 L1 F3 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F3 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A5 ...
+orig     rys_k_1010: 168 registers, 0 bytes spilled; 22 ATOMG.E.ADD.F64.RN.STRONG.GPU, 105 DADD, 877 DFMA, 274 DMUL, 276 LDG.E.64.SYS
+         loop order: 5 loads behind atomics; L8 F9 A3 L3 F9 A3 L3 F9 A3 L1 F3 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A3 L9 F9 A1 L3 F9 A3
+orig     rys_k_1000: 140 registers, 0 bytes spilled; 12 ATOMG.E.ADD.F64.RN.STRONG.GPU, 103 DADD, 869 DFMA, 246 DMUL, 266 LDG.E.64.SYS
+         loop order: 5 loads behind atomics; L6 F3 A3 L3 F3 A1 L1 F3 A3 L1 F3 A3 L3 F3 A1 L3 F3 A1
+restrict rys_jk_2111: 208 registers, 0 bytes spilled; 216 ATOMG.E.ADD.F64.RN.STRONG.GPU, 111 DADD, 1897 DFMA, 502 DMUL, 481 LDG.E.64.SYS
+         loop order: 35 loads behind atomics; L5 F5 A1 L4 F35 A1 F1 A7 L9 F39 A1 F2 A8 L5 F5 A1 L4 F35 A1 F1 A7 L5 F5 A1 L4 F35 A1 F1 A7 L9 F39 A1 F1 A1 F1 A7 L9 F39 A1 F1 A1 F1 A7 L5 F5 A1 L4 F36 ...
+restrict rys_k_2110: 255 registers, 32 bytes spilled; 57 ATOMG.E.ADD.F64.RN.STRONG.GPU, 111 DADD, 1150 DFMA, 317 DMUL, 311 LDG.E.64.SYS
+         loop order: 5 loads behind atomics; L8 F8 A1 F2 A1 F3 A1 F16 A1 F1 A1 F13 A2 F1 A1 F5 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A5 L18 F54 A3 L9 F51 A1 F2 A1 F1 A4 L3 F5 A1 F4 A1 F30 A1 F1 A1 F7 A1 ...
+restrict rys_k_2010: 174 registers, 0 bytes spilled; 37 ATOMG.E.ADD.F64.RN.STRONG.GPU, 106 DADD, 894 DFMA, 264 DMUL, 291 LDG.E.64.SYS
+         loop order: 5 loads behind atomics; L8 F15 A1 F1 A1 F1 A1 F1 A3 L6 F18 A3 L3 F16 A1 F1 A1 F1 A4 L1 F3 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F3 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A5 ...
+restrict rys_k_1010: 168 registers, 0 bytes spilled; 22 ATOMG.E.ADD.F64.RN.STRONG.GPU, 105 DADD, 877 DFMA, 274 DMUL, 276 LDG.E.64.SYS
+         loop order: 5 loads behind atomics; L8 F9 A3 L3 F9 A3 L3 F9 A3 L1 F3 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A3 L9 F9 A1 L3 F9 A3
+restrict rys_k_1000: 140 registers, 0 bytes spilled; 12 ATOMG.E.ADD.F64.RN.STRONG.GPU, 103 DADD, 869 DFMA, 246 DMUL, 266 LDG.E.64.SYS
+         loop order: 5 loads behind atomics; L6 F3 A3 L3 F3 A1 L1 F3 A3 L1 F3 A3 L3 F3 A1 L3 F3 A1
+ldg      rys_jk_2111: 254 registers, 0 bytes spilled; 216 ATOMG.E.ADD.F64.RN.STRONG.GPU, 111 DADD, 1897 DFMA, 502 DMUL, 216 LDG.E.64.CONSTANT.SYS, 265 LDG.E.64.SYS
+         loop order: 21 loads behind atomics; L27 F63 A1 F2 A1 F2 A1 F6 L1 F2 A1 F1 A1 F1 A1 F1 L1 F1 L1 F1 L1 A3 F1 L1 F1 A5 L1 A2 L4 F1 A1 F1 L1 F1 L1 A1 F1 L1 F1 L2 F1 L1 F1 L2 F1 L1 F1 A1 ...
+ldg      rys_k_2110: 255 registers, 48 bytes spilled; 57 ATOMG.E.ADD.F64.RN.STRONG.GPU, 111 DADD, 1150 DFMA, 317 DMUL, 57 LDG.E.64.CONSTANT.SYS, 254 LDG.E.64.SYS
+         loop order: 4 loads behind atomics; L21 F40 A1 F3 A1 F2 A1 F7 A1 F2 A2 F1 A1 F7 A1 F1 A1 L1 F3 L1 F1 A1 F2 A1 F2 A1 F3 L1 F2 L1 F1 L1 F1 A1 F1 A1 F1 A1 F3 L1 F1 L2 F1 A1 L1 F1 L2 F1 ...
+ldg      rys_k_2010: 178 registers, 0 bytes spilled; 37 ATOMG.E.ADD.F64.RN.STRONG.GPU, 106 DADD, 894 DFMA, 264 DMUL, 37 LDG.E.64.CONSTANT.SYS, 254 LDG.E.64.SYS
+         loop order: 0 loads behind atomics; L37 F2 L1 F1 L1 F1 L1 F1 L2 F67 A1 F6 A1 F4 A1 F1 A1 F1 A5 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 ...
+ldg      rys_k_1010: 168 registers, 0 bytes spilled; 22 ATOMG.E.ADD.F64.RN.STRONG.GPU, 105 DADD, 877 DFMA, 274 DMUL, 22 LDG.E.64.CONSTANT.SYS, 254 LDG.E.64.SYS
+         loop order: 0 loads behind atomics; L27 F31 A1 F4 A1 F2 A1 F3 A1 F1 A1 F2 A1 F1 A5 F3 A1 F4 A1 F1 A1 F1 A1 F1 A7
+ldg      rys_k_1000: 161 registers, 0 bytes spilled; 12 ATOMG.E.ADD.F64.RN.STRONG.GPU, 103 DADD, 869 DFMA, 246 DMUL, 12 LDG.E.64.CONSTANT.SYS, 254 LDG.E.64.SYS
+         loop order: 0 loads behind atomics; L17 F6 A1 F1 A1 F5 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A1 F1 A4
+
+# 7) FP64 atomic adds and loads by access pattern (atomic_patterns.py; G thread operations per second)
+20 SMs, 1024 operations per thread, thread-seq runs of 72
+     array warps/SM    op   scattered   warp-same   coalesced  thread-seq   (G ops/s)
+    128 MB       32  atom        0.40        6.18       10.02        0.42
+    128 MB       32  load        1.07       33.04       22.11        1.06
+    128 MB        8  atom        0.40        6.09        9.85        1.13
+    128 MB        8  load        1.07       27.54       12.84        6.69
+    512 KB       32  atom        8.40        8.41       11.36        8.38
+    512 KB       32  load       11.14       50.22       47.35       12.39
+    512 KB        8  atom        8.31        8.33       11.27        8.42
+    512 KB        8  load       10.99       47.41       23.58       14.41
+ATOMPAT DONE

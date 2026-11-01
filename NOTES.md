@@ -4202,6 +4202,107 @@ Only that class's launches execute. The generated kernels run against the other 
    - one-thread generated kernels for the small s and p classes (4.5 s now on GPU4PySCF's);
    - shape tuning.
 
+## GPU4PySCF investigation, part 17 (profile only): the Hessian CPHF's J/K (node1), 2026-11-01
+The user approved profiling the CPHF's J/K (part 16's option 1). Nothing in GPU4PySCF changed.
+- **Setup:** GTX 1650 Super at 1530 MHz; the caffeine def2-SVP B3LYP Hessian (149 s); `exp/prim-screen` ab75a1b.
+- **Data:** `hess_cphf_jk_profile.txt`. The raw Nsight CSVs are in `ncu/ncu_cphfjk*.csv`.
+
+### Where the 35 s go (`cphf_jk_dms.py`, `cphf_jk_parts.py`)
+- **Calls:** `_get_jk_mo` runs 7 times, with 72, 69, 69, 59, 18, 1 and 72 densities (35.0 s). The last is
+  `solve_withs1`'s final `hs += fvind(mo1)`.
+- **What a call does:** one `RYS_build_jk` pass (part 9). Each kernel evaluates a shell quartet's integrals once, then
+  loops over the densities (`for (int i_dm ...)`). In each pass of the loop it loads the density elements it needs
+  and adds to J and K with one FP64 atomic per element.
+- **Cost against the number of densities** (the first N of the first call's densities):
+
+  | densities | 1 | 8 | 24 | 72 |
+  |---|---|---|---|---|
+  | time | 1.29 s | 1.74 s | 2.98 s | 7.29 s |
+
+  - About 1.2 s does not depend on the densities (integrals, screening); each density adds about 85 ms.
+  - At 72 densities, the density loop is 84% of the time.
+- **Classes:** none dominates. At 72 densities: (dp|pp) 0.64 s, (dp|ps) 0.61, (ds|ps) 0.54, (ps|ps) 0.52,
+  (ps|ss) 0.48. The top 12 classes make 71%.
+
+### What bounds the density loop
+- **Source counters, the largest launch of each of the top 12 classes** (1.42 s of the 7.0 s): the density loop has
+  84–96% of the warp instructions and 89–96% of the stall samples.
+  - **Its stall samples:** waiting for loads (long scoreboard) 42–83% of all samples; a full load/store queue
+    (lg throttle) up to 41%.
+  - **Its instructions,** as shares of the launch's: FP64 15–45%; integer address arithmetic and other 29–55%;
+    density loads 4–12%; atomics 4–13%.
+  - **Coalescing:** the loads and atomics are mostly coalesced, at 1.1–2.4× the ideal sector count, since
+    consecutive tasks are neighbouring shells.
+  - **Representative launches:** the first launch of each class in the loop order is not representative. Those are
+    contracted core shells, taking 4.5–55 ms against 53–179 ms for the largest, and task-screening barriers dominate
+    them. `ncu_class.py` now picks a launch by its shell groups, e.g. `(ps|ss)@4.2.2.2`.
+- **Why the loads wait: the order the compiler keeps** (`ldg_sass_check.py`, compile only).
+  - Each output group's density loads come after the previous group's atomics, since the compiler cannot rule out
+    that `dm` aliases `vj` or `vk`.
+  - A (ps|ss) iteration therefore waits for memory 6 times in sequence: its loads come in 6 groups, 5 of them behind
+    atomics. The (dp|pp) kernel (four thread roles) has 35 such points.
+  - `__restrict__` on the loop's pointers changes nothing (NVCC ignores it on local pointers).
+  - **`__ldg`:** loading the densities through `__ldg` (they are read-only in these kernels) frees the compiler.
+
+    | kernel | loads behind atomics | registers | spills |
+    |---|---|---|---|
+    | (ps\|ss) | 5 → 0 | 140 → 161 | – |
+    | (ps\|ps) | 5 → 0 | 168 → 168 | – |
+    | (ds\|ps) | 5 → 0 | 174 → 178 | – |
+    | (dp\|ps) | 5 → 4 | 255 → 255 | 32 → 48 bytes |
+    | (dp\|pp) | 35 → 21 | 208 → 254 | – |
+
+    The FP64 instruction counts are unchanged in all five kernels.
+- **Whole build** (raw metrics, all 277 launches at 72 densities):
+  - **FP64:** 199.7 G FP64 thread instructions. That is 3.3 s at the card's FP64 peak (2 per clock per SM), or 3.8 s
+    counting 16 clocks per FP64 warp instruction. The FP64 pipe is 57% busy.
+  - **Atomics:** 1354 M warp instructions, about 41 G adds. They are `ATOMG` with a null destination, since sm_75
+    has no FP64 `RED`.
+    - 94% of them hit in L2.
+    - The L2 atomic units are 49% busy (40–65% in the largest launches).
+  - **Loads:** 55% L2 hits, 64% L1 hits. DRAM is at 20% of peak (259 GB per build).
+  - **Stalls:** long scoreboard 60%, lg throttle 20%, barriers 11%.
+- **What FP64 atomic adds cost on this card** (`atomic_patterns.py`, G adds per second at 32 warps per SM):
+
+  | array | scattered | one address per warp | coalesced | per-thread runs of 72 |
+  |---|---|---|---|---|
+  | 512 KB (in L2) | 8.4 | 8.4 | 11.4 | 8.4 |
+  | 128 MB (DRAM) | 0.40 | 6.2 | 10.0 | 0.42 (1.13 at 8 warps per SM) |
+
+  - The L2 atomic units take about one FP64 add per clock each, wherever the addresses fall.
+  - At those rates, the build's 41 G adds need 3.6–4.9 s. The 49% busy share gives 3.4 s.
+- **So:**
+  - The loop is latency-bound (7.0 s per 72-density call). Two floors sit at about 3.5–4 s each: FP64, and the L2
+    atomics.
+  - Hiding the latency can bring the call toward 4–5 s. Going below that needs fewer atomics.
+  - Cards with fast FP64 (A100, H100) have a much lower FP64 floor, which leaves latency and atomics as the bound
+    there.
+
+### Options (exact; not started)
+1. **Density loads through `__ldg`** in the density loops of the J+K and K kernels: `unrolled_rys_jk.cu`,
+   `unrolled_rys_k.cu`, the generic kernels' `load_dm` and `gen_rys_k.py`.
+   - A mechanical change. The FP64 instructions stay the same, so each thread's sums are bitwise unchanged; only the
+     order of the atomics (already free) moves.
+   - **Prediction:** 1.2–1.4× on this card's CPHF J/K (35 s → about 25–29 s), less where registers rise. A
+     class-by-class check of registers and spills goes with it.
+   - It helps wherever several densities share a pass (CPHF, TDDFT, UKS), on every card.
+2. **Fewer atomics: accumulate outputs that consecutive tasks share.**
+   - **Layout:** lanes run over densities in a density-fastest layout ([nao, nao, n_dm], transposed in the driver).
+     The integrals pass between lanes by shuffles or through shared memory.
+   - **Accumulation in registers before one atomic:** J_ij for all tasks of a block, and K_ik and K_jk while k
+     repeats (tasks sorted by k within a batch).
+   - **Effect:** this removes up to 56–79% of the atomics in the top classes (J_ij alone 14–32%), and the remaining
+     loads and atomics become coalesced.
+   - **Floor:** on this card it becomes FP64 (about 4 s per 72-density call); cards with fast FP64 would gain more.
+   - **Cost:** a new generator (extending `gen_rys_k.py`) over several iterations. Shared memory or shuffles limit
+     the larger classes.
+3. Not exact, so not proposed: reusing the Krylov products in place of the final response (call 7: 7 s of J/K plus
+   its XC response) changes results at the CPHF tolerance, since that last `fvind` also refines mo1.
+4. Still open from part 16:
+   - `_get_jk_ip1` (11 s);
+   - `_get_vxc_deriv1`'s per-atom GEMMs (about 4 s);
+   - the rest of the second derivatives (2–4 s).
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

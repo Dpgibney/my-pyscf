@@ -10,7 +10,13 @@ The regions of the Hessian's second-derivative kernels (rys_contract_jk_ip2.cu) 
 count as task screening (create_tasks.cu), Rys roots (rys_roots*), the g recursions (build_rys_gxyz.cuh) or other.
 With --order LABELS.json (ncu_parts.py --labels of the whole stage) and --classes, as given to ncu_ejk2_class.py,
 each launch is named by its class.
-Usage: ncu_source_regions.py SRC.csv [--order LABELS.json --classes '(dp|ps),...']"""
+With --loops TEXT it instead splits each launch into the loops whose header contains TEXT (found by brace matching
+in the --kernel-files sources) and the rest, by instruction class (atomic adds, global loads, shared memory, FP64,
+other), with the stall reasons and the global sectors requested against the coalesced count: e.g.
+--loops 'for (int i_dm' for the density loop of the J+K kernels.
+Usage: ncu_source_regions.py SRC.csv [--order LABELS.json --classes '(dp|ps),...']
+       ncu_source_regions.py SRC.csv --loops 'for (int i_dm' [--kernel-files rys_contract_jk.cu,unrolled_rys_jk.cu]
+                             [--labels 'A;B;...'] [--loop-helpers rys_contract_k.cuh:190-235]"""
 import argparse
 import csv
 import os
@@ -54,12 +60,16 @@ def num(x):
     return float(x) if x not in ('', '-') else 0.
 
 
-def parse(path):
-    '''The launches of the source page, in order: [(kernel, {region: [instructions, FP64, stall samples]},
-    iterations)]. A new launch starts where the kernel name changes (the profiled launches alternate type12 and
-    type3, or are unrolled kernels of their own names). Each SASS instruction is listed under every source line of
-    its inlining stack; it is counted once, under its line in the kernel's own file (the outermost frame) when it
-    has one.'''
+# per-instruction columns kept besides the stall reasons: global sectors requested, and the ideal (coalesced) count
+EXTRA = ('L2 Theoretical Sectors Global', 'L2 Theoretical Sectors Global Ideal', 'Thread Instructions Executed')
+
+
+def read_launches(path):
+    '''The launches of the source page, in order: [(kernel, {address: [(file, line), ...]}, {address: (opcode,
+    warp instructions, stall samples)})]. A new launch starts where the kernel name changes (the profiled launches
+    alternate kernels, or are unrolled kernels of their own names). Each SASS instruction is listed under every
+    source line of its inlining stack. The fourth item of an instruction holds its per-reason stall samples
+    (stall_*) and the EXTRA columns.'''
     launches = []
     cur_file = cur_func = cur_line = None
     cols = None
@@ -87,13 +97,23 @@ def parse(path):
                 cur_line = int(row[0])
                 continue
             sass = row[3].split()
-            if not sass:
+            if not sass or row[2] == '...':   # an elided run of instructions, no metrics
                 continue
             op = sass[1] if sass[0].startswith('@') else sass[0]
             _, lines, data = launches[-1]
             lines[row[2]].append((cur_file, cur_line))
+            extra = {c: num(row[n]) for c, n in cols.items() if c in EXTRA or
+                     (c.startswith('stall_') and not c.endswith('(Not Issued)'))}
             data[row[2]] = (op, num(row[cols['Instructions Executed']]),
-                            num(row[cols['Warp Stall Sampling (All Samples)']]))
+                            num(row[cols['Warp Stall Sampling (All Samples)']]), extra)
+    return launches
+
+
+def parse(path):
+    '''The launches of the second-derivative kernels: [(kernel, {region: [instructions, FP64, stall samples]},
+    iterations)]. Each SASS instruction is counted once, under its line in the kernel's own file (the outermost
+    frame) when it has one.'''
+    launches = read_launches(path)
     out = []
     for func, lines, data in launches:
         reg = defaultdict(lambda: [0., 0., 0.])
@@ -102,7 +122,7 @@ def parse(path):
             own = [w for w in where if os.path.basename(w[0]) == 'rys_contract_jk_ip2.cu']
             file, line = (own or where)[0]
             r = region(func, file, line)
-            op, n, st = data[addr]
+            op, n, st = data[addr][:3]
             if own and line == MARKERS.get(func) and op.startswith('LD'):
                 iters += n
             reg[r][0] += n
@@ -141,13 +161,130 @@ def regions_by_launch(path, order):
     return out
 
 
+FP64 = ('DFMA', 'DADD', 'DMUL', 'DSETP', 'DMNMX')
+
+
+def opclass(op):
+    base = op.split('.')[0]
+    if base == 'RED':
+        return 'atomic adds (RED)'
+    if base in ('ATOM', 'ATOMG'):
+        return 'atomics (ATOM)'
+    if base in ('LDG', 'LD'):
+        return 'global loads'
+    if base in ('LDS', 'STS', 'LDSM'):
+        return 'shared memory'
+    if base in FP64:
+        return 'FP64'
+    return 'other'
+
+
+def loop_lines(path, marker):
+    '''The line numbers (1-based) of path inside the loops whose header contains marker, by brace matching'''
+    text = open(path).read().split('\n')
+    inside = set()
+    for n, line in enumerate(text):
+        if marker not in line:
+            continue
+        depth, started = 0, False
+        for m in range(n, len(text)):
+            depth += text[m].count('{') - text[m].count('}')
+            started = started or '{' in text[m]
+            inside.add(m + 1)
+            if started and depth <= 0:
+                break
+    return inside
+
+
+def helper_lines(spec):
+    '''{file name: line numbers} from 'file:first-last,...': the bodies of helpers that only the loops call'''
+    out = defaultdict(set)
+    for item in filter(None, spec.split(',')):
+        name, rng = item.split(':')
+        a, b = map(int, rng.split('-'))
+        out[name].update(range(a, b + 1))
+    return out
+
+
+def loop_report(path, marker, kernel_files, labels=None, helpers=None):
+    '''Per launch: the instructions and stall samples inside the loops marked by marker (in kernel_files, the
+    outermost frame of each instruction) and outside them, by instruction class. An instruction listed only under
+    the lines of helpers (helper_lines) counts as inside the loops; one listed only under other files' lines (CUDA
+    headers) takes the region of the instruction before it.'''
+    helpers = helpers or {}
+    cache = {}
+    for n, (func, lines, data) in enumerate(read_launches(path)):
+        tab = defaultdict(lambda: [0., 0.])
+        why = defaultdict(lambda: defaultdict(float))
+        sectors = defaultdict(float)
+        where_is = {}   # address: True (in the loops), False, or None (listed only under headers)
+        for addr, where in lines.items():
+            own = [w for w in where if os.path.basename(w[0]) in kernel_files]
+            if own:
+                file, line = own[0]
+                if file not in cache:
+                    cache[file] = loop_lines(file, marker)
+                where_is[addr] = line in cache[file]
+            elif any(ln in helpers.get(os.path.basename(f), ()) for f, ln in where):
+                where_is[addr] = True
+            else:
+                where_is[addr] = None
+        # an instruction listed only under header lines (e.g. atomicAdd's) takes the region of the nearest
+        # preceding instruction (by address) that has one
+        last = False
+        for addr in sorted(where_is, key=lambda a: int(a, 16)):
+            if where_is[addr] is None:
+                where_is[addr] = last
+            last = where_is[addr]
+        for addr in lines:
+            r = 'density loop' if where_is[addr] else 'integrals, rest'
+            op, k, st, extra = data[addr]
+            tab[r, opclass(op)][0] += k
+            tab[r, opclass(op)][1] += st
+            for c, v in extra.items():
+                why[r][c] += v
+                if c in EXTRA:
+                    sectors[r, opclass(op), c] += v
+            sectors[r, opclass(op), 'warp'] += k
+        ti = sum(v[0] for v in tab.values())
+        ts = sum(v[1] for v in tab.values())
+        lab = f'{labels[n]}: ' if labels else ''
+        print(f'{lab}{func}: {ti / 1e9:.3f} G warp instructions, {ts:.0f} stall samples')
+        for r in ('density loop', 'integrals, rest'):
+            ri = sum(v[0] for (rr, c), v in tab.items() if rr == r)
+            rs = sum(v[1] for (rr, c), v in tab.items() if rr == r)
+            print(f'  {r:16s} {100 * ri / max(ti, 1):5.1f}% of instructions, {100 * rs / max(ts, 1):5.1f}% of stalls: ' +
+                  ', '.join(f'{c} {100 * v[0] / max(ti, 1):.1f}%/{100 * v[1] / max(ts, 1):.1f}%'
+                            for (rr, c), v in sorted(tab.items(), key=lambda kv: -kv[1][1]) if rr == r))
+            reasons = sorted(((c, v) for c, v in why[r].items() if c.startswith('stall_')), key=lambda cv: -cv[1])
+            print(f'  {"":16s} stalls by reason: ' + ', '.join(f'{c[6:]} {100 * v / max(ts, 1):.1f}%'
+                                                             for c, v in reasons[:5] if v))
+            for c in ('global loads', 'atomics (ATOM)', 'atomic adds (RED)'):
+                got, ideal, threads = (sectors[r, c, x] for x in EXTRA)
+                if got:
+                    print(f'  {"":16s} {c}: {threads / 1e6:.1f} M thread operations '
+                          f'({threads / max(sectors[r, c, "warp"], 1):.1f} per warp instruction), {got / 1e6:.1f} M L2 '
+                          f'sectors, {got / max(ideal, 1):.2f}x the coalesced count')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('csv')
     ap.add_argument('--order', default=None, help='launch labels (ncu_parts.py --labels) for the class names; the '
                     'profiled launches are the first of each class and kernel among them')
     ap.add_argument('--classes', default=None, help='the classes profiled (ncu_ejk2_class.py --classes)')
+    ap.add_argument('--loops', default=None, help='split by the loops whose header contains this text '
+                    '(e.g. "for (int i_dm"), in --kernel-files')
+    ap.add_argument('--kernel-files', default='rys_contract_jk.cu,unrolled_rys_jk.cu')
+    ap.add_argument('--labels', default=None, help='with --loops: one label per launch, semicolon-separated')
+    ap.add_argument('--loop-helpers', default='rys_contract_k.cuh:190-235',
+                    help='with --loops: file:first-last,... of helpers called only inside the loops (default: '
+                    'load_dm and dot_dm of the generic J/K kernels)')
     args = ap.parse_args()
+    if args.loops:
+        loop_report(args.csv, args.loops, set(args.kernel_files.split(',')),
+                    args.labels.split(';') if args.labels else None, helper_lines(args.loop_helpers))
+        return
     launches = parse(args.csv)
     labels = launch_order(args.order, args.classes) if args.order else [None] * len(launches)
     for (func, reg, iters), lab in zip(launches, labels):
