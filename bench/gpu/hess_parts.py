@@ -1,7 +1,9 @@
 """Time a GPU4PySCF analytical Hessian (node1): the SCF runs first, untimed, then the Hessian once between device
 synchronizations, with the GPU clocks. Writes the Hessian to --save (npy) and, with --compare REF.npy, prints the
-largest difference. Source scripts/node1-gpu-env.sh perf|base first.
-Usage: hess_parts.py [--xc b3lyp] [--basis def2-svp] [--mol caffeine] [--save H.npy] [--compare REF.npy]"""
+largest difference. --uks runs the UKS Hessian, of the cation (doublet) unless --charge/--spin say otherwise. Source
+scripts/node1-gpu-env.sh perf|base first.
+Usage: hess_parts.py [--xc b3lyp] [--basis def2-svp] [--mol caffeine] [--uks [--charge 1 --spin 1]] [--save H.npy]
+                     [--compare REF.npy]"""
 import argparse
 import os
 import sys
@@ -20,12 +22,20 @@ ap = argparse.ArgumentParser()
 ap.add_argument('--xc', default='b3lyp')
 ap.add_argument('--basis', default='def2-svp')
 ap.add_argument('--mol', default='caffeine')
+ap.add_argument('--uks', action='store_true')
+ap.add_argument('--charge', type=int, default=1)
+ap.add_argument('--spin', type=int, default=1)
 ap.add_argument('--save', default=None)
 ap.add_argument('--compare', default=None)
 args = ap.parse_args()
 
-mol = gto.M(atom={'caffeine': CAFFEINE, 'benzene': BENZENE}[args.mol], basis=args.basis, verbose=0)
-mf = scf.RHF(mol) if args.xc == 'hf' else dft.RKS(mol, xc=args.xc)
+atom = {'caffeine': CAFFEINE, 'benzene': BENZENE}[args.mol]
+if args.uks:
+    mol = gto.M(atom=atom, basis=args.basis, charge=args.charge, spin=args.spin, verbose=0)
+    mf = scf.UHF(mol) if args.xc == 'hf' else dft.UKS(mol, xc=args.xc)
+else:
+    mol = gto.M(atom=atom, basis=args.basis, verbose=0)
+    mf = scf.RHF(mol) if args.xc == 'hf' else dft.RKS(mol, xc=args.xc)
 mf.conv_tol = 1e-10
 mf.kernel()
 hobj = mf.Hessian()
@@ -36,7 +46,8 @@ with GpuMonitor() as mon:
     cupy.cuda.Device().synchronize()
     t = time.perf_counter() - t0
 h = cupy.asnumpy(h) if isinstance(h, cupy.ndarray) else numpy.asarray(h)
-print(f"{os.path.dirname(gpu4pyscf.__file__)}: {args.mol} {args.basis} {args.xc} Hessian {t:.2f} s "
+label = f'{args.mol} UKS (charge {args.charge}, spin {args.spin})' if args.uks else args.mol
+print(f"{os.path.dirname(gpu4pyscf.__file__)}: {label} {args.basis} {args.xc} Hessian {t:.2f} s "
       f"(SCF {mf.cycles} cycles), SM {mon.summary.get('sm_mhz')} MHz", flush=True)
 if args.save:
     numpy.save(args.save, h)

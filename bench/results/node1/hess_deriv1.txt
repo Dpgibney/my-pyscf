@@ -1,0 +1,170 @@
+# The Hessian's XC first derivatives (_get_vxc_deriv1, RKS and UKS) on each grid block's own AOs, atoms without AOs on the block skipped (gpu4pyscf perf 3c9ad0f, merged into exp/prim-screen 1b941ed).
+# 1) vxc_deriv_check.py --func deriv1: identical orbitals in both trees (caffeine: scratch/mo_*.npz of the deriv2 A/B; n-C20H42: this tree's SCF), this tree then v1.9.0.
+#    v1.9.0 runs n-C20H42 once, without the untimed first call (--no-warmup).
+gpu4pyscf/gpu4pyscf: RKS caffeine svwn def2-svp _get_vxc_deriv1 14.18 s
+gpu4pyscf-base/gpu4pyscf: RKS caffeine svwn def2-svp _get_vxc_deriv1 22.55 s
+  max |v - ref| = 4.16e-15 (max |ref| 2.29e+00)
+gpu4pyscf/gpu4pyscf: RKS caffeine b3lyp def2-svp _get_vxc_deriv1 16.06 s
+gpu4pyscf-base/gpu4pyscf: RKS caffeine b3lyp def2-svp _get_vxc_deriv1 28.82 s
+  max |v - ref| = 3.22e-15 (max |ref| 1.84e+00)
+gpu4pyscf/gpu4pyscf: RKS caffeine r2scan def2-svp _get_vxc_deriv1 32.82 s
+gpu4pyscf-base/gpu4pyscf: RKS caffeine r2scan def2-svp _get_vxc_deriv1 89.00 s
+  max |v - ref| = 2.09e-14 (max |ref| 2.40e+00)
+gpu4pyscf/gpu4pyscf: UKS caffeine svwn def2-svp _get_vxc_deriv1 28.33 s
+gpu4pyscf-base/gpu4pyscf: UKS caffeine svwn def2-svp _get_vxc_deriv1 35.25 s
+  max |v - ref| = 3.28e-15 (max |ref| 2.30e+00)
+gpu4pyscf/gpu4pyscf: UKS caffeine b3lyp def2-svp _get_vxc_deriv1 32.21 s
+gpu4pyscf-base/gpu4pyscf: UKS caffeine b3lyp def2-svp _get_vxc_deriv1 46.75 s
+  max |v - ref| = 2.22e-15 (max |ref| 2.00e+00)
+gpu4pyscf/gpu4pyscf: UKS caffeine r2scan def2-svp _get_vxc_deriv1 65.84 s
+gpu4pyscf-base/gpu4pyscf: UKS caffeine r2scan def2-svp _get_vxc_deriv1 139.18 s
+  max |v - ref| = 2.43e-14 (max |ref| 2.62e+00)
+gpu4pyscf/gpu4pyscf: RKS c20h42 b3lyp def2-svp _get_vxc_deriv1 70.79 s
+gpu4pyscf-base/gpu4pyscf: RKS c20h42 b3lyp def2-svp _get_vxc_deriv1 423.01 s
+  max |v - ref| = 2.03e-15 (max |ref| 5.11e-01)
+gpu4pyscf/gpu4pyscf: UKS c20h42 b3lyp def2-svp _get_vxc_deriv1 140.75 s
+gpu4pyscf-base/gpu4pyscf: UKS c20h42 b3lyp def2-svp _get_vxc_deriv1 655.30 s
+  max |v - ref| = 2.87e-15 (max |ref| 6.17e-01)
+# 2) d1_profile.sh: hess_xc_parts.py (synchronizing timers; _d1_dot_pair is both GEMMs of an atom; the meta-GGA tau GEMMs are untimed
+#    .dot calls, the gap between the timed parts and the total) and d1_gemm_shapes.py (the per-atom GEMMs one atom at a time and batched over atoms)
+== hess_xc_parts.py, caffeine def2-SVP B3LYP
+gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp (GGA), nao 246, nocc 51, 294912 grid points
+  _get_vxc_diag: 3.58 s, timed parts 3.46 s
+       1.66 s  46.5%  contract ik,lk->il (432 calls)
+       1.11 s  30.9%  contract bik,lk->bil (72 calls)
+       0.30 s   8.4%  numint.eval_rho2 (72 calls)
+       0.22 s   6.2%  AO values (block_loop) (72 calls)
+       0.13 s   3.5%  numint._scale_ao (1368 calls)
+       0.03 s   0.9%  eval_xc_eff (72 calls)
+       0.01 s   0.3%  rks.add_sparse (432 calls)
+  _get_vxc_deriv2: 13.96 s, timed parts 13.59 s
+       3.28 s  23.5%  rks._d1d2_dot_ (72 calls)
+       2.17 s  15.5%  rks._make_dR_dao_w (5256 calls)
+       2.14 s  15.3%  contract nip,ij->njp (72 calls)
+       1.25 s   9.0%  contract ki,nkl->nil (72 calls)
+       1.23 s   8.8%  rks.dot_rows (6912 calls)
+       1.15 s   8.3%  rks._make_dR_rho1 (1728 calls)
+       0.97 s   7.0%  numint._scale_ao (5184 calls)
+       0.70 s   5.0%  contract nig,ij->njg (72 calls)
+       0.38 s   2.8%  numint.eval_rho2 (72 calls)
+       0.13 s   1.0%  rks._contract_rho1_fxc (1728 calls)
+       0.11 s   0.8%  AO values (block_loop) (72 calls)
+       0.07 s   0.5%  eval_xc_eff (72 calls)
+       0.00 s   0.0%  rks.take_last2d (72 calls)
+       0.00 s   0.0%  contract yxqp,pq->xyp (24 calls)
+  _get_vxc_deriv1: 17.22 s, timed parts 16.82 s
+      11.27 s  65.5%  rks._d1_dot_pair (1708 calls)
+       1.32 s   7.7%  numint._scale_ao (10248 calls)
+       1.22 s   7.1%  rks._gga_grad_sum_ (72 calls)
+       1.14 s   6.6%  rks._make_dR_rho1 (1708 calls)
+       0.70 s   4.0%  contract ik,pil->pkl (72 calls)
+       0.53 s   3.1%  contract xig,ip->xpg (72 calls)
+       0.30 s   1.7%  numint.eval_rho2 (72 calls)
+       0.13 s   0.8%  rks._contract_rho1_fxc (1708 calls)
+       0.11 s   0.6%  AO values (block_loop) (72 calls)
+       0.07 s   0.4%  eval_xc_eff (72 calls)
+       0.01 s   0.1%  rks._block_ao_subset (72 calls)
+       0.01 s   0.1%  contract xiq,ip->xpq (24 calls)
+       0.01 s   0.0%  contract xij,jq->xiq (24 calls)
+       0.00 s   0.0%  rks.add_sparse (72 calls)
+== hess_xc_parts.py, caffeine def2-SVP r2SCAN
+gpu4pyscf/gpu4pyscf: caffeine def2-svp r2scan (MGGA), nao 246, nocc 51, 294912 grid points
+  _get_vxc_diag: 8.63 s, timed parts 8.49 s
+       6.65 s  77.0%  contract ik,lk->il (1728 calls)
+       1.11 s  12.9%  contract bik,lk->bil (72 calls)
+       0.31 s   3.6%  numint.eval_rho2 (72 calls)
+       0.22 s   2.6%  AO values (block_loop) (72 calls)
+       0.14 s   1.7%  numint._scale_ao (1584 calls)
+       0.05 s   0.6%  eval_xc_eff (72 calls)
+       0.01 s   0.1%  rks.add_sparse (432 calls)
+  _get_vxc_deriv2: 28.48 s, timed parts 27.80 s
+      13.12 s  46.1%  rks._d1d2_dot_ (288 calls)
+       3.61 s  12.7%  rks.dot_rows (22464 calls)
+       2.34 s   8.2%  numint._scale_ao (21168 calls)
+       2.17 s   7.6%  rks._make_dR_dao_w (5256 calls)
+       2.14 s   7.5%  contract nip,ij->njp (72 calls)
+       1.63 s   5.7%  rks._make_dR_rho1 (1728 calls)
+       1.26 s   4.4%  contract ki,nkl->nil (72 calls)
+       0.70 s   2.5%  contract nig,ij->njg (72 calls)
+       0.39 s   1.4%  numint.eval_rho2 (72 calls)
+       0.20 s   0.7%  rks._contract_rho1_fxc (1728 calls)
+       0.13 s   0.5%  eval_xc_eff (72 calls)
+       0.11 s   0.4%  AO values (block_loop) (72 calls)
+       0.00 s   0.0%  rks.take_last2d (72 calls)
+       0.00 s   0.0%  contract yxqp,pq->xyp (24 calls)
+  _get_vxc_deriv1: 35.05 s, timed parts 20.72 s
+      11.36 s  32.4%  rks._d1_dot_pair (1708 calls)
+       2.66 s   7.6%  numint._scale_ao (25836 calls)
+       1.81 s   5.2%  rks._d1_dot_ (216 calls)
+       1.63 s   4.6%  rks._make_dR_rho1 (1708 calls)
+       1.24 s   3.5%  rks._gga_grad_sum_ (72 calls)
+       0.70 s   2.0%  contract ik,pil->pkl (72 calls)
+       0.54 s   1.5%  contract xig,ip->xpg (72 calls)
+       0.31 s   0.9%  numint.eval_rho2 (72 calls)
+       0.19 s   0.6%  rks._contract_rho1_fxc (1708 calls)
+       0.13 s   0.4%  eval_xc_eff (72 calls)
+       0.11 s   0.3%  AO values (block_loop) (72 calls)
+       0.01 s   0.0%  rks._block_ao_subset (72 calls)
+       0.01 s   0.0%  contract xiq,ip->xpq (24 calls)
+       0.01 s   0.0%  contract xij,jq->xiq (24 calls)
+== d1_gemm_shapes.py: caffeine def2-SVP (mean block), then n-C20H42 def2-SVP (mean block)
+n 168, nocc 51, g 4096, natm 24; 10.11 GFLOP per block
+  max |batched - per atom| = 1.48e-12 (max 4.25e+02)
+  per atom (library)               161.99 ms    62.4 GFLOP/s
+  batched over atoms               107.21 ms    94.3 GFLOP/s
+  one GEMM1 (3n x g)(g x nocc)       2.61 ms    80.6 GFLOP/s
+  one GEMM2 (n x g)(g x 3nocc)       4.16 ms    50.6 GFLOP/s
+n 171, nocc 81, g 4096, natm 33; 22.47 GFLOP per block
+  max |batched - per atom| = 2.05e-12 (max 4.61e+02)
+  per atom (library)               316.65 ms    71.0 GFLOP/s
+  batched over atoms               258.08 ms    87.1 GFLOP/s
+  one GEMM1 (3n x g)(g x nocc)       5.64 ms    60.4 GFLOP/s
+  one GEMM2 (n x g)(g x 3nocc)       4.02 ms    84.6 GFLOP/s
+# 3) the gate (deriv1_gate.sh): Hessians against v1.9.0, the B3LYP stage breakdown, benzene cation UKS Hessians in both trees, and the Hessian unit tests
+== caffeine def2-SVP B3LYP Hessian with _get_vxc_deriv1 on each grid block's AOs, against v1.9.0 (scratch/hess_base.npy)
+gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp Hessian 184.28 s (SCF 15 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 1.60e-11 (max |ref| 9.95e-01)
+== stage times
+gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp Hessian: 184.52 s, SM [1530.0, 1530.0, 1530.0] MHz
+     88.73 s  48.1%  CPHF (solve_mo1), 1 calls
+     52.22 s  28.3%  CPHF XC response (nr_rks_fxc_mo), 7 calls
+     50.83 s  27.5%  2e second derivatives (_partial_ejk_ip2), 1 calls
+     35.08 s  19.0%  CPHF J/K in the MO basis (get_jk_mo), 7 calls
+     16.06 s   8.7%  XC second derivatives (_get_exc_deriv2), 1 calls
+     16.06 s   8.7%  XC first derivatives of V (_get_vxc_deriv1), 1 calls
+     10.88 s   5.9%  J/K derivative matrices (_get_jk_ip1), 1 calls
+      0.92 s   0.5%  ground-state XC kernel (cache_xc_kernel), 7 calls
+== caffeine def2-SVP r2SCAN Hessian against v1.9.0 (scratch/hess_r2scan_base.npy)
+gpu4pyscf/gpu4pyscf: caffeine def2-svp r2scan Hessian 271.67 s (SCF 16 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 1.08e-11 (max |ref| 9.97e-01)
+== benzene cation def2-SVP UKS Hessians: v1.9.0, then this tree
+gpu4pyscf-base/gpu4pyscf: benzene+ UKS def2-svp svwn Hessian 43.12 s (SCF 50 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: benzene+ UKS def2-svp svwn Hessian 36.41 s (SCF 50 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 4.30e-01 (max |ref| 5.43e-01)
+gpu4pyscf-base/gpu4pyscf: benzene+ UKS def2-svp b3lyp Hessian 65.68 s (SCF 10 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: benzene+ UKS def2-svp b3lyp Hessian 46.87 s (SCF 10 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 7.40e-10 (max |ref| 6.63e+00)
+gpu4pyscf-base/gpu4pyscf: benzene+ UKS def2-svp r2scan Hessian 93.17 s (SCF 12 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: benzene+ UKS def2-svp r2scan Hessian 83.42 s (SCF 12 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 3.54e-07 (max |ref| 9.59e+00)
+=== hessian rhf rks uhf uks
+37 passed in 178.22s (0:02:58)
+=== hessian large_exponent level_shift
+11 passed, 1 skipped, 2 warnings in 22.22s
+# The benzene cation's SVWN SCF did not converge (50 cycles) in either tree. 4) uks_check.sh: v1.9.0 against itself on the cation (its
+# run-to-run noise from the GPU atomics, amplified by this Jahn-Teller system), then neutral benzene with UKS (spin 0) in both trees
+== control: the benzene cation UKS Hessians of v1.9.0 run again, against v1.9.0's first run (deriv1_gate.sh)
+gpu4pyscf-base/gpu4pyscf: benzene UKS (charge 1, spin 1) def2-svp b3lyp Hessian 65.63 s (SCF 10 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 1.28e-10 (max |ref| 6.63e+00)
+gpu4pyscf-base/gpu4pyscf: benzene UKS (charge 1, spin 1) def2-svp r2scan Hessian 93.16 s (SCF 12 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 1.28e-07 (max |ref| 9.59e+00)
+== neutral benzene, UKS (spin 0): v1.9.0, then this tree
+gpu4pyscf-base/gpu4pyscf: benzene UKS (charge 0, spin 0) def2-svp svwn Hessian 40.33 s (SCF 8 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: benzene UKS (charge 0, spin 0) def2-svp svwn Hessian 33.90 s (SCF 8 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 3.73e-12 (max |ref| 7.46e-01)
+gpu4pyscf-base/gpu4pyscf: benzene UKS (charge 0, spin 0) def2-svp b3lyp Hessian 62.52 s (SCF 7 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: benzene UKS (charge 0, spin 0) def2-svp b3lyp Hessian 44.44 s (SCF 7 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 1.32e-12 (max |ref| 7.54e-01)
+gpu4pyscf-base/gpu4pyscf: benzene UKS (charge 0, spin 0) def2-svp r2scan Hessian 85.42 s (SCF 7 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: benzene UKS (charge 0, spin 0) def2-svp r2scan Hessian 75.61 s (SCF 7 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 3.45e-12 (max |ref| 7.50e-01)

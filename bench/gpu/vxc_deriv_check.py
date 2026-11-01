@@ -56,7 +56,8 @@ t0 = time.perf_counter()
 v = f(hobj, mo_coeff, mo_occ, 4000)
 cupy.cuda.Device().synchronize()
 t = time.perf_counter() - t0
-v = numpy.asarray([cupy.asnumpy(x) for x in v]) if isinstance(v, (tuple, list)) else cupy.asnumpy(v)
+# UKS: the alpha and beta parts, flattened (deriv1's have different numbers of occupied orbitals)
+v = numpy.concatenate([cupy.asnumpy(x).ravel() for x in v]) if isinstance(v, (tuple, list)) else cupy.asnumpy(v)
 print(f'{os.path.dirname(gpu4pyscf.__file__)}: {"UKS" if args.uks else "RKS"} {args.mol} {args.xc} {args.basis} '
       f'_get_vxc_{args.func} {t:.2f} s')
 if args.out:

@@ -3697,6 +3697,112 @@ The user approved options 1 and then 2 of part 11; this is option 1.
   | XC second derivatives (`_get_exc_deriv2`) | 16 s |
   | J/K derivative matrices | 11 s |
 
+## GPU4PySCF investigation, part 13: the Hessian's XC first derivatives on each grid block's own AOs (node1), 2026-11-01
+Option 2 of part 11, approved together with option 1 (part 12).
+
+### Change (gpu4pyscf `perf` 3c9ad0f, merged into `exp/prim-screen` 1b941ed)
+- **The waste:** `_get_vxc_deriv1` (RKS and UKS) moved each grid block's AO values to all nao original AOs with
+  `contract('nip,ij->njp', ao, coeff[mask])`. That is a GEMM with a permutation matrix, and it fills the AOs that are not
+  on the block with zeros. The per-atom GEMMs (nao × nocc, three directions, two terms) then ran on all nao AOs, for every
+  atom.
+- **The block's own AOs:** the sorted AOs are a permutation of the original ones (`opt.coeff` is `eye(nao)[_ao_idx]`).
+  - `_block_ao_subset` gathers the block's AO values in ascending original order with `cupy.take`. That is bit for bit what
+    the GEMM gives.
+  - It maps each atom's AO range into the subset with `searchsorted`, so the ranges stay contiguous and `_make_dR_rho1`'s
+    slices still work.
+  - The orbitals, `dm0` and the AO-pair term `v_ip` are taken on the subset (`mocc[idx]`, `take_last2d`, `add_sparse`).
+    Each atom's (3, nao_sub, nocc) block is added at the subset's rows.
+- **Skipping:** an atom without AOs on the block has dR_rho1 = 0 there, so all its terms are exactly zero, and it is
+  skipped. Blocks with no AOs at all are skipped too.
+- **Smaller changes in the same loop:**
+  - fxc · dR_rho1 goes through `_contract_rho1_fxc`, as `_get_vxc_deriv2` already does, instead of cuTENSOR (1.05 →
+    0.08 ms per atom and block). UKS does both spins in one call; this relies on fxc being symmetric.
+  - Each atom's two GEMMs take the three directions in one call each (`_d1_dot_pair`).
+  - The meta-GGA τ term has two equal halves, (ao_j w) mo_jᵀ and ao_j (mo_j w)ᵀ. It is now computed once with twice the
+    weight, which halves the τ GEMMs.
+- **Exactness:** the same sums, apart from terms that are exactly zero, in another order.
+- **New tools:**
+  - `vxc_deriv_check.py --func deriv1 [--mol c20h42]`.
+  - `hess_parts.py --uks [--charge --spin]`.
+  - `d1_gemm_shapes.py`, which times the per-atom GEMMs one atom at a time and batched over atoms.
+
+### Results (GTX 1650 Super; `hess_deriv1.txt`)
+- **`_get_vxc_deriv1` at identical orbitals against v1.9.0:**
+
+  | | SVWN | B3LYP | r2SCAN |
+  |---|---|---|---|
+  | caffeine RKS | 22.6 → 14.2 s (1.59×) | 28.8 → 16.1 s (1.79×) | 89.0 → 32.8 s (2.71×) |
+  | caffeine⁺ UKS | 35.3 → 28.3 s (1.24×) | 46.8 → 32.2 s (1.45×) | 139 → 66 s (2.11×) |
+  | n-C20H42 RKS | – | 423 → 71 s (5.98×) | – |
+  | n-C20H42⁺ UKS | – | 655 → 141 s (4.66×) | – |
+
+  - All agree to 2.4e−14 or better, with values up to 2.6.
+  - The alkane gains the most: its blocks hold 35% of the AOs and 53% of the atoms (part 11).
+  - The RKS gains are larger because v1.9.0's RKS path was the slower one. Its UKS SVWN run takes only 1.56× its RKS
+    run, with twice the orbitals; here the ratio is 2.0×. The likely cause, not profiled, is the RKS path's cuTENSOR
+    call with a transposed output and beta = 1.
+- **Hessians** (caffeine def2-SVP, with the `exp/prim-screen` kernels):
+
+  | Hessian | v1.9.0 | before (part 12) | now | max \|ΔH\| against v1.9.0 |
+  |---|---|---|---|---|
+  | B3LYP | 306 s | 197 s | 184 s | 1.6e−11 |
+  | r2SCAN | 450 s | 327 s | 272 s | 1.1e−11 |
+
+  - The SCF cycle counts are unchanged (15 and 16).
+- **UKS Hessians end to end** (benzene def2-SVP, both trees):
+  - **Neutral benzene with UKS (spin 0)** agrees with v1.9.0 to 3.7e−12 (SVWN), 1.3e−12 (B3LYP) and 3.5e−12 (r2SCAN),
+    with the same cycle counts. The times go 40.3 → 33.9, 62.5 → 44.4 and 85.4 → 75.6 s.
+  - **The benzene cation is no test:**
+    - Its SVWN SCF does not converge in either tree (50 cycles).
+    - Its B3LYP and r2SCAN Hessians differ from v1.9.0 by 7.4e−10 and 3.5e−7. v1.9.0 differs from itself on a second
+      run by 1.3e−10 and 1.3e−7.
+    - This Jahn–Teller system amplifies the GPU atomics' noise. The differences between trees are of that size.
+- **Tests:** the RHF, RKS, UHF and UKS Hessian tests pass (37), as do `test_large_exponent.py` and
+  `test_level_shift_hessian.py` (11, 1 skipped).
+- **Where `_get_vxc_deriv1` stands** (caffeine B3LYP, 17.2 s with synchronizing timers):
+
+  | part | time |
+  |---|---|
+  | the per-atom GEMM pairs | 11.3 s (65%) |
+  | `_scale_ao` | 1.3 s |
+  | `v_ip` (`_gga_grad_sum_`) | 1.2 s |
+  | `_make_dR_rho1` | 1.1 s |
+  | dm0 · AO | 0.7 s |
+
+  - For r2SCAN (35 s), the τ GEMMs add about 13 s.
+- **Batching the per-atom GEMMs over atoms** (`d1_gemm_shapes.py`, one mean-sized block):
+
+  | molecule | one atom at a time | batched over atoms |
+  |---|---|---|
+  | caffeine | 62 GFLOP/s | 94 GFLOP/s (1.51×) |
+  | n-C20H42 | 71 GFLOP/s | 87 GFLOP/s (1.23×) |
+
+  - The card's FP64 peak at 1530 MHz is 122 GFLOP/s.
+  - Each atom's GEMMs are skinny (3·168 × 51 and 168 × 153 outputs, K = 4096), so they cover few output tiles. On GPUs with
+    many more SMs than this card's 20, one GEMM per atom should leave more of the GPU idle; that is unmeasured.
+- **Where the B3LYP Hessian stands (184 s; `hess_deriv1_stages.jsonl`):**
+
+  | stage | time |
+  |---|---|
+  | CPHF (`solve_mo1`) | 89 s, of which XC response 52 s and J/K 35 s |
+  | two-electron second derivatives | 51 s |
+  | XC first derivatives of V | 16 s |
+  | XC second derivatives | 16 s |
+  | J/K derivative matrices | 11 s |
+
+### Options (exact; not started)
+1. **`_get_vxc_deriv2` on each block's own AOs, skipping atoms without AOs** (part 13's change in the second-derivative
+   term, RKS and UKS).
+   - What shrinks: its AO transform (2.1 s), the AO-pair GEMMs `_d1d2_dot_` over all nao² (3.3 s for B3LYP, 13.1 s for
+     r2SCAN) and dm0 · AO (1.3 s).
+   - Gain: about 4.6 of 14.0 s for caffeine B3LYP and 10 of 28.5 s for r2SCAN.
+   - For larger molecules the per-atom loop also shrinks by the share of atoms absent from each block (47% for n-C20H42).
+2. **Batch `_get_vxc_deriv1`'s per-atom GEMMs over atoms,** in chunks sized from free memory.
+   - On this card: 1.5× (caffeine) and 1.2× (n-C20H42) on those GEMMs, about 4 s of B3LYP's 17 s, plus the meta-GGA τ
+     GEMMs.
+   - Probably more on GPUs with many SMs; that needs the A100/H100 suite.
+3. **One grid pass for both derivative terms:** about 4 s (part 11).
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

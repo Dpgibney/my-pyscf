@@ -74,7 +74,8 @@ hobj = mf.Hessian()
 mo_coeff, mo_occ = mf.mo_coeff, mf.mo_occ
 
 rks_hess.contract = timed('contract', rks_hess.contract, by_subscripts=True)
-for mod, names in ((rks_hess, ('add_sparse', 'take_last2d', '_make_dR_rho1', '_d1d2_dot_', '_contract_rho1_fxc')),
+for mod, names in ((rks_hess, ('add_sparse', 'take_last2d', '_make_dR_rho1', '_d1d2_dot_', '_contract_rho1_fxc',
+                              'dot_rows', '_block_ao_subset', '_d1_dot_pair')),
                    (numint, ('eval_rho2', '_scale_ao')),
                    (rks_grad, ('_make_dR_dao_w', '_gga_grad_sum_', '_d1_dot_', '_d1d2_dot_'))):
     for name in names:
