@@ -1,0 +1,54 @@
+# The RKS Hessian's XC derivative terms (gpu4pyscf exp/prim-screen 5108750): hess_xc_parts.py, caffeine def2-SVP B3LYP, 294,912 grid points,
+# with synchronizing timers around every helper (parts are exclusive; totals run a little above an untimed call)
+gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp (GGA), nao 246, nocc 51, 294912 grid points
+  _get_vxc_diag: 3.59 s, timed parts 3.47 s
+       1.66 s  46.4%  contract ik,lk->il (432 calls)
+       1.11 s  31.0%  contract bik,lk->bil (72 calls)
+       0.30 s   8.4%  numint.eval_rho2 (72 calls)
+       0.22 s   6.2%  AO values (block_loop) (72 calls)
+       0.13 s   3.5%  numint._scale_ao (1368 calls)
+       0.03 s   0.9%  eval_xc_eff (72 calls)
+       0.01 s   0.3%  rks.add_sparse (432 calls)
+  _get_vxc_deriv2: 25.49 s, timed parts 25.10 s
+      11.81 s  46.3%  contract yjg,xjg->xyj (1728 calls)
+       3.28 s  12.9%  rks._d1d2_dot_ (72 calls)
+       2.17 s   8.5%  rks._make_dR_dao_w (5256 calls)
+       2.14 s   8.4%  contract nip,ij->njp (72 calls)
+       1.25 s   4.9%  contract ki,nkl->nil (72 calls)
+       1.15 s   4.5%  rks._make_dR_rho1 (1728 calls)
+       0.97 s   3.8%  numint._scale_ao (5184 calls)
+       0.92 s   3.6%  contract xjg,jg->xj (5184 calls)
+       0.70 s   2.8%  contract nig,ij->njg (72 calls)
+       0.38 s   1.5%  numint.eval_rho2 (72 calls)
+       0.14 s   0.5%  rks._contract_rho1_fxc (1728 calls)
+       0.11 s   0.4%  AO values (block_loop) (72 calls)
+       0.07 s   0.3%  eval_xc_eff (72 calls)
+       0.00 s   0.0%  rks.take_last2d (72 calls)
+  _get_vxc_deriv1: 30.26 s, timed parts 30.02 s
+      18.52 s  61.2%  rks._d1_dot_ (3456 calls)
+       2.14 s   7.1%  contract nip,ij->njp (72 calls)
+       2.04 s   6.8%  rks._gga_grad_sum_ (72 calls)
+       1.81 s   6.0%  contract xyg,sxg->syg (1728 calls)
+       1.74 s   5.7%  numint._scale_ao (10368 calls)
+       1.26 s   4.1%  contract ik,pil->pkl (72 calls)
+       1.16 s   3.8%  rks._make_dR_rho1 (1728 calls)
+       0.78 s   2.6%  contract xig,ip->xpg (72 calls)
+       0.38 s   1.3%  numint.eval_rho2 (72 calls)
+       0.11 s   0.3%  AO values (block_loop) (72 calls)
+       0.07 s   0.2%  eval_xc_eff (72 calls)
+       0.01 s   0.0%  contract xiq,ip->xpq (24 calls)
+       0.01 s   0.0%  contract xij,jq->xiq (24 calls)
+
+# contract('yjg,xjg->xyj') for (3, 246, 4096) inputs (xyj_bench.py): 48 MB of traffic per call, 0.25 ms at 192 GB/s
+contract yjg,xjg->xyj (cuTENSOR)            9.625 ms
+cupy.matmul batched over j                 71.960 ms
+9 x (product).sum(axis=-1)                  1.777 ms
+RawKernel, one block per AO                 0.284 ms
+  matmul: max |r - cuTENSOR| = 8.53e-13 (max 2.31e+02)
+  sum: max |r - cuTENSOR| = 4.41e-13 (max 2.31e+02)
+  raw: max |r - cuTENSOR| = 4.12e-13 (max 2.31e+02)
+  memory traffic per call 48 MB: 0.252 ms at 192 GB/s
+
+# Atoms and screened AOs per grid block (atom_cover.py)
+caffeine def2-svp: natm 24, nao 246, 72 blocks; atoms with AOs in a block: mean 23.7 (99%), min 22, max 24; nao_sub mean 168 (68%)
+C20H42 def2-svp: natm 62, nao 490, 170 blocks; atoms with AOs in a block: mean 33.0 (53%), min 19, max 42; nao_sub mean 171 (35%)

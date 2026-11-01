@@ -3601,6 +3601,57 @@ The user approved reworking the CPHF's XC response (part 9: 71 of the Hessian's 
 - **The XC derivative terms** (56 s, not profiled inside), **the second-derivative kernels** (51 s), **the
   TDDFT-gradient kernels**, and **the A100/H100 suite**.
 
+## GPU4PySCF investigation, part 11 (profile only): the Hessian's XC derivative terms (node1), 2026-11-01
+The user approved profiling the XC derivative terms (56 of the B3LYP Hessian's 208 s). Nothing was changed.
+
+### Method (`hess_xc_parts.py`, `hess_xc_profile.txt`)
+- **Calls:** `_get_vxc_diag` and `_get_vxc_deriv2` (the two halves of `_get_exc_deriv2`) and `_get_vxc_deriv1`
+  (`make_h1`), each run once at the converged caffeine def2-SVP B3LYP SCF, on 294,912 grid points in 72 blocks.
+- **Timers:** synchronizing, around every helper they call; `contract` is grouped by its subscripts.
+
+### Where the time goes
+| function | time | largest parts |
+|---|---|---|
+| `_get_vxc_deriv1` | 30.2 s | per-atom matrix elements `_d1_dot_` 18.5 s; AO transform to the original basis 2.1 s; `_gga_grad_sum_` 2.0 s; fxc · ∂ρ/∂R per atom 1.8 s; `_scale_ao` 1.7 s |
+| `_get_vxc_deriv2` | 25.5 s | `contract('yjg,xjg->xyj')` 11.8 s; `_d1d2_dot_` 3.3 s; `_make_dR_dao_w` 2.2 s; AO transform 2.1 s; dm0 · AO 1.3 s |
+| `_get_vxc_diag` | 3.6 s | two GEMM patterns, 1.7 and 1.1 s |
+
+### Findings
+- **`contract('yjg,xjg->xyj')` is pathologically slow** (in the GGA, LDA and meta-GGA paths of `_get_vxc_deriv2`, and in
+  the UKS Hessian for both spins, with `'xjg,jg->xj'` next to it).
+  - It computes nine dot products over the grid for each AO, inside the loop over atoms. That is 31 GFLOP in 1,728
+    calls, at 2.6 GFLOP/s: through cuTENSOR, the AO index sits in both inputs and the output.
+  - Timings for (3, 246, 4096) inputs (`xyj_bench.py`), with the 48 MB they move taking 0.25 ms at 192 GB/s:
+
+    | method | time per call |
+    |---|---|
+    | cuTENSOR (now) | 9.6 ms |
+    | nine products with `.sum(axis=-1)` | 1.8 ms |
+    | batched `cupy.matmul` | 72 ms |
+    | fused RawKernel, one thread block per AO | 0.28 ms |
+
+  - All agree to 2e−15 relative. `cupy_helper.py` already compiles RawKernels.
+- **`_get_vxc_deriv1`'s per-atom GEMMs** run at a normal 70 GFLOP/s, but on all nao AOs for every atom. Each block's AOs
+  are transformed to the original basis, so its screening mask is lost and the atom slices stay contiguous.
+  - Coverage per block (`atom_cover.py`):
+
+    | molecule | atoms with AOs in a block | screened AOs |
+    |---|---|---|
+    | caffeine def2-SVP | 99% | 68% |
+    | n-C20H42 def2-SVP | 53% | 35% |
+
+  - Working on the screened AOs in the sorted basis would cut those GEMMs 1.5× for caffeine. Skipping atoms without AOs
+    in the block (their ∂ρ/∂R is exactly zero) adds little for caffeine, but for the alkane the two together cut the
+    FP64 work about 5×.
+- **Redundancy:** `_get_vxc_deriv1` and `_get_vxc_deriv2` each recompute ρ, fxc, the AO transform and dm0 · AO on the
+  same grid, about 4 s each.
+
+### Options (exact; not started)
+1. A fused kernel for the per-AO dot products: about 12 s of the B3LYP Hessian (6%), RKS and UKS. A small change.
+2. `_get_vxc_deriv1` on the screened AOs, skipping atoms without AOs in the block: 1.5× on 18.5 s for caffeine, about 5×
+   for larger molecules. A larger refactor (per-atom AO lists in the sorted basis).
+3. One grid pass for both derivative terms: about 4 s. A larger refactor across `partial_hess_elec` and `make_h1`.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
