@@ -1,0 +1,26 @@
+# One-pass J+K in the Hessian CPHF (gpu4pyscf perf 3dfd27d, merged into exp/prim-screen 7089dfb): caffeine def2-SVP B3LYP Hessian
+# against v1.9.0 (hess_parts.py), the stage breakdown (stage_times.py; before: hess_tdgrad_stages.txt), and the Hessian unit tests
+== caffeine def2-SVP B3LYP Hessian with one-pass J+K in the CPHF, against v1.9.0 (scratch/hess_base.npy)
+gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp Hessian 226.64 s (SCF 15 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 1.91e-11 (max |ref| 9.95e-01)
+== stage times
+gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp Hessian: 226.72 s, SM [1530.0, 1530.0, 1530.0] MHz
+    107.00 s  47.2%  CPHF (solve_mo1), 1 calls
+     70.57 s  31.1%  CPHF XC response (nr_rks_fxc_mo), 7 calls
+     50.66 s  22.3%  2e second derivatives (_partial_ejk_ip2), 1 calls
+     35.02 s  15.4%  CPHF J/K in the MO basis (get_jk_mo), 7 calls
+     28.83 s  12.7%  XC first derivatives of V (_get_vxc_deriv1), 1 calls
+     27.42 s  12.1%  XC second derivatives (_get_exc_deriv2), 1 calls
+     10.86 s   4.8%  J/K derivative matrices (_get_jk_ip1), 1 calls
+      0.92 s   0.4%  ground-state XC kernel (cache_xc_kernel), 7 calls
+=== hessian rhf rks uhf uks
+37 passed in 179.50s (0:02:59)
+=== hessian large_exponent level_shift
+11 passed, 1 skipped, 2 warnings in 23.41s
+
+# The CPHF's XC response (hessian.rks.nr_rks_fxc_mo) for 72 densities on mf.cphf_grids, one call (fxc_mo_parts.py)
+gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp (GGA), nao 246, nocc 51, 102400 grid points in 25 blocks, 72 densities: 14.15 s
+     7.72 s  54.5%  per-density AO integration
+     6.39 s  45.1%  rho1 (eval_rho4)
+     0.04 s   0.3%  fxc contraction
+     0.01 s   0.1%  AO values (block_loop)

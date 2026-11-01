@@ -3456,6 +3456,79 @@ gradient. This part covers the gradient (`RYS_per_atom_jk_ip1`); the Hessian ker
 - **Otherwise, as before:** the rest of the Hessian, a J-engine gradient, `jk_one_pass` as the default (the user's
   call), and the A100/H100 test suite.
 
+## GPU4PySCF investigation, part 9: where a Hessian and a TDDFT gradient spend their time; one-pass J+K in the Hessian CPHF (node1), 2026-11-01
+After part 8 the user chose to re-profile before writing more kernels. They then approved using the one-pass J+K
+kernels inside the Hessian's CPHF, the path they had kept as their call for the SCF (`jk_one_pass`).
+
+### Stage profile (`bench/gpu/stage_times.py`, `hess_tdgrad_stages.txt`; caffeine def2-SVP B3LYP, e1626eb)
+- **Method:** synchronizing timers around the stages. Times are inclusive (the CPHF contains its J/K and XC
+  response); within a group only the outermost call counts.
+- **Hessian, 290 s:**
+
+  | stage | time |
+  |---|---|
+  | CPHF (`solve_mo1`), 7 iterations | 170 s |
+  | of it: J-engine J for 72 densities | 75 s |
+  | of it: XC response (`nr_rks_fxc_mo`) | 71 s |
+  | of it: K for 72 densities | 23 s |
+  | two-electron second derivatives (`_partial_ejk_ip2`) | 51 s |
+  | XC first derivatives of V and XC second derivatives | 29 + 27 s |
+  | J/K derivative matrices (`_get_jk_ip1`) | 11 s |
+  | ground-state XC kernel, rebuilt per CPHF iteration | 0.9 s |
+
+- **TDA gradient of state 1 (of 5), 58 s:**
+  - The Z-vector CPHF takes 35 s: J/K 24 s and XC response 14 s.
+  - Then the XC kernel contractions (10 s) and the two-electron derivatives (the summed multi-density kernels, 9 s).
+  - The full-TDDFT gradient stopped in the excited-state solver: out of memory on the 4 GB card.
+
+### Why J cost three times K in the Hessian (`multi_dm_jk.py`)
+- **J-engine:** its loop over blocks of 8 densities (`dm_offset` in `unrolled_md_j_4dm.cu`, `DM_BLOCK` in
+  `md_contract_j.cu`) encloses the whole integral evaluation, Boys functions and Hermite recursions included. For
+  the CPHF's 3 × natm = 72 densities it evaluates every integral 9 times.
+- **Rys J+K kernels:** they evaluate each integral once and contract it with all densities.
+- **Timings at the converged density** (times (1 + X) per density):
+
+  | densities | J-engine J | K | one-pass J+K | J + K apart |
+  |---|---|---|---|---|
+  | 1 | 0.78 s | 1.00 s | 1.05 s | 1.78 s |
+  | 8 | 1.73 s | – | – | – |
+  | 72 | 15.6 s | 4.5 s | 7.0 s | 20.1 s |
+
+  - The one-pass J agrees with the J-engine to 4.7e−12 (values up to 44).
+  - The Rys J-only path (`jk._VHFOpt.get_j`) is slower for one density (2.9 s) and failed with an illegal memory
+    access for 8 and 72, so pure functionals keep the J-engine.
+
+### Change (gpu4pyscf `perf` 3dfd27d, merged into `exp/prim-screen` 7089dfb)
+- **`hessian.rhf._get_jk_mo` and `hessian.uhf._get_jk_mo`:** for full-range Coulomb with both J and K, J and K now
+  come from `_VHFOpt.get_jk` in one pass. UHF takes J of each spin density and sums the two.
+- **Switch:** `hessian_rhf_jk_mo_one_pass = False` in the config restores the J-engine.
+- **Unchanged:** range-separated K and J alone keep their paths.
+- **Memory:** the CPHF's block size already counts the AO matrices of the densities, J and K together, for RHF and
+  for UHF.
+
+### Results (`hess_onepass.txt`)
+- **Time:** the caffeine def2-SVP B3LYP Hessian goes from 290 to 227 s (1.28×; 306 s in v1.9.0, so 1.35× there). Its
+  CPHF J/K goes from 98 to 35 s.
+- **Accuracy:** the Hessian agrees with v1.9.0 to 1.9e−11 (values up to 1.0).
+- **Tests:** the RHF, RKS, UHF and UKS Hessian tests (37) and `test_large_exponent.py` with
+  `test_level_shift_hessian.py` (11, 1 skipped) pass.
+- **Where the Hessian stands now (227 s):** CPHF XC response 71 s, XC derivative terms 56 s, two-electron second
+  derivatives 51 s, CPHF J/K 35 s, J/K derivative matrices 11 s.
+
+### The CPHF's XC response (`fxc_mo_parts.py`, 72 densities on the 102,400-point CPHF grid, 14.2 s per call)
+- **Split:** the AO integration takes 55%: one nao × nao GEMM per density and grid block. The response densities
+  (`eval_rho4`) take 45%: one GEMM per density with nocc = 51 columns. AO values and the fxc contraction are below
+  1%.
+- **Possible exact restructurings, not done:**
+  - Integrate in the MO basis: V_mo = Φᵀ W Φ_occ plus the GGA transpose term. That needs nmo × nocc × 2 instead of
+    nao² per density and point, about 2× fewer FP64 operations (caffeine: 25k against 61k).
+  - Do all densities in a few wide GEMMs per grid block, for both parts.
+
+### Next
+- The CPHF's XC response (above): about 30 s of the Hessian by estimate, and it applies to every hybrid or GGA Hessian.
+- Otherwise: the XC derivative terms (56 s), the Hessian's second-derivative kernels (51 s), the TDDFT-gradient
+  kernels (9 s of 58 s), and the A100/H100 suite.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
