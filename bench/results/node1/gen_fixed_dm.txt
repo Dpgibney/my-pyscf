@@ -1,0 +1,39 @@
+# Generated multi-thread K kernels: K at the converged caffeine densities (def2-SVP, then def2-TZVP) against v1.9.0
+gpu4pyscf/gpu4pyscf: k median 0.999 s of 5, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 9.88e-15 (max |ref| 9.79e+00)
+gpu4pyscf/gpu4pyscf: k median 10.586 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 4.00e-14 (max |ref| 1.06e+01)
+FIXED DONE
+
+# Earlier experiment build (exp_prim_screen.py --gen-first; 16 generated classes, plus generated versions of the six
+# upstream multi-thread classes 2021, 2111, 2120, 2210, 3011, 3110), against v1.9.0
+== SVP K, default (generated after unrolled)
+gpu4pyscf/gpu4pyscf: k median 1.014 s of 5, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 9.10e-15 (max |ref| 9.79e+00)
+== SVP K, GEN_FIRST=1 (generated also for the upstream multi-thread classes)
+gpu4pyscf/gpu4pyscf: k median 1.015 s of 5, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 1.09e-14 (max |ref| 9.79e+00)
+== TZVP K, default
+gpu4pyscf/gpu4pyscf: k median 10.915 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 2.80e-14 (max |ref| 1.06e+01)
+
+# After the gate: node1 rebuilt with the final dispatcher hook (if (!rys_k_unrolled(...) && !rys_k_generated(...)), same calls), then
+# def2-SVP K again, and hermi=0 K at def2-TZVP (density + 0.5 x an antisymmetric matrix with its sparsity, jk_at_dm.py --antisym 0.5)
+# for full (omega 0), long-range (0.3) and short-range (-0.3) Coulomb, v1.9.0 then patched
+== rebuilt hook (whitespace and && only): def2-SVP K against v1.9.0
+gpu4pyscf/gpu4pyscf: k median 0.998 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 1.18e-14 (max |ref| 9.79e+00)
+== hermi=0 K (density + 0.5 x antisymmetric part), def2-TZVP, against v1.9.0
+-- omega 0
+gpu4pyscf-base/gpu4pyscf: k median 19.165 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: k median 11.587 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 3.62e-14 (max |ref| 1.06e+01)
+-- omega 0.3
+gpu4pyscf-base/gpu4pyscf: k median 21.134 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: k median 11.357 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 1.16e-14 (max |ref| 6.50e-01)
+-- omega -0.3
+gpu4pyscf-base/gpu4pyscf: k median 34.048 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: k median 19.647 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 1.82e-14 (max |ref| 1.01e+01)
+HERMI0 DONE

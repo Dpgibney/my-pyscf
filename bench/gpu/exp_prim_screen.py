@@ -13,14 +13,19 @@ sources at BASE (a git revision of TREE, default perf) and written into TREE.
 and as many per SM as the occupancy calculator allows, up to BLOCKS and the POOL_BLOCKS_PER_SM task queues the pool
 holds. env reads NSQ and BLOCKS for K and J+K at run time (GPU4PYSCF_RYS_NSQ, _BLOCKS), for sweeps; it leaves the
 derivative kernels alone, whose block size is a compile-time constant.
+--gen-k writes generated_rys_k.cu (gen_rys_k.py): multi-thread K kernels for classes that would otherwise run the
+generic kernel, built into libgvhf_rys and tried by RYS_build_k after the unrolled kernels. The default is the 18
+classes of part 7; off leaves them out.
 PRIM_CUTOFF (vhf.cuh) is e^-60 = 8.8e-27, libcint's expcutoff. A skipped primitive pair enters its integrals with a
 factor below that, many orders of magnitude under the SCF's 1e-13 shell-quartet cutoff.
 Usage: exp_prim_screen.py TREE [--base perf] [--barrier keep|remove] [--ket none|zero|cutoff]
                                [--bra none|zero|cutoff] [--multi on|off] [--launch 128x4|off|NSQxBLOCKS|env]
-                               [--generic on|off]"""
+                               [--generic on|off] [--gen-k CLASS:NSQxGS,...|off] [--gen-first]"""
 import argparse
+import os
 import re
 import subprocess
+import sys
 
 ap = argparse.ArgumentParser()
 ap.add_argument('tree')
@@ -30,6 +35,14 @@ ap.add_argument('--ket', default='cutoff', choices=['none', 'zero', 'cutoff'])
 ap.add_argument('--bra', default='cutoff', choices=['none', 'zero', 'cutoff'])
 ap.add_argument('--multi', default='on', choices=['on', 'off'],
                 help='also the bra skip in the multi-thread and generic kernels')
+# Every class that ran the generic K kernel and fits at up to 75 outputs per thread without heavy spills (part 7)
+GEN_K = ('3111:32x8,3210:64x4,3120:64x4,3021:64x4,2121:32x8,3220:32x8,3310:32x8,3030:64x4,3130:32x8,3031:32x8,'
+         '3121:32x8,3211:32x8,2211:32x8,3022:32x8,2220:32x8,3300:64x4,2022:32x8,3032:32x8')
+ap.add_argument('--gen-k', default=GEN_K,
+                help='comma-separated CLASS:NSQxGS specs of generated multi-thread K kernels (gen_rys_k.py), or off')
+ap.add_argument('--gen-first', action='store_true',
+                help='experiment: GPU4PYSCF_RYS_GEN_FIRST=1 tries the generated kernels before the unrolled ones, '
+                     'GPU4PYSCF_RYS_GEN_OFF=1 skips them')
 ap.add_argument('--generic', default='on', choices=['on', 'off'],
                 help='generic kernels: aij and aj/aij from registers in the root loop, and no TRR on padding quartets')
 ap.add_argument('--launch', default='128x4',
@@ -199,6 +212,45 @@ if args.generic == 'on':
                      ('                            if (n < lij3) {\n', '                            if (n < lij3 && task_id < ntasks) {\n')):
         assert s.count(old) == 1, old
         s = s.replace(old, new)
+    open(p, 'w').write(s)
+
+# Generated multi-thread K kernels (bench/gpu/gen_rys_k.py) for classes that would otherwise run the generic kernel:
+# generated_rys_k.cu, built into libgvhf_rys, and tried by RYS_build_k after rys_k_unrolled.
+if args.gen_k != 'off':
+    here = os.path.dirname(os.path.abspath(__file__))
+    subprocess.run([sys.executable, os.path.join(here, 'gen_rys_k.py'), f'{args.tree}/{D}/generated_rys_k.cu']
+                   + args.gen_k.split(','), check=True)
+    s = source(f'{D}/CMakeLists.txt')
+    old = '  rys_contract_k.cu unrolled_rys_k.cu\n'
+    assert s.count(old) == 1
+    open(f'{args.tree}/{D}/CMakeLists.txt', 'w').write(s.replace(old, '  rys_contract_k.cu unrolled_rys_k.cu generated_rys_k.cu\n'))
+    p = f'{args.tree}/{D}/rys_contract_k.cu'
+    s = open(p).read()
+    decl = 'extern int rys_k_unrolled(RysIntEnvVars *envs, JKMatrix *kmat, BoundsInfo *bounds,\n'
+    assert s.count(decl) == 1
+    s = s.replace(decl, ('extern int rys_k_generated(RysIntEnvVars *envs, JKMatrix *kmat, BoundsInfo *bounds,\n'
+                         '                           float *q_cond_ij, float *q_cond_kl, float dm_penalty,\n'
+                         '                           float *s_cond_ij, float *s_cond_kl, float *diffuse_exps,\n'
+                         '                           uint32_t *pool, int *head, int workers);\n') + decl)
+    old = ('    if (!rys_k_unrolled(envs, &kmat, &bounds, q_cond_ij, q_cond_kl, dm_penalty,\n'
+           '                        s_cond_ij, s_cond_kl, diffuse_exps, pool, head, workers)) {\n')
+    assert s.count(old) == 1
+    call = 'envs, &kmat, &bounds, q_cond_ij, q_cond_kl, dm_penalty, s_cond_ij, s_cond_kl, diffuse_exps, pool, head, workers'
+    if args.gen_first:
+        new = (f'    int launched = 0;\n'
+               f'    const char *gen_first = getenv("GPU4PYSCF_RYS_GEN_FIRST");  // experiment builds only\n'
+               f'    const char *gen_off = getenv("GPU4PYSCF_RYS_GEN_OFF");\n'
+               f'    int use_gen = !(gen_off && atoi(gen_off));\n'
+               f'    if (use_gen && gen_first && atoi(gen_first)) launched = rys_k_generated({call});\n'
+               f'    if (!launched) launched = rys_k_unrolled({call});\n'
+               f'    if (!launched && use_gen) launched = rys_k_generated({call});\n'
+               f'    if (!launched) {{\n')
+    else:
+        new = ('    if (!rys_k_unrolled(envs, &kmat, &bounds, q_cond_ij, q_cond_kl, dm_penalty,\n'
+               '                        s_cond_ij, s_cond_kl, diffuse_exps, pool, head, workers) &&\n'
+               '        !rys_k_generated(envs, &kmat, &bounds, q_cond_ij, q_cond_kl, dm_penalty,\n'
+               '                         s_cond_ij, s_cond_kl, diffuse_exps, pool, head, workers)) {\n')
+    s = s.replace(old, new)
     open(p, 'w').write(s)
 
 s = source(f'{D}/vhf.cuh')

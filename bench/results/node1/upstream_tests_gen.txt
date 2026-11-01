@@ -1,0 +1,9 @@
+# Generated multi-thread K kernels (gpu4pyscf exp/prim-screen): unit tests, then caffeine/def2-TZVP B3LYP SCF (conv_tol 1e-10) with the patched tree. v1.9.0: 321.57 s, E -680.5697781455807, 15 cycles; part 6: 235.45 s (upstream_tests_generic.txt)
+=== scf_jk + int4c2e + diffuse
+24 passed, 2 warnings in 141.20s (0:02:21)
+=== rhf uhf rks uks
+....................s..s..s.......s..........................            [100%]
+57 passed, 4 skipped in 264.27s (0:04:24)
+TESTS DONE
+{"tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "e_tot": -680.56977814558, "cycles": 15, "wall_s": 220.97, "sm_mhz": [1530.0, 1530.0, 1530.0]}
+SCF DONE

@@ -3210,6 +3210,134 @@ The user approved working on it.
 - **Otherwise, as before:** the rest of the Hessian (230 of 292 s), a J-engine gradient, jk_one_pass as the default
   (the user's call), and the A100/H100 test suite.
 
+## GPU4PySCF investigation, part 7: generated multi-thread K kernels (node1), 2026-10-31
+The user chose the kernel generator. This first iteration covers K only.
+- **Commit:** gpu4pyscf `exp/prim-screen` 7eb2117. `bench/gpu/exp_prim_screen.py gpu4pyscf` regenerates it from
+  `perf` with every default: `--gen-k` now defaults to the 18 classes below (`GEN_K`), and `--gen-k off` leaves
+  them out.
+
+### The generator (`bench/gpu/gen_rys_k.py`)
+- **Model:** GPU4PySCF's six unrolled multi-thread kernels (rys_k_2021 … rys_k_3110). Their generator is not in the
+  repository, so `gen_rys_k.py` reproduces their style for any (li, lj, lk, ll).
+- **Block shape:** nsq quartets per block (32 or 64, so that a warp holds one `gout_id`) and gs threads per quartet,
+  256 threads in all.
+- **Structure:**
+  - The prologue, primitive loops and bra-pair skip are those of the unrolled kernels.
+  - Threads 0–2 each run the TRR and HRR of one Cartesian direction, fully unrolled with constant offsets. The g
+    arrays use the generic kernel's in-place layout: g(i, k) at i + k·stride_k, then the HRR to (i, j) and (k, l).
+  - The outputs, in lexical Cartesian order with i fastest, are dealt round robin to the gs threads. Each thread
+    accumulates its own `gout[]` with constant shared-memory addresses, in a `switch (gout_id)` that never diverges.
+  - The K contraction is the generic kernel's (vk_il from dm_jk, vk_ik from dm_jl; when ish ≠ jsh, vk_jl from dm_ik
+    and vk_jk from dm_il), unrolled per thread with one atomicAdd per element.
+- **Integration:** `exp_prim_screen.py --gen-k CLASS:NSQxGS,...` writes `generated_rys_k.cu`, adds it to the
+  gvhf-rys library and makes `RYS_build_k` try `rys_k_generated()` after the unrolled kernels and before the generic
+  one.
+- **Experiment builds:** `--gen-first` adds run-time switches. `GPU4PYSCF_RYS_GEN_FIRST=1` runs the generated kernels
+  before the unrolled ones; `GPU4PYSCF_RYS_GEN_OFF=1` skips them.
+
+### Validation against GPU4PySCF's own kernels
+- Generated versions of the six upstream multi-thread classes, run instead of them on the def2-SVP K build
+  (`GEN_FIRST=1`), take 1.015 s against 1.014 s. Registers match: 2111 200 against 198–200, 2021 160 against 162.
+- K agrees with v1.9.0 to 1.1e−14.
+
+### Which classes fit (ptxas, sm_75)
+
+| outputs per thread | registers, spills | classes |
+|---|---|---|
+| ≤ 45 | 168–255, none to 112 bytes | (fp\|pp), (fd\|ps), (fp\|ds), (fs\|dp), (dp\|dp), (fd\|ds), (ff\|ps), (fs\|fs), (fp\|fs), (fs\|fp), (dd\|pp), (fs\|dd), (dd\|ds), (ff\|ss), (ds\|dd) |
+| 68–75 | 255, 76–164 bytes | (fp\|dp), (fd\|pp), (fs\|fd): still faster than the generic kernel |
+| 75 | 255, 416–704 bytes | (fd\|fs), (ff\|ds): left to the generic kernel |
+| ≥ 81 | heavy spills | (dp\|dd), (dd\|dp), (fp\|dd) and larger: need another design |
+
+### Results (caffeine, GTX 1650 Super at 1530 MHz)
+- **Per class** (Nsight Compute, the def2-TZVP K build at the converged B3LYP density; `gen_kernel_profile.txt`):
+  - **Totals:** the 18 classes go from 3.93 to 2.76 s (1.43×), each 1.10–2.00× faster. All K integral kernels go
+    from 11.82 to 10.65 s.
+  - **Instructions:** warp instructions fall 2.3–4.4×, and FP64 is now 32–44% of them, against 16–18%.
+  - **What sets the time on this card:** both kernels are FP64-bound, so each class's time follows its FP64 warp
+    instructions divided by the FP64 pipe's utilization.
+    - FP64 warp instructions fall 4–43%. They fall 4–5% for (dp|dp) and (dd|pp), which gain 1.10× and 1.14×, and
+      35–43% for the classes with two f shells, which gain 1.55–2.00×.
+    - Part of the difference is the generic kernel's 3-wide tiles: an f shell's 10 components fill 12 slots.
+    - The FP64 pipe is 74–87% busy, against 65–83%.
+  - **Other cards:** on cards with fast FP64 the generic kernel's other instructions would weigh more, so the 2.3–4.4×
+    fewer instructions should count for more there. That needs the A100/H100 suite.
+
+  | class | generic → generated | warp instructions (G) | FP64 warp instructions (G) |
+  |---|---|---|---|
+  | (fp\|pp) | 0.426 → 0.340 s (1.25×) | 3.81 → 1.34 | 0.629 → 0.542 |
+  | (fp\|dp) | 0.401 → 0.323 s (1.24×) | 3.52 → 1.18 | 0.616 → 0.506 |
+  | (fd\|ps) | 0.374 → 0.248 s (1.51×) | 3.15 → 0.96 | 0.550 → 0.400 |
+  | (fp\|ds) | 0.374 → 0.246 s (1.52×) | 3.02 → 0.90 | 0.543 → 0.381 |
+  | (fs\|dp) | 0.353 → 0.219 s (1.61×) | 2.98 → 0.80 | 0.515 → 0.353 |
+  | (dp\|dp) | 0.262 → 0.239 s (1.10×) | 2.35 → 0.96 | 0.390 → 0.375 |
+  | (fd\|pp) | 0.225 → 0.173 s (1.30×) | 2.03 → 0.65 | 0.341 → 0.279 |
+  | (fd\|ds) | 0.223 → 0.150 s (1.49×) | 1.83 → 0.61 | 0.322 → 0.207 |
+  | (ff\|ps) | 0.183 → 0.102 s (1.79×) | 1.41 → 0.41 | 0.245 → 0.151 |
+  | (fp\|fs) | 0.177 → 0.114 s (1.55×) | 1.39 → 0.43 | 0.251 → 0.162 |
+  | (fs\|fs) | 0.175 → 0.093 s (1.88×) | 1.33 → 0.36 | 0.231 → 0.138 |
+  | (dd\|pp) | 0.150 → 0.131 s (1.14×) | 1.39 → 0.53 | 0.220 → 0.210 |
+  | (fs\|fp) | 0.149 → 0.091 s (1.64×) | 1.16 → 0.35 | 0.205 → 0.133 |
+  | (fs\|fd) | 0.110 → 0.055 s (1.99×) | 0.84 → 0.19 | 0.143 → 0.081 |
+  | (fs\|dd) | 0.108 → 0.068 s (1.58×) | 0.90 → 0.28 | 0.156 → 0.105 |
+  | (dd\|ds) | 0.095 → 0.078 s (1.22×) | 0.80 → 0.34 | 0.139 → 0.111 |
+  | (ff\|ss) | 0.091 → 0.045 s (2.00×) | 0.68 → 0.19 | 0.107 → 0.069 |
+  | (ds\|dd) | 0.055 → 0.040 s (1.38×) | 0.45 → 0.18 | 0.075 → 0.059 |
+- **K at a fixed density** (`gen_fixed_dm.txt`):
+  - def2-TZVP 11.75 → 10.59 s (1.11×). v1.9.0 takes 17.97 s, so parts 1–7 give 1.70×.
+  - def2-SVP 1.014 → 0.999 s; its generated classes are (dp|dp), (dd|pp), (dd|ds) and (ds|dd).
+  - Max |ΔK| against v1.9.0: 4.0e−14 (TZVP) and 9.9e−15 (SVP).
+- **Non-symmetric densities** (hermi=0, as the TDDFT response uses; `gen_fixed_dm.txt`).
+  - The unit tests call the K-only path with symmetric densities only.
+  - So `jk_at_dm.py --antisym 0.5` adds an antisymmetric matrix of the density's size and sparsity, and K is compared
+    with v1.9.0 at def2-TZVP:
+
+  | Coulomb | v1.9.0 | patched | max \|ΔK\| |
+  |---|---|---|---|
+  | full | 19.17 s | 11.59 s | 3.6e−14 |
+  | long range (ω = 0.3) | 21.13 s | 11.36 s | 1.2e−14 |
+  | short range (ω = −0.3) | 34.05 s | 19.65 s | 1.8e−14 |
+- **Caffeine/def2-TZVP B3LYP SCF** (one-pass off, conv_tol 1e−10; `upstream_tests_gen.txt`): 235.5 → 221.0 s
+  (−6%). Against v1.9.0's 321.6 s that is 1.46× for parts 1–7. The energy is the same as in part 6, within 7e−13 Eh of
+  v1.9.0, with 15 cycles each.
+- **Unit tests**, all passing: `test_scf_jk.py`, `test_int4c2e.py` and `test_diffuse_orbital.py` (24), and the
+  RHF, UHF, RKS and UKS files (57, 4 skipped). The derivative, J and J+K kernels are unchanged.
+- **Final dispatcher.** After the gate, the hook became `if (!rys_k_unrolled(...) && !rys_k_generated(...))`, the
+  same calls in the same order. node1 was rebuilt with it and gave def2-SVP K within 1.2e−14 of v1.9.0 again; the
+  non-symmetric checks above ran on that build.
+
+### What stays generic
+- **Share:** 22 classes, 2.39 of the 10.65 s of def2-TZVP K integral kernels (22%; `gen_kernel_profile.txt`).
+  - (fd|fs) and (ff|ds) take 0.26 s. At 75 outputs per thread they spill 416–704 bytes.
+  - The rest have 81 to 1250 outputs per thread at 8 threads per quartet. The largest are (fd|dp) 0.29 s, (fp|fp)
+    0.23 s, and (ff|dp), (fp|dd), (fd|fp), (ff|pp) and (fp|fd) at 0.13–0.15 s each.
+- **Why the design stops there:** 256 threads per block at 255 registers already fill the register file. With 32
+  quartets per block a warp holds one `gout_id`, so that leaves 8 threads per quartet. More threads per quartet would
+  mean fewer quartets per block, and then two `gout_id`s would share a warp and the switch would diverge.
+  - The generic kernel avoids the divergence because all its threads run the same code, with addresses from index
+    arrays. That indexing is exactly what costs it its instructions.
+- **Two passes over the outputs** (an estimate, not tried): each pass would recompute the roots, TRR and HRR for
+  half of the outputs.
+  - For these classes the products dominate the FP64 work. (fd|dp), for example, has 1080 outputs against a g array
+    of 72 per direction.
+  - Repeating the TRR and HRR would cost about what the generic kernel loses to its tile waste. So two passes would
+    do about the same FP64 work as the generic kernel, with 2–4× fewer instructions.
+  - On this FP64-bound card that is about even. On cards with fast FP64 it should be a gain, but only the A100/H100
+    suite can show that.
+
+### Next
+- **Generated derivative kernels:** the energy-derivative kernels (the gradients' `ejk_ip1`, the Hessian's `ip2`)
+  multiply each integral at once by a precomputed density product (`dd_cache`) and add it to 12 gradient components
+  per thread.
+  - They hold no output arrays, so registers do not limit them by class size.
+  - On def2-SVP, 61% of the gradient's two-electron time is in multi-thread and generic kernels (part 3).
+  - def2-TZVP should weigh more, but it has not been profiled yet; that would be the first step.
+- **The J+K one-pass kernels** (`rys_jk_kernel`): the same generator plus the J contraction. They matter only with
+  `jk_one_pass`, which is opt-in.
+- **Big K classes in two passes** (above): about even here; for cards with fast FP64.
+- **Otherwise, as before:** the rest of the Hessian, a J-engine gradient, `jk_one_pass` as the default (the user's
+  call), and the A100/H100 test suite.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
