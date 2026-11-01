@@ -6,6 +6,7 @@
 Each is built once untimed, then REPEAT times between device synchronizations (with the GPU clocks); the results go
 to OUT.npz, and --compare REF.npz prints the largest differences. DM.npy is a density in the original AO basis
 (jk_at_dm.py --save-dm). Source scripts/node1-gpu-env.sh perf|base first.
+--parts takes families (ejk1, ejk2, jk1) or single builds (ejk1_b3lyp, ejk1_srk, ...).
 Usage: deriv_at_dm.py --dm DM.npy [--parts ejk1,ejk2,jk1] [--basis def2-svp] [--repeat 3] [--out OUT.npz]
                       [--compare REF.npz]"""
 import argparse
@@ -46,7 +47,7 @@ builds = {
 parts = args.parts.split(',')
 res = {}
 for name, build in builds.items():
-    if name.split('_')[0] not in parts:
+    if name not in parts and name.split('_')[0] not in parts:
         continue
     v = build()
     ts = []

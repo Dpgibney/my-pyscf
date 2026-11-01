@@ -1,0 +1,9 @@
+# caffeine/def2-TZVP B3LYP gradient on gpu4pyscf 7eb2117 (grad_parts.py), then the two-electron part at the converged density
+# with v1.9.0 (deriv_at_dm.py; the perf timing was stopped: the round-1 experiment's GEN_OFF=1 run measures the same kernels)
+== caffeine/def2-TZVP B3LYP gradient, perf (parts 1-7)
+caffeine def2-tzvp b3lyp: gradient 86.74 s (first call 88.23 s), two-electron part 81.49 s in 1 calls (94%), SM [1530.0, 1530.0, 1530.0]
+== ejk1 at the def2-TZVP density: v1.9.0, then perf
+gpu4pyscf-base/gpu4pyscf: ejk1_b3lyp  median  83.918 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf-base/gpu4pyscf: ejk1_srk    median 157.246 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+# grad_tzvp.jsonl:
+{"tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-tzvp", "xc": "b3lyp", "scf_cycles": 15, "grad_first_s": 88.226, "grad_s": 86.743, "jk_s": [81.493], "max_abs_grad": 0.14833333753997235, "gpu": {"samples": 325, "sm_mhz": [1530.0, 1530.0, 1530.0], "mem_mhz": [5750.0, 5750.0, 5750.0], "pstates": ["P2"], "power_w": 33.07, "temp_c_max": 52.0, "reasons": ["0x0000000000000000"]}}

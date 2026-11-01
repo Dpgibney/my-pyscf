@@ -40,6 +40,22 @@ GEN_K = ('3111:32x8,3210:64x4,3120:64x4,3021:64x4,2121:32x8,3220:32x8,3310:32x8,
          '3121:32x8,3211:32x8,2211:32x8,3022:32x8,2220:32x8,3300:64x4,2022:32x8,3032:32x8')
 ap.add_argument('--gen-k', default=GEN_K,
                 help='comma-separated CLASS:NSQxGS specs of generated multi-thread K kernels (gen_rys_k.py), or off')
+# The generated gradient kernels of part 8, by measured class time on caffeine/def2-TZVP: one thread per quartet
+# (NSQx1) for the small classes, 64x4 or 32x8 where 32 quartets fit in 64 KB of shared memory, 16x16 and 8x32 (two or
+# four gout_ids per warp, one instruction stream per warp) for the larger ones; (ff|ff) does not fit and stays generic
+GEN_EJK = ('0000:128x1,1000:128x1,1010:128x1,1011:128x1,1100:128x1,1110:128x1,2000:128x1,2010:128x1,2020:128x1,'
+           '2100:128x1,2200:128x1,3000:128x1,3010:128x1,3100:128x1,'
+           '2011:64x4,2021:64x4,2110:64x4,3011:64x4,3020:64x4,3110:64x4,'
+           '1111:32x8,2111:32x8,2120:32x8,2210:32x8,2022:32x8,2121:32x8,2211:32x8,2220:32x8,3021:32x8,3022:32x8,'
+           '3030:32x8,3031:32x8,3111:32x8,3120:32x8,3130:32x8,3200:32x8,3210:32x8,3220:32x8,3300:32x8,3310:32x8,'
+           '2122:16x16,2221:16x16,2222:16x16,3032:16x16,3033:16x16,3121:16x16,3122:16x16,3131:16x16,3132:16x16,'
+           '3211:16x16,3221:16x16,3230:16x16,3231:16x16,3311:16x16,3320:16x16,3330:16x16,'
+           '3133:8x32,3222:8x32,3232:8x32,3233:8x32,3321:8x32,3322:8x32,3331:8x32,3332:8x32')
+ap.add_argument('--gen-ejk', default=GEN_EJK,
+                help='comma-separated CLASS:NSQxGS specs of generated gradient kernels (gen_rys_ejk.py; NSQx1 is one '
+                     'thread per quartet), or off')
+ap.add_argument('--gen-ejk-files', type=int, default=4,
+                help='translation units for the generated gradient kernels, so that the library compiles in parallel')
 ap.add_argument('--gen-first', action='store_true',
                 help='experiment: GPU4PYSCF_RYS_GEN_FIRST=1 tries the generated kernels before the unrolled ones, '
                      'GPU4PYSCF_RYS_GEN_OFF=1 skips them')
@@ -220,10 +236,6 @@ if args.gen_k != 'off':
     here = os.path.dirname(os.path.abspath(__file__))
     subprocess.run([sys.executable, os.path.join(here, 'gen_rys_k.py'), f'{args.tree}/{D}/generated_rys_k.cu']
                    + args.gen_k.split(','), check=True)
-    s = source(f'{D}/CMakeLists.txt')
-    old = '  rys_contract_k.cu unrolled_rys_k.cu\n'
-    assert s.count(old) == 1
-    open(f'{args.tree}/{D}/CMakeLists.txt', 'w').write(s.replace(old, '  rys_contract_k.cu unrolled_rys_k.cu generated_rys_k.cu\n'))
     p = f'{args.tree}/{D}/rys_contract_k.cu'
     s = open(p).read()
     decl = 'extern int rys_k_unrolled(RysIntEnvVars *envs, JKMatrix *kmat, BoundsInfo *bounds,\n'
@@ -252,6 +264,17 @@ if args.gen_k != 'off':
                '                         s_cond_ij, s_cond_kl, diffuse_exps, pool, head, workers)) {\n')
     s = s.replace(old, new)
     open(p, 'w').write(s)
+
+s = source(f'{D}/CMakeLists.txt')
+for on, old, new in ((args.gen_k != 'off', '  rys_contract_k.cu unrolled_rys_k.cu\n',
+                      '  rys_contract_k.cu unrolled_rys_k.cu generated_rys_k.cu\n'),
+                     (args.gen_ejk != 'off', '  rys_contract_jk_ip1.cu unrolled_rys_jk_ip1.cu unrolled_ejk_ip1.cu\n',
+                      '  rys_contract_jk_ip1.cu unrolled_rys_jk_ip1.cu unrolled_ejk_ip1.cu generated_ejk_ip1.cu\n'
+                      + ''.join(f'  generated_ejk_ip1_{f}.cu\n' for f in range(1, args.gen_ejk_files)))):
+    assert s.count(old) == 1
+    if on:
+        s = s.replace(old, new)
+open(f'{args.tree}/{D}/CMakeLists.txt', 'w').write(s)
 
 s = source(f'{D}/vhf.cuh')
 pi_fac = '#define PI_FAC          34.98683665524972497\n'
@@ -380,6 +403,44 @@ if args.launch != 'off':
                 assert s.index('\n}\n', i) > j, f   # the head line lies inside this function
                 s = s[:j] + new_head + s[j + len(old_head):]
             open(p, 'w').write(s)
+# Generated multi-thread gradient kernels (bench/gpu/gen_rys_ejk.py): generated_ejk_ip1.cu, tried by
+# RYS_per_atom_jk_ip1 before rys_ejk_ip1_unrolled, since they also replace its multi-thread kernels. In --gen-first
+# builds GPU4PYSCF_RYS_GEN_OFF=1 skips them at run time.
+if args.gen_ejk != 'off':
+    here = os.path.dirname(os.path.abspath(__file__))
+    for f in range(1, 64):   # earlier runs may have written more files
+        stale = f'{args.tree}/{D}/generated_ejk_ip1_{f}.cu'
+        if os.path.exists(stale):
+            os.remove(stale)
+    subprocess.run([sys.executable, os.path.join(here, 'gen_rys_ejk.py'), f'{args.tree}/{D}/generated_ejk_ip1.cu',
+                    '--files', str(args.gen_ejk_files)] + args.gen_ejk.split(','), check=True)
+    p = f'{args.tree}/{D}/rys_contract_jk_ip1.cu'
+    s = open(p).read()
+    decl = 'extern int rys_ejk_ip1_unrolled(RysIntEnvVars *envs, JKEnergy *jk, BoundsInfo *bounds,\n'
+    assert s.count(decl) == 1
+    s = s.replace(decl, ('extern int rys_ejk_ip1_generated(RysIntEnvVars *envs, JKEnergy *jk, BoundsInfo *bounds,\n'
+                         '                                 float *q_cond_ij, float *q_cond_kl, float dm_penalty,\n'
+                         '                                 float *s_cond_ij, float *s_cond_kl, float *diffuse_exps,\n'
+                         '                                 uint32_t *pool, double *dd_pool, int *head, int workers);\n')
+                  + decl)
+    old = ('    if (!rys_ejk_ip1_unrolled(&envs, &jk, &bounds, q_cond_ij, q_cond_kl, dm_penalty,\n'
+           '                              s_cond_ij, s_cond_kl, diffuse_exps, pool, dd_pool, head, workers)) {\n')
+    assert s.count(old) == 1
+    gen = ('rys_ejk_ip1_generated(&envs, &jk, &bounds, q_cond_ij, q_cond_kl, dm_penalty,\n'
+           '                               s_cond_ij, s_cond_kl, diffuse_exps, pool, dd_pool, head, workers)')
+    if args.gen_first:
+        new = ('    const char *gen_off = getenv("GPU4PYSCF_RYS_GEN_OFF");  // experiment builds only\n'
+               '    int use_gen = !(gen_off && atoi(gen_off));\n'
+               '    if (!(use_gen && ' + gen.replace('\n ', '\n        ') + ') &&\n'
+               '        !rys_ejk_ip1_unrolled(&envs, &jk, &bounds, q_cond_ij, q_cond_kl, dm_penalty,\n'
+               '                              s_cond_ij, s_cond_kl, diffuse_exps, pool, dd_pool, head, workers)) {\n')
+    else:
+        new = ('    if (!' + gen + ' &&\n'
+               '        !rys_ejk_ip1_unrolled(&envs, &jk, &bounds, q_cond_ij, q_cond_kl, dm_penalty,\n'
+               '                              s_cond_ij, s_cond_kl, diffuse_exps, pool, dd_pool, head, workers)) {\n')
+    s = s.replace(old, new)
+    open(p, 'w').write(s)
+
 print(f'one-thread kernels (K, J+K): {counts["unrolled_rys_k.cu"][0]} + {counts["unrolled_rys_jk.cu"][0]}: '
       f'barrier {args.barrier}, ket skip {args.ket}, bra skip {args.bra}; multi-thread kernels '
       f'{counts["unrolled_rys_k.cu"][1]} + {counts["unrolled_rys_jk.cu"][1]} and the two generic kernels: '

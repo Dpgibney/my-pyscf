@@ -1,0 +1,16 @@
+# Generated gradient kernels, final build (gpu4pyscf exp/prim-screen, exp_prim_screen.py defaults): the gradient's two-electron part
+# at the converged caffeine densities against v1.9.0 (deriv_at_dm.py: def2-SVP, then def2-TZVP with B3LYP's factors and short-range K)
+== fixed density against v1.9.0
+gpu4pyscf/gpu4pyscf: ejk1_jk     median   2.594 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk1_b3lyp  median   2.593 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk1_j      median   2.489 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk1_srk    median   4.678 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  ejk1_jk     max |d - ref| = 2.49e-12 (max |ref| 3.01e+01)
+  ejk1_b3lyp  max |d - ref| = 2.50e-12 (max |ref| 3.08e+01)
+  ejk1_j      max |d - ref| = 2.09e-12 (max |ref| 3.10e+01)
+  ejk1_srk    max |d - ref| = 5.07e-14 (max |ref| 3.46e-01)
+gpu4pyscf/gpu4pyscf: ejk1_b3lyp  median  27.748 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk1_srk    median  50.162 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+  ejk1_b3lyp  max |d - ref| = 6.19e-12 (max |ref| 2.77e+01)
+  ejk1_srk    max |d - ref| = 1.18e-13 (max |ref| 2.96e-01)
+FIXED DONE

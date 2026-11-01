@@ -1,0 +1,21 @@
+# Generated gradient kernels, final build: unit tests, then caffeine gradients (grad_parts.py; v1.9.0 records in deriv_grad_e2e.jsonl,
+# the def2-TZVP one against gpu4pyscf 7eb2117 in grad_tzvp_baseline.txt); gen_ejk_grad_e2e.jsonl has the full records
+=== grad rhf rks uhf uks
+40 passed in 274.69s (0:04:34)
+=== td grads rhf rks uhf uks
+25 passed in 482.63s (0:08:02)
+=== nac ge
+9 passed in 160.75s (0:02:40)
+TESTS DONE
+== caffeine def2-SVP gradients (perf; v1.9.0 in bench/results/node1/deriv_grad_e2e.jsonl)
+caffeine def2-svp b3lyp: gradient 4.34 s (first call 5.91 s), two-electron part 2.60 s in 1 calls (60%), SM [1530.0, 1530.0, 1530.0]
+caffeine def2-svp pbe: gradient 4.24 s (first call 5.82 s), two-electron part 2.50 s in 1 calls (59%), SM [1530.0, 1530.0, 1530.0]
+caffeine def2-svp wb97x: gradient 8.96 s (first call 10.60 s), two-electron part 7.23 s in 2 calls (81%), SM [1530.0, 1530.0, 1530.0]
+== caffeine def2-TZVP B3LYP gradient (perf)
+caffeine def2-tzvp b3lyp: gradient 32.97 s (first call 34.57 s), two-electron part 27.75 s in 1 calls (84%), SM [1530.0, 1530.0, 1530.0]
+GATE DONE
+# against v1.9.0 (def2-SVP) and 7eb2117 (def2-TZVP):
+def2-svp b3lyp : gradient 7.05 -> 4.34 s (1.62x), two-electron 5.32 -> 2.60 s; SCF cycles 15 / 15; max |dg| 2.6e-12 Eh/bohr
+def2-svp pbe   : gradient 6.84 -> 4.24 s (1.61x), two-electron 5.10 -> 2.50 s; SCF cycles 18 / 18; max |dg| 3.8e-12 Eh/bohr
+def2-svp wb97x : gradient 16.93 -> 8.96 s (1.89x), two-electron 15.21 -> 7.23 s; SCF cycles 14 / 14; max |dg| 2.4e-12 Eh/bohr
+def2-tzvp b3lyp: gradient 86.74 -> 32.97 s (2.63x), two-electron 81.49 -> 27.75 s, SCF cycles 15 / 15, max |dg| against 7eb2117 8.7e-12 Eh/bohr

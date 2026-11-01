@@ -5,8 +5,10 @@ For the J/K builders it records, in launch order, the angular-momentum class of 
 (RYS_build_k, RYS_build_jk, MD_build_j) and writes them to --labels, so ncu's per-launch rows can be grouped by
 class (ncu_summary.py).
 Part grad is the gradient's two-electron energy derivatives (jk_energy_per_atom with B3LYP's factors,
-RYS_per_atom_jk_ip1).
-Usage: ncu_parts.py --part k|j|jk|xc|grad [--xc b3lyp] [--basis def2-svp] [--mol caffeine] [--labels FILE]"""
+RYS_per_atom_jk_ip1). --dm DM.npy (jk_at_dm.py --save-dm) takes a saved density in the original AO basis instead of
+running the SCF.
+Usage: ncu_parts.py --part k|j|jk|xc|grad [--xc b3lyp] [--basis def2-svp] [--mol caffeine] [--labels FILE]
+                    [--dm DM.npy]"""
 import argparse
 import ctypes
 import json
@@ -28,14 +30,20 @@ ap.add_argument('--xc', default='b3lyp')
 ap.add_argument('--basis', default='def2-svp')
 ap.add_argument('--mol', default='caffeine')
 ap.add_argument('--labels', default=None)
+ap.add_argument('--dm', default=None)
 args = ap.parse_args()
 
 atom = n_alkane(int(args.mol[1:])) if args.mol[0] == 'c' and args.mol[1:].isdigit() else \
     {'caffeine': CAFFEINE, 'benzene': BENZENE}[args.mol]
 mol = gto.M(atom=atom, basis=args.basis, verbose=0)
 mf = rks.RKS(mol, xc=args.xc)
-mf.kernel()
-dm = cupy.asarray(mf.make_rdm1())
+if args.dm:
+    dm = cupy.asarray(numpy.load(args.dm))
+    if args.part == 'xc':
+        mf.grids.build()
+else:
+    mf.kernel()
+    dm = cupy.asarray(mf.make_rdm1())
 g = mf.nuc_grad_method()
 build = {'k': lambda: mf.get_k(mol, dm, 1), 'j': lambda: mf.get_j(mol, dm, 1),
          'jk': lambda: mf.get_jk(mol, dm, 1),

@@ -3338,6 +3338,124 @@ The user chose the kernel generator. This first iteration covers K only.
 - **Otherwise, as before:** the rest of the Hessian, a J-engine gradient, `jk_one_pass` as the default (the user's
   call), and the A100/H100 test suite.
 
+## GPU4PySCF investigation, part 8: generated gradient kernels (node1), 2026-10-31
+The user approved generated derivative kernels for gradients and Hessians, starting with a profile of a def2-TZVP
+gradient. This part covers the gradient (`RYS_per_atom_jk_ip1`); the Hessian kernels are not done yet.
+- **Commit:** gpu4pyscf `exp/prim-screen` e1626eb. `bench/gpu/exp_prim_screen.py gpu4pyscf` regenerates it from `perf`
+  with every default; `--gen-ejk` now defaults to the 64 classes below (`GEN_EJK`), and `--gen-ejk off` leaves them
+  out.
+
+### Where the def2-TZVP gradient spends its time (`grad_tzvp_baseline.txt`, `gen_ejk_profile.txt`)
+- **Gradient:** the caffeine/def2-TZVP B3LYP gradient takes 86.7 s on gpu4pyscf 7eb2117, 37% of an SCF (221 s).
+  - The two-electron part is 81.5 s of it (94%).
+  - v1.9.0 takes 83.9 s for that part, so parts 1–7 barely touched it.
+- **Kernel families** (Nsight Compute, the two-electron part at the converged density):
+
+  | kernels | time | share |
+  |---|---|---|
+  | generic `rys_ejk_ip1_kernel` | 64.7 s | 79% |
+  | the 7 unrolled multi-thread kernels | 10.3 s | 13% |
+  | the 11 unrolled one-thread kernels | 6.6 s | 8% |
+
+- **The generic kernel is FP64-bound:** its FP64 pipe is 86% busy, although FP64 is only 27% of its instructions.
+
+### The change: sums per Cartesian tuple
+- **What GPU4PySCF does:** its kernels compute, for every output (ij|kl) of a quartet and every root, twelve
+  derivative terms `v_ix += (2 ai g_x[t+1] − ix g_x[t−1]) · Iy Iz dd`, and so on. That is about 42 FP64 operations
+  per output.
+- **The observation:** each derivative factor depends on one direction's index tuple only, t = (ix, jx, kx, lx) for x.
+  Grouping the outputs by tuple, one direction at a time, gives the same sum:
+
+  Σ_t f_x(t) S_x(t), where S_x(t) sums dd · Iy · Iz over the outputs with x tuple t.
+
+  - Each output then costs 2 FP64 operations per direction.
+  - Each tuple of a direction costs its 4 derivative factors and 4 FMAs.
+- **Three passes per root, one per direction:** in each pass the outputs, ordered by tuple, are cut into runs of equal
+  cost, one per thread. A tuple is thus split between at most two threads.
+- **Exactness:** the terms are the same, summed in another order.
+  - The results differ from v1.9.0 by 2–8e−12 on values up to 31 (1e−13 to 3e−13 relative).
+  - That is v1.9.0's own rounding. Its two-electron gradient summed over the atoms, zero in exact arithmetic by
+    translational invariance, is 3e−12 to 1.1e−11 on def2-SVP; with the generated kernels it is 5e−12 to 7e−12.
+
+### The generator (`bench/gpu/gen_rys_ejk.py`)
+- **Multi-thread kernels** (nsq quartets per block, gs threads per quartet):
+  - The prologue, primitive loops and bra-pair skip of GPU4PySCF's multi-thread gradient kernels.
+  - The density products of each task in `dd_pool`, as there. A barrier at the top of each task is new: the threads
+    now read products they did not fill themselves.
+  - Threads 0–2 run the TRR and HRR of one direction each, as `gen_rys_k.recursions` for (li+1, lj, lk+1, ll).
+  - The output phase reads shared memory through a `volatile` pointer. Otherwise the compiler keeps every value it
+    loaded for a later run in registers: 255 registers and spills, or 0.3–3.7 KB of spills at a 128-register cap.
+    With `volatile` there are none at 255 registers.
+- **Block shapes:**
+  - 32×8 or 64×4 where 32 quartets fit in 64 KB of shared memory, short-range roots included.
+  - 16×16 and 8×32 for the larger classes. A warp then holds two or four `gout_id`s.
+    - To keep the warp from diverging, its lanes run one instruction stream: each address is selected per lane
+      (h = `gout_id` % k), all lanes apply their sums wherever one lane's tuple changes, and padding reads a zero
+      density slot.
+    - h is read through `asm volatile` once per pass. Otherwise the compiler hoists every selected address out of
+      all the loops and spills 9–15 KB.
+  - One thread per quartet (128×1) for the smallest classes. The g arrays and density products live in registers
+    (local arrays with constant indices), and blocks launch as for the one-thread kernels of part 5.
+- **Classes:** 64 in all, with each shape picked from the per-class measurements below. (ff|ff) does not fit at
+  8 quartets per block and stays generic, as do classes with g functions.
+- **Build time:** the kernels go into four translation units, so the library compiles in parallel (3.5 min on node1
+  instead of 8).
+- **Integration:** `exp_prim_screen.py --gen-ejk CLASS:NSQxGS,...` writes `generated_ejk_ip1*.cu` and adds them to
+  the gvhf-rys library. `RYS_per_atom_jk_ip1` tries `rys_ejk_ip1_generated()` first, then the unrolled kernels, then
+  the generic one. `--gen-first` builds read `GPU4PYSCF_RYS_GEN_OFF=1` to skip them.
+
+### Results (caffeine, GTX 1650 Super at 1530 MHz)
+- **Per kernel family** (`gen_ejk_profile.txt`; the classes grouped by the kernel they ran in 7eb2117):
+
+  | classes that ran | time | warp instructions | FP64 warp instructions |
+  |---|---|---|---|
+  | the generic kernel | 64.7 → 17.0 s (3.81×) | 4.16× fewer | 3.97× fewer |
+  | the unrolled multi-thread kernels | 10.3 → 5.6 s (1.84×) | 1.20× fewer | 1.90× fewer |
+  | the unrolled one-thread kernels | 6.6 → 5.3 s (1.24×) | 1.17× fewer | 1.25× fewer |
+  | all | 81.6 → 27.9 s (2.92×) | 3.32× fewer | 2.99× fewer |
+
+  - The FP64 pipe is 80–91% busy in all but the 8×32 classes, so on this card the time follows the FP64
+    instructions.
+  - The 8×32 classes run at 43–76% FP64 utilization (spills, code size) and gain 2.2–3.1×. The 16×16 ones gain
+    3.6–4.3×.
+  - On cards with fast FP64, the 3.3× fewer instructions and the lighter memory traffic should matter as well. By
+    the code, an output takes about 9 memory accesses per root against about 20. The A100/H100 suite has to show it.
+- **Shape experiments** (same density):
+  - 64×4 against 32×8: 3–12% faster for six small classes, 5–15% slower for (pp|pp), (fp|ss) and (fd|ss); 0.7% in all.
+  - One thread per quartet: 1.05–1.42× over GPU4PySCF's one-thread kernels for its 11 classes. For (fs|ss), (fs|ps)
+    and (fp|ss) it is 1.6–2.0× over the multi-thread generated kernels.
+- **The two-electron part at a fixed density** (`gen_ejk_fixed_dm.txt`; the 7eb2117 column for def2-SVP is the
+  experiment build with the generated kernels switched off):
+
+  | caffeine, factors | v1.9.0 | 7eb2117 | generated | max \|Δ\| against v1.9.0 |
+  |---|---|---|---|---|
+  | def2-TZVP, B3LYP's J + 0.2 K | 83.9 s | 81.5 s | 27.7 s (2.94×) | 6.2e−12 (values up to 28) |
+  | def2-TZVP, short-range K (ω = −0.3) | 157.2 s | 152.4 s | 50.2 s (3.04×) | 1.2e−13 |
+  | def2-SVP, B3LYP's factors | – | 4.42 s | 2.59 s (1.70×) | 2.5e−12 |
+  | def2-SVP, short-range K | – | 8.17 s | 4.68 s (1.75×) | 5.1e−14 |
+- **Whole gradients** (`upstream_tests_ejk.txt`, `gen_ejk_grad_e2e.jsonl`), the same SCF cycles each:
+
+  | caffeine | gradient | two-electron part | max \|Δg\| |
+  |---|---|---|---|
+  | def2-SVP B3LYP | 7.05 → 4.34 s (1.62× against v1.9.0) | 5.32 → 2.60 s | 2.6e−12 Eh/bohr |
+  | def2-SVP PBE | 6.84 → 4.24 s (1.61×) | 5.10 → 2.50 s | 3.8e−12 |
+  | def2-SVP ωB97X | 16.93 → 8.96 s (1.89×) | 15.21 → 7.23 s | 2.4e−12 |
+  | def2-TZVP B3LYP | 86.7 → 33.0 s (2.63× against 7eb2117) | 81.5 → 27.7 s | 8.7e−12 against 7eb2117 |
+
+  - The def2-TZVP gradient now costs 15% of its SCF (221 s), against 39% before.
+- **Unit tests**, all passing: the RHF, RKS, UHF and UKS gradient tests (40), the TDDFT gradient tests for all four
+  (25), and the TDDFT ground-to-excited NAC tests (9).
+
+### Next
+- **The Hessian's energy second derivatives** (`ejk_ip2` type12 and type3; 50.7 s of a caffeine/def2-SVP Hessian,
+  part 6).
+  - Their diagonal terms (xx, yy, zz) sum per tuple as in the gradient.
+  - The mixed terms (xy, xz, ...) multiply derivative factors of two directions, so grouping by one tuple saves less.
+  - GPU4PySCF unrolls them only up to (pp|pp); everything with d functions runs the generic kernels.
+- **TDDFT gradients:** their multi-density kernels (`RYS_per_atom_jk_ip1_multidm`, `_sum`) are generic only.
+- **Otherwise, as before:** the rest of the Hessian, a J-engine gradient, `jk_one_pass` as the default (the user's
+  call), and the A100/H100 test suite.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
