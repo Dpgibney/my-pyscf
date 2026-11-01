@@ -1,0 +1,124 @@
+# GPU4PySCF investigation part 16 (NOTES.md): generated kernels for the Hessian's two-electron second derivatives
+# (gpu4pyscf exp/prim-screen ab75a1b; bench/gpu/gen_rys_ejk_ip2.py through exp_prim_screen.py --gen-ip2). GTX 1650 Super at
+# 1530 MHz, caffeine def2-SVP at the converged B3LYP density (scratch/dm_caf_b3lyp.npy), B3LYP's factors unless noted.
+#
+# 1) ejk2_class_check.py --ref-off, development builds with --gen-ip2-env: each class alone, the generated kernels
+#    against GPU4PYSCF_RYS_GEN_IP2_OFF=1 (the generic kernels for d classes, the unrolled ones for s and p) in the same
+#    build. First (dp|ps) alone (one and two densities), then the 32 kernels of the classes with d functions (and the
+#    whole stage, 'all'), then an experiment build that also generated the seven s and p classes.
+== (dp|ps): generated against GPU4PYSCF_RYS_GEN_IP2_OFF=1 (the generic kernel), same build
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp, n_dm 1
+  (dp|ps) t12               1.471 s  (t12 1.471); generated off    4.113 s (2.80x), max |d| 3.66e-14 (max 4.09e-01)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp, n_dm 1
+  (dp|ps) t3                0.979 s  (t3 0.979); generated off    3.369 s (3.44x), max |d| 1.10e-15 (max 8.50e-02)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp, n_dm 2
+  (dp|ps) t12,t3            2.331 s  (t12 1.397, t3 0.934); generated off    7.146 s (3.07x), max |d| 2.46e-14 (max 4.02e-01)
+T1 DONE
+== all classes with d: generated against GPU4PYSCF_RYS_GEN_IP2_OFF=1, same build (32 generated kernels)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp, n_dm 1
+  (dp|ps) t12,t3            2.463 s  (t12 1.469, t3 0.994); generated off    7.523 s (3.05x), max |d| 3.44e-14 (max 4.02e-01)
+  (dp|pp) t12,t3            2.445 s  (t12 1.491, t3 0.954); generated off    6.798 s (2.78x), max |d| 3.14e-13 (max 3.55e+00)
+  (ds|pp) t12,t3            1.240 s  (t12 0.743, t3 0.498); generated off    3.829 s (3.09x), max |d| 6.22e-14 (max 6.76e-01)
+  (ds|ps) t12,t3            1.285 s  (t12 0.694, t3 0.591); generated off    3.414 s (2.66x), max |d| 1.07e-14 (max 9.23e-02)
+  (dp|dp) t12,t3            0.975 s  (t12 0.498, t3 0.477); generated off    3.187 s (3.27x), max |d| 3.79e-15 (max 8.33e-02)
+  (dp|ss) t12,t3            0.714 s  (t12 0.384, t3 0.329); generated off    1.882 s (2.64x), max |d| 2.55e-13 (max 3.78e+00)
+  (dd|pp) t12,t3            0.570 s  (t12 0.292, t3 0.278); generated off    1.768 s (3.10x), max |d| 4.88e-15 (max 1.19e-01)
+  (dd|ps) t12,t3            0.589 s  (t12 0.333, t3 0.256); generated off    1.602 s (2.72x), max |d| 9.66e-16 (max 1.64e-02)
+  (dp|ds) t12,t3            0.613 s  (t12 0.361, t3 0.252); generated off    1.616 s (2.64x), max |d| 1.37e-15 (max 2.47e-02)
+  (ds|ss) t12,t3            0.773 s  (t12 0.431, t3 0.342); generated off    1.327 s (1.72x), max |d| 3.30e-14 (max 7.20e-01)
+  (ds|dp) t12,t3            0.483 s  (t12 0.268, t3 0.215); generated off    1.406 s (2.91x), max |d| 5.57e-16 (max 1.72e-02)
+  (ds|ds) t12,t3            0.341 s  (t12 0.209, t3 0.132); generated off    0.893 s (2.62x), max |d| 2.65e-16 (max 5.73e-03)
+  (dd|dp) t12,t3            0.609 s  (t12 0.483, t3 0.126); generated off    0.901 s (1.48x), max |d| 4.42e-17 (max 8.24e-03)
+  (dp|dd) t12,t3            0.347 s  (t12 0.278, t3 0.069); generated off    0.553 s (1.59x), max |d| 2.13e-17 (max 2.68e-03)
+  (dd|ss) t12,t3            0.202 s  (t12 0.119, t3 0.082); generated off    0.501 s (2.48x), max |d| 7.73e-15 (max 9.88e-02)
+  (dd|ds) t12,t3            0.153 s  (t12 0.090, t3 0.063); generated off    0.512 s (3.35x), max |d| 3.95e-17 (max 1.61e-03)
+  (ds|dd) t12,t3            0.102 s  (t12 0.059, t3 0.043); generated off    0.358 s (3.51x), max |d| 2.49e-17 (max 5.95e-04)
+  (dd|dd) t12,t3            0.190 s  (t12 0.098, t3 0.092); generated off    0.189 s (1.00x), max |d| 6.37e-19 (max 2.17e-04)
+  all                      27.061 s  (t12 0.097, t3 0.091, t12 0.480, t3 0.125, t12 0.089, t3 0.062, t12 0.282, t3 0.275, t12 0.321, t3 0.254, t12 0.118, t3 0.073, t12 0.285, t3 0.069, t12 0.491, t3 0.476, t12 0.361, t3 0.253, t12 1.482, t3 0.961, t12 1.464, t3 0.991, t12 0.391, t3 0.329, t12 0.053, t3 0.040, t12 0.274, t3 0.220, t12 0.202, t3 0.132, t12 0.745, t3 0.489, t12 0.713, t3 0.592, t12 0.418, t3 0.352, t12 2.508, t3 1.123, t12 1.598, t3 1.359, t12 0.567, t3 0.496, t12 0.967, t3 0.937, t12 1.052, t3 0.931, t12 0.590, t3 0.517, t12 0.199, t3 0.166); generated off   50.967 s (1.88x), max |d| 1.01e-11 (max 5.30e+01)
+T2 DONE
+#
+# s and p classes (the final build keeps the generated (pp|pp), (pp|ps), (ps|pp) and the unrolled others)
+== s and p classes: generated against GPU4PYSCF_RYS_GEN_IP2_OFF=1 (GPU4PySCF's unrolled kernels), same build
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp, n_dm 1
+  (pp|pp) t12               0.761 s  (t12 0.761); generated off    2.507 s (3.29x), max |d| 1.36e-12 (max 1.50e+01)
+  (pp|ps) t12               1.386 s  (t12 1.386); generated off    1.595 s (1.15x), max |d| 3.58e-13 (max 3.79e+00)
+  (ps|pp) t12               0.782 s  (t12 0.782); generated off    0.978 s (1.25x), max |d| 2.25e-13 (max 3.27e+00)
+  (ps|ps) t12               1.379 s  (t12 1.379); generated off    1.054 s (0.76x), max |d| 1.25e-13 (max 1.12e+00)
+  (pp|ss) t12               0.701 s  (t12 0.701); generated off    0.564 s (0.80x), max |d| 1.79e-12 (max 2.48e+01)
+  (ps|ss) t12               1.087 s  (t12 1.087); generated off    0.590 s (0.54x), max |d| 4.63e-13 (max 7.55e+00)
+  (ss|ss) t12               0.467 s  (t12 0.467); generated off    0.197 s (0.42x), max |d| 9.04e-12 (max 2.88e+02)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp, n_dm 1
+  (pp|pp) t3                0.704 s  (t3 0.704); generated off    1.115 s (1.58x), max |d| 9.24e-14 (max 5.51e+00)
+  (pp|ps) t3                0.828 s  (t3 0.828); generated off    1.338 s (1.62x), max |d| 1.43e-14 (max 5.30e-01)
+  (ps|pp) t3                0.507 s  (t3 0.507); generated off    0.938 s (1.85x), max |d| 4.22e-15 (max 2.60e-01)
+  (ps|ps) t3                1.176 s  (t3 1.176); generated off    0.906 s (0.77x), max |d| 3.31e-14 (max 1.24e+00)
+  (pp|ss) t3                0.621 s  (t3 0.621); generated off    0.496 s (0.80x), max |d| 2.43e-13 (max 1.54e+01)
+  (ps|ss) t3                0.879 s  (t3 0.879); generated off    0.512 s (0.58x), max |d| 2.38e-14 (max 1.45e+00)
+  (ss|ss) t3                0.374 s  (t3 0.374); generated off    0.177 s (0.47x), max |d| 1.14e-13 (max 2.87e+02)
+T3 DONE
+#
+# 2) gate (scratch/ip2gate.sh), final build without the run-time switch: the stage at the fixed density (deriv_at_dm.py,
+#    this tree median of 3, then v1.9.0 against it); Hessians against v1.9.0; stage times; tests
+== the stage at the converged caffeine def2-SVP B3LYP density (deriv_at_dm.py): this tree (median of 3), then v1.9.0 (1 run) against it
+gpu4pyscf/gpu4pyscf: ejk2        median  22.779 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk2_srk    median  31.562 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk2_lrk    median  22.281 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf-base/gpu4pyscf: ejk2        median  53.236 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf-base/gpu4pyscf: ejk2_srk    median  76.838 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf-base/gpu4pyscf: ejk2_lrk    median  52.528 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+  ejk2        max |d - ref| = 1.34e-11 (max |ref| 5.30e+01)
+  ejk2_srk    max |d - ref| = 1.02e-13 (max |ref| 7.10e-01)
+  ejk2_lrk    max |d - ref| = 5.46e-14 (max |ref| 2.72e-01)
+STAGE DONE
+== caffeine def2-SVP B3LYP Hessian, against v1.9.0 (scratch/hess_base.npy)
+gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp Hessian 148.55 s (SCF 15 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 1.76e-11 (max |ref| 9.95e-01)
+== stage times
+gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp Hessian: 148.78 s, SM [1530.0, 1530.0, 1530.0] MHz
+     88.76 s  59.7%  CPHF (solve_mo1), 1 calls
+     52.25 s  35.1%  CPHF XC response (nr_rks_fxc_mo), 7 calls
+     35.09 s  23.6%  CPHF J/K in the MO basis (get_jk_mo), 7 calls
+     22.96 s  15.4%  2e second derivatives (_partial_ejk_ip2), 1 calls
+     16.09 s  10.8%  XC first derivatives of V (_get_vxc_deriv1), 1 calls
+     10.90 s   7.3%  J/K derivative matrices (_get_jk_ip1), 1 calls
+      8.07 s   5.4%  XC second derivatives (_get_exc_deriv2), 1 calls
+      0.93 s   0.6%  ground-state XC kernel (cache_xc_kernel), 7 calls
+== caffeine def2-SVP r2SCAN Hessian against v1.9.0 (scratch/hess_r2scan_base.npy)
+gpu4pyscf/gpu4pyscf: caffeine def2-svp r2scan Hessian 229.21 s (SCF 16 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 1.91e-11 (max |ref| 9.97e-01)
+== neutral benzene def2-SVP UKS Hessians against v1.9.0 (scratch/hess_bz0_uks_*_base.npy)
+gpu4pyscf/gpu4pyscf: benzene UKS (charge 0, spin 0) def2-svp svwn Hessian 28.72 s (SCF 8 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 2.98e-12 (max |ref| 7.46e-01)
+gpu4pyscf/gpu4pyscf: benzene UKS (charge 0, spin 0) def2-svp b3lyp Hessian 37.54 s (SCF 7 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 2.52e-12 (max |ref| 7.54e-01)
+gpu4pyscf/gpu4pyscf: benzene UKS (charge 0, spin 0) def2-svp r2scan Hessian 67.23 s (SCF 7 cycles), SM [1530.0, 1530.0, 1530.0] MHz
+  max |H - ref| = 3.62e-12 (max |ref| 7.50e-01)
+E2E DONE
+=== hessian rhf rks uhf uks
+.....................................                                    [100%]
+37 passed in 162.22s (0:02:42)
+=== hessian large_exponent level_shift
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+11 passed, 1 skipped, 2 warnings in 21.90s
+GATE DONE
+#
+# 3) v1.9.0 against itself, and the translational invariance of both (max over atoms A of |sum_B ejk[A,B]|, zero in
+#    exact arithmetic)
+== v1.9.0 twice (its own atomics noise), saved for the invariance check
+gpu4pyscf-base/gpu4pyscf: ejk2        median  53.233 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf-base/gpu4pyscf: ejk2_srk    median  76.850 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf-base/gpu4pyscf: ejk2_lrk    median  52.528 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf-base/gpu4pyscf: ejk2        median  53.238 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf-base/gpu4pyscf: ejk2_srk    median  76.852 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf-base/gpu4pyscf: ejk2_lrk    median  52.519 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+  ejk2        max |d - ref| = 1.99e-13 (max |ref| 5.30e+01)
+  ejk2_srk    max |d - ref| = 8.22e-15 (max |ref| 7.10e-01)
+  ejk2_lrk    max |d - ref| = 1.19e-15 (max |ref| 2.72e-01)
+== translational invariance: max over atoms A of |sum_B ejk[A,B]| (zero in exact arithmetic)
+ejk2_base1 ejk2 1.22e-11, ejk2_srk 3.02e-13, ejk2_lrk 5.56e-14
+ejk2_base2 ejk2 1.22e-11, ejk2_srk 3.03e-13, ejk2_lrk 5.51e-14
+ejk2_gen ejk2 6.47e-12, ejk2_srk 3.40e-13, ejk2_lrk 3.96e-14
+ejk2: generated - v1.9.0 run 1 1.34e-11, run 2 1.34e-11, v1.9.0 run 2 - run 1 1.99e-13
+ejk2_srk: generated - v1.9.0 run 1 9.69e-14, run 2 9.78e-14, v1.9.0 run 2 - run 1 8.22e-15
+ejk2_lrk: generated - v1.9.0 run 1 5.53e-14, run 2 5.51e-14, v1.9.0 run 2 - run 1 1.19e-15
+NOISE DONE

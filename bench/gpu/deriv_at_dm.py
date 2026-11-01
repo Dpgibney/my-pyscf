@@ -1,7 +1,8 @@
 """The two-electron derivative builds of GPU4PySCF at a fixed density, for comparing builds (node1):
   ejk1  gradient energy, grad.rhf jk_energy_per_atom (RYS_per_atom_jk_ip1): J + K, B3LYP's J + 0.2 K, J alone,
         and wB97X's short-range K (omega -0.3)
-  ejk2  Hessian energy second derivatives, hessian.rhf._partial_ejk_ip2 (RYS_per_atom_jk_ip2_type12/type3)
+  ejk2  Hessian energy second derivatives, hessian.rhf._partial_ejk_ip2 (RYS_per_atom_jk_ip2_type12/type3):
+        B3LYP's J + 0.2 K, and short- and long-range K (omega -0.3 and 0.3)
   jk1   J and K derivative matrices, hessian.rhf._get_jk_ip1 (RYS_build_jk_ip1)
 Each is built once untimed, then REPEAT times between device synchronizations (with the GPU clocks); the results go
 to OUT.npz, and --compare REF.npz prints the largest differences. DM.npy is a density in the original AO basis
@@ -42,6 +43,8 @@ builds = {
     'ejk1_j': lambda: g.jk_energy_per_atom(dm, 1., 0.),
     'ejk1_srk': lambda: g.jk_energy_per_atom(dm, 0., .5, omega=-.3),
     'ejk2': lambda: rhf_hess._partial_ejk_ip2(mol, dm, j_factor=1., k_factor=.2),
+    'ejk2_srk': lambda: rhf_hess._partial_ejk_ip2(mol, dm, j_factor=0., k_factor=.5, omega=-.3),
+    'ejk2_lrk': lambda: rhf_hess._partial_ejk_ip2(mol, dm, j_factor=0., k_factor=.5, omega=.3),
     'jk1': lambda: cupy.stack(rhf_hess._get_jk_ip1(mol, dm)),
 }
 parts = args.parts.split(',')

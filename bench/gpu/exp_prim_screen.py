@@ -18,9 +18,12 @@ generic kernel, built into libgvhf_rys and tried by RYS_build_k after the unroll
 classes of part 7; off leaves them out.
 PRIM_CUTOFF (vhf.cuh) is e^-60 = 8.8e-27, libcint's expcutoff. A skipped primitive pair enters its integrals with a
 factor below that, many orders of magnitude under the SCF's 1e-13 shell-quartet cutoff.
+--gen-ip2 writes generated_ejk_ip2.cu (gen_rys_ejk_ip2.py): the Hessian's second-derivative kernels with sums per
+Cartesian tuple, tried by RYS_per_atom_jk_ip2_type12 and _type3 before their unrolled and generic kernels.
 Usage: exp_prim_screen.py TREE [--base perf] [--barrier keep|remove] [--ket none|zero|cutoff]
                                [--bra none|zero|cutoff] [--multi on|off] [--launch 128x4|off|NSQxBLOCKS|env]
-                               [--generic on|off] [--gen-k CLASS:NSQxGS,...|off] [--gen-first]"""
+                               [--generic on|off] [--gen-k CLASS:NSQxGS,...|off] [--gen-first]
+                               [--gen-ip2 KIND:CLASS:NSQxGS,...|off] [--gen-ip2-files N] [--gen-ip2-env]"""
 import argparse
 import os
 import re
@@ -56,6 +59,23 @@ ap.add_argument('--gen-ejk', default=GEN_EJK,
                      'thread per quartet), or off')
 ap.add_argument('--gen-ejk-files', type=int, default=4,
                 help='translation units for the generated gradient kernels, so that the library compiles in parallel')
+# The generated second-derivative kernels of part 16 (gen_rys_ejk_ip2.py), KIND:CLASS:NSQxGS with KIND 12 or 3: every
+# class with d functions whose g arrays and factor table fit 8 or more quartets in 64 KB of shared memory, at the
+# most quartets per block that fit (256 threads), and (pp|pp), (pp|ps), (ps|pp), where they beat GPU4PySCF's unrolled
+# kernels; the smaller s and p classes keep its one-thread kernels, which are faster there. (dd|dd), and type12
+# (dd|dp) and (dp|dd), do not fit and stay generic.
+GEN_IP2 = ('12:2110:16x16,12:2111:8x32,3:2110:32x8,3:2111:16x16,12:2011:16x16,12:2010:32x8,3:2011:32x8,'
+           '12:2121:8x32,3:2121:8x32,3:2010:64x4,12:2100:32x8,12:2211:8x32,12:2210:8x32,12:2120:8x32,3:2211:8x32,'
+           '3:2100:32x8,3:2120:16x16,12:2000:32x8,3:2210:16x16,12:2021:8x32,3:2021:16x16,3:2000:64x4,12:2020:16x16,'
+           '3:2020:32x8,3:2221:8x32,3:2122:8x32,12:2200:16x16,12:2220:8x32,3:2220:16x16,3:2200:32x8,3:2022:16x16,'
+           '12:2022:8x32,12:1111:16x16,3:1111:16x16,12:1110:16x16,3:1110:32x8,12:1011:16x16,3:1011:32x8')
+ap.add_argument('--gen-ip2', default=GEN_IP2,
+                help='comma-separated KIND:CLASS:NSQxGS specs of generated Hessian second-derivative kernels '
+                     '(gen_rys_ejk_ip2.py; KIND 12 or 3), or off')
+ap.add_argument('--gen-ip2-files', type=int, default=4,
+                help='translation units for the generated second-derivative kernels')
+ap.add_argument('--gen-ip2-env', action='store_true',
+                help='experiment: GPU4PYSCF_RYS_GEN_IP2_OFF=1 skips the generated second-derivative kernels at run time')
 ap.add_argument('--gen-first', action='store_true',
                 help='experiment: GPU4PYSCF_RYS_GEN_FIRST=1 tries the generated kernels before the unrolled ones, '
                      'GPU4PYSCF_RYS_GEN_OFF=1 skips them')
@@ -270,7 +290,10 @@ for on, old, new in ((args.gen_k != 'off', '  rys_contract_k.cu unrolled_rys_k.c
                       '  rys_contract_k.cu unrolled_rys_k.cu generated_rys_k.cu\n'),
                      (args.gen_ejk != 'off', '  rys_contract_jk_ip1.cu unrolled_rys_jk_ip1.cu unrolled_ejk_ip1.cu\n',
                       '  rys_contract_jk_ip1.cu unrolled_rys_jk_ip1.cu unrolled_ejk_ip1.cu generated_ejk_ip1.cu\n'
-                      + ''.join(f'  generated_ejk_ip1_{f}.cu\n' for f in range(1, args.gen_ejk_files)))):
+                      + ''.join(f'  generated_ejk_ip1_{f}.cu\n' for f in range(1, args.gen_ejk_files))),
+                     (args.gen_ip2 != 'off', '  rys_contract_jk_ip2.cu unrolled_ejk_ip2_type12.cu unrolled_ejk_ip2_type3.cu\n',
+                      '  rys_contract_jk_ip2.cu unrolled_ejk_ip2_type12.cu unrolled_ejk_ip2_type3.cu generated_ejk_ip2.cu\n'
+                      + ''.join(f'  generated_ejk_ip2_{f}.cu\n' for f in range(1, args.gen_ip2_files)))):
     assert s.count(old) == 1
     if on:
         s = s.replace(old, new)
@@ -439,6 +462,42 @@ if args.gen_ejk != 'off':
                '        !rys_ejk_ip1_unrolled(&envs, &jk, &bounds, q_cond_ij, q_cond_kl, dm_penalty,\n'
                '                              s_cond_ij, s_cond_kl, diffuse_exps, pool, dd_pool, head, workers)) {\n')
     s = s.replace(old, new)
+    open(p, 'w').write(s)
+
+# Generated multi-thread second-derivative kernels (bench/gpu/gen_rys_ejk_ip2.py): generated_ejk_ip2.cu, tried by
+# RYS_per_atom_jk_ip2_type12 and _type3 before their unrolled and generic kernels. In --gen-ip2-env builds
+# GPU4PYSCF_RYS_GEN_IP2_OFF=1 skips them at run time.
+if args.gen_ip2 != 'off':
+    here = os.path.dirname(os.path.abspath(__file__))
+    for f in range(1, 64):   # earlier runs may have written more files
+        stale = f'{args.tree}/{D}/generated_ejk_ip2_{f}.cu'
+        if os.path.exists(stale):
+            os.remove(stale)
+    subprocess.run([sys.executable, os.path.join(here, 'gen_rys_ejk_ip2.py'), f'{args.tree}/{D}/generated_ejk_ip2.cu',
+                    '--files', str(args.gen_ip2_files)] + args.gen_ip2.split(','), check=True)
+    p = f'{args.tree}/{D}/rys_contract_jk_ip2.cu'
+    s = open(p).read()
+    for kind in ('type12', 'type3'):
+        decl = f'extern int rys_ejk_ip2_{kind}_unrolled(RysIntEnvVars *envs, JKEnergy *jk, BoundsInfo *bounds,\n'
+        assert s.count(decl) == 1, decl
+        pad = ' ' * len(f'extern int rys_ejk_ip2_{kind}_generated(')
+        s = s.replace(decl, (f'extern int rys_ejk_ip2_{kind}_generated(RysIntEnvVars *envs, JKEnergy *jk, BoundsInfo *bounds,\n'
+                             f'{pad}float *q_cond_ij, float *q_cond_kl, float dm_penalty,\n'
+                             f'{pad}float *s_cond_ij, float *s_cond_kl, float *diffuse_exps,\n'
+                             f'{pad}uint32_t *pool, double *dd_pool, int *head, int workers);\n') + decl)
+        call = ('(&envs, &jk, &bounds, q_cond_ij, q_cond_kl, dm_penalty,\n'
+                '{pad}s_cond_ij, s_cond_kl, diffuse_exps, pool, dd_pool, head, workers)')
+        old = f'    if (!rys_ejk_ip2_{kind}_unrolled' + call.format(pad=' ' * len(f'    if (!rys_ejk_ip2_{kind}_unrolled(')) + ') {\n'
+        assert s.count(old) == 1, old
+        gen = f'rys_ejk_ip2_{kind}_generated' + call.format(pad=' ' * len(f'        !rys_ejk_ip2_{kind}_generated('))
+        unr = f'rys_ejk_ip2_{kind}_unrolled' + call.format(pad=' ' * len(f'        !rys_ejk_ip2_{kind}_unrolled('))
+        if args.gen_ip2_env:
+            new = ('    const char *gen_off = getenv("GPU4PYSCF_RYS_GEN_IP2_OFF");  // experiment builds only\n'
+                   '    int use_gen = !(gen_off && atoi(gen_off));\n'
+                   f'    if (!(use_gen && {gen}) &&\n        !{unr}) {{\n')
+        else:
+            new = f'    if (!{gen} &&\n        !{unr}) {{\n'
+        s = s.replace(old, new)
     open(p, 'w').write(s)
 
 print(f'one-thread kernels (K, J+K): {counts["unrolled_rys_k.cu"][0]} + {counts["unrolled_rys_jk.cu"][0]}: '

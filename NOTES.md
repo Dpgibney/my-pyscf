@@ -4076,6 +4076,132 @@ kernels carry over. Nothing was changed.
 2. **Batch `_get_vxc_deriv1`'s per-atom GEMMs over atoms** (part 13): about 4 s.
 3. **Profile the CPHF's J/K** (35 s in 7 calls), not looked at since part 9.
 
+## GPU4PySCF investigation, part 16: generated kernels for the Hessian's two-electron second derivatives (node1), 2026-11-01
+Option 1 of part 15, approved by the user: part 8's sums per Cartesian tuple in generated kernels for
+`RYS_per_atom_jk_ip2_type12` and `_type3`.
+
+### The generator (`bench/gpu/gen_rys_ejk_ip2.py`)
+- **Sums per tuple:**
+  - Same-direction terms (xx, yy, zz) are formed as in the gradient: the tuple's second-derivative factor times
+    S_d(t), the sum of dd · I_e · I_f over the tuple's outputs.
+  - Mixed terms are grouped by one direction's tuple. Four partial sums T_b(t_d) = Σ B_b(t_e) · I_f · dd, one per
+    first-derivative factor B_b (fi, fj, fk, fl) of the other direction, give all eight terms of a pair of
+    directions: type12 ij, ji, ii, jj, kl, lk, kk, ll; type3 ik, ki, jk, kj, il, li, jl, lj.
+- **Per root:**
+  - Threads 0–2 run the TRR and HRR of one direction each, through `gen_rys_k.recursions`. type12 uses
+    (li+1, lj+1, lk+1, ll+1) and type3 (li+1, lj, lk+1, ll), the generic kernels' layouts. The ∂² factors use the
+    HRR for the +2 shifts, as there.
+  - All threads of a quartet then build a shared table of the four first-derivative factors of every tuple and
+    direction.
+  - Three passes follow: by x tuples (with the pair x, y), by y (y, z) and by z (z, x). Each output costs one MUL
+    (dd · I_f), an FMA for S, and four table loads and FMAs for the T's: 6 FP64 and 7 loads per pass. At each tuple's
+    end, the second-derivative factors are computed from g (the formulas of the generic kernels) and applied with the
+    eight mixed terms.
+- **Sums per thread:** type12 has 42 (its bra-pair sums ij, ii and jj are added once per bra pair), type3 has 36.
+  They take 254–255 registers, with 0–260 bytes of spills.
+- **Shapes:** 256 threads per block, with the most quartets per block (8 to 64) whose g arrays, factor table and
+  roots fit in 64 KB. Warps that hold two or four gout_ids use part 8's per-lane addresses.
+- **Integration** (`exp_prim_screen.py`):
+  - `--gen-ip2` defaults to the 38 kernels below; `--gen-ip2-files 4` sets the translation units.
+  - `RYS_per_atom_jk_ip2_type12/type3` try `rys_ejk_ip2_type12/3_generated()` first, then the unrolled and generic
+    kernels.
+  - `--gen-ip2-env` builds read `GPU4PYSCF_RYS_GEN_IP2_OFF=1`, so both kernels can be compared in one build.
+- **Not generated:** (dd|dd), and type12 (dd|dp) and (dp|dd), do not fit even 8 quartets in 64 KB (0.95 s of the 51).
+- **Exactness:** the terms are the same, summed in another order.
+
+### Per class (`ejk2_class_check.py`)
+Only that class's launches execute. The generated kernels run against the other kernels in the same
+`--gen-ip2-env` build.
+- **Classes with d functions** (`hess_ejk2_gen.txt`, section 1; type12 + type3; before, GPU4PySCF's generic kernels):
+
+  | class | before | generated | | class | before | generated |
+  |---|---|---|---|---|---|---|
+  | (dp\|ps) | 7.52 s | 2.46 s (3.05×) | | (dd\|ps) | 1.60 s | 0.59 s (2.72×) |
+  | (dp\|pp) | 6.80 s | 2.45 s (2.78×) | | (dp\|ds) | 1.62 s | 0.61 s (2.64×) |
+  | (ds\|pp) | 3.83 s | 1.24 s (3.09×) | | (ds\|ss) | 1.33 s | 0.77 s (1.72×) |
+  | (ds\|ps) | 3.41 s | 1.29 s (2.66×) | | (ds\|dp) | 1.41 s | 0.48 s (2.91×) |
+  | (dp\|dp) | 3.19 s | 0.98 s (3.27×) | | (ds\|ds) | 0.89 s | 0.34 s (2.62×) |
+  | (dp\|ss) | 1.88 s | 0.71 s (2.64×) | | (dd\|dp), (dp\|dd) | 1.45 s | 0.96 s (type3 only) |
+  | (dd\|pp) | 1.77 s | 0.57 s (3.10×) | | (dd\|ss), (dd\|ds), (ds\|dd), (dd\|dd) | 1.56 s | 0.65 s |
+
+  - In all: 38.3 → 14.1 s (2.71×). (dd|dd) is not generated; (dd|dp) and (dp|dd) only for type3. Every class agrees
+    with the generic kernels to 1e−13 relative or better.
+  - The 11 classes profiled in part 15 went 33.0 → 11.9 s. Its FP64-only model predicted 12.8 s; the index
+    arithmetic the generated code drops also counts.
+  - With both spins' densities (n_dm = 2, the UKS path) (dp|ps) goes 7.15 → 2.33 s, within 2.5e−14.
+- **s and p classes** (section 2; before, GPU4PySCF's unrolled kernels):
+
+  | class | type12 | type3 |
+  |---|---|---|
+  | (pp\|pp) | 2.51 → 0.76 s (3.29×) | 1.12 → 0.70 s (1.58×) |
+  | (pp\|ps) | 1.60 → 1.39 s (1.15×) | 1.34 → 0.83 s (1.62×) |
+  | (ps\|pp) | 0.98 → 0.78 s (1.25×) | 0.94 → 0.51 s (1.85×) |
+  | (ps\|ps) | 1.05 → 1.38 s (0.76×) | 0.91 → 1.18 s (0.77×) |
+  | (pp\|ss) | 0.56 → 0.70 s (0.80×) | 0.50 → 0.62 s (0.80×) |
+  | (ps\|ss) | 0.59 → 1.09 s (0.54×) | 0.51 → 0.88 s (0.58×) |
+  | (ss\|ss) | 0.20 → 0.47 s (0.42×) | 0.18 → 0.37 s (0.47×) |
+
+  - The first three are generated in the final build. The others keep the unrolled one-thread kernels: with 1–9
+    outputs per quartet, a multi-thread kernel's barriers and table cost more than the passes save.
+
+### Results (GTX 1650 Super at 1530 MHz; `hess_ejk2_gen.txt`)
+- **The stage at the converged caffeine def2-SVP B3LYP density** (`deriv_at_dm.py`; this tree median of 3, v1.9.0 one
+  run):
+
+  | build | v1.9.0 | generated | max \|Δ\| against v1.9.0 |
+  |---|---|---|---|
+  | B3LYP's J + 0.2 K | 53.2 s | 22.8 s (2.34×) | 1.3e−11 (values up to 53) |
+  | short-range K (ω = −0.3) | 76.8 s | 31.6 s (2.43×) | 1.0e−13 (up to 0.71) |
+  | long-range K (ω = 0.3) | 52.5 s | 22.3 s (2.36×) | 5.5e−14 (up to 0.27) |
+
+  - Before this part the tree took 50.8 s for the first build, and differed from v1.9.0 by 1.3e−12 there (part 6's
+    launch of the one-thread kernels).
+  - **The 1.3e−11 is v1.9.0's own rounding** (section 3). The large elements are sums of class contributions up to
+    about 290 that cancel to 53, accumulated by atomic adds whose order changed.
+    - Summed over the atoms, which is zero by translational invariance, v1.9.0's result reaches 1.2e−11 (the first
+      build), 3.0e−13 (short range) and 5.6e−14 (long range). The generated kernels reach 6.5e−12, 3.4e−13 and
+      4.0e−14.
+    - v1.9.0 against itself differs by 2.0e−13, 8.2e−15 and 1.2e−15.
+- **Hessians** (caffeine def2-SVP, with the `exp/prim-screen` kernels):
+
+  | Hessian | v1.9.0 | before (part 14) | now | max \|ΔH\| against v1.9.0 |
+  |---|---|---|---|---|
+  | B3LYP | 306 s | 177 s | 149 s | 1.8e−11 |
+  | r2SCAN | 450 s | 256 s | 229 s | 1.9e−11 |
+
+  - The SCF cycle counts are unchanged (15 and 16).
+  - Neutral benzene with UKS agrees with v1.9.0 to 3.0e−12 (SVWN), 2.5e−12 (B3LYP) and 3.6e−12 (r2SCAN), with the
+    same cycle counts. The times go 32.6 → 28.7, 41.7 → 37.5 and 71.3 → 67.2 s.
+- **Tests:** the RHF, RKS, UHF and UKS Hessian tests pass (37), as do `test_large_exponent.py` and
+  `test_level_shift_hessian.py` (11, 1 skipped). They include range-separated functionals.
+- **Where the B3LYP Hessian stands (149 s; `hess_ejk2_gen_stages.jsonl`):**
+
+  | stage | time |
+  |---|---|
+  | CPHF (`solve_mo1`) | 89 s, of which XC response 52 s and J/K 35 s |
+  | two-electron second derivatives | 23 s (51 s before) |
+  | XC first derivatives of V | 16 s |
+  | J/K derivative matrices (`_get_jk_ip1`) | 11 s |
+  | XC second derivatives | 8 s |
+
+- **New tools:**
+  - `gen_rys_ejk_ip2.py`, the generator.
+  - `ejk2_class_check.py`, which runs the stage one class at a time against a reference or the run-time switch.
+  - `deriv_at_dm.py --parts ejk2` now also builds the short- and long-range K.
+  - `exp_prim_screen.py --gen-ip2`.
+
+### Options (exact; not started)
+1. **Profile the CPHF's J/K** (35 s in 7 calls of 72 densities), not looked at since part 9's one-pass J+K. It is
+   now the largest stage outside the XC response, which part 10 brought near its FP64 floor.
+2. **The J/K derivative matrices** (`_get_jk_ip1`, 11 s): `RYS_build_jk_ip1` has 25 one-thread, 8 multi-thread and
+   a generic kernel (part 3). A profile first; the per-tuple sums do not apply directly, since these kernels produce
+   matrices, not energies.
+3. **Batch `_get_vxc_deriv1`'s per-atom GEMMs over atoms** (part 13): about 4 s.
+4. **The rest of the second derivatives,** 2–4 s at most:
+   - the four kernels that do not fit (about 1 s), with per-direction factor tables or 4 quartets per block;
+   - one-thread generated kernels for the small s and p classes (4.5 s now on GPU4PySCF's);
+   - shape tuning.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
