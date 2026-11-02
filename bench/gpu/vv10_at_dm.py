@@ -1,8 +1,10 @@
 """VV10's part of the XC potential at a fixed density (node1): numint.nr_nlc_vxc of a VV10 functional on its NLC grid,
 once untimed and then timed, for comparing builds of gdft/vv10.cu (part 26). Writes (nelec, exc, vxc) to OUT.npz;
---compare REF.npz prints the differences.
+--compare REF.npz prints the differences. --grad does the same for the gradient's VV10 term with the grid response,
+rks_grad.get_nlc_exc_full_response (part 28), and writes de (natm x 3).
 Usage: vv10_at_dm.py --dm DM.npy [--xc b97m_v] [--basis def2-svp] [--mol caffeine|benzene] [--out OUT.npz]
-                     [--compare REF.npz] [--memcheck] (--memcheck: CuPy's pool off, one call, for compute-sanitizer)"""
+                     [--compare REF.npz] [--grad] [--memcheck] (--memcheck: CuPy's pool off, one call, for
+                     compute-sanitizer)"""
 import argparse
 import os
 import sys
@@ -15,6 +17,7 @@ import cupy  # noqa: E402
 from pyscf import gto  # noqa: E402
 import gpu4pyscf  # noqa: E402
 from gpu4pyscf.dft import rks  # noqa: E402
+from gpu4pyscf.grad import rks as rks_grad  # noqa: E402
 
 ap = argparse.ArgumentParser()
 ap.add_argument('--dm', default=None, help='density (caffeine); without it, the core guess')
@@ -23,6 +26,7 @@ ap.add_argument('--basis', default='def2-svp')
 ap.add_argument('--mol', default='caffeine', choices=['caffeine', 'benzene'])
 ap.add_argument('--out', default=None)
 ap.add_argument('--compare', default=None)
+ap.add_argument('--grad', action='store_true')
 ap.add_argument('--memcheck', action='store_true')
 args = ap.parse_args()
 
@@ -36,10 +40,30 @@ ni = mf._numint
 
 
 def call():
-    out = ni.nr_nlc_vxc(mol, mf.nlcgrids, args.xc, dm)
+    if args.grad:
+        out = rks_grad.get_nlc_exc_full_response(ni, mol, mf.nlcgrids, args.xc, dm)[0]
+    else:
+        out = ni.nr_nlc_vxc(mol, mf.nlcgrids, args.xc, dm)
     cupy.cuda.Device().synchronize()
     return out
 
+
+if args.grad:
+    de = call()
+    if not args.memcheck:
+        t0 = time.perf_counter()
+        de = call()
+        dt = time.perf_counter() - t0
+        print(f'{os.path.dirname(gpu4pyscf.__file__)}: {args.mol} {args.basis} {args.xc} get_nlc_exc_full_response '
+              f'{dt:.2f} s, {mf.nlcgrids.weights.size} NLC grid points; max |de| {abs(de).max():.6e}')
+    if args.out:
+        numpy.savez(args.out, de=de)
+    if args.compare:
+        ref = numpy.load(args.compare)['de']
+        print(f'  against {os.path.basename(args.compare)}: max |de - ref| {abs(de - ref).max():.2e} '
+              f'(max |de| {abs(ref).max():.2e}), max |sum over atoms| {abs(de.sum(axis=0)).max():.2e} '
+              f'(ref {abs(ref.sum(axis=0)).max():.2e})')
+    sys.exit()
 
 nelec, exc, vxc = call()
 if not args.memcheck:

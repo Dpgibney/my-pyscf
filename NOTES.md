@@ -5174,7 +5174,7 @@ Approved with part 25; proposed in part 20, where VV10 was 93% of a B97M-V SCF.
 
 ### Not done
 - **The grid response's own all-pair kernel** (`vv10_grad_eval_E_grid_response_offdiagonal`): about 34 s, the rest
-  of the full-response gradient's NLC time.
+  of the full-response gradient's NLC time. Done in part 28.
   - Its pair factor is symmetric too.
   - But it writes per-(atom, point) sums for batches of points, so using the symmetry means restructuring that
     driver.
@@ -5231,6 +5231,54 @@ Approved with parts 28–29 ("Let's work on all of those"); found in part 25.
   `test_rks_grad.py` (15), `test_uks_grad.py` (12), `test_tdrks.py` (28) and `test_tduks.py` (20). The J-engine test
   passed only after the attribute fix.
 - **memcheck:** 0 errors for J, J with 2 densities, and the J gradient.
+
+## GPU4PySCF investigation, part 28: VV10's grid-response gradient term over each pair of points once (node1), 2026-11-02
+Approved with parts 27 and 29 ("Let's work on all of those"); left over from part 26.
+- **Commits:** gpu4pyscf `exp/prim-screen` 397ebae (`gdft/vv10.cu`, from `exp_prim_screen.py --vv10 sym`, which now
+  also writes the new kernel and its entry) and `perf` f63f97d (`grad/rks.py`), merged as 1a034c1.
+- **Tools:**
+  - `vv10_grid_check.cu`: the original kernel with the driver's post-processing, the new kernel, and a long-double
+    reference, on synthetic points grouped by atom;
+  - `vv10_at_dm.py --grad`: `get_nlc_exc_full_response` at a fixed density, with memcheck mode.
+- **Data:** `p28_vv10_grid.txt`.
+
+### Change
+- **What the full-response gradient did** (`get_nlc_exc_full_response`, the term from the grid points' own motion):
+  - `vv10_grad_eval_E_grid_response_offdiagonal` filled E_Bgr[B][i] = 1.5 Σ_{j on B} ρw_j Φ_ij f_ij (r_i − r_j) for
+    every atom B ≠ atom(i) and every point i, in batches of points (an natm × 3 × batch array).
+  - Python set each point's own-atom entry to minus the sum of the others, one atom at a time, and took
+    de[B] = Σ_i ρw_i E_Bgr[B][i].
+  - Every ordered pair of points was evaluated once.
+- **The identity:** K_ij = ρw_i ρw_j Φ_ij f_ij is symmetric. With that diagonal, de[B] = 3 Σ_{j on B} T_j, where
+  T_j = Σ_{i on another atom} K_ij (r_i − r_j).
+- **What it does now:** `VXC_vv10nlc_grad_grid_response_T` takes each unordered pair once with part 26's rotation
+  scheme.
+  - Each pair adds K_ij (r_i − r_j) to T_j and subtracts it from T_i.
+  - Pairs on the same atom are skipped through each point's atom index (padding gets atom −2).
+  - Python sums 3·T per atom with `bincount`.
+  - There is no natm × 3 × N array, no batching and no diagonal fix-up.
+- **Fallback:** the old path stays when the library lacks the entry (`perf` with the wheel's libraries).
+
+### Exactness
+- **Prototype** (60,000 points on 24 atoms): max |Δde| 2.2e−13, with |de| up to 15.9. Against long double, the
+  original's error is 2.2e−14 and the new kernel's 3.1e−15 (relative).
+- **Caffeine def2-SVP, B97M-V, at a B3LYP density:** max |Δde| 1.4e−17, with |de| up to 2.1e−3.
+
+### Timings (GTX 1650 Super; caffeine def2-SVP, B97M-V, 294,912 NLC grid points; part 27, then part 28)
+
+| | part 27 | part 28 |
+|---|---|---|
+| `get_nlc_exc_full_response` at a fixed density | 55.43 s | 41.54 s (−25%) |
+| the same in `nlc_grad_time.py` (PBE orbitals) | 55.03 s | 41.44 s |
+| the kernel alone (prototype, 60,000 points; the original with its fix-up) | 1807.1 ms | 1050.8 ms (1.72×) |
+
+- **What is left of the 41.5 s:** the U, W, E sums by part 26's Fock kernel (about 21 s, as in `get_nlc_exc`), the
+  grid response's pair term (about 20 s, down from 34 s), and the AO-side and weight-derivative terms.
+
+### Unit tests and memcheck
+- **All pass:** `test_vv10_grid.py` (20, 439 s against 443 s; its molecules are small),
+  `test_grid_response.py` (7), `test_rks_grad.py` (15) and `test_uks_grad.py` (12).
+- **memcheck:** 0 errors (`get_nlc_exc_full_response`, benzene, core guess).
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are

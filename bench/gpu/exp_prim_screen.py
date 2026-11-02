@@ -106,7 +106,8 @@ ap.add_argument('--j-prefactor', default='rsqrt', choices=['rsqrt', 'old'],
                 help="J engine kernels: each quartet's prefactor and theta from 1/aij and 1/akl kept with the pairs "
                      "and one rsqrt, where they took two divisions and a sqrt (part 27)")
 ap.add_argument('--vv10', default='sym', choices=['sym', 'old'],
-                help="VV10's Fock kernel (gdft/vv10.cu): sym evaluates each pair of grid points once (part 26)")
+                help="VV10's Fock kernel and the gradient's grid-response pair term (gdft/vv10.cu): sym evaluates each "
+                     "pair of grid points once (parts 26 and 28)")
 ap.add_argument('--boys', default='new', choices=['new', 'old'],
                 help="the MD J engine's Boys function: new multiplies by tabulated 1/(n+1/2) in the series and the "
                      "downward recursion, and skips erf where it is 1 (part 25)")
@@ -648,8 +649,39 @@ if args.vv10 == 'sym':
            "                                                                    ngrids, VV10_JTILES);\n"
            "    vv10_scale_UWE_kernel<<<(ngrids + 255) / 256, 256, 0, stream>>>(U, W, E, ngrids);\n")
     s = s.replace(old, new)
+    # the grid response's pair term (part 28): de[B] = 3 sum_{j on B} T_j with T_j = sum over points i on other atoms of
+    # K_ij (r_i - r_j), K_ij = rho_w_i rho_w_j Phi_ij f_ij symmetric, each unordered pair once by the same rotation;
+    # grad.rks.get_nlc_exc_full_response calls it in place of the per-(atom, point) kernel and its batches
+    gproto = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vv10_grid_check.cu')).read()
+    g0 = gproto.index('// part 28: T_j = sum over i on other atoms')
+    g1 = gproto.index('__global__ static void T_to_atoms(')
+    anchor = 'extern "C" {\n'
+    assert s.count(anchor) == 1
+    s = s.replace(anchor, gproto[g0:g1] + anchor + (
+        '// VV10 gradient, the grid response\'s pair term (part 28): T (3 x ngrids, zeroed here) with T_j = sum over the\n'
+        '// points i on other atoms of K_ij (r_i - r_j); the term for atom B is 3 sum_{j on B} T_j\n'
+        '__host__\n'
+        'int VXC_vv10nlc_grad_grid_response_T(const cudaStream_t stream, double* T, const double* grid_coord,\n'
+        '                                     const double* rho_weight, const double* omega, const double* kappa,\n'
+        '                                     const int* atom, const int ngrids)\n'
+        '{\n'
+        '    if (ngrids <= 0) {\n'
+        '        return 0;\n'
+        '    }\n'
+        '    cudaMemsetAsync(T, 0, 3 * ngrids * sizeof(double), stream);\n'
+        '    const int ntiles = (ngrids + VV10_TILE - 1) / VV10_TILE;\n'
+        '    const dim3 blocks(ntiles, (ntiles + VV10_JTILES - 1) / VV10_JTILES);\n'
+        '    vv10_grad_grid_response_T_kernel<<<blocks, VV10_TILE, 0, stream>>>(T, grid_coord, rho_weight, omega, kappa,\n'
+        '                                                                       atom, ngrids, VV10_JTILES);\n'
+        '    const cudaError_t err = cudaGetLastError();\n'
+        '    if (err != cudaSuccess) {\n'
+        '        fprintf(stderr, "CUDA Error of vv10 grad grid response T: %s\\n", cudaGetErrorString(err));\n'
+        '        return 1;\n'
+        '    }\n'
+        '    return 0;\n'
+        '}\n\n'))
     open(p, 'w').write(s)
-    print('VV10 Fock kernel: each pair of grid points once (rotation within warps)')
+    print('VV10 Fock kernel: each pair of grid points once (rotation within warps); the grid response\'s pair term too')
 
 # The MD J engine's Boys function (gvhf-rys/gamma_inc.cu, eval_gamma_inc_fn, which only gvhf-md includes; part 25). The
 # series branch (t < m/2 + 1/2) divided once per term, about 20 terms, and once per step of the downward recursion: a

@@ -1,0 +1,38 @@
+# GPU4PySCF investigation part 28 (NOTES.md): VV10's grid-response gradient term over each pair of points once.
+# GTX 1650 Super at 1530 MHz (sm_75); caffeine def2-SVP with B97M-V (294912 NLC grid points); the density for the fixed-
+# density comparison is the converged B3LYP one (scratch/dm_caf_b3lyp.npy). "part 27" is scratch/tree_p27 (exp/prim-
+# screen 9835bad); "part 28" the main tree with exp/prim-screen 397ebae (gdft/vv10.cu from exp_prim_screen.py --vv10 sym)
+# and grad/rks.py from perf f63f97d (merged as 1a034c1).
+#
+# Commands (node1; the scripts are in scratch/):
+#   p28/vv10_grid_check (nvcc -O3 -arch=sm_75 bench/gpu/vv10_grid_check.cu), run first in p29_prof.sh      (section 1)
+#   p28_val.sh  vv10_at_dm.py --grad, nlc_grad_time.py, memcheck (vv10_at_dm.py --grad --memcheck on benzene), unit
+#               tests                                                                                   (sections 2-3)
+
+# 1) vv10_grid_check.cu: the original kernel with the driver's diagonal fix-up and sum, against the symmetric kernel
+#    and 3 sum_{j on B} T_j, on 60000 synthetic points on 24 atoms; against a long double reference at the points of 3
+#    atoms
+n = 60000, 24 atoms: original (kernel + finish) 1807.1 ms, symmetric 1050.8 ms (1.72x); max |de| 1.586e+01, max |de_sym - de_orig| 2.24e-13; against long double (3 atoms): original 2.2e-14, symmetric 3.1e-15 (relative)
+ok
+
+# 2) the gradient's VV10 term with grid response (get_nlc_exc_full_response): at a fixed density, then in
+#    nlc_grad_time.py (at PBE orbitals, after get_nlc_exc twice); libgdft.so md5s of the two builds first
+534e2e45b03724569fa0b1f612f3fa1b  gpu4pyscf/gpu4pyscf/lib/libgdft.so
+965cb3495afe42a932d32ff2bfe5f66a  /home/danny/Chemistry/my-pyscf/scratch/tree_p27/gpu4pyscf/lib/libgdft.so
+== the gradient's VV10 term with grid response at a fixed density (caffeine def2-SVP, B97M-V): part 27, then part 28
+/home/danny/Chemistry/my-pyscf/scratch/tree_p27/gpu4pyscf: caffeine def2-svp b97m_v get_nlc_exc_full_response 55.43 s, 294912 NLC grid points; max |de| 2.076135e-03
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp b97m_v get_nlc_exc_full_response 41.54 s, 294912 NLC grid points; max |de| 2.076135e-03
+  against de_old.npz: max |de - ref| 1.43e-17 (max |de| 2.08e-03), max |sum over atoms| 1.85e-17 (ref 7.40e-18)
+== the gradient's NLC terms (nlc_grad_time.py): part 27, then part 28
+OLD /home/danny/Chemistry/my-pyscf/scratch/tree_p27/gpu4pyscf: caffeine def2-svp b97m_v at pbe orbitals, 294912 NLC grid points: get_nlc_exc 21.32 s, get_nlc_exc_full_response 55.03 s
+NEW /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp b97m_v at pbe orbitals, 294912 NLC grid points: get_nlc_exc 21.32 s, get_nlc_exc_full_response 41.44 s
+
+# 3) memcheck and unit tests
+== memcheck: get_nlc_exc_full_response on benzene (core guess)
+========= ERROR SUMMARY: 0 errors;
+== unit tests
+grad/tests/test_vv10_grid.py: 20 passed, 504 warnings in 438.87s (0:07:18)
+grad/tests/test_grid_response.py: 7 passed, 198 warnings in 57.27s
+grad/tests/test_rks_grad.py: 15 passed, 138 warnings in 97.08s (0:01:37)
+grad/tests/test_uks_grad.py: 12 passed, 48 warnings in 100.19s (0:01:40)
+P28VAL DONE
