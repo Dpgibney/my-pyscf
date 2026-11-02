@@ -1,0 +1,78 @@
+# GPU4PySCF overview (NOTES.md): unmodified v1.9.0 against the current tree, the same workloads back to back.
+# GTX 1650 Super (sm_75), every timed section at 1530 MHz (gpu_monitor; min = median = max). "v1.9.0" is
+# gpu4pyscf-base (tag v1.9.0, 2fdc195, built from source with the same CUDA 12.9 toolchain); "current" is the main tree,
+# exp/prim-screen 04c5428 (parts 1-30). RKS, conv_tol 1e-10, default settings (jk_one_pass off; TDDFT with
+# td.max_memory = 1000, see below). Each run: a warm-up on water with the same basis, functional and tasks, then the
+# SCF, gradient, Hessian and TDDFT of the molecule from the same converged SCF, each timed between device
+# synchronizations (bench/gpu/overview.py). The table is bench/gpu/overview_table.py's.
+#
+# Commands (node1): scratch/p31_overview.sh (8 workloads, v1.9.0 then current for each); scratch/p31b.sh (caffeine
+# def2-SVP B3LYP split in two processes after both trees ran out of the card's 4 GB with everything in one);
+# p31c.sh (gradients at fixed orbitals, grad_at_mo.py); p31d.sh (current with jk_one_pass = True); p31e.sh (TDDFT
+# with td.max_memory = 1000: v1.9.0's default of 4000 MB sizes the trial space at about 7 GB of GPU memory for
+# caffeine/def2-SVP, so both trees fail without it).
+
+# 1) the overview
+| workload | task | v1.9.0 | current | speedup | largest difference |
+|---|---|---|---|---|---|
+| caffeine def2-svp PBE, 246 AOs | SCF (18 cycles) | 25.2 s | 13.2 s | 1.91× | 9.1e-13 Eh |
+|  | gradient | 6.9 s | 1.1 s | 6.25× | 6.8e-10 Eh/bohr (values up to 0.15) |
+|  | Hessian | 260.2 s | 159.7 s | 1.63× | 2.5e-11 Eh/bohr² (values up to 1) |
+| caffeine def2-tzvp PBE, 494 AOs | SCF (18 cycles) | 104.8 s | 62.6 s | 1.67× | 9.1e-13 Eh |
+|  | gradient | 85.7 s | 5.9 s | 14.63× | 1.0e-09 Eh/bohr (values up to 0.14) |
+| caffeine def2-svp R2SCAN, 246 AOs | SCF (16 cycles) | 37.1 s | 23.6 s | 1.57× | 1.1e-12 Eh |
+|  | gradient | 8.8 s | 1.5 s | 5.73× | 7.8e-10 Eh/bohr (values up to 0.15) |
+|  | Hessian | 450.8 s | 211.5 s | 2.13× | 2.1e-11 Eh/bohr² (values up to 1) |
+| caffeine def2-tzvp B3LYP, 494 AOs | SCF (15 cycles) | 321.6 s | 185.5 s | 1.73× | 6.8e-13 Eh |
+|  | gradient | 89.2 s | 28.9 s | 3.09× | 6.4e-12 Eh/bohr (values up to 0.15) |
+| caffeine def2-svp B3LYP (DF), 246 AOs | SCF (15 cycles) | 14.6 s | 10.9 s | 1.34× | 2.3e-13 Eh |
+|  | gradient | 3.0 s | 1.8 s | 1.67× | 2.4e-08 Eh/bohr (values up to 0.16) |
+|  | Hessian | 199.7 s | 151.5 s | 1.32× | 1.2e-10 Eh/bohr² (values up to 1) |
+| caffeine def2-svp B97M-V, 246 AOs | SCF (15 cycles) | 514.4 s | 360.5 s | 1.43× | 1.4e-12 Eh |
+|  | gradient | 39.7 s | 22.8 s | 1.74× | 6.9e-10 Eh/bohr (values up to 0.15) |
+| benzene def2-svp B97M-V, 114 AOs | SCF (9 cycles) | 78.3 s | 54.4 s | 1.44× | 1.1e-13 Eh |
+|  | gradient | 9.4 s | 5.5 s | 1.70× | 1.1e-10 Eh/bohr (values up to 0.0029) |
+|  | Hessian | 1244.4 s | 541.6 s | 2.30× | 5.2e-12 Eh/bohr² (values up to 0.76) |
+| caffeine def2-svp B3LYP, 246 AOs | SCF (15 cycles) | 57.9 s | 24.4 s | 2.37× | 2.3e-13 Eh |
+|  | gradient | 7.1 s | 3.2 s | 2.24× | 2.5e-12 Eh/bohr (values up to 0.16) |
+|  | Hessian | 304.2 s | 146.3 s | 2.08× | 1.9e-11 Eh/bohr² (values up to 1) |
+|  | TDDFT, 5 states | 70.0 s | 47.8 s | 1.47× | 2.3e-14 Eh |
+
+# 2) the opt-in one-pass J+K (SCF.jk_one_pass = True, current only; v1.9.0's SCF times above): caffeine B3LYP SCF
+#    def2-SVP 57.9 -> 20.9 s (2.78x), def2-TZVP 321.6 -> 172.0 s (1.87x); energies within 5.0e-12 and 1.6e-11
+{"label": "current-onepass", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b3lyp", "df": false, "one_pass": true, "nao": 246, "E": -679.8127486398326, "cycles": 15, "times": {"scf": 20.85}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 5.002220859751105e-12}, "max_ref": {"e": 679.8127486398276}}
+{"label": "current-onepass", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-tzvp", "xc": "b3lyp", "df": false, "one_pass": true, "nao": 494, "E": -680.5697781455959, "cycles": 15, "times": {"scf": 172.03}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 1.6370904631912708e-11}, "max_ref": {"e": 680.5697781455796}}
+
+# 3) gradients at fixed orbitals (grad_at_mo.py): v1.9.0's orbitals saved; v1.9.0 run again, then current, each with its
+#    own SCF and then at the saved orbitals. DF: the code agrees to 8e-14; the 1e-8 differences are the DF SCF's own
+#    run-to-run variation (v1.9.0 against itself 1.1e-8). PBE: the 6.8e-10 is the code: the J-engine Coulomb gradient
+#    (part 24) in place of v1.9.0's screened Rys one.
+== gradient at fixed orbitals: caffeine def2-SVP b3lyp --df (v1.9.0's orbitals; v1.9.0 again, then current)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: E -679.812801724290, gradient saved (max |g| 1.553e-01)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: E -679.812801724290 (+0.0e+00 from the saved SCF); gradient against the saved one: at its own orbitals 1.14e-08, at the saved orbitals 3.91e-14 (max |g| 1.553e-01)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: E -679.812801724289 (+4.5e-13 from the saved SCF); gradient against the saved one: at its own orbitals 1.56e-08, at the saved orbitals 7.82e-14 (max |g| 1.553e-01)
+== gradient at fixed orbitals: caffeine def2-SVP pbe (v1.9.0's orbitals; v1.9.0 again, then current)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: E -679.040370717856, gradient saved (max |g| 1.460e-01)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf: E -679.040370717855 (+2.3e-13 from the saved SCF); gradient against the saved one: at its own orbitals 4.96e-13, at the saved orbitals 5.33e-14 (max |g| 1.460e-01)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: E -679.040370717855 (+6.8e-13 from the saved SCF); gradient against the saved one: at its own orbitals 6.77e-10, at the saved orbitals 6.77e-10 (max |g| 1.460e-01)
+P31C DONE
+
+# 4) the raw records (overview.jsonl)
+{"label": "base", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "pbe", "df": false, "nao": 246, "E": -679.0403707178563, "cycles": 18, "times": {"scf": 25.16, "grad": 6.88, "hess": 260.23}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0], "hess": [1530.0, 1530.0, 1530.0]}}
+{"label": "current", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "pbe", "df": false, "nao": 246, "E": -679.0403707178554, "cycles": 18, "times": {"scf": 13.16, "grad": 1.1, "hess": 159.66}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0], "hess": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 9.094947017729282e-13, "grad": 6.772733485149729e-10, "hess": 2.475708527072129e-11}, "max_ref": {"e": 679.0403707178563, "grad": 0.14597745972012655, "hess": 0.9974586501465579}}
+{"label": "base", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf", "mol": "caffeine", "basis": "def2-tzvp", "xc": "pbe", "df": false, "nao": 494, "E": -679.7849175512594, "cycles": 18, "times": {"scf": 104.77, "grad": 85.72}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0]}}
+{"label": "current", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-tzvp", "xc": "pbe", "df": false, "nao": 494, "E": -679.7849175512603, "cycles": 18, "times": {"scf": 62.65, "grad": 5.86}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 9.094947017729282e-13, "grad": 1.0063878619348543e-09}, "max_ref": {"e": 679.7849175512594, "grad": 0.13962231323802088}}
+{"label": "base", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "r2scan", "df": false, "nao": 246, "E": -679.4529650104063, "cycles": 16, "times": {"scf": 37.09, "grad": 8.77, "hess": 450.82}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0], "hess": [1530.0, 1530.0, 1530.0]}}
+{"label": "current", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "r2scan", "df": false, "nao": 246, "E": -679.4529650104074, "cycles": 16, "times": {"scf": 23.56, "grad": 1.53, "hess": 211.49}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0], "hess": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 1.1368683772161603e-12, "grad": 7.772946730710828e-10, "hess": 2.0513368781394092e-11}, "max_ref": {"e": 679.4529650104063, "grad": 0.14998152612034799, "hess": 0.9967812185987084}}
+{"label": "base", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf", "mol": "caffeine", "basis": "def2-tzvp", "xc": "b3lyp", "df": false, "nao": 494, "E": -680.5697781455796, "cycles": 15, "times": {"scf": 321.62, "grad": 89.21}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0]}}
+{"label": "current", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-tzvp", "xc": "b3lyp", "df": false, "nao": 494, "E": -680.5697781455802, "cycles": 15, "times": {"scf": 185.47, "grad": 28.91}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 6.821210263296962e-13, "grad": 6.405542762877303e-12}, "max_ref": {"e": 680.5697781455796, "grad": 0.14833333754043243}}
+{"label": "base", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b3lyp", "df": true, "nao": 246, "E": -679.8128017242894, "cycles": 15, "times": {"scf": 14.61, "grad": 3.04, "hess": 199.72}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0], "hess": [1530.0, 1530.0, 1530.0]}}
+{"label": "current", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b3lyp", "df": true, "nao": 246, "E": -679.8128017242897, "cycles": 15, "times": {"scf": 10.92, "grad": 1.82, "hess": 151.54}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0], "hess": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 2.2737367544323206e-13, "grad": 2.4017055011427146e-08, "hess": 1.17004184119196e-10}, "max_ref": {"e": 679.8128017242894, "grad": 0.155330530842137, "hess": 0.9955117522705645}}
+{"label": "base", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b97m_v", "df": false, "nao": 246, "E": -679.7292741774537, "cycles": 15, "times": {"scf": 514.35, "grad": 39.67}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0]}}
+{"label": "current", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b97m_v", "df": false, "nao": 246, "E": -679.7292741774523, "cycles": 15, "times": {"scf": 360.46, "grad": 22.82}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 1.3642420526593924e-12, "grad": 6.873079883007449e-10}, "max_ref": {"e": 679.7292741774537, "grad": 0.15197132250063683}}
+{"label": "base", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf", "mol": "benzene", "basis": "def2-svp", "xc": "b97m_v", "df": false, "nao": 114, "E": -232.0857485934799, "cycles": 9, "times": {"scf": 78.32, "grad": 9.41, "hess": 1244.43}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0], "hess": [1530.0, 1530.0, 1530.0]}}
+{"label": "current", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "benzene", "basis": "def2-svp", "xc": "b97m_v", "df": false, "nao": 114, "E": -232.08574859348002, "cycles": 9, "times": {"scf": 54.42, "grad": 5.54, "hess": 541.6}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0], "hess": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 1.1368683772161603e-13, "grad": 1.0970957475819887e-10, "hess": 5.189626506307832e-12}, "max_ref": {"e": 232.0857485934799, "grad": 0.002866032279598585, "hess": 0.7565449719601365}}
+{"label": "base", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b3lyp", "df": false, "nao": 246, "E": -679.8127486398276, "cycles": 15, "times": {"scf": 57.94, "grad": 7.09, "hess": 304.23}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0], "hess": [1530.0, 1530.0, 1530.0]}}
+{"label": "current", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b3lyp", "df": false, "one_pass": false, "nao": 246, "E": -679.8127486398279, "cycles": 15, "times": {"scf": 24.43, "grad": 3.17, "hess": 146.35}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0], "hess": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 2.2737367544323206e-13, "grad": 2.5011104298755527e-12, "hess": 1.8950174762721872e-11}, "max_ref": {"e": 679.8127486398276, "grad": 0.15532726331377622, "hess": 0.9954898445498559}}
+{"label": "base", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf-base/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b3lyp", "df": false, "one_pass": false, "nao": 246, "E": -679.8127486398281, "cycles": 15, "times": {"scf": 57.91, "tddft": 70.0}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "tddft": [1530.0, 1530.0, 1530.0]}}
+{"label": "current", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b3lyp", "df": false, "one_pass": false, "nao": 246, "E": -679.8127486398283, "cycles": 15, "times": {"scf": 24.41, "tddft": 47.77}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "tddft": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 2.2737367544323206e-13, "tddft": 2.3342439092743916e-14}, "max_ref": {"e": 679.8127486398281, "tddft": 0.2033639225405006}}

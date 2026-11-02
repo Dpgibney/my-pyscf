@@ -5427,6 +5427,77 @@ Proposed in part 29 (Not done); the user approved it after asking how its memory
     `test_uks_hessian_grid_response.py` (2);
   - `test_raman_wb97mv_densityfitting`. The direct-SCF `test_raman_wb97mv` is skipped upstream ("Too slow").
 
+## GPU4PySCF overview: unmodified v1.9.0 against parts 1–30 (node1), 2026-11-02
+Asked for by the user ("how much faster different things have become … compared to the unmodified version").
+- **Trees:** `gpu4pyscf-base` (tag v1.9.0, built from source with the same toolchain) against the main tree,
+  `exp/prim-screen` 04c5428.
+- **How:**
+  - The same workloads ran back to back, v1.9.0 first, every timed section at 1530 MHz.
+  - Each run warms up on water with the same settings, then times the SCF, gradient, Hessian and TDDFT from one
+    converged SCF.
+  - RKS, `conv_tol` 1e-10, default settings.
+- **Tools:** `overview.py`, `overview_table.py`, `grad_at_mo.py`.
+- **Data:** `p31_overview.txt`.
+
+| workload | task | v1.9.0 | current | speedup | largest difference |
+|---|---|---|---|---|---|
+| caffeine def2-svp PBE, 246 AOs | SCF (18 cycles) | 25.2 s | 13.2 s | 1.91× | 9.1e-13 Eh |
+|  | gradient | 6.9 s | 1.1 s | 6.25× | 6.8e-10 Eh/bohr (values up to 0.15) |
+|  | Hessian | 260.2 s | 159.7 s | 1.63× | 2.5e-11 Eh/bohr² (values up to 1) |
+| caffeine def2-tzvp PBE, 494 AOs | SCF (18 cycles) | 104.8 s | 62.6 s | 1.67× | 9.1e-13 Eh |
+|  | gradient | 85.7 s | 5.9 s | 14.63× | 1.0e-09 Eh/bohr (values up to 0.14) |
+| caffeine def2-svp R2SCAN, 246 AOs | SCF (16 cycles) | 37.1 s | 23.6 s | 1.57× | 1.1e-12 Eh |
+|  | gradient | 8.8 s | 1.5 s | 5.73× | 7.8e-10 Eh/bohr (values up to 0.15) |
+|  | Hessian | 450.8 s | 211.5 s | 2.13× | 2.1e-11 Eh/bohr² (values up to 1) |
+| caffeine def2-tzvp B3LYP, 494 AOs | SCF (15 cycles) | 321.6 s | 185.5 s | 1.73× | 6.8e-13 Eh |
+|  | gradient | 89.2 s | 28.9 s | 3.09× | 6.4e-12 Eh/bohr (values up to 0.15) |
+| caffeine def2-svp B3LYP (DF), 246 AOs | SCF (15 cycles) | 14.6 s | 10.9 s | 1.34× | 2.3e-13 Eh |
+|  | gradient | 3.0 s | 1.8 s | 1.67× | 2.4e-08 Eh/bohr (values up to 0.16) |
+|  | Hessian | 199.7 s | 151.5 s | 1.32× | 1.2e-10 Eh/bohr² (values up to 1) |
+| caffeine def2-svp B97M-V, 246 AOs | SCF (15 cycles) | 514.4 s | 360.5 s | 1.43× | 1.4e-12 Eh |
+|  | gradient | 39.7 s | 22.8 s | 1.74× | 6.9e-10 Eh/bohr (values up to 0.15) |
+| benzene def2-svp B97M-V, 114 AOs | SCF (9 cycles) | 78.3 s | 54.4 s | 1.44× | 1.1e-13 Eh |
+|  | gradient | 9.4 s | 5.5 s | 1.70× | 1.1e-10 Eh/bohr (values up to 0.0029) |
+|  | Hessian | 1244.4 s | 541.6 s | 2.30× | 5.2e-12 Eh/bohr² (values up to 0.76) |
+| caffeine def2-svp B3LYP, 246 AOs | SCF (15 cycles) | 57.9 s | 24.4 s | 2.37× | 2.3e-13 Eh |
+|  | gradient | 7.1 s | 3.2 s | 2.24× | 2.5e-12 Eh/bohr (values up to 0.16) |
+|  | Hessian | 304.2 s | 146.3 s | 2.08× | 1.9e-11 Eh/bohr² (values up to 1) |
+|  | TDDFT, 5 states | 70.0 s | 47.8 s | 1.47× | 2.3e-14 Eh |
+
+- **Per SCF cycle:** the cycle counts are identical, so the per-cycle speedups are the same as the totals. For
+  example, B3LYP/def2-SVP goes from 3.86 s to 1.63 s per cycle, and PBE/def2-TZVP from 5.82 s to 3.48 s.
+- **Opt-in one-pass J+K** (`jk_one_pass = True`, still off by default): the B3LYP SCF is 2.78× (def2-SVP, 20.9 s)
+  and 1.87× (def2-TZVP, 172.0 s) faster than v1.9.0. The energies agree to 5.0e−12 and 1.6e−11.
+- **Exactness:**
+  - SCF energies agree within 1.4e−12 Eh, Hessians within 2.5e−11 (DF 1.2e−10), and excitation energies within
+    2.3e−14.
+  - Hybrid gradients agree within 6.4e−12.
+  - **Pure-functional gradients** (PBE, r2SCAN, B97M-V) differ by 7e−10 to 1e−9. At fixed orbitals the difference
+    remains (6.8e−10 for PBE), so it is the code: the J-engine Coulomb gradient (part 24) replaces v1.9.0's screened
+    Rys one, and part 24 measured it 2–5× closer to the exact integrals.
+  - **The DF gradient** differs by 2.4e−8. At fixed orbitals the code agrees to 7.8e−14. The rest is the DF SCF's
+    run-to-run variation: v1.9.0 against itself differs by 1.1e−8 with identical energies.
+- **Where the gains come from:**
+  - Hybrid SCFs: the K kernels (parts 1–2, 5–7), the J engine (parts 22–27) and the XC part (parts 19–21).
+  - Pure-functional SCFs: the J engine and the XC part. VV10: part 26.
+  - Pure-functional gradients: the J engine's nuclear gradient (part 24), plus parts 19–20.
+  - Hybrid gradients: the derivative kernels (parts 3 and 8).
+  - Hessians:
+    - the CPHF: one-pass J+K (part 9) and its XC response (part 10);
+    - the XC derivative terms (parts 12–14);
+    - the generated second-derivative kernels (part 16);
+    - VV10 (parts 29–30).
+  - DF runs get only the XC changes, so 1.3–1.7×.
+- **Found on the way:** GPU4PySCF's TDDFT sizes its trial space from `max_memory`, a CPU-memory setting that
+  defaults to 4000 MB.
+  - For caffeine/def2-SVP that asks for about 7 GB of GPU memory, so both trees fail on the 4 GB card.
+  - The TDDFT rows use `td.max_memory = 1000`.
+  - SCF + gradient + Hessian + TDDFT in one process also ran out of memory in both trees, so that workload ran as
+    two processes.
+- **Not covered here:** UKS, TDDFT gradients, larger systems, and data-center GPUs.
+  - The 1650 Super runs FP64 at 1/32 of FP32, so the changes that cut FP64 work (VV10, the Boys function, the J
+    prefactor) may give other ratios on an A100 or H100.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
