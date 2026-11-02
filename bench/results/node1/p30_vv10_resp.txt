@@ -1,0 +1,86 @@
+# GPU4PySCF investigation part 30 (NOTES.md): VV10's response, its ground-state part once per solve.
+# GTX 1650 Super at 1530 MHz (sm_75); benzene def2-SVP with B97M-V (143616 NLC grid points, 125886 after screening).
+# "part 29" is scratch/tree_p29 (exp/prim-screen b03af79); "part 30" the main tree with the Python files of perf eb34eb5
+# (merged into exp/prim-screen as 04c5428): hessian/rks.py, hessian/uks.py, scf/_response_functions.py. Same libgdft.
+#
+# Commands (node1): scratch/p30_val.sh, hess_nlc_parts.py --task hessian|tddft|polar (TDDFT with exclude_nlc = False,
+# 5 states), then the unit tests. The timers count calls: get_nlc_response_ground_state's calls after the first return
+# the kept ground state.
+
+# 1) file md5s (hessian/rks.py differs, libgdft.so is the same), and a smoke test (water TDDFT; this run still had
+#    gpu4pyscf's default exclude_nlc = True, so it has no VV10 response: the script was fixed before the benzene runs)
+d701a122b7cb868d021ab6ffa3e7ab07  gpu4pyscf/gpu4pyscf/hessian/rks.py
+52cd55b48c73c35de38631216c50aea5  /home/danny/Chemistry/my-pyscf/scratch/tree_p29/gpu4pyscf/hessian/rks.py
+91f36c4a4d30ec2d0c7d39d3a3104461  gpu4pyscf/gpu4pyscf/lib/libgdft.so
+91f36c4a4d30ec2d0c7d39d3a3104461  /home/danny/Chemistry/my-pyscf/scratch/tree_p29/gpu4pyscf/lib/libgdft.so
+== smoke: TDDFT on water, B97M-V (part 30)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: water def2-svp b97m_v, 33792 NLC grid points: E -76.3299598076, SCF 7 cycles 3.1 s, TDDFT (5 states) 2.0 s
+  result: [0.3029203998 0.3773389193 0.3882828539 0.466081061  0.5378109182]
+
+# 2) the Hessian with timers, part 30, against part 29's Hessian (p29_vv10_hess.txt has part 29's timers)
+== VV10 Hessian: benzene def2-SVP B97M-V, part 30, against part 29's Hessian (p29/val.log)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: benzene def2-svp b97m_v, 143616 NLC grid points: E -232.0857485935, SCF 9 cycles 54.7 s, Hessian (grid response False) 541.9 s
+  partial_hess_elec                                            72.89 s  x1    
+    _get_enlc_deriv2                                           64.40 s  x1    
+      VXC_vv10nlc_hess_eval_omega_derivative                    0.00 s  x1    (125886,)
+      VXC_vv10nlc_hess_eval_UWABCE                              7.94 s  x1    (125886,)
+      VXC_vv10nlc_hess_eval_f_t                                51.32 s  x1    (125886, 36)
+  make_h1                                                     129.41 s  x1    
+    _get_vnlc_deriv1                                          123.21 s  x1    
+      VXC_vv10nlc_hess_eval_omega_derivative                    0.00 s  x1    (125886,)
+      VXC_vv10nlc_hess_eval_UWABCE                              7.88 s  x1    (125886,)
+      VXC_vv10nlc_hess_eval_f_t                                51.23 s  x1    (125886, 36)
+      VXC_vv10nlc_hess_eval_EUW_grid_response_offdiagonal      11.12 s  x1    (125886, 12)
+      VXC_vv10nlc_hess_eval_EUW_with_weight1                   41.06 s  x1    (125886, 36)
+  solve_mo1                                                   339.62 s  x1    
+    get_veff_resp_mo                                          339.50 s  x6    
+      get_nlc_response_ground_state                             8.00 s  x6    
+        VXC_vv10nlc_hess_eval_omega_derivative                  0.00 s  x1    (125886,)
+        VXC_vv10nlc_hess_eval_UWABCE                            7.94 s  x1    (125886,)
+      nr_rks_fnlc_mo                                          319.42 s  x6    
+        VXC_vv10nlc_hess_eval_f_t                             280.57 s  x6    (125886, 7) (125886, 26) (125886, 33) (125886, 36)
+  against hess_benzene_p29.npy: max |difference| 3.52e-12 (max |value| 7.57e-01)
+
+# 3) TDDFT (VV10's response included) and the static polarizability: part 29, then part 30
+== tddft: benzene def2-SVP B97M-V, part 29, then part 30
+/home/danny/Chemistry/my-pyscf/scratch/tree_p29/gpu4pyscf: benzene def2-svp b97m_v, 143616 NLC grid points: E -232.0857485935, SCF 9 cycles 54.7 s, TDDFT (5 states) 339.6 s
+  result: [0.2052619899 0.2267542126 0.2735294642 0.2735297513 0.2785288091]
+  nr_rks_fnlc_mo                                              318.58 s  x11   
+    VXC_vv10nlc_hess_eval_omega_derivative                      0.00 s  x11   (125886,)
+    VXC_vv10nlc_hess_eval_UWABCE                               87.35 s  x11   (125886,)
+    VXC_vv10nlc_hess_eval_f_t                                 218.12 s  x11   (125886, 5) (125886, 6)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: benzene def2-svp b97m_v, 143616 NLC grid points: E -232.0857485935, SCF 9 cycles 54.7 s, TDDFT (5 states) 259.6 s
+  result: [0.2052619899 0.2267542126 0.2735294642 0.2735297513 0.2785288091]
+  get_nlc_response_ground_state                                 8.00 s  x11   
+    VXC_vv10nlc_hess_eval_omega_derivative                      0.00 s  x1    (125886,)
+    VXC_vv10nlc_hess_eval_UWABCE                                7.94 s  x1    (125886,)
+  nr_rks_fnlc_mo                                              230.60 s  x11   
+    VXC_vv10nlc_hess_eval_f_t                                 218.10 s  x11   (125886, 5) (125886, 6)
+  against tddft_p29.npy: max |difference| 1.22e-13 (max |value| 2.79e-01)
+== polar: benzene def2-SVP B97M-V, part 29, then part 30
+/home/danny/Chemistry/my-pyscf/scratch/tree_p29/gpu4pyscf: benzene def2-svp b97m_v, 143616 NLC grid points: E -232.0857485935, SCF 9 cycles 54.7 s, polarizability 300.4 s
+  result: [ 7.3833472208e+01 -2.7641322434e-12  4.9542249368e-16 -2.7641322434e-12  7.3835635513e+01 -1.2409878347e-14
+  4.9542249368e-16 -1.2409878347e-14  2.7470215202e+01]
+  nr_rks_fnlc_mo                                              289.41 s  x10   
+    VXC_vv10nlc_hess_eval_omega_derivative                      0.00 s  x10   (125886,)
+    VXC_vv10nlc_hess_eval_UWABCE                               79.41 s  x10   (125886,)
+    VXC_vv10nlc_hess_eval_f_t                                 203.09 s  x10   (125886, 2) (125886, 3)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: benzene def2-svp b97m_v, 143616 NLC grid points: E -232.0857485935, SCF 9 cycles 54.7 s, polarizability 228.3 s
+  result: [ 7.3833472208e+01 -3.0751866400e-12 -5.3739862860e-15 -3.0751866400e-12  7.3835635513e+01 -2.6527893550e-15
+ -5.3739862860e-15 -2.6527893550e-15  2.7470215202e+01]
+  get_nlc_response_ground_state                                 8.00 s  x10   
+    VXC_vv10nlc_hess_eval_omega_derivative                      0.00 s  x1    (125886,)
+    VXC_vv10nlc_hess_eval_UWABCE                                7.94 s  x1    (125886,)
+  nr_rks_fnlc_mo                                              209.41 s  x10   
+    VXC_vv10nlc_hess_eval_f_t                                 203.06 s  x10   (125886, 2) (125886, 3)
+  against polar_p29.npy: max |difference| 1.19e-11 (max |value| 7.38e+01)
+
+# 4) unit tests (test_raman_wb97mv, the direct-SCF one, is skipped upstream: "Too slow")
+== unit tests
+hessian/tests/test_vv10_hessian.py: 14 passed, 2184 warnings in 547.12s (0:09:07)
+tdscf/tests/test_tdrks_vv10.py: 6 passed, 36 warnings in 137.76s (0:02:17)
+properties/tests/test_polarizability.py -k vv10: 2 passed, 6 deselected, 12 warnings in 23.61s
+properties/tests/test_raman_intensity.py -k wb97mv: 1 passed, 1 skipped, 6 deselected, 24 warnings in 138.43s (0:02:18)
+hessian/tests/test_rks_hessian_grid_response.py -k vv10: 1 passed, 16 deselected, 57 warnings in 4.30s
+hessian/tests/test_uks_hessian_grid_response.py -k vv10: 2 passed, 14 deselected, 114 warnings in 18.11s
+P30VAL DONE

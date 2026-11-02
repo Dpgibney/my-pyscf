@@ -5359,10 +5359,73 @@ has 143,616 points, 125,886 after screening.
 
 ### Not done
 - **The CPHF recomputes the ground-state sums every cycle:** `nr_rks_fnlc_mo` evaluates ρ0 and runs UWABCE on each
-  call, 6 times in the benzene Hessian (47.7 s of 583 s after this part; once would save about 40 s). Computing them once per response function
+  call, 6 times in the benzene Hessian (47.7 s of 583 s after this part; once would save about 40 s). Done in part 30. Computing them once per response function
   is exact, but it changes `nr_rks_fnlc_mo`'s interface and its callers (the Hessian's CPHF, `gen_response` for TDDFT
   and polarizabilities).
 - **EUW_grid_response_offdiagonal** (11 s, 1%): a per-(atom, point) layout like the gradient's before part 28.
+
+## GPU4PySCF investigation, part 30: VV10's response, its ground-state part once per solve (node1), 2026-11-02
+Proposed in part 29 (Not done); the user approved it after asking how its memory scales.
+- **Commits:** gpu4pyscf `perf` eb34eb5 (`hessian/rks.py`, `hessian/uks.py`, `scf/_response_functions.py`), merged
+  into `exp/prim-screen` as 04c5428. Python only, so it works with the wheel's libraries too.
+- **Tools:** `hess_nlc_parts.py --task tddft|polar` (TDDFT with `exclude_nlc = False`, the static polarizability).
+- **Data:** `p30_vv10_resp.txt`.
+
+### Change
+- **What was repeated:** `nr_rks_fnlc_mo` (VV10's term of the CPHF and TDDFT response) runs once per Krylov or
+  Davidson cycle. On each call it evaluated ρ0 and ∇ρ0 on the NLC grid (a pass over the AOs), ω, κ and their
+  derivatives, and the all-pair U, W, A, B, C kernel, all of which depend only on the ground state.
+- **The split:** `get_nlc_response_ground_state` builds that part, an `NLCResponseGroundState` (a named tuple of
+  the masked grid, ρ, ∇ρ, ω, κ and their derivatives, U..C, and one combined factor).
+  - `nr_rks_fnlc_mo` and `nr_uks_fnlc_mo` take it as `ground_state`. They build it themselves when it isn't given,
+    so other callers see no change.
+  - A `kept` list argument builds it on the first call and returns it after.
+- **Who keeps it:**
+  - `gen_response`'s closures (the orbital Hessian, singlet TDDFT, UKS) keep it from their first call. The triplet
+    response has no VV10 term.
+  - The RKS and UKS Hessians' `gen_vind` wraps its fx. While fx runs, the kept list sits on the Hessian object,
+    where `get_veff_resp_mo` finds it.
+  - It can't be an argument: the PCM and SMD Hessians wrap `get_veff_resp_mo` with a fixed signature.
+  - IR and Raman call `gen_vind`, so they get it too. Outside fx, `get_veff_resp_mo` builds a fresh one, as before.
+- **Memory:** 23 doubles per NLC grid point after screening, plus a 1-byte mask over the full grid.
+  - Linear in the number of atoms, about 2 MB per atom at the default NLC grid (about 12,000 points per atom, 88%
+    kept). Benzene: 23 MB.
+  - Independent of the basis set and of the number of trial vectors.
+  - About the size of one trial density's buffers in the same function. The batches are sized from free memory.
+  - It is held for one solve.
+- **gpu4pyscf's TDDFT leaves VV10's response out by default** (`exclude_nlc = True`, "the nlc contribution is small
+  in TDDFT"). For TDDFT this part applies only with `exclude_nlc = False`. The CPHF-based paths (Hessians,
+  polarizabilities, IR, Raman) always include VV10's response.
+
+### Exactness
+- **The same arrays, computed once instead of every cycle.** The U..C kernel uses atomics, so each evaluation already
+  differed from the last at the rounding level.
+- **Benzene def2-SVP, B97M-V:**
+  - the Hessian is within 3.5e−12 of part 29's (values up to 0.76);
+  - the 5 excitation energies are within 1.2e−13;
+  - the polarizability is within 1.2e−11 (values up to 74).
+
+### Timings (GTX 1650 Super; benzene def2-SVP, B97M-V, 125,886 NLC points after screening)
+
+| | part 29 | part 30 | U..C kernel calls |
+|---|---|---|---|
+| the Hessian | 582.9 s | 541.9 s (−7%) | 8 → 3 |
+| TDDFT, 5 states, `exclude_nlc = False` | 339.6 s | 259.6 s (1.31×) | 11 → 1 |
+| the static polarizability | 300.4 s | 228.3 s (1.32×) | 10 → 1 |
+
+- **The saving is the kernel:** 7.9 s per call, 27% of each TDDFT cycle's VV10 response (5–6 trial vectors per
+  cycle) and 27% of the polarizability's (2–3).
+- **In the Hessian the trial counts are larger** (up to 36), so f_t dominates each cycle and the saving is 7%.
+- **The ground-state AO pass is small:** `get_nlc_response_ground_state` took 8.0 s in all, 7.94 s of it the
+  kernel.
+
+### Unit tests
+- **All pass:**
+  - `test_vv10_hessian.py` (14, 547 s against 605 s);
+  - `test_tdrks_vv10.py` (6, 138 s against 158 s);
+  - the VV10 tests of `test_polarizability.py` (2), `test_rks_hessian_grid_response.py` (1) and
+    `test_uks_hessian_grid_response.py` (2);
+  - `test_raman_wb97mv_densityfitting`. The direct-SCF `test_raman_wb97mv` is skipped upstream ("Too slow").
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
