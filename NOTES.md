@@ -5178,7 +5178,7 @@ Approved with part 25; proposed in part 20, where VV10 was 93% of a B97M-V SCF.
   - Its pair factor is symmetric too.
   - But it writes per-(atom, point) sums for batches of points, so using the symmetry means restructuring that
     driver.
-- **The Hessian's VV10 kernels** (`vv10_hess_eval_UWABCE` and the f_t kernels) are all-pair loops of the same kind.
+- **The Hessian's VV10 kernels** (`vv10_hess_eval_UWABCE` and the f_t kernels) are all-pair loops of the same kind. Done in part 29.
 
 ## GPU4PySCF investigation, part 27: the J kernels' quartet prefactor without divisions (node1), 2026-11-02
 Approved with parts 28–29 ("Let's work on all of those"); found in part 25.
@@ -5279,6 +5279,90 @@ Approved with parts 27 and 29 ("Let's work on all of those"); left over from par
 - **All pass:** `test_vv10_grid.py` (20, 439 s against 443 s; its molecules are small),
   `test_grid_response.py` (7), `test_rks_grad.py` (15) and `test_uks_grad.py` (12).
 - **memcheck:** 0 errors (`get_nlc_exc_full_response`, benzene, core guess).
+
+## GPU4PySCF investigation, part 29: the Hessian's VV10 kernels with more trials per pair evaluation (node1), 2026-11-02
+Approved with parts 27 and 28 ("Let's work on all of those").
+- **Commit:** gpu4pyscf `exp/prim-screen` b03af79 (`gdft/vv10.cu`, from `exp_prim_screen.py --vv10-hess wide`).
+- **Tools:**
+  - `hess_nlc_parts.py`: a VV10 Hessian with synchronizing timers around its steps, the VV10 parts and every libgdft
+    VV10 entry (with its grid and trial counts), and a memcheck mode (water, small grids);
+  - `vv10_ft_check.cu`, `vv10_uwabce_check.cu`, `vv10_euw_w1_check.cu`: each kernel's original against the new
+    version on synthetic data, with long-double references where the arithmetic changes.
+- **Data:** `p29_vv10_hess.txt`.
+
+### Where the time went
+Benzene def2-SVP, B97M-V, RKS without grid response (the default), on part 28's build (GTX 1650 Super). The NLC grid
+has 143,616 points, 125,886 after screening.
+- **The Hessian took 1222.7 s** (the SCF before it 54.7 s), and VV10 took 1138 s of it (93%):
+  - f_t, 980 s (80%): 136.5 s in the energy term (`_get_enlc_deriv2`, 36 trials), 136.4 s in H1
+    (`_get_vnlc_deriv1`, 36) and 707.4 s in the CPHF (6 Krylov cycles, 36 down to 7 trials);
+  - UWABCE, 80.3 s: 8 calls, 6 of them in the CPHF, which recomputes these ground-state sums every cycle;
+  - EUW_with_weight1, 66.6 s (H1, 36 derivatives), and the EUW grid response, 11.2 s (H1).
+- **`_get_vnlc_deriv1` sets `grid_response = True`** whatever the Hessian's setting. So its grid-response kernels
+  always run, and its f_t inputs differ from the energy term's: there is no duplicate call to share.
+
+### Change
+- **f_t** (`vv10_hess_eval_f_t_offdiagonal_kernel`, the response to trial densities):
+  - For each point i and trial t it sums w_j M_ij (ρ_t, γ_t)[t][j] over all j. M_ij is a 2×2 pair matrix of one
+    division and about 50 other operations; each trial then costs 6 (3 per output).
+  - A thread owned one i and 6 trials, so M_ij was evaluated once per 6 trials.
+  - Now a thread owns up to 36 trials: the fewest chunks of at most 36, each rounded up to a multiple of 6. w_j is
+    folded into M_ij, so each output takes two FMAs per trial.
+  - **Unused trial slots are not free:** the predicated-off FP64 instructions still take their issue slots. 36 per
+    thread at 9 trials is 0.82× the original; hence the chunks sized to the trial count.
+- **UWABCE** (`vv10_hess_eval_UWABCE_kernel`, the ground-state sums): each pair of points once, part 26's rotation with
+  six sums instead of three.
+- **EUW_with_weight1** (the grid weights' derivatives, 3·natm of them, in `_get_vnlc_deriv1`): the same kernel with
+  up to 24 derivatives per thread instead of 6 (three sums each, so 36 would not fit in the registers). Only the
+  launcher changes; the results are bitwise equal.
+
+### Exactness
+- **f_t:** folding w_j in puts two roundings per term into each running sum instead of one.
+  - On 20,000 synthetic points the outputs move by at most 2.3e−14 of the largest.
+  - Against long double, the largest relative error at 64 sampled (point, trial) pairs grows 2–6×: 7.3e−14 against
+    3.3e−14 at 36 trials, 1.1e−13 against 6.1e−14 at 72, and 1.4e−12 against 2.2e−13 at 9 (probably a sample whose
+    terms cancel).
+  - Wider chunks alone keep the original arithmetic and are bitwise equal, but give 1.86× instead of 2.66×.
+- **UWABCE:** 10–100× closer to long double than the original's sequential sums (U 3.5e−15 against 1.4e−13, A 3.4e−15
+  against 2.8e−13).
+- **EUW_with_weight1:** bitwise equal.
+- **The benzene Hessian:** within 5.3e−12 of part 28's (values up to 0.76). The SCF before it does not use these
+  kernels: the same energy, −232.0857485935 Eh, and the same 9 cycles.
+
+### Timings
+| benzene def2-SVP, B97M-V (GTX 1650 Super) | part 28 | part 29 |
+|---|---|---|
+| the Hessian | 1222.7 s | 582.9 s (2.10×) |
+| energy term (`_get_enlc_deriv2`) | 151.7 s | 64.4 s |
+| H1 term (`_get_vnlc_deriv1`) | 236.4 s | 124.0 s |
+| CPHF's NLC response (`nr_rks_fnlc_mo`, 6 calls) | 806.8 s | 367.6 s |
+| f_t, 8 calls | 980.3 s | 383.7 s (2.55×) |
+| UWABCE, 8 calls | 80.3 s | 63.5 s (1.26×) |
+| EUW_with_weight1 | 66.6 s | 41.4 s (1.61×) |
+| EUW grid response | 11.2 s | 11.2 s |
+
+- **The kernels on synthetic data** (prototypes):
+  - f_t: 2.66× at 36 trials, 2.63× at 72, 1.74× at 9 (20,000 points);
+  - UWABCE: 1.28× (60,000 points);
+  - EUW_with_weight1: 1.63× at 36 derivatives, 1.73× at 72.
+- **What is left of the 583 s:** f_t 384 s (66%), UWABCE 64 s, EUW_with_weight1 41 s, the EUW grid response 11 s,
+  and 83 s outside VV10.
+- **f_t is near its floor:** each pair still costs 4 FMAs per trial, plus its matrix (about 59 operations) once per
+  chunk of up to 36 trials. At 36 trials that is about 1.4× the trial work alone.
+
+### Unit tests and memcheck
+- **All pass:** `test_vv10_hessian.py` (14, 605 s), `test_tdrks_vv10.py` (6) and the two VV10 tests of
+  `test_polarizability.py`.
+- **memcheck:** 0 errors.
+  - The three prototypes ran on 1000 points with 40 trials or derivatives, so the last chunk is partial.
+  - A water Hessian ran on small grids, including the CPHF's response.
+
+### Not done
+- **The CPHF recomputes the ground-state sums every cycle:** `nr_rks_fnlc_mo` evaluates ρ0 and runs UWABCE on each
+  call, 6 times in the benzene Hessian (47.7 s of 583 s after this part; once would save about 40 s). Computing them once per response function
+  is exact, but it changes `nr_rks_fnlc_mo`'s interface and its callers (the Hessian's CPHF, `gen_response` for TDDFT
+  and polarizabilities).
+- **EUW_grid_response_offdiagonal** (11 s, 1%): a per-(atom, point) layout like the gradient's before part 28.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are

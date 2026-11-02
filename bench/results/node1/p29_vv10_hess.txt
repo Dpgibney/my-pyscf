@@ -1,0 +1,165 @@
+# GPU4PySCF investigation part 29 (NOTES.md): the Hessian's VV10 kernels with more trials per pair evaluation.
+# GTX 1650 Super at 1530 MHz (sm_75). "part 28" is exp/prim-screen 1a034c1 (scratch/tree_p28); "part 29" the main tree
+# with exp/prim-screen b03af79 (gdft/vv10.cu from exp_prim_screen.py --vv10-hess wide). The Hessian is benzene
+# def2-SVP with B97M-V (143616 NLC grid points, 125886 after screening), RKS, no grid response (the default).
+#
+# Commands (node1; the scripts are in scratch/):
+#   p29_prof.sh  vv10_ft_check 20000 36|72|9 (nvcc -O3 -arch=sm_75 bench/gpu/vv10_ft_check.cu), then
+#                hess_nlc_parts.py on part 28                                                          (sections 1, 4)
+#   p29_uw.sh    vv10_uwabce_check 60000                                                                   (section 2)
+#   p29_val.sh   vv10_euw_w1_check 20000 36|72, the build, memcheck of the three prototypes, hess_nlc_parts.py on
+#                part 29 (--compare part 28's Hessian), memcheck of a water Hessian (hess_nlc_parts.py --memcheck),
+#                unit tests                                                                         (sections 3-6)
+
+# 1) vv10_ft_check.cu: f_t, the original (6 trials per thread) against the same kernel with more trials per thread,
+#    and the version with w_j folded into the pair matrix; against a long double reference at 64 (point, trial) pairs
+== f_t prototype: 20000 points, 36 trials
+n = 20000, ntrial = 36: original (6 trials per thread) 3505.8 ms
+  original against long double at 64 (point, trial) pairs: max relative error 3.3e-14
+  original, 12 trials per thread         2527.0 ms (1.39x); bitwise equal, max |difference| / max |f| 0.0e+00; against long double 3.3e-14
+  original, 18 trials per thread         2283.2 ms (1.54x); bitwise equal, max |difference| / max |f| 0.0e+00; against long double 3.3e-14
+  original, 36 trials per thread         1883.7 ms (1.86x); bitwise equal, max |difference| / max |f| 0.0e+00; against long double 3.3e-14
+  w folded in,  6 trials per thread      2981.5 ms (1.18x); differs, max |difference| / max |f| 2.3e-14; against long double 7.3e-14
+  w folded in, 12 trials per thread      1983.2 ms (1.77x); differs, max |difference| / max |f| 2.3e-14; against long double 7.3e-14
+  w folded in, 18 trials per thread      1650.0 ms (2.12x); differs, max |difference| / max |f| 2.3e-14; against long double 7.3e-14
+  w folded in, 24 trials per thread      2052.5 ms (1.71x); differs, max |difference| / max |f| 2.3e-14; against long double 7.3e-14
+  w folded in, 30 trials per thread      2413.3 ms (1.45x); differs, max |difference| / max |f| 2.3e-14; against long double 7.3e-14
+  w folded in, 36 trials per thread      1316.0 ms (2.66x); differs, max |difference| / max |f| 2.3e-14; against long double 7.3e-14
+ok
+== f_t prototype: 20000 points, 72 trials
+n = 20000, ntrial = 72: original (6 trials per thread) 6856.5 ms
+  original against long double at 64 (point, trial) pairs: max relative error 6.1e-14
+  original, 12 trials per thread         5015.1 ms (1.37x); bitwise equal, max |difference| / max |f| 0.0e+00; against long double 6.1e-14
+  original, 18 trials per thread         4534.9 ms (1.51x); bitwise equal, max |difference| / max |f| 0.0e+00; against long double 6.1e-14
+  original, 36 trials per thread         3727.9 ms (1.84x); bitwise equal, max |difference| / max |f| 0.0e+00; against long double 6.1e-14
+  w folded in,  6 trials per thread      5873.7 ms (1.17x); differs, max |difference| / max |f| 2.3e-14; against long double 1.1e-13
+  w folded in, 12 trials per thread      3882.0 ms (1.77x); differs, max |difference| / max |f| 2.3e-14; against long double 1.1e-13
+  w folded in, 18 trials per thread      3273.8 ms (2.09x); differs, max |difference| / max |f| 2.3e-14; against long double 1.1e-13
+  w folded in, 24 trials per thread      2938.4 ms (2.33x); differs, max |difference| / max |f| 2.3e-14; against long double 1.1e-13
+  w folded in, 30 trials per thread      3529.1 ms (1.94x); differs, max |difference| / max |f| 2.3e-14; against long double 1.1e-13
+  w folded in, 36 trials per thread      2604.7 ms (2.63x); differs, max |difference| / max |f| 2.3e-14; against long double 1.1e-13
+ok
+== f_t prototype: 20000 points, 9 trials
+n = 20000, ntrial = 9: original (6 trials per thread) 1192.0 ms
+  original against long double at 64 (point, trial) pairs: max relative error 2.2e-13
+  original, 12 trials per thread          866.1 ms (1.38x); bitwise equal, max |difference| / max |f| 0.0e+00; against long double 2.2e-13
+  original, 18 trials per thread         1166.6 ms (1.02x); bitwise equal, max |difference| / max |f| 0.0e+00; against long double 2.2e-13
+  original, 36 trials per thread         1114.1 ms (1.07x); bitwise equal, max |difference| / max |f| 0.0e+00; against long double 2.2e-13
+  w folded in,  6 trials per thread      1019.5 ms (1.17x); differs, max |difference| / max |f| 8.2e-15; against long double 1.4e-12
+  w folded in, 12 trials per thread       685.7 ms (1.74x); differs, max |difference| / max |f| 8.2e-15; against long double 1.4e-12
+  w folded in, 18 trials per thread       885.2 ms (1.35x); differs, max |difference| / max |f| 8.2e-15; against long double 1.4e-12
+  w folded in, 24 trials per thread      1073.0 ms (1.11x); differs, max |difference| / max |f| 8.2e-15; against long double 1.4e-12
+  w folded in, 30 trials per thread      1263.5 ms (0.94x); differs, max |difference| / max |f| 8.2e-15; against long double 1.4e-12
+  w folded in, 36 trials per thread      1450.3 ms (0.82x); differs, max |difference| / max |f| 8.2e-15; against long double 1.4e-12
+ok
+
+# 2) vv10_uwabce_check.cu: UWABCE, the original against each pair once (rotation), 1/4/16 J tiles per block (the
+#    library uses 4); against a long double reference at 256 points
+== UWABCE prototype: 60000 points
+n = 60000: original 2302.3 ms
+  original against long double at 256 points: U 1.4e-13 W 1.8e-14 A 2.8e-13 B 2.9e-14 C 1.8e-14 E 2.1e-14
+  each pair once,  1 J tiles per block: 1804.4 ms (1.28x); max relative difference U 4.1e-13 W 3.1e-14 A 3.4e-13 B 1.5e-13 C 3.3e-14 E 3.7e-14
+    against long double: U 1.9e-15 W 2.3e-15 A 2.4e-15 B 1.6e-15 C 1.5e-15 E 2.1e-15
+  each pair once,  4 J tiles per block: 1805.3 ms (1.28x); max relative difference U 4.1e-13 W 3.1e-14 A 3.4e-13 B 1.5e-13 C 3.4e-14 E 3.9e-14
+    against long double: U 3.5e-15 W 1.8e-15 A 3.4e-15 B 1.4e-15 C 1.5e-15 E 1.8e-15
+  each pair once, 16 J tiles per block: 1807.0 ms (1.27x); max relative difference U 4.0e-13 W 3.1e-14 A 3.3e-13 B 1.5e-13 C 3.4e-14 E 3.9e-14
+    against long double: U 7.6e-15 W 1.7e-15 A 1.3e-14 B 3.2e-15 C 1.7e-15 E 3.3e-15
+ok
+P29UW DONE
+
+# 3) vv10_euw_w1_check.cu: EUW_with_weight1, the original (6 derivatives per thread) against the same kernel with more
+#    (the library's launcher: 18 for 36 derivatives, 24 for 72) and a variant with a uniform derivative count
+== EUW_with_weight1 prototype: 20000 points, 36 and 72 derivatives
+n = 20000, nderivative = 36: original (6 derivatives per thread) 1704.3 ms
+  original, 12 derivatives per thread   1216.2 ms (1.40x); bitwise equal
+  original, 24 derivatives per thread   1347.9 ms (1.26x); bitwise equal
+  wide,  6 derivatives per thread      1705.3 ms (1.00x); bitwise equal
+  wide, 12 derivatives per thread      1212.5 ms (1.41x); bitwise equal
+  wide, 18 derivatives per thread      1048.4 ms (1.63x); bitwise equal
+  wide, 24 derivatives per thread      1341.1 ms (1.27x); bitwise equal
+ok
+n = 20000, nderivative = 72: original (6 derivatives per thread) 3349.8 ms
+  original, 12 derivatives per thread   2399.0 ms (1.40x); bitwise equal
+  original, 24 derivatives per thread   1943.8 ms (1.72x); bitwise equal
+  wide,  6 derivatives per thread      3374.9 ms (0.99x); bitwise equal
+  wide, 12 derivatives per thread      2376.3 ms (1.41x); bitwise equal
+  wide, 18 derivatives per thread      2095.8 ms (1.60x); bitwise equal
+  wide, 24 derivatives per thread      1940.8 ms (1.73x); bitwise equal
+ok
+
+# 4) the Hessian with timers (hess_nlc_parts.py): part 28 (the profile), then part 29 (the A/B), with the build
+#    between them (libgdft.so md5s; registers and shared memory of the new kernels)
+== VV10 Hessian profile: benzene def2-SVP B97M-V (part 28 build)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: benzene def2-svp b97m_v, grid response False, 143616 NLC grid points: E -232.0857485935, SCF 9 cycles 54.7 s, Hessian 1222.7 s
+  partial_hess_elec                                           160.32 s  x1    
+    _get_enlc_deriv2                                          151.69 s  x1    
+      VXC_vv10nlc_hess_eval_omega_derivative                    0.00 s  x1    (125886,)
+      VXC_vv10nlc_hess_eval_UWABCE                             10.04 s  x1    (125886,)
+      VXC_vv10nlc_hess_eval_f_t                               136.47 s  x1    (125886, 36)
+  make_h1                                                     242.91 s  x1    
+    _get_vnlc_deriv1                                          236.40 s  x1    
+      VXC_vv10nlc_hess_eval_omega_derivative                    0.00 s  x1    (125886,)
+      VXC_vv10nlc_hess_eval_UWABCE                             10.04 s  x1    (125886,)
+      VXC_vv10nlc_hess_eval_f_t                               136.43 s  x1    (125886, 36)
+      VXC_vv10nlc_hess_eval_EUW_grid_response_offdiagonal      11.21 s  x1    (125886, 12)
+      VXC_vv10nlc_hess_eval_EUW_with_weight1                   66.63 s  x1    (125886, 36)
+  solve_mo1                                                   819.44 s  x1    
+    get_veff_resp_mo                                          818.89 s  x6    
+      nr_rks_fnlc_mo                                          806.81 s  x6    
+        VXC_vv10nlc_hess_eval_omega_derivative                  0.00 s  x6    (125886,)
+        VXC_vv10nlc_hess_eval_UWABCE                           60.22 s  x6    (125886,)
+        VXC_vv10nlc_hess_eval_f_t                             707.39 s  x6    (125886, 7) (125886, 26) (125886, 33) (125886, 36)
+P29PROF DONE
+== save part 28's tree as scratch/tree_p28, install part 29's vv10.cu, build
+88990f6568d35040b490a6ac1bd1d323  gpu4pyscf/gpu4pyscf/lib/gdft/vv10.cu
+27a0259843de43202f6d4f7b98839f56  bench/gpu/hess_nlc_parts.py
+build ok
+91f36c4a4d30ec2d0c7d39d3a3104461  gpu4pyscf/gpu4pyscf/lib/libgdft.so
+534e2e45b03724569fa0b1f612f3fa1b  /home/danny/Chemistry/my-pyscf/scratch/tree_p28/gpu4pyscf/lib/libgdft.so
+Function _Z38vv10_hess_eval_EUW_with_weight1_kernelILi24EEvPdS0_S0_PKdS2_S2_S2_S2_ii	REG:184	SHARED:0
+Function _Z38vv10_hess_eval_EUW_with_weight1_kernelILi18EEvPdS0_S0_PKdS2_S2_S2_S2_ii	REG:166	SHARED:0
+Function _Z38vv10_hess_eval_EUW_with_weight1_kernelILi12EEvPdS0_S0_PKdS2_S2_S2_S2_ii	REG:146	SHARED:0
+Function _Z38vv10_hess_eval_EUW_with_weight1_kernelILi6EEvPdS0_S0_PKdS2_S2_S2_S2_ii	REG:91	SHARED:0
+Function _Z42vv10_hess_eval_f_t_offdiagonal_wide_kernelILi36EEvPdS0_PKdS2_S2_S2_S2_S2_S2_S2_S2_S2_ii	REG:216	SHARED:0
+Function _Z42vv10_hess_eval_f_t_offdiagonal_wide_kernelILi30EEvPdS0_PKdS2_S2_S2_S2_S2_S2_S2_S2_S2_ii	REG:192	SHARED:0
+Function _Z42vv10_hess_eval_f_t_offdiagonal_wide_kernelILi24EEvPdS0_PKdS2_S2_S2_S2_S2_S2_S2_S2_S2_ii	REG:166	SHARED:0
+Function _Z42vv10_hess_eval_f_t_offdiagonal_wide_kernelILi18EEvPdS0_PKdS2_S2_S2_S2_S2_S2_S2_S2_S2_ii	REG:212	SHARED:0
+Function _Z42vv10_hess_eval_f_t_offdiagonal_wide_kernelILi12EEvPdS0_PKdS2_S2_S2_S2_S2_S2_S2_S2_S2_ii	REG:164	SHARED:0
+Function _Z42vv10_hess_eval_f_t_offdiagonal_wide_kernelILi6EEvPdS0_PKdS2_S2_S2_S2_S2_S2_S2_S2_S2_ii	REG:70	SHARED:0
+Function _Z32vv10_hess_eval_UWABCE_rot_kernelPdS_S_S_S_S_PKdS1_S1_S1_ii	REG:67	SHARED:30720
+== VV10 Hessian: benzene def2-SVP B97M-V, part 29, against part 28's (prof.log)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: benzene def2-svp b97m_v, grid response False, 143616 NLC grid points: E -232.0857485935, SCF 9 cycles 54.7 s, Hessian 582.9 s
+  partial_hess_elec                                            72.90 s  x1    
+    _get_enlc_deriv2                                           64.40 s  x1    
+      VXC_vv10nlc_hess_eval_omega_derivative                    0.00 s  x1    (125886,)
+      VXC_vv10nlc_hess_eval_UWABCE                              7.94 s  x1    (125886,)
+      VXC_vv10nlc_hess_eval_f_t                                51.51 s  x1    (125886, 36)
+  make_h1                                                     130.26 s  x1    
+    _get_vnlc_deriv1                                          124.04 s  x1    
+      VXC_vv10nlc_hess_eval_omega_derivative                    0.00 s  x1    (125886,)
+      VXC_vv10nlc_hess_eval_UWABCE                              7.94 s  x1    (125886,)
+      VXC_vv10nlc_hess_eval_f_t                                51.48 s  x1    (125886, 36)
+      VXC_vv10nlc_hess_eval_EUW_grid_response_offdiagonal      11.21 s  x1    (125886, 12)
+      VXC_vv10nlc_hess_eval_EUW_with_weight1                   41.36 s  x1    (125886, 36)
+  solve_mo1                                                   379.77 s  x1    
+    get_veff_resp_mo                                          379.66 s  x6    
+      nr_rks_fnlc_mo                                          367.57 s  x6    
+        VXC_vv10nlc_hess_eval_omega_derivative                  0.00 s  x6    (125886,)
+        VXC_vv10nlc_hess_eval_UWABCE                           47.66 s  x6    (125886,)
+        VXC_vv10nlc_hess_eval_f_t                             280.71 s  x6    (125886, 7) (125886, 26) (125886, 33) (125886, 36)
+  against hess_benzene_p28.npy: max |H - ref| 5.30e-12 (max |H| 7.57e-01)
+
+# 5) memcheck: the three prototypes with partial last chunks, and a water Hessian on small grids
+== memcheck: the three prototypes on 1000 points, 40 trials or derivatives (partial last chunks)
+vv10_ft_check 1000 40: ========= ERROR SUMMARY: 0 errors;
+vv10_euw_w1_check 1000 40: ========= ERROR SUMMARY: 0 errors;
+vv10_uwabce_check 1000: ========= ERROR SUMMARY: 0 errors;
+== memcheck: VV10 Hessian on water (small grids)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: water def2-svp b97m_v, grid response False, 3840 NLC grid points: E -76.3297243798, SCF 7 cycles 4.7 s, Hessian 64.8 s;========= ERROR SUMMARY: 0 errors;
+
+# 6) unit tests
+== unit tests
+hessian/tests/test_vv10_hessian.py: 14 passed, 2184 warnings in 604.76s (0:10:04)
+tdscf/tests/test_tdrks_vv10.py: 6 passed, 36 warnings in 157.60s (0:02:37)
+properties/tests/test_polarizability.py -k vv10: 2 passed, 6 deselected, 12 warnings in 25.72s
+P29VAL DONE

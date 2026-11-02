@@ -108,6 +108,10 @@ ap.add_argument('--j-prefactor', default='rsqrt', choices=['rsqrt', 'old'],
 ap.add_argument('--vv10', default='sym', choices=['sym', 'old'],
                 help="VV10's Fock kernel and the gradient's grid-response pair term (gdft/vv10.cu): sym evaluates each "
                      "pair of grid points once (parts 26 and 28)")
+ap.add_argument('--vv10-hess', default='wide', choices=['wide', 'old'],
+                help="the Hessian's VV10 kernels (gdft/vv10.cu): wide gives the response kernel f_t up to 36 trials per "
+                     "thread with the weight folded into the pair matrix, EUW_with_weight1 up to 24 derivatives per "
+                     "thread, and UWABCE each pair of points once (part 29)")
 ap.add_argument('--boys', default='new', choices=['new', 'old'],
                 help="the MD J engine's Boys function: new multiplies by tabulated 1/(n+1/2) in the series and the "
                      "downward recursion, and skips erf where it is 1 (part 25)")
@@ -682,6 +686,123 @@ if args.vv10 == 'sym':
         '}\n\n'))
     open(p, 'w').write(s)
     print('VV10 Fock kernel: each pair of grid points once (rotation within warps); the grid response\'s pair term too')
+
+# The Hessian's VV10 kernels (gdft/vv10.cu; hessian/rks.py _get_enlc_deriv2, _get_vnlc_deriv1 and nr_rks_fnlc_mo, the
+# CPHF's NLC response, once per Krylov cycle; part 29).
+# - f_t (vv10_hess_eval_f_t_offdiagonal_kernel): for each point i and trial t, sum_j w_j M_ij (rho_t, gamma_t)[t][j]
+#   with a 2x2 pair matrix M_ij of one division and ~50 other operations. A thread owned one i and 6 trials, so M_ij
+#   was evaluated once per 6 trials, against 6 operations per trial. With --vv10-hess wide a thread owns up to 36
+#   trials (the fewest chunks of at most 36, each a multiple of 6) and w_j is folded into M_ij, two FMAs per output
+#   per trial (bench/gpu/vv10_ft_check.cu).
+# - UWABCE (vv10_hess_eval_UWABCE_kernel): each pair of points once, part 26's rotation with six sums
+#   (bench/gpu/vv10_uwabce_check.cu).
+# - EUW_with_weight1 (the grid weights' derivatives, 3 natm of them, in _get_vnlc_deriv1): the same kernel with up to
+#   24 derivatives per thread instead of 6 (three sums each, so 36 would not fit in the registers); the arithmetic per
+#   output is unchanged (bench/gpu/vv10_euw_w1_check.cu).
+if args.vv10_hess == 'wide':
+    assert args.vv10 == 'sym', '--vv10-hess wide uses the tiles of --vv10 sym'
+    p = f'{args.tree}/gpu4pyscf/lib/gdft/vv10.cu'
+    s = open(p).read()
+    here = os.path.dirname(os.path.abspath(__file__))
+    fproto = open(os.path.join(here, 'vv10_ft_check.cu')).read()
+    f0 = fproto.index('// part 29: the same pair matrix, with w_j folded in')
+    f1 = fproto.index('struct Data {')
+    i0 = s.index('template <int n_trial_per_thread>\n__global__\nstatic void vv10_hess_eval_f_t_offdiagonal_kernel(')
+    i1 = s.index('__global__\nstatic void vv10_hess_eval_f_t_diagonal_kernel(')
+    s = s[:i0] + fproto[f0:f1] + s[i1:]
+    old = ("    {\n"
+           "        constexpr int n_trial_per_thread = 6; // Notice: ntrial is likely a multiple of 3\n"
+           "        const dim3 threads(NG_PER_BLOCK, 1);\n"
+           "        const dim3 blocks((ngrids + NG_PER_BLOCK - 1) / NG_PER_BLOCK,\n"
+           "                        (ntrial + n_trial_per_thread - 1) / n_trial_per_thread);\n"
+           "        vv10_hess_eval_f_t_offdiagonal_kernel<n_trial_per_thread> <<<blocks, threads, 0, stream>>> (\n"
+           "            f_rho_t, f_gamma_t,\n"
+           "            grid_coord, grid_weight, rho, omega, kappa,\n"
+           "            domega_drho, domega_dgamma, dkappa_drho,\n"
+           "            rho_t, gamma_t, ngrids, ntrial\n"
+           "        );\n"
+           "    }\n")
+    assert s.count(old) == 1, 'f_t launcher'
+    new = ("    if (ntrial > 0) {\n"
+           "        // up to 36 trials per thread (part 29), so that each pair's matrix serves that many: the fewest chunks\n"
+           "        // of at most 36 trials, each a multiple of 6\n"
+           "        const int n_chunk = (ntrial + 35) / 36;\n"
+           "        const int n_trial_per_thread = ((ntrial + n_chunk - 1) / n_chunk + 5) / 6 * 6;\n"
+           "        const dim3 threads(NG_PER_BLOCK, 1);\n"
+           "        const dim3 blocks((ngrids + NG_PER_BLOCK - 1) / NG_PER_BLOCK,\n"
+           "                          (ntrial + n_trial_per_thread - 1) / n_trial_per_thread);\n"
+           "#define F_T_OFFDIAGONAL(n) vv10_hess_eval_f_t_offdiagonal_wide_kernel<n> <<<blocks, threads, 0, stream>>> ( \\\n"
+           "            f_rho_t, f_gamma_t, grid_coord, grid_weight, rho, omega, kappa, \\\n"
+           "            domega_drho, domega_dgamma, dkappa_drho, rho_t, gamma_t, ngrids, ntrial)\n"
+           "        switch (n_trial_per_thread) {\n"
+           "            case 6: F_T_OFFDIAGONAL(6); break;\n"
+           "            case 12: F_T_OFFDIAGONAL(12); break;\n"
+           "            case 18: F_T_OFFDIAGONAL(18); break;\n"
+           "            case 24: F_T_OFFDIAGONAL(24); break;\n"
+           "            case 30: F_T_OFFDIAGONAL(30); break;\n"
+           "            default: F_T_OFFDIAGONAL(36); break;\n"
+           "        }\n"
+           "#undef F_T_OFFDIAGONAL\n"
+           "    }\n")
+    s = s.replace(old, new)
+    uproto = open(os.path.join(here, 'vv10_uwabce_check.cu')).read()
+    u0 = uproto.index('// part 29: U, W, A, B, C, E over each pair of points once')
+    u1 = uproto.index('static void run_rot(')
+    i0 = s.index('__global__\nstatic void vv10_hess_eval_UWABCE_kernel(')
+    i1 = s.index('__global__\nstatic void vv10_hess_eval_omega_derivative_kernel(')
+    s = s[:i0] + uproto[u0:u1] + s[i1:]
+    old = ("    const dim3 threads(NG_PER_BLOCK);\n"
+           "    const dim3 blocks((ngrids+NG_PER_BLOCK-1)/NG_PER_BLOCK);\n"
+           "    vv10_hess_eval_UWABCE_kernel<<<blocks, threads, 0, stream>>>(U, W, A, B, C, E,\n"
+           "                                                                 grid_coord, rho_weight, omega, kappa, ngrids);\n")
+    assert s.count(old) == 1, 'UWABCE launcher'
+    new = ("    // each pair of points once (part 29): the kernel sums into U, W, A, B, C, E, vv10_scale_UWABCE_kernel applies\n"
+           "    // the factors\n"
+           "    if (ngrids <= 0) {\n"
+           "        return 0;\n"
+           "    }\n"
+           "    double* outputs[6] = {U, W, A, B, C, E};\n"
+           "    for (double* x : outputs) {\n"
+           "        cudaMemsetAsync(x, 0, ngrids * sizeof(double), stream);\n"
+           "    }\n"
+           "    const int ntiles = (ngrids + VV10_TILE - 1) / VV10_TILE;\n"
+           "    const dim3 blocks(ntiles, (ntiles + VV10_JTILES - 1) / VV10_JTILES);\n"
+           "    vv10_hess_eval_UWABCE_rot_kernel<<<blocks, VV10_TILE, 0, stream>>>(U, W, A, B, C, E, grid_coord, rho_weight,\n"
+           "                                                                       omega, kappa, ngrids, VV10_JTILES);\n"
+           "    vv10_scale_UWABCE_kernel<<<(ngrids + 255) / 256, 256, 0, stream>>>(U, W, A, B, C, E, ngrids);\n")
+    s = s.replace(old, new)
+    old = ("    constexpr int n_derivative_per_thread = 6; // Notice: ntrial is always a multiple of 3\n"
+           "    const dim3 threads(NG_PER_BLOCK, 1);\n"
+           "    const dim3 blocks((ngrids + NG_PER_BLOCK - 1) / NG_PER_BLOCK,\n"
+           "                      (nderivative + n_derivative_per_thread - 1) / n_derivative_per_thread);\n"
+           "    vv10_hess_eval_EUW_with_weight1_kernel<n_derivative_per_thread> <<<blocks, threads, 0, stream>>> (\n"
+           "        Ew, Uw, Ww,\n"
+           "        grid_coord, grid_weight1, rho, omega, kappa,\n"
+           "        ngrids, nderivative\n"
+           "    );\n")
+    assert s.count(old) == 1, 'EUW_with_weight1 launcher'
+    new = ("    if (nderivative > 0) {\n"
+           "        // up to 24 derivatives per thread (part 29), so that each pair serves that many: the fewest chunks of\n"
+           "        // at most 24, each a multiple of 6 (with three sums per derivative, 36 would not fit in the registers)\n"
+           "        const int n_chunk = (nderivative + 23) / 24;\n"
+           "        const int n_derivative_per_thread = ((nderivative + n_chunk - 1) / n_chunk + 5) / 6 * 6;\n"
+           "        const dim3 threads(NG_PER_BLOCK, 1);\n"
+           "        const dim3 blocks((ngrids + NG_PER_BLOCK - 1) / NG_PER_BLOCK,\n"
+           "                          (nderivative + n_derivative_per_thread - 1) / n_derivative_per_thread);\n"
+           "#define EUW_WITH_WEIGHT1(n) vv10_hess_eval_EUW_with_weight1_kernel<n> <<<blocks, threads, 0, stream>>> ( \\\n"
+           "            Ew, Uw, Ww, grid_coord, grid_weight1, rho, omega, kappa, ngrids, nderivative)\n"
+           "        switch (n_derivative_per_thread) {\n"
+           "            case 6: EUW_WITH_WEIGHT1(6); break;\n"
+           "            case 12: EUW_WITH_WEIGHT1(12); break;\n"
+           "            case 18: EUW_WITH_WEIGHT1(18); break;\n"
+           "            default: EUW_WITH_WEIGHT1(24); break;\n"
+           "        }\n"
+           "#undef EUW_WITH_WEIGHT1\n"
+           "    }\n")
+    s = s.replace(old, new)
+    open(p, 'w').write(s)
+    print("VV10 Hessian: f_t with up to 36 trials per thread and w folded into the pair matrix; UWABCE each pair once; "
+          "EUW_with_weight1 with up to 24 derivatives per thread")
 
 # The MD J engine's Boys function (gvhf-rys/gamma_inc.cu, eval_gamma_inc_fn, which only gvhf-md includes; part 25). The
 # series branch (t < m/2 + 1/2) divided once per term, about 20 terms, and once per step of the downward recursion: a
