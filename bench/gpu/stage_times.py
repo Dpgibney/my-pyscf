@@ -5,7 +5,7 @@ all XC responses) only the outermost call counts. The ground-state gradient (gra
 its first call carries one-time start-up costs (in a GGA job, cuTENSOR's: NOTES part 18); that call's total is
 printed as well, and with --first-stages its stages too. Source scripts/node1-gpu-env.sh perf|base first.
 Usage: stage_times.py hess|grad|tdgrad [--xc b3lyp] [--basis def2-svp] [--mol caffeine] [--rpa] [--nstates 5]
-                      [--state 1] [--first-stages] [--out FILE]"""
+                      [--state 1] [--first-stages] [--grid-response] [--out FILE]"""
 import argparse
 import json
 import os
@@ -35,6 +35,7 @@ ap.add_argument('--rpa', action='store_true', help='TDDFT instead of TDA')
 ap.add_argument('--nstates', type=int, default=5)
 ap.add_argument('--state', type=int, default=1)
 ap.add_argument('--first-stages', action='store_true', help='grad: time the first call\'s stages as well')
+ap.add_argument('--grid-response', action='store_true', help='grad: with the grids\' response')
 ap.add_argument('--out', default=None)
 args = ap.parse_args()
 
@@ -72,6 +73,7 @@ mf.kernel()
 first = None
 if args.what == 'grad':
     job = mf.nuc_grad_method()
+    job.grid_response = args.grid_response
     run = job.kernel
     if not args.first_stages:
         cupy.cuda.Device().synchronize()
@@ -84,6 +86,11 @@ if args.what == 'grad':
     patch(type(job), 'get_ovlp', 'of it: overlap derivatives (get_ovlp)')
     patch(type(job), 'make_rdm1e', 'energy-weighted density (make_rdm1e)')
     patch(rks_grad, 'get_exc', 'XC term (get_exc)')
+    patch(rks_grad, 'get_exc_full_response', 'XC term with the grids\' response (get_exc_full_response)')
+    patch(rks_grad, 'get_nlc_exc', 'NLC term (get_nlc_exc)')
+    patch(rks_grad, 'get_nlc_exc_full_response', 'NLC term with the grids\' response (get_nlc_exc_full_response)')
+    if hasattr(rks_hess, 'get_dweight_dA'):
+        patch(rks_hess, 'get_dweight_dA', 'of it: grid weight derivatives (hessian.rks.get_dweight_dA)')
     patch(type(job), 'jk_energy_per_atom', '2e derivatives (jk_energy_per_atom)', 'ejk1')
     patch(type(job), 'grad_nuc', 'nuclear repulsion (grad_nuc)')
 elif args.what == 'tdgrad':
@@ -132,7 +139,7 @@ with GpuMonitor() as mon:
     cupy.cuda.Device().synchronize()
     total = time.perf_counter() - t0
 title = f'{args.mol} {args.basis} {args.xc} ' + {
-    'tdgrad': f'{"TDDFT" if args.rpa else "TDA"} gradient of state {args.state}', 'grad': 'gradient',
+    'tdgrad': f'{"TDDFT" if args.rpa else "TDA"} gradient of state {args.state}', 'grad': 'gradient' + (' with the grids\' response' if args.grid_response else ''),
     'hess': 'Hessian'}[args.what]
 print(f'{os.path.dirname(gpu4pyscf.__file__)}: {title}: {total:.2f} s' +
       (f' (first call {first:.2f} s)' if first else '') + f', SCF {mf.cycles} cycles, SM {mon.summary.get("sm_mhz")} MHz')

@@ -8,7 +8,10 @@ XC energy and XC matrix.
 With --ref, the tree under test computes the same at the stored orbitals, then runs its own SCF and gradient, and
 prints the largest differences.
 Usage: xc_grad_check.py --xc pbe [--basis def2-svp] [--mol caffeine] [--charge 0 --spin 0] (--save F | --ref F)
-A nonzero spin, or --uks, runs UKS."""
+A nonzero spin, or --uks, runs UKS. With --grid-response the gradients include the grids' response, and the
+stored results add get_exc_full_response at the orbitals, both with the orbitals attached to the density matrix
+(exc1_gr) and without them (exc1_gr_dm; the density-matrix path). For a functional with VV10, the NLC terms
+(get_nlc_exc, and get_nlc_exc_full_response with --grid-response) are compared the same way."""
 import argparse
 import os
 import sys
@@ -30,6 +33,7 @@ ap.add_argument('--mol', default='caffeine', choices=['caffeine', 'benzene'])
 ap.add_argument('--charge', type=int, default=0)
 ap.add_argument('--spin', type=int, default=0)
 ap.add_argument('--uks', action='store_true')
+ap.add_argument('--grid-response', action='store_true')
 g = ap.add_mutually_exclusive_group(required=True)
 g.add_argument('--save', default=None)
 g.add_argument('--ref', default=None)
@@ -52,19 +56,34 @@ def at_orbitals(mf, mo_coeff, mo_occ):
     ni = mf._numint
     exc1 = (uks_grad if uks else rks_grad).get_exc(ni, mol, mf.grids, mf.xc, dm)[1]
     nelec, excsum, vxc = (ni.nr_uks if uks else ni.nr_rks)(mol, mf.grids, mf.xc, dm)
-    return {'exc1': cupy.asnumpy(exc1), 'nelec': numpy.asarray(cupy.asnumpy(nelec), dtype=float),
-            'excsum': numpy.asarray(cupy.asnumpy(excsum), dtype=float), 'vxc': cupy.asnumpy(vxc)}
+    res = {'exc1': cupy.asnumpy(exc1), 'nelec': numpy.asarray(cupy.asnumpy(nelec), dtype=float),
+           'excsum': numpy.asarray(cupy.asnumpy(excsum), dtype=float), 'vxc': cupy.asnumpy(vxc)}
+    if mf.do_nlc():
+        xc = mf.xc if ni.libxc.is_nlc(mf.xc) else mf.nlc
+        res['enlc1'] = numpy.asarray(cupy.asnumpy(rks_grad.get_nlc_exc(ni, mol, mf.nlcgrids, xc, dm)[1]))
+        if args.grid_response:
+            nlc_response = rks_grad.get_nlc_exc_full_response
+            res['enlc1_gr'] = numpy.asarray(nlc_response(ni, mol, mf.nlcgrids, xc, dm)[0])
+            res['enlc1_gr_dm'] = numpy.asarray(nlc_response(ni, mol, mf.nlcgrids, xc, cupy.array(dm))[0])
+    if args.grid_response:
+        full_response = (uks_grad if uks else rks_grad).get_exc_full_response
+        res['exc1_gr'] = numpy.asarray(full_response(ni, mol, mf.grids, mf.xc, dm)[0])
+        res['exc1_gr_dm'] = numpy.asarray(full_response(ni, mol, mf.grids, mf.xc, cupy.array(dm))[0])
+    return res
 
 
 def scf_and_grad(mf):
     t0 = time.perf_counter()
     mf.kernel()
-    de = mf.nuc_grad_method().kernel()
+    g = mf.nuc_grad_method()
+    g.grid_response = args.grid_response
+    de = g.kernel()
     return {'e_tot': numpy.asarray(mf.e_tot), 'cycles': numpy.asarray(mf.cycles), 'de': numpy.asarray(de),
             'mo_coeff': cupy.asnumpy(mf.mo_coeff), 'mo_occ': cupy.asnumpy(mf.mo_occ)}, time.perf_counter() - t0
 
 
-case = f'{args.mol} {args.basis} {args.xc} {"UKS" if uks else "RKS"} (charge {args.charge}, spin {args.spin})'
+case = (f'{args.mol} {args.basis} {args.xc} {"UKS" if uks else "RKS"} (charge {args.charge}, spin {args.spin})'
+        + (', grids\' response' if args.grid_response else ''))
 tree = os.path.dirname(gpu4pyscf.__file__)
 if args.save:
     mf = new_mf()
@@ -77,6 +96,8 @@ else:
     ref = numpy.load(args.ref)
     mf = new_mf()
     mf.grids.build()
+    if mf.do_nlc():
+        mf.nlcgrids.build()
     got = at_orbitals(mf, ref['mo_coeff'], ref['mo_occ'])
 
     def diff(k):
@@ -84,7 +105,9 @@ else:
 
     print(f'{tree}: {case}, against {args.ref}')
     print('  at the stored orbitals: ' + ', '.join(f'{k} max|d| {diff(k)[0]:.2e} (max {diff(k)[1]:.1e})'
-                                                     for k in ('exc1', 'vxc', 'excsum', 'nelec')))
+                                                     for k in ('exc1', 'vxc', 'excsum', 'nelec', 'exc1_gr', 'exc1_gr_dm', 'enlc1',
+                                                               'enlc1_gr', 'enlc1_gr_dm')
+                                                     if k in ref.files))
     mf = new_mf()
     res, t = scf_and_grad(mf)
     print(f'  own SCF and gradient ({t:.1f} s): dE {float(res["e_tot"] - ref["e_tot"]):.2e}, cycles '

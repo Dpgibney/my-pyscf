@@ -4591,6 +4591,82 @@ gradient.
 - **The same change elsewhere:** the NLC gradient (`get_nlc_exc`) and the grid-response gradient
   (`get_exc_full_response`) still build the AO matrices; the TDDFT gradients' XC terms too.
 
+## GPU4PySCF investigation, part 20: the gradient's grid-response and NLC terms without the AO matrices (node1), 2026-11-01
+The user approved all of part 19's next steps ("All of those sound good"). They run one at a time, and this is the
+first: part 19's change in the gradient's remaining XC terms.
+- **Commits:** gpu4pyscf `perf` ab8e66a, merged into `exp/prim-screen` 0f32fb7 (node1's tree updated).
+- **Tools:** `stage_times.py grad --grid-response`; `xc_grad_check.py` compares the grid-response and NLC terms too;
+  `nlc_grad_time.py`; `nlc_profile.py`.
+- **Data:** `p20_grad_response_nlc.txt`.
+
+### Change (`grad/rks.py`, `grad/uks.py`)
+- **What changes:** `get_exc_full_response` (RKS, UKS), `get_nlc_exc` and `get_nlc_exc_full_response` now form
+  part 19's per-AO sums: `dot_rows` of the AO derivatives with dm·aow, dm·ao and dm·(w_τ ∇_j ao).
+- **What that replaces:**
+  - the accumulated (3, nao, nao) matrix (UKS: (2, 3, nao, nao)) and its `add_sparse` or fancy-index scatter;
+  - the per-block einsum for the grid's own atom;
+  - `contract_h1e_dm`.
+  The per-AO sums give both the atoms' terms and the grid atom's trace (2 Σ_μ).
+- **Two paths:**
+  - **With orbitals:** when the density matrix carries `mo_coeff` and `mo_occ`, as the gradients pass it, the
+    products go through the orbitals (`_exc1_rho`, `_exc1_ao_dots`), and so does the density on the grid.
+  - **Without them:** `cuest_wrapper` may pass a bare density matrix. Then the products are GEMMs with the block's
+    density matrix (`_exc1_ao_dots_dm`), still 3× fewer flops than before.
+  - For UKS NLC the total density matrix is the two spins' occupied orbitals side by side.
+
+### Exactness (`xc_grad_check.py`; ab75a1b stores, the new tree compares; conv_tol 1e−10)
+- **Grid response, caffeine/def2-SVP:**
+
+  | case | orbital path | density-matrix path | own SCF and gradient: ΔE, cycles, max \|Δg\| |
+  |---|---|---|---|
+  | RKS SVWN | 5.0e−16 | 5.3e−16 | −2.3e−13 Eh, 18 / 18, 3.8e−13 |
+  | RKS B3LYP | 6.7e−16 | 5.6e−16 | −1.1e−12 Eh, 15 / 15, 3.5e−13 |
+  | RKS r2SCAN | 1.1e−15 | 7.9e−16 | 9.1e−13 Eh, 16 / 16, 4.9e−13 |
+  | cation, UKS B3LYP | 4.7e−16 | 3.6e−16 | −2.3e−13 Eh, 26 / 26, 3.5e−13 |
+  | cation, UKS r2SCAN | 5.6e−16 | 5.6e−16 | 6.8e−13 Eh, 27 / 27, 2.5e−12 |
+
+  The term reaches 0.65.
+- **NLC, benzene/def2-SVP B97M-V** (VV10 on caffeine would mean 512 s per SCF):
+  - At fixed orbitals: `get_nlc_exc` agrees within 1.2e−18 (RKS) and 6.7e−19 (UKS), on values up to 7e−4. The
+    grid-response forms agree within 1.7e−18 on both paths, on values up to 1.5e−3.
+  - Each tree's own SCF: the same cycle counts (9 RKS, 11 UKS) and ΔE ≤ 2.3e−13 Eh. Gradients agree within 2.6e−13
+    (RKS) and 1.1e−9 Eh/bohr (UKS). The UKS difference is SCF convergence noise: at fixed orbitals UKS agrees to
+    1e−18.
+
+### Timings (GTX 1650 Super; ab75a1b, then the new tree)
+
+| caffeine, gradient with the grids' response | gradient | first call | XC term |
+|---|---|---|---|
+| def2-SVP B3LYP | 5.32 → 4.12 s (−23%) | 6.89 → 4.16 s | 2.63 → 1.46 s |
+| def2-SVP r2SCAN | 8.17 → 4.63 s (−43%) | 8.21 → 4.68 s | 5.61 → 2.07 s |
+| def2-TZVP PBE | 34.03 → 28.77 s (−15%) | 35.77 → 28.91 s | 7.60 → 2.31 s |
+
+- **What is left in the XC term:** the grid-weight derivatives (0.32 s) and the extra density pass on the
+  atom-sorted grid.
+- **NLC terms** (caffeine B97M-V, at PBE orbitals): `get_nlc_exc` 30.8 → 29.8 s, `get_nlc_exc_full_response`
+  64.9 → 63.8 s. The VV10 pair kernels take the rest (next section).
+
+### Where VV10 spends its time (`nlc_profile.py`, caffeine/def2-SVP B97M-V)
+- **SCF:** 512 s for 15 cycles. `nr_nlc_vxc` runs 16 times for 475 s, 29.7 s each, which is 93% of the SCF. The
+  NLC grid has as many points as the main grid (294,912).
+- **Gradient:** `get_nlc_exc` takes 30.7 s, of which the AO part is about 1 s and VV10's pair kernel the rest.
+- **The kernel** (`vv10.cu`, `vv10_fock_eval_UWE_kernel`) loops over all pairs of grid points, both orders.
+  - Per pair: r_ij², g_ij = ω_i r² + κ_i, g_ji, one FP64 reciprocal of g_ij g_ji (g_ij + g_ji), then E, U and W.
+  - On this card that is FP64-bound.
+  - The pair kernel Φ_ij is symmetric in i and j, and so are g_ij g_ji (g_ij + g_ji) and its reciprocal, so each
+    unordered pair is evaluated twice.
+- **Option (exact; not started, not yet approved):** evaluate each pair once and add its terms to both points.
+  - Tiles of pairs with J ≥ I; the j-sums by warp shuffles.
+  - About 1.6× fewer FP64 instructions, so a caffeine/def2-SVP B97M-V SCF of 512 s would take about 330 s, and its
+    gradient about 22 s instead of 34 s. Estimates.
+
+### Unit tests (the final tree)
+- `test_rks_grad.py` (15), `test_uks_grad.py` (12), `test_grid_response.py` (7) and `test_vv10_grid.py` (20) pass.
+
+### Next
+Part 21: the XC GEMMs, padding-free tiles and the meta-GGA τ triangle, starting with a benchmark
+(`xc_gemm_bench.py`).
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

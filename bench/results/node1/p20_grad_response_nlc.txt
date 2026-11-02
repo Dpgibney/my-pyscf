@@ -1,0 +1,228 @@
+# GPU4PySCF investigation part 20 (NOTES.md): the gradient's grid-response and NLC terms without the AO matrices.
+# GTX 1650 Super at 1530 MHz; caffeine and benzene, def2-SVP unless noted. "ab75a1b" is the unmodified tree
+# (scratch/tree_ab75a1b); "part-20" is exp/prim-screen 0f32fb7's Python files on the same libraries (scratch/tree_p20).
+#
+# Commands (node1):
+#   stage_times.py grad --xc X [--grid-response] on exp/prim-screen 1fc4576 (part 19)          (section 1)
+#   nlc_profile.py --xc b97m_v (run as scratch/p20/nlc_prof.py): the SCF's nr_nlc_vxc calls and get_nlc_exc under cProfile (section 2)
+#   xc_grad_check.py --xc X [--charge 1 --spin 1] [--mol benzene] --grid-response --save/--ref  (sections 3, 6)
+#   stage_times.py grad --xc X --grid-response, ab75a1b then part-20                          (section 4)
+#   nlc_grad_time.py (caffeine B97M-V NLC terms at PBE orbitals), ab75a1b then part-20         (section 7)
+#   pytest -q on the part-20 tree                                                              (sections 5, 8)
+
+# 1) before: gradient stages with the grids' response and with VV10 (part 19's tree)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp gradient with the grids' response: 5.28 s (first call 6.87 s), SCF 15 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      2.62 s  49.6%  XC term with the grids' response (get_exc_full_response), 1 calls
+      2.59 s  49.1%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.32 s   6.0%  of it: grid weight derivatives (hessian.rks.get_dweight_dA), 2 calls
+      0.07 s   1.4%  1e terms (_hcore_energy), 1 calls
+      0.06 s   1.2%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.2%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp r2scan gradient with the grids' response: 8.18 s (first call 8.21 s), SCF 16 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      5.61 s  68.6%  XC term with the grids' response (get_exc_full_response), 1 calls
+      2.49 s  30.5%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.32 s   3.9%  of it: grid weight derivatives (hessian.rks.get_dweight_dA), 2 calls
+      0.07 s   0.9%  1e terms (_hcore_energy), 1 calls
+      0.06 s   0.8%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.1%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp b97m_v gradient: 34.10 s (first call 34.15 s), SCF 15 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+     30.66 s  89.9%  NLC term (get_nlc_exc), 1 calls
+      2.49 s   7.3%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.87 s   2.6%  XC term (get_exc), 1 calls
+      0.07 s   0.2%  1e terms (_hcore_energy), 1 calls
+      0.06 s   0.2%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.0%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp b97m_v gradient with the grids' response: 73.00 s (first call 73.13 s), SCF 15 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+     64.82 s  88.8%  NLC term with the grids' response (get_nlc_exc_full_response), 1 calls
+      5.61 s   7.7%  XC term with the grids' response (get_exc_full_response), 1 calls
+      2.50 s   3.4%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.63 s   0.9%  of it: grid weight derivatives (hessian.rks.get_dweight_dA), 3 calls
+      0.07 s   0.1%  1e terms (_hcore_energy), 1 calls
+      0.06 s   0.1%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.0%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+
+# 2) where VV10 spends its time (B97M-V): the SCF's nr_nlc_vxc calls, then get_nlc_exc under cProfile
+SCF 511.7 s, 15 cycles; nr_nlc_vxc 16 calls, 474.89 s (first 30.11, then 29.65 s each)
+grids 294912 points, nlcgrids 294912 points
+== get_nlc_exc call 1: 30.67 s
+         50742 function calls in 30.672 seconds
+   Ordered by: cumulative time
+   List reduced from 225 to 18 due to restriction <18>
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.033    0.033   30.672   30.672 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:299(get_nlc_exc)
+       72    0.002    0.000   29.354    0.408 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/linalg/_einsum.py:444(einsum)
+       72    0.001    0.000   29.350    0.408 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/linalg/_einsum.py:359(reduced_binary_einsum)
+       72    0.001    0.000   29.347    0.408 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/_core/_gufuncs.py:539(__call__)
+       72    0.000    0.000   29.341    0.408 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/_core/_gufuncs.py:388(_apply_func_to_inputs)
+       72   29.341    0.408   29.341    0.408 {built-in method cupy._core._routines_linalg.matmul}
+        1    0.000    0.000    0.788    0.788 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:371(_reduce_to_atom)
+        1    0.000    0.000    0.788    0.788 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/__init__.py:782(asnumpy)
+        1    0.788    0.788    0.788    0.788 {method 'get' of 'cupy._core.core._ndarray_base' objects}
+      146    0.002    0.000    0.290    0.002 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:2034(_block_loop)
+      144    0.281    0.002    0.286    0.002 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:56(eval_ao)
+       72    0.168    0.002    0.182    0.003 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:268(eval_rho2)
+       72    0.002    0.000    0.020    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:430(_gga_grad_sum_)
+      144    0.001    0.000    0.014    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:418(_d1_dot_)
+      144    0.000    0.000    0.012    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/lib/cutensor.py:163(contract)
+      144    0.002    0.000    0.012    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/lib/cutensor.py:69(contraction)
+       72    0.001    0.000    0.011    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:189(_eval_rho2)
+       72    0.003    0.000    0.009    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:231(_eval_rho2_gga)
+== get_nlc_exc call 2: 30.67 s
+         49986 function calls in 30.666 seconds
+   Ordered by: cumulative time
+   List reduced from 195 to 18 due to restriction <18>
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1   29.142   29.142   30.666   30.666 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:299(get_nlc_exc)
+        1    0.000    0.000    0.788    0.788 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:371(_reduce_to_atom)
+        1    0.000    0.000    0.788    0.788 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/__init__.py:782(asnumpy)
+        1    0.788    0.788    0.788    0.788 {method 'get' of 'cupy._core.core._ndarray_base' objects}
+      146    0.002    0.000    0.512    0.004 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:2034(_block_loop)
+      144    0.504    0.003    0.509    0.004 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:56(eval_ao)
+       72    0.168    0.002    0.182    0.003 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:268(eval_rho2)
+       72    0.002    0.000    0.020    0.000 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/linalg/_einsum.py:444(einsum)
+       72    0.002    0.000    0.017    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:430(_gga_grad_sum_)
+       72    0.001    0.000    0.016    0.000 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/linalg/_einsum.py:359(reduced_binary_einsum)
+       72    0.001    0.000    0.013    0.000 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/_core/_gufuncs.py:539(__call__)
+      144    0.001    0.000    0.012    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:418(_d1_dot_)
+       72    0.001    0.000    0.011    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:189(_eval_rho2)
+      144    0.000    0.000    0.010    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/lib/cutensor.py:163(contract)
+       72    0.003    0.000    0.009    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:231(_eval_rho2_gga)
+      144    0.002    0.000    0.009    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/lib/cutensor.py:69(contraction)
+       72    0.000    0.000    0.007    0.000 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/_core/_gufuncs.py:388(_apply_func_to_inputs)
+       72    0.007    0.000    0.007    0.000 {built-in method cupy._core._routines_linalg.matmul}
+
+# 3) exactness with the grids' response (caffeine)
+== exactness with the grids response: ab75a1b saves, the part-20 tree compares
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp svwn RKS (charge 0, spin 0), grids' response: saved scratch/p20/ref_gr_svp_svwn.npz; E -674.234049104968, 18 cycles, SCF and gradient 26.9 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_p20/gpu4pyscf: caffeine def2-svp svwn RKS (charge 0, spin 0), grids' response, against scratch/p20/ref_gr_svp_svwn.npz
+  at the stored orbitals: exc1 max|d| 2.16e-15 (max 3.2e-01), vxc max|d| 0.00e+00 (max 2.9e+00), excsum max|d| 0.00e+00 (max 8.6e+01), nelec max|d| 0.00e+00 (max 1.0e+02), exc1_gr max|d| 5.00e-16 (max 6.4e-01), exc1_gr_dm max|d| 5.27e-16 (max 6.4e-01)
+  own SCF and gradient (24.5 s): dE -2.27e-13, cycles 18 against 18, gradient max|d| 3.84e-13 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp b3lyp RKS (charge 0, spin 0), grids' response: saved scratch/p20/ref_gr_svp_b3lyp.npz; E -679.812748639827, 15 cycles, SCF and gradient 41.7 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_p20/gpu4pyscf: caffeine def2-svp b3lyp RKS (charge 0, spin 0), grids' response, against scratch/p20/ref_gr_svp_b3lyp.npz
+  at the stored orbitals: exc1 max|d| 1.29e-15 (max 2.5e-01), vxc max|d| 4.44e-16 (max 2.5e+00), excsum max|d| 0.00e+00 (max 7.4e+01), nelec max|d| 0.00e+00 (max 1.0e+02), exc1_gr max|d| 6.66e-16 (max 4.9e-01), exc1_gr_dm max|d| 5.55e-16 (max 4.9e-01)
+  own SCF and gradient (36.7 s): dE -1.14e-12, cycles 15 against 15, gradient max|d| 3.45e-13 (max 1.6e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp r2scan RKS (charge 0, spin 0), grids' response: saved scratch/p20/ref_gr_svp_r2scan.npz; E -679.452965010406, 16 cycles, SCF and gradient 47.1 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_p20/gpu4pyscf: caffeine def2-svp r2scan RKS (charge 0, spin 0), grids' response, against scratch/p20/ref_gr_svp_r2scan.npz
+  at the stored orbitals: exc1 max|d| 1.78e-15 (max 3.2e-01), vxc max|d| 0.00e+00 (max 3.3e+00), excsum max|d| 0.00e+00 (max 9.2e+01), nelec max|d| 0.00e+00 (max 1.0e+02), exc1_gr max|d| 1.05e-15 (max 6.4e-01), exc1_gr_dm max|d| 7.91e-16 (max 6.4e-01)
+  own SCF and gradient (41.9 s): dE 9.09e-13, cycles 16 against 16, gradient max|d| 4.87e-13 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp b3lyp UKS (charge 1, spin 1), grids' response: saved scratch/p20/ref_gr_svp_uks_b3lyp.npz; E -679.510720087199, 26 cycles, SCF and gradient 79.1 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_p20/gpu4pyscf: caffeine def2-svp b3lyp UKS (charge 1, spin 1), grids' response, against scratch/p20/ref_gr_svp_uks_b3lyp.npz
+  at the stored orbitals: exc1 max|d| 7.42e-16 (max 2.5e-01), vxc max|d| 4.44e-16 (max 2.5e+00), excsum max|d| 0.00e+00 (max 7.4e+01), nelec max|d| 0.00e+00 (max 5.1e+01), exc1_gr max|d| 4.72e-16 (max 5.0e-01), exc1_gr_dm max|d| 3.61e-16 (max 5.0e-01)
+  own SCF and gradient (75.1 s): dE -2.27e-13, cycles 26 against 26, gradient max|d| 3.46e-13 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp r2scan UKS (charge 1, spin 1), grids' response: saved scratch/p20/ref_gr_svp_uks_r2scan.npz; E -679.154280136093, 27 cycles, SCF and gradient 142.5 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_p20/gpu4pyscf: caffeine def2-svp r2scan UKS (charge 1, spin 1), grids' response, against scratch/p20/ref_gr_svp_uks_r2scan.npz
+  at the stored orbitals: exc1 max|d| 9.71e-16 (max 3.2e-01), vxc max|d| 0.00e+00 (max 3.3e+00), excsum max|d| 0.00e+00 (max 9.1e+01), nelec max|d| 0.00e+00 (max 5.1e+01), exc1_gr max|d| 5.55e-16 (max 6.5e-01), exc1_gr_dm max|d| 5.55e-16 (max 6.5e-01)
+  own SCF and gradient (133.7 s): dE 6.82e-13, cycles 27 against 27, gradient max|d| 2.51e-12 (max 1.4e-01)
+
+# 4) gradient stages with the grids' response
+== gradient stages with the grids response: ab75a1b, then the part-20 tree
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp b3lyp gradient with the grids' response: 5.32 s (first call 6.89 s), SCF 15 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      2.63 s  49.3%  XC term with the grids' response (get_exc_full_response), 1 calls
+      2.62 s  49.3%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.32 s   5.9%  of it: grid weight derivatives (hessian.rks.get_dweight_dA), 2 calls
+      0.07 s   1.4%  1e terms (_hcore_energy), 1 calls
+      0.06 s   1.2%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.2%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/scratch/tree_p20/gpu4pyscf: caffeine def2-svp b3lyp gradient with the grids' response: 4.12 s (first call 4.16 s), SCF 15 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      2.59 s  62.8%  2e derivatives (jk_energy_per_atom), 1 calls
+      1.46 s  35.4%  XC term with the grids' response (get_exc_full_response), 1 calls
+      0.32 s   7.8%  of it: grid weight derivatives (hessian.rks.get_dweight_dA), 2 calls
+      0.07 s   1.8%  1e terms (_hcore_energy), 1 calls
+      0.06 s   1.5%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.2%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp r2scan gradient with the grids' response: 8.17 s (first call 8.21 s), SCF 16 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      5.61 s  68.6%  XC term with the grids' response (get_exc_full_response), 1 calls
+      2.49 s  30.5%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.32 s   3.9%  of it: grid weight derivatives (hessian.rks.get_dweight_dA), 2 calls
+      0.07 s   0.9%  1e terms (_hcore_energy), 1 calls
+      0.06 s   0.8%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.1%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/scratch/tree_p20/gpu4pyscf: caffeine def2-svp r2scan gradient with the grids' response: 4.63 s (first call 4.68 s), SCF 16 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      2.49 s  53.8%  2e derivatives (jk_energy_per_atom), 1 calls
+      2.07 s  44.6%  XC term with the grids' response (get_exc_full_response), 1 calls
+      0.32 s   6.8%  of it: grid weight derivatives (hessian.rks.get_dweight_dA), 2 calls
+      0.07 s   1.6%  1e terms (_hcore_energy), 1 calls
+      0.06 s   1.3%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.2%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-tzvp pbe gradient with the grids' response: 34.03 s (first call 35.77 s), SCF 18 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+     26.29 s  77.3%  2e derivatives (jk_energy_per_atom), 1 calls
+      7.60 s  22.3%  XC term with the grids' response (get_exc_full_response), 1 calls
+      0.31 s   0.9%  of it: grid weight derivatives (hessian.rks.get_dweight_dA), 2 calls
+      0.14 s   0.4%  1e terms (_hcore_energy), 1 calls
+      0.12 s   0.4%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.02 s   0.0%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/scratch/tree_p20/gpu4pyscf: caffeine def2-tzvp pbe gradient with the grids' response: 28.77 s (first call 28.91 s), SCF 18 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+     26.32 s  91.5%  2e derivatives (jk_energy_per_atom), 1 calls
+      2.31 s   8.0%  XC term with the grids' response (get_exc_full_response), 1 calls
+      0.31 s   1.1%  of it: grid weight derivatives (hessian.rks.get_dweight_dA), 2 calls
+      0.14 s   0.5%  1e terms (_hcore_energy), 1 calls
+      0.12 s   0.4%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.02 s   0.1%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+
+# 5) unit tests (before the NLC change)
+== unit tests on the part-20 tree
+grad/tests/test_grid_response.py: 
+grad/tests/test_grid_response.py: 7 passed, 198 warnings in 60.17s (0:01:00)
+grad/tests/test_rks_grad.py: 
+grad/tests/test_rks_grad.py: 15 passed, 138 warnings in 107.86s (0:01:47)
+grad/tests/test_uks_grad.py: 
+grad/tests/test_uks_grad.py: 12 passed, 48 warnings in 112.39s (0:01:52)
+
+# 6) the final rks.py, then NLC exactness (benzene B97M-V)
+== the final rks.py against the stored grids-response results (caffeine def2-SVP B3LYP)
+/home/danny/Chemistry/my-pyscf/scratch/tree_p20/gpu4pyscf: caffeine def2-svp b3lyp RKS (charge 0, spin 0), grids' response, against scratch/p20/ref_gr_svp_b3lyp.npz
+  at the stored orbitals: exc1 max|d| 1.29e-15 (max 2.5e-01), vxc max|d| 4.44e-16 (max 2.5e+00), excsum max|d| 0.00e+00 (max 7.4e+01), nelec max|d| 0.00e+00 (max 1.0e+02), exc1_gr max|d| 6.66e-16 (max 4.9e-01), exc1_gr_dm max|d| 5.55e-16 (max 4.9e-01)
+  own SCF and gradient (36.7 s): dE -6.82e-13, cycles 15 against 15, gradient max|d| 5.19e-13 (max 1.6e-01)
+== NLC exactness (benzene def2-SVP B97M-V): ab75a1b saves, the final part-20 tree compares
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: benzene def2-svp b97m_v RKS (charge 0, spin 0): saved scratch/p20/ref_nlc_benz.npz; E -232.085748593480, 9 cycles, SCF and gradient 89.0 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_p20/gpu4pyscf: benzene def2-svp b97m_v RKS (charge 0, spin 0), against scratch/p20/ref_nlc_benz.npz
+  at the stored orbitals: exc1 max|d| 5.82e-16 (max 1.4e-01), vxc max|d| 0.00e+00 (max 2.6e+00), excsum max|d| 0.00e+00 (max 3.5e+01), nelec max|d| 0.00e+00 (max 4.2e+01), enlc1 max|d| 1.16e-18 (max 7.0e-04)
+  own SCF and gradient (86.0 s): dE 0.00e+00, cycles 9 against 9, gradient max|d| 2.58e-13 (max 2.9e-03)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: benzene def2-svp b97m_v RKS (charge 0, spin 0), grids' response: saved scratch/p20/ref_nlc_benz_gr.npz; E -232.085748593480, 9 cycles, SCF and gradient 97.0 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_p20/gpu4pyscf: benzene def2-svp b97m_v RKS (charge 0, spin 0), grids' response, against scratch/p20/ref_nlc_benz_gr.npz
+  at the stored orbitals: exc1 max|d| 9.32e-16 (max 1.4e-01), vxc max|d| 0.00e+00 (max 2.6e+00), excsum max|d| 0.00e+00 (max 3.5e+01), nelec max|d| 0.00e+00 (max 4.2e+01), exc1_gr max|d| 4.63e-16 (max 2.8e-01), exc1_gr_dm max|d| 4.58e-16 (max 2.8e-01), enlc1 max|d| 1.48e-18 (max 7.0e-04), enlc1_gr max|d| 1.52e-18 (max 1.4e-03), enlc1_gr_dm max|d| 1.19e-18 (max 1.4e-03)
+  own SCF and gradient (94.0 s): dE -1.71e-13, cycles 9 against 9, gradient max|d| 2.23e-13 (max 2.9e-03)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: benzene def2-svp b97m_v UKS (charge 1, spin 1): saved scratch/p20/ref_nlc_benz_uks.npz; E -231.745642645468, 11 cycles, SCF and gradient 109.8 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_p20/gpu4pyscf: benzene def2-svp b97m_v UKS (charge 1, spin 1), against scratch/p20/ref_nlc_benz_uks.npz
+  at the stored orbitals: exc1 max|d| 5.19e-16 (max 1.5e-01), vxc max|d| 0.00e+00 (max 2.6e+00), excsum max|d| 0.00e+00 (max 3.5e+01), nelec max|d| 0.00e+00 (max 2.1e+01), enlc1 max|d| 6.67e-19 (max 7.3e-04)
+  own SCF and gradient (106.6 s): dE -2.27e-13, cycles 11 against 11, gradient max|d| 1.10e-09 (max 4.2e-02)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: benzene def2-svp b97m_v UKS (charge 1, spin 1), grids' response: saved scratch/p20/ref_nlc_benz_uks_gr.npz; E -231.745642645468, 11 cycles, SCF and gradient 117.7 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_p20/gpu4pyscf: benzene def2-svp b97m_v UKS (charge 1, spin 1), grids' response, against scratch/p20/ref_nlc_benz_uks_gr.npz
+  at the stored orbitals: exc1 max|d| 6.70e-16 (max 1.5e-01), vxc max|d| 0.00e+00 (max 2.6e+00), excsum max|d| 0.00e+00 (max 3.5e+01), nelec max|d| 0.00e+00 (max 2.1e+01), exc1_gr max|d| 3.05e-16 (max 3.0e-01), exc1_gr_dm max|d| 2.78e-16 (max 3.0e-01), enlc1 max|d| 8.72e-19 (max 7.3e-04), enlc1_gr max|d| 1.73e-18 (max 1.5e-03), enlc1_gr_dm max|d| 1.73e-18 (max 1.5e-03)
+  own SCF and gradient (114.7 s): dE -5.68e-14, cycles 11 against 11, gradient max|d| 3.21e-10 (max 4.2e-02)
+
+# 7) NLC terms, caffeine B97M-V at PBE orbitals
+== NLC gradient terms, caffeine def2-SVP B97M-V at PBE orbitals: ab75a1b, then the final part-20 tree
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp b97m_v at pbe orbitals, 294912 NLC grid points: get_nlc_exc 30.81 s, get_nlc_exc_full_response 64.88 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_p20/gpu4pyscf: caffeine def2-svp b97m_v at pbe orbitals, 294912 NLC grid points: get_nlc_exc 29.77 s, get_nlc_exc_full_response 63.80 s
+
+# 8) unit tests on the final part-20 tree
+== unit tests on the final part-20 tree
+grad/tests/test_rks_grad.py: 
+grad/tests/test_rks_grad.py: 15 passed, 138 warnings in 108.06s (0:01:48)
+grad/tests/test_uks_grad.py: 
+grad/tests/test_uks_grad.py: 12 passed, 48 warnings in 112.31s (0:01:52)
+grad/tests/test_grid_response.py: 
+grad/tests/test_grid_response.py: 7 passed, 198 warnings in 60.35s (0:01:00)
+grad/tests/test_vv10_grid.py: 
+grad/tests/test_vv10_grid.py: 20 passed, 508 warnings in 601.27s (0:10:01)
