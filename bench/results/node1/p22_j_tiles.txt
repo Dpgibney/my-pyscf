@@ -1,0 +1,89 @@
+# GPU4PySCF investigation part 22 (NOTES.md): the J engine's launch tiles sized to fill the SMs.
+# GTX 1650 Super at 1530 MHz (20 SMs); caffeine; J at the converged B3LYP densities (scratch/dm_caf_b3lyp.npy,
+# scratch/dm_caf_tzvp_b3lyp.npy). "N dm" builds N densities at once: the density and N-1 symmetric variations with its
+# sparsity (jk_at_dm.py --ndm N), which run the multi-density kernels (unrolled_md_j_4dm.cu, md_j_4dm_kernel).
+# Trees:
+#   part 21    scratch/tree_p21: exp/prim-screen c6c7ce0, fixed tiles
+#   unrolled   the main tree with exp/prim-screen ef2327e's unrolled kernels: run-time bra tiles, at least
+#              MD_J_BLOCKS_PER_SM blocks per SM (64 unless swept)
+#   + generic  scratch/tree_p22b: also perf 452c283's j_engine.py, the generic kernel's bra tile cut the same way
+#   final      exp/prim-screen fb338f2: both, and no empty bra tiles (md_j_grid_x, section 5)
+#
+# Commands (node1; the scripts are in scratch/):
+#   p22_run.sh                  jk_at_dm.py --part j, scf_parts.py and unit tests on the first build (4 blocks per SM)
+#   p22_sweep.sh, p22_sweep2.sh rebuild at MD_J_BLOCKS_PER_SM 1, 2, 8, 16, 4, then 32, 64, 128, 256, 4; J  (section 2)
+#   p22_final.sh                J and scf_parts.py --verbose 6 at 64 blocks per SM against part 21; unit tests
+#                                                                                              (sections 1, 4, 7)
+#   p22b.sh                     the generic kernel's cut                                       (sections 3, 4)
+#   p22_memcheck.sh, p22_fix.sh compute-sanitizer --tool memcheck on j_memcheck.py (CuPy's memory pool off),
+#                               before and after the fix; J and unit tests on the final tree   (sections 5, 6, 7)
+
+# 1) J at fixed densities (jk_at_dm.py --part j --repeat 5, median s): part 21, then the unrolled kernels' run-time tiles
+case            part 21   unrolled   max |dJ|   (max |J|)
+def2-SVP          0.778      0.504    5.7e-13     (33.5)
+def2-TZVP         5.396      4.966    8.9e-14     (35.5)
+def2-SVP 2 dm     0.746      0.664    7.7e-13     (34.7)
+def2-SVP 4 dm     1.071      0.960    7.7e-13     (34.8)
+
+# 2) blocks per SM (MD_J_BLOCKS_PER_SM), the unrolled kernels only: J, median of 5 (s)
+blocks/SM   def2-SVP   def2-TZVP   def2-SVP 2 dm
+part 21        0.778       5.396        0.746
+  1            0.632       5.382        0.736
+  2            0.610       5.352        0.732
+  4            0.563       5.256        0.704      (repeated: 0.562, 5.257, 0.704; p22_run.sh: 0.566, 5.253, 0.704)
+  8            0.537       5.140        0.690
+ 16            0.516       5.052        0.675
+ 32            0.508       4.985        0.667
+ 64            0.503       4.964        0.664
+128            0.503       4.957        0.664
+256            0.503       4.959        0.666
+Largest |dJ| against part 21 over the sweep: 9.9e-13.
+
+# 3) the generic kernel's bra tile cut too (j_engine.py _fill_sms_tilex, 64 blocks per SM): J, median of 5 (s)
+case            part 21   unrolled   + generic   max |dJ| (+ generic)
+def2-SVP          0.778      0.504       0.500    5.7e-13
+def2-TZVP         5.396      4.966       4.873    9.6e-14
+def2-SVP 2 dm     0.746      0.664       0.658    7.7e-13
+def2-SVP 4 dm     1.071      0.960       0.952    7.7e-13
+def2-TZVP 2 dm    7.513*     7.351       7.297    6.0e-14
+* median of 3 (the run that wrote the reference)
+
+# 4) SCFs (scf_parts.py --verbose 6, conv_tol 1e-10; part 21 -> unrolled, and -> + generic for def2-TZVP)
+caffeine         E (Eh)            cycles   J first (s)              J per cycle (s)          SCF (s)
+def2-SVP PBE     -679.0403707179   18, 18   0.312 -> 0.142           0.685 -> 0.378           20.81 -> 15.13
+def2-SVP B3LYP   -679.8127486398   15, 15   0.312 -> 0.142           0.693 -> 0.388           35.21 -> 30.51
+def2-TZVP PBE    -679.7849175513   18, 18,  1.101 -> 0.851 -> 0.830  4.215 -> 3.786 -> 3.667  97.00 -> 89.05 -> 86.75
+                                   18
+The energies agree to the printed digits. XC and K are unchanged (def2-SVP B3LYP: XC 0.400 -> 0.399 s per cycle,
+K 1.135 -> 1.138 s).
+
+# 5) compute-sanitizer memcheck (j_memcheck.py: with CuPy's memory pool off, every array is its own cudaMalloc)
+ef2327e, def2-SVP, 1 and 2 densities (memcheck stops the kernel at the first error):
+  ========= Invalid __global__ read of size 4 bytes
+  =========     Access at 0x7c9d3e97a300 is out of bounds
+  =========     and is 93 bytes after the nearest allocation at 0x7c9d3e975600 of size 19,620 bytes
+  RuntimeError: MD_build_j kernel for (ps|ss) failed
+  The (ps) pairs' q_cond_ij: 4905 pairs, 307 batches of 16; the read is at pair 4928, batch 308, the first of a block
+  past the last tile.
+final (no empty bra tiles):
+  def2-svp, densities: 1       ERROR SUMMARY: 0 errors
+  def2-svp, densities: 2       ERROR SUMMARY: 0 errors
+  def2-tzvp, densities: 1      ERROR SUMMARY: 0 errors
+  def2-tzvp, densities: 2      ERROR SUMMARY: 0 errors
+
+# 6) J at fixed densities on the final tree, median of 5 (s); max |dJ| against part 21
+case             time s   max |dJ|   (max |J|)
+def2-SVP          0.500   5.7e-13   (33.5)
+def2-TZVP         4.868   9.6e-14   (35.5)
+def2-SVP 2 dm     0.657   7.7e-13   (34.7)
+def2-SVP 4 dm     0.950   7.7e-13   (34.8)
+def2-TZVP 2 dm    7.294   6.0e-14   (35.9)
+
+# 7) unit tests (pytest -q)
+file                           unrolled              + generic             final (fixed)
+scf/tests/test_scf_j_engine.py 8 passed              8 passed              8 passed
+scf/tests/test_scf_jk.py       11 passed             11 passed             11 passed
+dft/tests/test_rks.py          17 passed, 1 skipped  17 passed, 1 skipped  17 passed, 1 skipped
+dft/tests/test_uks.py          10 passed             10 passed             10 passed
+tdscf/tests/test_tdrks.py      28 passed             28 passed             28 passed
+(unrolled: p22_final.sh; + generic: tree_p22b; final: p22_fix.sh)

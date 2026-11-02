@@ -18,12 +18,15 @@ generic kernel, built into libgvhf_rys and tried by RYS_build_k after the unroll
 classes of part 7; off leaves them out.
 PRIM_CUTOFF (vhf.cuh) is e^-60 = 8.8e-27, libcint's expcutoff. A skipped primitive pair enters its integrals with a
 factor below that, many orders of magnitude under the SCF's 1e-13 shell-quartet cutoff.
+--j-tiles auto makes the bra tile of the J engine's unrolled kernels (unrolled_md_j.cu, unrolled_md_j_4dm.cu) a
+run-time value, chosen so that a launch fills the SMs (part 22).
 --gen-ip2 writes generated_ejk_ip2.cu (gen_rys_ejk_ip2.py): the Hessian's second-derivative kernels with sums per
 Cartesian tuple, tried by RYS_per_atom_jk_ip2_type12 and _type3 before their unrolled and generic kernels.
 Usage: exp_prim_screen.py TREE [--base perf] [--barrier keep|remove] [--ket none|zero|cutoff]
                                [--bra none|zero|cutoff] [--multi on|off] [--launch 128x4|off|NSQxBLOCKS|env]
                                [--generic on|off] [--gen-k CLASS:NSQxGS,...|off] [--gen-first]
-                               [--gen-ip2 KIND:CLASS:NSQxGS,...|off] [--gen-ip2-files N] [--gen-ip2-env]"""
+                               [--gen-ip2 KIND:CLASS:NSQxGS,...|off] [--gen-ip2-files N] [--gen-ip2-env]
+                               [--j-tiles auto|off] [--j-blocks-per-sm 64]"""
 import argparse
 import os
 import re
@@ -81,6 +84,10 @@ ap.add_argument('--gen-first', action='store_true',
                      'GPU4PYSCF_RYS_GEN_OFF=1 skips them')
 ap.add_argument('--generic', default='on', choices=['on', 'off'],
                 help='generic kernels: aij and aj/aij from registers in the root loop, and no TRR on padding quartets')
+ap.add_argument('--j-tiles', default='auto', choices=['auto', 'off'],
+                help="J engine (gvhf-md): auto picks the unrolled kernels' bra tile at run time to fill the SMs")
+ap.add_argument('--j-blocks-per-sm', type=int, default=64,
+                help='--j-tiles auto: the least blocks per SM a J launch gets (twice that for diagonal classes)')
 ap.add_argument('--launch', default='128x4',
                 help="launch shape of the one-thread kernels: off (one block of 256 per SM, as in v1.9.0), NSQxBLOCKS "
                      "(blocks of NSQ threads, at most BLOCKS per SM), or env (K and J+K from GPU4PYSCF_RYS_NSQ and "
@@ -499,6 +506,79 @@ if args.gen_ip2 != 'off':
             new = f'    if (!{gen} &&\n        !{unr}) {{\n'
         s = s.replace(old, new)
     open(p, 'w').write(s)
+
+# J engine (gvhf-md): each block of the unrolled MD kernels takes a fixed tile of TILEX x TILEY batches of 16 bra and
+# ket pairs, so small systems get small grids (part 18: 7-24 blocks on 20 SMs for caffeine/def2-SVP, 26% of the J
+# build with SMs idle). The bra tile only sets the batch loop, the batch indices of the batch-level screening
+# (qd_ij_max holds the maximum per 16-pair batch, independent of the tile) and the block's triangle skip; the ket tile
+# also lays out shared memory and stays. With --j-tiles auto each kernel derives its bra tile from gridDim.x, and the
+# launcher (md_j_grid_x) picks gridDim.x so that a launch has at least --j-blocks-per-sm blocks per SM (twice that for
+# diagonal classes, whose blocks above the diagonal return at once), with the compiled TILEX as the largest tile, and
+# no more blocks than the tiles fill (with t = ceil(n/g) batches per tile, ceil(n/t) blocks give the kernel the same t).
+# The integrals and the screening stay the same; only the order of the atomic adds changes.
+if args.j_tiles != 'off':
+    tile_re = re.compile(r'// TILEX=(\d+), TILEY=(\d+)\n')
+    grid_x = (
+        '#include <algorithm>\n'
+        '// gridDim.x of an unrolled J launch: bra tiles of at most tilex_max batches of 16 pairs, and enough of them\n'
+        '// that the grid has at least MD_J_BLOCKS_PER_SM blocks per SM (twice that if bra and ket share their pairs)\n'
+        f'#define MD_J_BLOCKS_PER_SM {args.j_blocks_per_sm}\n'
+        'static int md_j_grid_x(int npairs_ij, int tilex_max, int grid_y, int diagonal)\n'
+        '{\n'
+        '    int dev, n_sm;\n'
+        '    cudaGetDevice(&dev);\n'
+        '    cudaDeviceGetAttribute(&n_sm, cudaDevAttrMultiProcessorCount, dev);\n'
+        '    int nbatch = (npairs_ij + 15) / 16;\n'
+        '    int gx = (nbatch + tilex_max - 1) / tilex_max;\n'
+        '    int want = MD_J_BLOCKS_PER_SM * n_sm * (diagonal ? 2 : 1);\n'
+        '    if (gx * grid_y < want && nbatch > 0) {\n'
+        '        gx = std::min(nbatch, (want + grid_y - 1) / grid_y);\n'
+        '        // only as many blocks as the kernel\'s tiles of ceil(nbatch / gridDim.x) batches fill: a block past\n'
+        '        // the last tile would read q_cond_ij past its end before returning\n'
+        '        int tilex = (nbatch + gx - 1) / gx;\n'
+        '        gx = (nbatch + tilex - 1) / tilex;\n'
+        '    }\n'
+        '    return std::max(gx, 1);\n'
+        '}\n\n')
+    n_kernels = {}
+    for f in ('unrolled_md_j.cu', 'unrolled_md_j_4dm.cu'):
+        rel = f'gpu4pyscf/lib/gvhf-md/{f}'
+        s = source(rel)
+        launcher = s.index('\nint md_j_unrolled(' if f == 'unrolled_md_j.cu' else '\nint md_j_4dm_unrolled(')
+        head, disp = s[:launcher], s[launcher:]
+        parts = tile_re.split(head)
+        out = [parts[0]]
+        tiles = []
+        for k in range(1, len(parts), 3):
+            tx, ty, body = int(parts[k]), int(parts[k+1]), parts[k+2]
+            tiles.append((tx, ty))
+            subs = [(f'block_x * {16*tx};', 'block_x * (16*tilex);', 1),
+                    (f'batch_ij < {tx}; ++batch_ij', 'batch_ij < tilex; ++batch_ij', 1),
+                    (f'blockIdx.x * {16*tx} + batch_ij * 16', 'blockIdx.x * (16*tilex) + batch_ij * 16', 1),
+                    (f'qd_ij_max[batch_ij+blockIdx.x*{tx}]', 'qd_ij_max[batch_ij+blockIdx.x*tilex]', 1),
+                    ('    KERNEL_SETUP();\n',
+                     '    KERNEL_SETUP();\n'
+                     '    // the bra tile, from the grid that md_j_grid_x chose\n'
+                     '    int tilex = ((bounds.npairs_ij + 15) / 16 + gridDim.x - 1) / gridDim.x;\n', 1)]
+            for old, new, cnt in subs:
+                assert body.count(old) == cnt, (f, tx, ty, old, body.count(old))
+                body = body.replace(old, new)
+            old = f'task_ij0+{16*tx} <= task_kl0'
+            assert body.count(old) <= 1 and 16*tx != 16, (f, tx, old)
+            body = body.replace(old, 'task_ij0+16*tilex <= task_kl0')
+            out += [f'// TILEX={tx} (largest; run-time tilex), TILEY={ty}\n', body]
+        head = ''.join(out)
+        for tx, ty in set(tiles):
+            old = f'dim3 blocks((npairs_ij + {16*tx-1}) / {16*tx}, (npairs_kl + {16*ty-1}) / {16*ty}, 1);'
+            gy = f'(npairs_kl + {16*ty-1}) / {16*ty}'
+            new = (f'dim3 blocks(md_j_grid_x(npairs_ij, {tx}, {gy}, bounds->pair_ij_mapping == bounds->pair_kl_mapping),'
+                   f'\n                    {gy}, 1);')
+            assert disp.count(old) == tiles.count((tx, ty)), (f, tx, ty, disp.count(old))
+            disp = disp.replace(old, new)
+        n_kernels[f] = len(tiles)
+        open(f'{args.tree}/{rel}', 'w').write(head + '\n' + grid_x + disp.lstrip('\n'))
+    print(f'J engine: run-time bra tiles in {n_kernels["unrolled_md_j.cu"]} + {n_kernels["unrolled_md_j_4dm.cu"]} '
+          f'unrolled kernels, at least {args.j_blocks_per_sm} blocks per SM')
 
 print(f'one-thread kernels (K, J+K): {counts["unrolled_rys_k.cu"][0]} + {counts["unrolled_rys_jk.cu"][0]}: '
       f'barrier {args.barrier}, ket skip {args.ket}, bra skip {args.bra}; multi-thread kernels '

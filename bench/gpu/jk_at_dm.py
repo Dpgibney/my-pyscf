@@ -3,8 +3,10 @@ SCF and writes the density; later runs (other trees: source scripts/node1-gpu-en
 matrix once untimed and REPEAT times timed (recording the GPU clocks), and write it to OUT.npy; --compare REF.npy
 prints the largest difference. --antisym X adds X times an antisymmetric matrix with the density's sparsity (fixed
 seed) and builds with hermi=0, as for transition densities; --omega sets the range separation (negative: short range).
-Usage: jk_at_dm.py --dm DM.npy [--save-dm] [--part k|j|jk] [--xc b3lyp] [--antisym X] [--omega W] [--out OUT.npy]
-                   [--compare REF.npy]"""
+--ndm N builds for N densities at once: the density and N-1 symmetric variations of it with its sparsity (fixed
+seed), as UKS and response calculations pass several (the J engine's multi-density kernels).
+Usage: jk_at_dm.py --dm DM.npy [--save-dm] [--part k|j|jk] [--xc b3lyp] [--antisym X] [--omega W] [--ndm N]
+                   [--out OUT.npy] [--compare REF.npy]"""
 import argparse
 import os
 import sys
@@ -28,6 +30,7 @@ ap.add_argument('--basis', default='def2-svp')
 ap.add_argument('--repeat', type=int, default=3)
 ap.add_argument('--antisym', type=float, default=0)
 ap.add_argument('--omega', type=float, default=None)
+ap.add_argument('--ndm', type=int, default=1)
 ap.add_argument('--out', default=None)
 ap.add_argument('--compare', default=None)
 args = ap.parse_args()
@@ -43,6 +46,10 @@ if args.antisym:
     a = dm * numpy.random.default_rng(7).uniform(-1, 1, dm.shape)
     dm = dm + args.antisym * (a - a.T)
     hermi = 0
+if args.ndm > 1:
+    rng = numpy.random.default_rng(11)
+    vary = [dm * rng.uniform(-1, 1, dm.shape) for _ in range(args.ndm - 1)]
+    dm = numpy.stack([dm] + [dm + .1 * (a + a.T) for a in vary])
 dm = cupy.asarray(dm)
 build = {'k': lambda: mf.get_k(mol, dm, hermi, omega=args.omega),
          'j': lambda: mf.get_j(mol, dm, hermi, omega=args.omega),
