@@ -16,11 +16,15 @@ A dispatcher md_j_generated() launches them; MD_build_j calls it after md_j_unro
 (single density only; several densities keep md_j_4dm_kernel).
 A spec gLIJ,LKL writes the gradient's kernel md_j_ip1_LIJ_LKL instead (r_tensor's ip1, dispatched by
 md_j_generated_ip1, which MD_build_j_ip1 tries first); one file holds one kind.
-Usage: gen_md_j.py OUT.cu [g]LIJ,LKL[:TILEY] ...   e.g. gen_md_j.py generated_md_j.cu 3,3 4,2:16"""
+--prefactor=old keeps the unrolled kernels' quartet prefactor (two divisions and a sqrt) instead of part 27's.
+Usage: gen_md_j.py OUT.cu [--prefactor=rsqrt|old] [g]LIJ,LKL[:TILEY] ...   e.g. gen_md_j.py generated_md_j.cu 3,3 4,2:16"""
 import sys
 
 # the largest bra tile in batches of 16 pairs (the run-time tile is cut to fill the SMs, part 22)
 TILEX = 48
+# rsqrt: each quartet's prefactor and theta from 1/aij, 1/akl kept with the pair data and one rsqrt (part 27), the
+# caches one row longer on each side; old: fac / (aij*akl*sqrt(aij+akl)) and aij*akl/(aij+akl) as the unrolled kernels had
+PREFACTOR = 'rsqrt'
 
 
 def nf3(l):
@@ -106,6 +110,8 @@ def kernel(lij, lkl, tiley, ip1=False):
     ket = herm(lkl)
     ket_pos = [herm(lkl + up).index(c) for c in ket]   # the ket density's components in its layout
     name = f'md_j_ip1_{lij}_{lkl}' if ip1 else f'md_j_gen_{lij}_{lkl}'
+    rs = PREFACTOR == 'rsqrt'
+    rq_rows, rp_len = (5, 80) if rs else (4, 64)
     s = []
     s.append(f'// lij={lij}, lkl={lkl}{" (gradient: the potentials one order up)" if ip1 else ""}: '
              f'TILEX={TILEX} (largest; run-time tilex), TILEY={tiley}\n'
@@ -140,11 +146,11 @@ def kernel(lij, lkl, tiley, ip1=False):
              '    int npairs_ij = bounds.npairs_ij;\n'
              '    int npairs_kl = bounds.npairs_kl;\n'
              f'    double *Rq_cache = vj_kl_cache + {nkl * bsy};\n'
-             f'    double *Rp_cache = Rq_cache + {4 * bsy};\n'
-             '    double *dm_ij_cache = Rp_cache + 64 + tx;\n'
+             f'    double *Rp_cache = Rq_cache + {rq_rows * bsy};\n'
+             f'    double *dm_ij_cache = Rp_cache + {rp_len} + tx;\n'
              '    float *qd_ij_max = bounds.qd_ij_max;\n'
              '    float *qd_kl_max = bounds.qd_kl_max;\n'
-             f'    for (int n = thread_id; n < {(nkl + 4) * bsy + 64}; n += 256) {{\n'
+             f'    for (int n = thread_id; n < {(nkl + rq_rows) * bsy + rp_len}; n += 256) {{\n'
              '        vj_kl_cache[n] = 0.;\n'
              '    }\n'
              '    __syncthreads();\n'
@@ -167,11 +173,13 @@ def kernel(lij, lkl, tiley, ip1=False):
              f'            Rq_cache[n+{bsy}] = ykl;\n'
              f'            Rq_cache[n+{2 * bsy}] = zkl;\n'
              f'            Rq_cache[n+{3 * bsy}] = akl;\n'
+             + (f'            Rq_cache[n+{4 * bsy}] = 1. / akl;\n' if rs else '') +
              '        } else {\n'
              '            Rq_cache[n+0] = 2e5;\n'
              f'            Rq_cache[n+{bsy}] = 2e5;\n'
              f'            Rq_cache[n+{2 * bsy}] = 2e5;\n'
              f'            Rq_cache[n+{3 * bsy}] = 1.;\n'
+             + (f'            Rq_cache[n+{4 * bsy}] = 1.;\n' if rs else '') +
              '        }\n'
              '    }\n'
              '\n'
@@ -199,11 +207,13 @@ def kernel(lij, lkl, tiley, ip1=False):
              '                Rp_cache[thread_id+16] = yij;\n'
              '                Rp_cache[thread_id+32] = zij;\n'
              '                Rp_cache[thread_id+48] = aij;\n'
+             + ('                Rp_cache[thread_id+64] = 1. / aij;\n' if rs else '') +
              '            } else {\n'
              '                Rp_cache[thread_id+0] = 2e5;\n'
              '                Rp_cache[thread_id+16] = 2e5;\n'
              '                Rp_cache[thread_id+32] = 2e5;\n'
              '                Rp_cache[thread_id+48] = 1.; // aij\n'
+             + ('                Rp_cache[thread_id+64] = 1.;\n' if rs else '') +
              '            }\n'
              '        }\n'
              '        int task_ij = task_ij0 + tx;\n'
@@ -251,16 +261,21 @@ def kernel(lij, lkl, tiley, ip1=False):
              '            double yij = Rp_cache[tx+16];\n'
              '            double zij = Rp_cache[tx+32];\n'
              '            double aij = Rp_cache[tx+48];\n'
+             + ('            double inv_aij = Rp_cache[tx+64];\n' if rs else '') +
              '            double xkl = Rq_cache[sq_kl+0];\n'
              f'            double ykl = Rq_cache[sq_kl+{bsy}];\n'
              f'            double zkl = Rq_cache[sq_kl+{2 * bsy}];\n'
              f'            double akl = Rq_cache[sq_kl+{3 * bsy}];\n'
-             '            fac = fac / (aij*akl*sqrt(aij+akl));\n'
+             + (f'            double inv_akl = Rq_cache[sq_kl+{4 * bsy}];\n'
+                '            double rs = rsqrt(aij+akl);\n'
+                '            fac = fac * (inv_aij * inv_akl * rs);\n' if rs else
+                '            fac = fac / (aij*akl*sqrt(aij+akl));\n') +
              '            double xpq = xij - xkl;\n'
              '            double ypq = yij - ykl;\n'
              '            double zpq = zij - zkl;\n'
              '            double rr = xpq*xpq + ypq*ypq + zpq*zpq;\n'
-             '            double theta = aij * akl / (aij + akl);\n'
+             + ('            double theta = aij * akl * (rs * rs);\n' if rs else
+                '            double theta = aij * akl / (aij + akl);\n') +
              '            double omega = jk.omega;\n'
              f'            double gamma_inc[{2 * (L + 1)}];\n'
              f'            boys_fn(gamma_inc, theta, rr, omega, fac, {L}, 0, 1);\n'
@@ -370,9 +385,14 @@ def default_tiley(lkl):
 
 
 def main():
+    global PREFACTOR
     out = sys.argv[1]
     specs = []
     for a in sys.argv[2:]:
+        if a.startswith('--prefactor='):
+            PREFACTOR = a.split('=', 1)[1]
+            assert PREFACTOR in ('rsqrt', 'old')
+            continue
         cls, _, ty = a.partition(':')
         ip1 = cls.startswith('g')
         lij, lkl = map(int, cls.lstrip('g').split(','))
@@ -403,7 +423,8 @@ def main():
         bsy = 16 * ty
         name = f'md_j_ip1_{lij}_{lkl}' if ip1 else f'md_j_gen_{lij}_{lkl}'
         # the Rp region also holds the bra-side reduction's 256 doubles (vj_cache = Rp_cache)
-        shm = (nf3(lkl + ip1) + 4) * bsy + max(64 + 16 * nf3(lij + ip1), 256)
+        rq_rows, rp_len = (5, 80) if PREFACTOR == 'rsqrt' else (4, 64)
+        shm = (nf3(lkl + ip1) + rq_rows) * bsy + max(rp_len + 16 * nf3(lij + ip1), 256)
         src.append(f'    case {lij * 11 + lkl}: {{ // TILEY={ty}, {shm * 8} bytes of shared memory\n'
                    f'        dim3 blocks(md_j_gen_grid_x(npairs_ij, {TILEX}, (npairs_kl + {bsy - 1}) / {bsy}, diagonal),\n'
                    f'                    (npairs_kl + {bsy - 1}) / {bsy}, 1);\n'

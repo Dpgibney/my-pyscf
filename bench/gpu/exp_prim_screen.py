@@ -102,6 +102,9 @@ ap.add_argument('--j-blocks-per-sm', type=int, default=64,
 GEN_J = '3,3 4,2 5,1 6,0 4,3 5,2 6,1 3,4 4,4 5,3 6,2 5,4 6,3 5,5 6,4'
 ap.add_argument('--gen-j', default=GEN_J,
                 help='space-separated LIJ,LKL[:TILEY] specs of generated MD J kernels (gen_md_j.py), or off')
+ap.add_argument('--j-prefactor', default='rsqrt', choices=['rsqrt', 'old'],
+                help="J engine kernels: each quartet's prefactor and theta from 1/aij and 1/akl kept with the pairs "
+                     "and one rsqrt, where they took two divisions and a sqrt (part 27)")
 ap.add_argument('--vv10', default='sym', choices=['sym', 'old'],
                 help="VV10's Fock kernel (gdft/vv10.cu): sym evaluates each pair of grid points once (part 26)")
 ap.add_argument('--boys', default='new', choices=['new', 'old'],
@@ -716,6 +719,77 @@ if args.boys == 'new':
     open(p, 'w').write(s)
     print('Boys function: tabulated 1/(n+1/2) in the series and the downward recursion, erf skipped for t >= 49')
 
+# The J kernels' quartet prefactor (part 27): each quartet took fac / (aij*akl*sqrt(aij+akl)) and aij*akl/(aij+akl), two
+# divisions and a square root (33% of (ss|ss)'s FP64 work, 10-13% of the other low-order classes'). With --j-prefactor
+# rsqrt the pair caches keep 1/aij (Rp, a fifth row of 16) and 1/akl (Rq, a fifth row of the ket tile), computed once
+# per pair, and the quartet takes one rsqrt(aij + akl): theta = aij*akl*rs^2, fac *= (1/aij)(1/akl)rs. rsqrt is within
+# 1 ulp, so theta and fac change by a few ulps. Everything after the caches moves up (16 doubles after Rp, the ket tile's
+# size after Rq), and so does each launch's shared memory. The unrolled files are patched here, the generated ones by
+# gen_md_j.py --prefactor; the generic kernels (md_j_1dm_kernel, md_j_4dm_kernel) keep theirs.
+def j_prefactor_patch(text, fname):
+    kernels = re.split(r'(?=\nvoid md_j_)', text)   # each kernel's body starts a piece
+    out = [kernels[0]]
+    n = 0
+    for k in kernels[1:]:
+        m = re.search(r'double \*Rp_cache = Rq_cache \+ (\d+);', k)
+        if not m:
+            out.append(k)
+            continue
+        bsy4 = int(m.group(1))
+        assert bsy4 % 4 == 0
+        bsy = bsy4 // 4
+        assert re.search(rf'int task_kl0 = block_y \* {bsy};', k), (fname, bsy)
+        subs = [
+            (rf'double \*Rp_cache = Rq_cache \+ {bsy4};', f'double *Rp_cache = Rq_cache + {5 * bsy};'),
+            (r'double \*dm_ij_cache = Rp_cache \+ 64 \+ tx;', 'double *dm_ij_cache = Rp_cache + 80 + tx;'),
+            (r'(\n(\s*)Rq_cache\[n\+' + str(3 * bsy) + r'\] = akl;)', r'\1\n\g<2>Rq_cache[n+' + str(4 * bsy) + '] = 1. / akl;'),
+            (r'(\n(\s*)Rq_cache\[n\+' + str(3 * bsy) + r'\] = 1\.;)', r'\1\n\g<2>Rq_cache[n+' + str(4 * bsy) + '] = 1.;'),
+            (r'(\n(\s*)Rp_cache\[thread_id\+48\] = aij;)', r'\1\n\g<2>Rp_cache[thread_id+64] = 1. / aij;'),
+            (r'(\n(\s*)Rp_cache\[thread_id\+48\] = 1\.; // aij)', r'\1\n\g<2>Rp_cache[thread_id+64] = 1.;'),
+            (r'(\n(\s*)double aij = Rp_cache\[tx\+48\];)', r'\1\n\g<2>double inv_aij = Rp_cache[tx+64];'),
+            (r'(\n(\s*)double akl = Rq_cache\[sq_kl\+' + str(3 * bsy) + r'\];)',
+             r'\1\n\g<2>double inv_akl = Rq_cache[sq_kl+' + str(4 * bsy) + '];'),
+            (r'\n(\s*)fac = fac / \(aij\*akl\*sqrt\(aij\+akl\)\);',
+             r'\n\1double rs = rsqrt(aij+akl);\n\1fac = fac * (inv_aij * inv_akl * rs);'),
+            (r'double theta = aij \* akl / \(aij \+ akl\);', 'double theta = aij * akl * (rs * rs);'),
+        ]
+        for pat, rep in subs:
+            k, cnt = re.subn(pat, rep, k)
+            assert cnt == 1, (fname, bsy, pat, cnt)
+        g = re.search(r'double \*gamma_inc = Rp_cache \+ (\d+) \+ sq_id;', k)
+        k = k.replace(g.group(0), f'double *gamma_inc = Rp_cache + {int(g.group(1)) + 16} + sq_id;')
+        # the first zeroing loop covers the caches up to Rp's first 64 (vj_kl_cache onwards, or Rq onwards with 4 dms)
+        z = re.search(r'for \(int n = thread_id; n < (\d+); n \+= 256\) \{\n(\s*)(vj_kl_cache|Rq_cache)\[n\] = 0\.;\n\s*\}\n\s*__syncthreads\(\);', k)
+        assert z, (fname, bsy, 'zeroing')
+        k = k.replace(z.group(0), z.group(0).replace(f'n < {z.group(1)};', f'n < {int(z.group(1)) + bsy + 16};', 1))
+        out.append(k)
+        n += 1
+    text = ''.join(out)
+    # the launches: each case's shared memory grows by the ket tile (one row) and 16 (the bra row). A launch above 48 KB
+    # needs cudaFuncSetAttribute, which the unpatched code calls only where it was already above (with the range-
+    # separated buffer, md_j_4dm_3_1 now crosses it: test_j_engine_multiple_dms), so every launch gets one
+    def case_fix(m):
+        bsy = 16 * int(m.group(2))
+        body = re.sub(r'\((\d+)\+addition_buf\)', lambda q: f'({int(q.group(1)) + bsy + 16}+addition_buf)', m.group(3))
+        if 'cudaFuncSetAttribute' not in body:
+            body = re.sub(r'\n(\s*)LAUNCH_KERNEL\((\w+), (\(\d+\+addition_buf\)\*sizeof\(double\))\);',
+                          r'\n\1cudaFuncSetAttribute(\2, cudaFuncAttributeMaxDynamicSharedMemorySize, \3);'
+                          r'\n\1LAUNCH_KERNEL(\2, \3);', body, count=1)
+        return m.group(1) + body
+    text, ncase = re.subn(r'(case \d+: \{ // lij=\d, lkl=\d, tilex=\d+, tiley=(\d+)\n)(.*?)(?=\n    case |\n    default:)',
+                          case_fix, text, flags=re.S)
+    assert ncase == n, (fname, ncase, n)
+    return text, n
+
+if args.j_prefactor == 'rsqrt':
+    for f in ('unrolled_md_j.cu', 'unrolled_md_j_4dm.cu'):
+        rel = f'gpu4pyscf/lib/gvhf-md/{f}'
+        path = f'{args.tree}/{rel}'
+        text = open(path).read() if args.j_tiles != 'off' else source(rel)
+        text, n = j_prefactor_patch(text, f)
+        open(path, 'w').write(text)
+        print(f'J prefactor: 1/aij, 1/akl with the pairs and one rsqrt per quartet in {n} kernels of {f}')
+
 # Generated MD J kernels (bench/gpu/gen_md_j.py) for classes that would otherwise run the generic kernel:
 # generated_md_j.cu, built into libgvhf_md, and tried by MD_build_j after md_j_unrolled (single density). With --j-grad,
 # the J engine's gradient (part 24): MD_build_j_ip1, MD_build_j with both pairs' Hermite orders one higher (their
@@ -726,8 +800,8 @@ here = os.path.dirname(os.path.abspath(__file__))
 s = source(f'{G}/md_contract_j.cu')
 cmake_files = ''
 if args.gen_j != 'off':
-    subprocess.run([sys.executable, os.path.join(here, 'gen_md_j.py'), f'{args.tree}/{G}/generated_md_j.cu']
-                   + args.gen_j.split(), check=True)
+    subprocess.run([sys.executable, os.path.join(here, 'gen_md_j.py'), f'{args.tree}/{G}/generated_md_j.cu',
+                    f'--prefactor={args.j_prefactor}'] + args.gen_j.split(), check=True)
     decl = 'int md_j_unrolled(RysIntEnvVars *envs, JKMatrix *jk, MDBoundsInfo *bounds,\n'
     assert s.count(decl) == 1
     s = s.replace(decl, ('int md_j_generated(RysIntEnvVars *envs, JKMatrix *jk, MDBoundsInfo *bounds,\n'
@@ -779,8 +853,8 @@ if args.j_grad == 'on':
     shutil.copyfile(os.path.join(here, 'md_j_grad.cu'), f'{args.tree}/{G}/md_j_grad.cu')
     cmake_files += ' md_j_grad.cu'
     if args.gen_j_ip1 != 'off':
-        subprocess.run([sys.executable, os.path.join(here, 'gen_md_j.py'), f'{args.tree}/{G}/generated_md_j_ip1.cu']
-                       + ['g' + c for c in args.gen_j_ip1.split()], check=True)
+        subprocess.run([sys.executable, os.path.join(here, 'gen_md_j.py'), f'{args.tree}/{G}/generated_md_j_ip1.cu',
+                        f'--prefactor={args.j_prefactor}'] + ['g' + c for c in args.gen_j_ip1.split()], check=True)
         decl = 'int md_j_unrolled(RysIntEnvVars *envs, JKMatrix *jk, MDBoundsInfo *bounds,\n'
         assert s.count(decl) == 1
         s = s.replace(decl, ('int md_j_generated_ip1(RysIntEnvVars *envs, JKMatrix *jk, MDBoundsInfo *bounds,\n'

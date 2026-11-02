@@ -1,0 +1,144 @@
+# GPU4PySCF investigation part 27 (NOTES.md): the J kernels' quartet prefactor from per-pair reciprocals and one rsqrt.
+# GTX 1650 Super at 1530 MHz (sm_75); caffeine; J at the converged B3LYP densities. "part 26" is scratch/tree_p26
+# (exp/prim-screen a837bd7); "part 27" the main tree with exp/prim-screen 9835bad (exp_prim_screen.py --j-prefactor rsqrt).
+#
+# Commands (node1; the scripts are in scratch/):
+#   p27_val.sh  jk_at_dm.py --part j [--ndm 2|4], j_grad_proto.py, scf_parts.py, ncu_parts.py --part j, j_memcheck.py,
+#               unit tests (test_scf_j_engine failed once: md_j_4dm_3_1 crossed 48 KB with the omega<0 buffer)
+#   p27_fix.sh  after giving every unrolled launch cudaFuncSetAttribute: J again and the unit tests that failed
+#   on the laptop: j_exact_check.py, j_grad_exact.py
+
+# 1) the generated kernels' spills after the change (ptxas -v, sm_75; nonzero only)
+build ok
+md_j_4dm_cu_26e465b7__     384 bytes stack frame, 696 bytes spill stores, 1032 bytes spill loads
+md_j_4dm_cu_26e465b7__     392 bytes stack frame, 720 bytes spill stores, 1204 bytes spill loads
+md_j_4dm_cu_26e465b7__     48 bytes stack frame, 56 bytes spill stores, 164 bytes spill loads
+md_j_4dm_cu_26e465b7__     56 bytes stack frame, 64 bytes spill stores, 224 bytes spill loads
+md_j_4dm_cu_26e465b7__     64 bytes stack frame, 76 bytes spill stores, 180 bytes spill loads
+md_j_4dm_cu_26e465b7__     848 bytes stack frame, 1568 bytes spill stores, 2296 bytes spill loads
+md_j_cu_92674e37__     48 bytes stack frame, 48 bytes spill stores, 64 bytes spill loads
+md_j_cu_c8f0aadb__     128 bytes stack frame, 172 bytes spill stores, 212 bytes spill loads
+md_j_cu_c8f0aadb__     1448 bytes stack frame, 2412 bytes spill stores, 2492 bytes spill loads
+md_j_cu_c8f0aadb__     2176 bytes stack frame, 4052 bytes spill stores, 4224 bytes spill loads
+md_j_cu_c8f0aadb__     296 bytes stack frame, 440 bytes spill stores, 460 bytes spill loads
+md_j_cu_c8f0aadb__     2992 bytes stack frame, 7020 bytes spill stores, 7312 bytes spill loads
+md_j_cu_c8f0aadb__     472 bytes stack frame, 920 bytes spill stores, 936 bytes spill loads
+md_j_cu_c8f0aadb__     6848 bytes stack frame, 13404 bytes spill stores, 13824 bytes spill loads
+md_j_cu_c8f0aadb__     6928 bytes stack frame, 13228 bytes spill stores, 13692 bytes spill loads
+md_j_cu_c8f0aadb__     744 bytes stack frame, 1140 bytes spill stores, 1176 bytes spill loads
+md_j_cu_c8f0aadb__     776 bytes stack frame, 1304 bytes spill stores, 1348 bytes spill loads
+md_j_cu_c8f0aadb__     80 bytes stack frame, 80 bytes spill stores, 92 bytes spill loads
+md_j_cu_c8f0aadb__     936 bytes stack frame, 1552 bytes spill stores, 1572 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     1160 bytes stack frame, 2132 bytes spill stores, 2164 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     13712 bytes stack frame, 30520 bytes spill stores, 31516 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     1464 bytes stack frame, 2352 bytes spill stores, 2384 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     168 bytes stack frame, 240 bytes spill stores, 268 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     1712 bytes stack frame, 2872 bytes spill stores, 2912 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     1888 bytes stack frame, 3840 bytes spill stores, 3968 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     2568 bytes stack frame, 4860 bytes spill stores, 5060 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     32 bytes stack frame, 40 bytes spill stores, 80 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     384 bytes stack frame, 540 bytes spill stores, 572 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     4256 bytes stack frame, 7104 bytes spill stores, 7800 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     4344 bytes stack frame, 8672 bytes spill stores, 9212 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     4416 bytes stack frame, 8784 bytes spill stores, 9024 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     496 bytes stack frame, 976 bytes spill stores, 988 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     504 bytes stack frame, 728 bytes spill stores, 752 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     56 bytes stack frame, 88 bytes spill stores, 104 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     712 bytes stack frame, 1228 bytes spill stores, 1268 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     9256 bytes stack frame, 19096 bytes spill stores, 21776 bytes spill loads
+md_j_ip1_cu_9bcf6f27__     960 bytes stack frame, 1776 bytes spill stores, 1820 bytes spill loads
+
+# 2) J at fixed densities (median of 5) against part 25's J; with 2 and 4 densities against part 21's
+== J at fixed densities (median of 5) against part 25's J: part 26, then part 27
+svp p26: /home/danny/Chemistry/my-pyscf/scratch/tree_p26/gpu4pyscf: j median 0.382 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |j - ref| = 7.11e-15 (max |ref| 3.35e+01) 
+svp p27: /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: j median 0.364 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |j - ref| = 1.42e-14 (max |ref| 3.35e+01) 
+tzvp p26: /home/danny/Chemistry/my-pyscf/scratch/tree_p26/gpu4pyscf: j median 3.165 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |j - ref| = 7.11e-15 (max |ref| 3.55e+01) 
+tzvp p27: /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: j median 3.066 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |j - ref| = 1.78e-14 (max |ref| 3.55e+01) 
+== J with 2 and 4 densities (the multi-density kernels) against part 21's: part 26, then part 27
+svp_2dm p26: /home/danny/Chemistry/my-pyscf/scratch/tree_p26/gpu4pyscf: j median 0.534 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |j - ref| = 7.66e-13 (max |ref| 3.47e+01) 
+svp_2dm p27: /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: j median 0.517 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |j - ref| = 7.66e-13 (max |ref| 3.47e+01) 
+svp_4dm p26: /home/danny/Chemistry/my-pyscf/scratch/tree_p26/gpu4pyscf: j median 0.828 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |j - ref| = 7.66e-13 (max |ref| 3.48e+01) 
+svp_4dm p27: /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: j median 0.811 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |j - ref| = 7.66e-13 (max |ref| 3.48e+01)
+
+# 3) the J engine gradient
+== the J engine gradient: part 26, then part 27
+-- def2-svp p26: def2-svp: J engine gradient 0.578 s, Rys (j_factor 1, k_factor 0) 2.473 s
+-- def2-svp p27: def2-svp: J engine gradient 0.561 s, Rys (j_factor 1, k_factor 0) 2.488 s   ratio Rys / J engine: median 4.000000, spread 4.000000 .. 4.000000   max |ref| 3.0993e+01; max |ref - 4.0000 g| 6.596e-10; sum of the J engine gradient over atoms 1.87e-14 (Rys 5.35e-12) 
+-- def2-tzvp p26: def2-tzvp: J engine gradient 4.958 s, Rys (j_factor 1, k_factor 0) 26.185 s
+-- def2-tzvp p27: def2-tzvp: J engine gradient 4.896 s, Rys (j_factor 1, k_factor 0) 26.190 s   ratio Rys / J engine: median 4.000000, spread 4.000000 .. 4.000000   max |ref| 2.7840e+01; max |ref - 4.0000 g| 1.304e-09; sum of the J engine gradient over atoms 1.22e-13 (Rys 1.10e-11)
+
+# 4) SCFs (scf_parts.py --verbose 6, conv_tol 1e-10): part 26 (OLD) -> part 27 (NEW)
+== SCF parts: part 26, then part 27
+OLD def2-svp:  E (Eh) -679.0403707179; cycles 18; SCF wall (s) 13.42; J 0.115 0.287; E (Eh) -679.8127486398; cycles 15; SCF wall (s) 28.96; J 0.115 0.293;
+NEW def2-svp:  E (Eh) -679.0403707179; cycles 18; SCF wall (s) 13.21; J 0.110 0.274; E (Eh) -679.8127486398; cycles 15; SCF wall (s) 28.69; J 0.110 0.280;
+OLD def2-tzvp:  E (Eh) -679.7849175513; cycles 18; SCF wall (s) 63.81; J 0.640 2.396;
+NEW def2-tzvp:  E (Eh) -679.7849175513; cycles 18; SCF wall (s) 62.49; J 0.615 2.325;
+
+# 5) per class at def2-TZVP, ncu GPU time: part 25 -> part 27
+total: 214 launches, 3.080 s GPU, 211.4 GFLOP FP64 (68.6 GFLOP/s), 9.57 G warp instructions, 0.00 M atomic instructions, 0.00 GB DRAM  (part 25: 3.177 s GPU, 223.3 GFLOP FP64, 9.95 G warp instructions)
+class/kernel                                      time s         GFLOP64     G warp inst
+(ps|ss)                                   0.270 ->  0.251  13.70 ->  11.49  0.970 ->  0.899
+(ps|ps)                                   0.203 ->  0.193  11.18 ->   9.92  0.777 ->  0.739
+(ds|ps)                                   0.199 ->  0.192  12.37 ->  11.46  0.665 ->  0.636
+(pp|ps)                                   0.166 ->  0.161  10.30 ->   9.55  0.554 ->  0.530
+(dp|ps)                                   0.158 ->  0.153  11.05 ->  10.53  0.492 ->  0.475
+(fs|ps)                                   0.125 ->  0.121   8.70 ->   8.29  0.387 ->  0.374
+(ds|ss)                                   0.113 ->  0.107   5.96 ->   5.18  0.399 ->  0.374
+(fp|ps)                                   0.105 ->  0.103   8.06 ->   7.81  0.312 ->  0.304
+(pp|ss)                                   0.097 ->  0.092   5.12 ->   4.45  0.343 ->  0.321
+(ds|pp)                                   0.094 ->  0.092   6.69 ->   6.42  0.319 ->  0.310
+(dp|ds)                                   0.093 ->  0.092   7.47 ->   7.29  0.288 ->  0.282
+(dp|ss)                                   0.081 ->  0.078   4.65 ->   4.20  0.267 ->  0.253
+(dp|pp)                                   0.079 ->  0.078   6.37 ->   6.22  0.245 ->  0.240
+(fs|ds)                                   0.071 ->  0.070   5.62 ->   5.48  0.217 ->  0.213
+(fs|dp)                                   0.069 ->  0.069   6.03 ->   5.95  0.178 ->  0.176
+(ss|ss)                                   0.064 ->  0.057   4.09 ->   3.13  0.258 ->  0.227
+(fs|pp)                                   0.064 ->  0.063   5.17 ->   5.05  0.199 ->  0.195
+(fp|dp)                                   0.063 ->  0.063   5.87 ->   5.82  0.149 ->  0.148
+(fs|ss)                                   0.063 ->  0.060   3.56 ->   3.21  0.207 ->  0.195
+(fp|ds)                                   0.063 ->  0.062   5.53 ->   5.45  0.155 ->  0.153
+(fd|ps)                                   0.059 ->  0.058   4.58 ->   4.48  0.143 ->  0.140
+(fp|pp)                                   0.054 ->  0.054   4.81 ->   4.73  0.134 ->  0.132
+(ds|ds)                                   0.054 ->  0.052   3.75 ->   3.60  0.182 ->  0.177
+(fp|fs)                                   0.050 ->  0.049   4.58 ->   4.54  0.117 ->  0.115
+(fp|ss)                                   0.049 ->  0.047   3.05 ->   2.84  0.155 ->  0.148
+(dp|dp)                                   0.044 ->  0.044   3.84 ->   3.79  0.114 ->  0.112
+(dd|ps)                                   0.044 ->  0.043   3.36 ->   3.26  0.131 ->  0.127
+(pp|pp)                                   0.039 ->  0.038   2.68 ->   2.57  0.129 ->  0.125
+(fd|dp)                                   0.036 ->  0.036   3.40 ->   3.38  0.083 ->  0.082
+
+# 6) against the exact J and Coulomb gradient (j_exact_check.py, j_grad_exact.py)
+def2-TZVP J  part 25: max err 1.55e-11, rms 7.30e-13, E_J err -9.35e-12; part 27: 1.55e-11, 7.30e-13, -9.30e-12
+def2-SVP J   part 25: max err 6.16e-12, rms 4.20e-13, E_J err -5.73e-12; part 27: 6.16e-12, 4.20e-13, -5.76e-12
+J engine gradient, part 27: def2-SVP max err 1.62e-10, rms 4.44e-11; def2-TZVP 5.68e-10, 1.52e-10 (as before)
+
+# 7) memcheck and unit tests (first run)
+== memcheck (def2-SVP): J, J with 2 densities, J gradient
+-- : J built: def2-svp, 1 density(ies), max |J| 3.348136e+01;========= ERROR SUMMARY: 0 errors;
+-- --ndm 2: J built: def2-svp, 2 density(ies), max |J| 3.348136e+01;========= ERROR SUMMARY: 0 errors;
+-- --grad: J gradient built: def2-svp, max |g| 3.099319e+01;========= ERROR SUMMARY: 0 errors;
+== unit tests
+scf/tests/test_scf_j_engine.py: 1 failed, 7 passed in 42.73s
+scf/tests/test_scf_jk.py: 11 passed in 23.47s
+dft/tests/test_rks.py: 17 passed, 1 skipped, 66 warnings in 88.99s (0:01:28)
+dft/tests/test_uks.py: 10 passed, 33 warnings in 58.69s
+grad/tests/test_rks_grad.py: 15 passed, 138 warnings in 99.41s (0:01:39)
+grad/tests/test_uks_grad.py: 12 passed, 48 warnings in 102.01s (0:01:42)
+tdscf/tests/test_tdrks.py: 28 passed, 39 warnings in 17.72s
+tdscf/tests/test_tduks.py: 20 passed, 42 warnings in 25.52s
+
+# 8) after the attribute fix (p27_fix.sh)
+build ok
+== range-separated J (omega -0.2), 1 and 2 densities: part 26, then part 27
+/home/danny/Chemistry/my-pyscf/scratch/tree_p26/gpu4pyscf: j median 0.382 s of 3, SM [1530.0, 1530.0, 1530.0] MHz 
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: j median 0.364 s of 3, SM [1530.0, 1530.0, 1530.0] MHz   max |j - ref| = 1.07e-14 (max |ref| 3.35e+01) 
+/home/danny/Chemistry/my-pyscf/scratch/tree_p26/gpu4pyscf: j median 0.534 s of 3, SM [1530.0, 1530.0, 1530.0] MHz 
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: j median 0.517 s of 3, SM [1530.0, 1530.0, 1530.0] MHz   max |j - ref| = 1.07e-14 (max |ref| 3.47e+01) 
+== J at fixed densities (part 27, after adding the attributes)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: j median 0.364 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |j - ref| = 1.42e-14 (max |ref| 3.35e+01) 
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: j median 0.517 s of 5, SM [1530.0, 1530.0, 1530.0] MHz   max |j - ref| = 7.66e-13 (max |ref| 3.47e+01) 
+== unit tests
+scf/tests/test_scf_j_engine.py: 8 passed in 42.83s
+scf/tests/test_scf_jk.py: 11 passed in 23.52s
+tdscf/tests/test_tduks.py: 20 passed, 42 warnings in 25.37s
+P27FIX DONE

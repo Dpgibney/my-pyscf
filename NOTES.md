@@ -5180,6 +5180,58 @@ Approved with part 25; proposed in part 20, where VV10 was 93% of a B97M-V SCF.
     driver.
 - **The Hessian's VV10 kernels** (`vv10_hess_eval_UWABCE` and the f_t kernels) are all-pair loops of the same kind.
 
+## GPU4PySCF investigation, part 27: the J kernels' quartet prefactor without divisions (node1), 2026-11-02
+Approved with parts 28–29 ("Let's work on all of those"); found in part 25.
+- **Commit:** gpu4pyscf `exp/prim-screen` 9835bad (`exp_prim_screen.py --j-prefactor rsqrt`: the unrolled J kernels
+  patched, the generated ones written by `gen_md_j.py --prefactor`).
+- **Data:** `p27_prefactor.txt`.
+
+### Change
+- **What each quartet did:** it took `fac / (aij*akl*sqrt(aij+akl))` and `aij*akl/(aij+akl)`, two divisions and a
+  square root.
+- **What it does now:**
+  - The pair caches keep 1/aij (a fifth row of Rp, 16 doubles) and 1/akl (a fifth row of Rq, the ket tile's size),
+    computed once per pair.
+  - The quartet takes one `rsqrt(aij + akl)` (within 1 ulp): theta = aij·akl·rs², and fac ×= (1/aij)(1/akl)·rs.
+- **The patch, per kernel** (12 + 11 unrolled kernels, matched and asserted):
+  - Everything after the caches moves up: the density cache, the Boys buffer and the zeroing loop's bound.
+  - Each launch's shared memory grows by 16·TILEY + 16 doubles; the largest is 57 KB.
+  - The generated kernels (J and gradient) get the same layout from the generator. The generic kernels keep the old
+    code.
+- **The 48 KB limit:** a launch above 48 KB of dynamic shared memory needs `cudaFuncSetAttribute`. The unpatched
+  launchers call it only where they were already above that.
+  - With the range-separated buffer (omega < 0), `md_j_4dm_3_1` grew from 48,640 to 49,536 bytes and failed with
+    "invalid argument" in `test_j_engine_multiple_dms`.
+  - Every launch now sets the attribute.
+
+### Exactness
+- **Against part 25's J:** within 1.8e−14 (values up to 35).
+- **Against the exact J:** the same errors as before (RMS 7.30e−13 at def2-TZVP, 4.20e−13 at def2-SVP), as are the
+  J-engine gradient's.
+- **SCFs:** same energies to the printed digits, and the same cycle counts.
+
+### Timings (GTX 1650 Super; part 26, then part 27)
+
+| caffeine | part 26 | part 27 |
+|---|---|---|
+| J at a fixed density, def2-SVP | 0.382 s | 0.364 s (−5%) |
+| J at a fixed density, def2-TZVP | 3.165 s | 3.066 s (−3%) |
+| J with 2 / 4 densities, def2-SVP | 0.534 / 0.828 s | 0.517 / 0.811 s |
+| J-engine gradient, def2-SVP / def2-TZVP | 0.578 / 4.958 s | 0.561 / 4.896 s |
+| SCF PBE/def2-SVP, B3LYP/def2-SVP | 13.42 s, 28.96 s | 13.21 s, 28.69 s |
+| SCF PBE/def2-TZVP (J per cycle) | 63.81 s (2.396 s) | 62.49 s (2.325 s) |
+
+- **Per class (def2-TZVP, ncu):** (ps|ss) 270 → 251 ms, with its FP64 work 16% lower. (ds|ss) and (pp|ss) are −5%,
+  the others −1 to −3%. The build drops from 3.18 to 3.08 s of GPU time, with FP64 work 223 → 211 GFLOP.
+- **Smaller than the FP64 count suggested:** after part 25 the low-order kernels are still the Boys function's.
+  Their instruction count fell 4–7%.
+
+### Unit tests and memcheck
+- **All pass:** `test_scf_j_engine.py` (8), `test_scf_jk.py` (11), `test_rks.py` (17, 1 skipped), `test_uks.py` (10),
+  `test_rks_grad.py` (15), `test_uks_grad.py` (12), `test_tdrks.py` (28) and `test_tduks.py` (20). The J-engine test
+  passed only after the attribute fix.
+- **memcheck:** 0 errors for J, J with 2 densities, and the J gradient.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
