@@ -73,6 +73,7 @@ def read_launches(path):
     launches = []
     cur_file = cur_func = cur_line = None
     cols = None
+    files = set()   # the source files listed so far for the current launch: one coming again starts the next
     with open(path, newline='') as f:
         for row in csv.reader(f):
             if not row:
@@ -82,9 +83,11 @@ def read_launches(path):
                 continue
             if row[0] == 'Function Name':
                 func = row[1].split('(')[0]
-                if func != cur_func:
+                if func != cur_func or cur_file in files:
                     cur_func = func
+                    files = set()
                     launches.append((func, defaultdict(list), {}))
+                files.add(cur_file)
                 continue
             if row[0] == 'Line No':
                 cols = {}
@@ -267,9 +270,83 @@ def loop_report(path, marker, kernel_files, labels=None, helpers=None):
                           f'sectors, {got / max(ideal, 1):.2f}x the coalesced count')
 
 
+# (first line, last line, region) of the generic MD J kernel md_j_1dm_kernel in md_contract_j.cu; iter_Rt_n (lines
+# 39-69) is inlined into the R tensor region
+J_GENERIC = [(39, 69, 'R tensor'), (254, 322, 'R tensor'), (324, 356, 'contraction'),
+             (358, 398, 'reductions, atomics')]
+J_ORDER = ['setup, screening', 'Boys function', 'R tensor', 'contraction', 'R tensor, contraction',
+           'reductions, atomics']
+
+
+def unrolled_j_regions(path):
+    '''{kernel: [(first line, last line, region)]} of the unrolled J kernels in path: after the boys_fn call up to the
+    bra-side reduction ('double *vj_cache = Rp_cache;') the R tensor and the contraction, from there to the next
+    kernel the reductions and the atomics'''
+    text = open(path).read().split('\n')
+    starts = [(n + 1, t.split('void ')[1].split('(')[0]) for n, t in enumerate(text) if t.startswith('void md_j_')]
+    out = {}
+    for k, (a, name) in enumerate(starts):
+        b = starts[k + 1][0] - 1 if k + 1 < len(starts) else len(text)
+        boys = next(n + 1 for n in range(a, b) if 'boys_fn(' in text[n])
+        red = next(n + 1 for n in range(boys, b) if 'double *vj_cache = Rp_cache;' in text[n])
+        out[name] = [(boys + 1, red - 2, 'R tensor, contraction'), (red - 1, b, 'reductions, atomics')]
+    return out
+
+
+def j_report(path, src_dir, labels=None):
+    '''Per launch of the J engine: warp instructions, FP64 instructions (D* opcodes), stall samples and active lanes
+    per region. An instruction is in the Boys function if any frame of its inlining stack is in gamma_inc.cu or
+    boys.cu; otherwise its line in the kernel's own file (md_contract_j.cu, unrolled_md_j*.cu) decides.'''
+    unrolled = {}
+    for f in ('unrolled_md_j.cu', 'unrolled_md_j_4dm.cu'):
+        p = os.path.join(src_dir, f)
+        if os.path.exists(p):
+            unrolled.update(unrolled_j_regions(p))
+    for n, (func, lines, data) in enumerate(read_launches(path)):
+        tab = defaultdict(lambda: [0., 0., 0., 0.])   # warp inst, FP64, stall samples, thread inst
+        ops = defaultdict(lambda: defaultdict(float))
+        for addr, where in lines.items():
+            names = [os.path.basename(f) for f, _ in where]
+            if 'gamma_inc.cu' in names or 'boys.cu' in names:
+                r = 'Boys function'
+            else:
+                r = 'setup, screening'
+                spans = J_GENERIC if func.startswith('md_j_1dm') or func.startswith('md_j_4dm') else \
+                    unrolled.get(func, [])
+                own = [ln for f, ln in where if os.path.basename(f) in
+                       ('md_contract_j.cu', 'unrolled_md_j.cu', 'unrolled_md_j_4dm.cu')]
+                for ln in own:
+                    for a, b, rr in spans:
+                        if a <= ln <= b:
+                            r = rr
+                    if r != 'setup, screening':
+                        break
+            op, k, st, extra = data[addr]
+            t = tab[r]
+            t[0] += k
+            t[2] += st
+            t[3] += extra.get('Thread Instructions Executed', 0.)
+            if op.split('.')[0] in FP64:
+                t[1] += k
+            ops[r][op.split('.')[0]] += k
+        ti, tf, ts, tt = (sum(v[c] for v in tab.values()) for c in range(4))
+        lab = f'{labels[n]}: ' if labels else ''
+        print(f'{lab}{func}: {ti / 1e9:.3f} G warp instructions, {tf / 1e9:.3f} G FP64 ({100 * tf / max(ti, 1):.0f}%), '
+              f'{ts:.0f} stall samples, {tt / max(32 * ti, 1):.2f} of the lanes active')
+        print(f'  {"region":22s} {"inst":>6s} {"FP64":>6s} {"stall":>6s} {"lanes":>6s}  top opcodes')
+        for r in J_ORDER:
+            if r in tab:
+                i, f, st, th = tab[r]
+                top = sorted(ops[r].items(), key=lambda kv: -kv[1])[:6]
+                print(f'  {r:22s} {100 * i / max(ti, 1):5.1f}% {100 * f / max(tf, 1):5.1f}% {100 * st / max(ts, 1):5.1f}% '
+                      f'{th / max(32 * i, 1):6.2f}  ' + ' '.join(f'{o} {100 * v / max(i, 1):.0f}%' for o, v in top))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('csv')
+    ap.add_argument('--j', default=None, metavar='SRC_DIR',
+                    help='J-engine kernels (ncu_j_class.py): regions by the gvhf-md sources in SRC_DIR')
     ap.add_argument('--order', default=None, help='launch labels (ncu_parts.py --labels) for the class names; the '
                     'profiled launches are the first of each class and kernel among them')
     ap.add_argument('--classes', default=None, help='the classes profiled (ncu_ejk2_class.py --classes)')
@@ -281,6 +358,9 @@ def main():
                     help='with --loops: file:first-last,... of helpers called only inside the loops (default: '
                     'load_dm and dot_dm of the generic J/K kernels)')
     args = ap.parse_args()
+    if args.j:
+        j_report(args.csv, args.j, args.labels.split(';') if args.labels else None)
+        return
     if args.loops:
         loop_report(args.csv, args.loops, set(args.kernel_files.split(',')),
                     args.labels.split(';') if args.labels else None, helper_lines(args.loop_helpers))

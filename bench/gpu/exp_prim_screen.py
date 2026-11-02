@@ -20,13 +20,15 @@ PRIM_CUTOFF (vhf.cuh) is e^-60 = 8.8e-27, libcint's expcutoff. A skipped primiti
 factor below that, many orders of magnitude under the SCF's 1e-13 shell-quartet cutoff.
 --j-tiles auto makes the bra tile of the J engine's unrolled kernels (unrolled_md_j.cu, unrolled_md_j_4dm.cu) a
 run-time value, chosen so that a launch fills the SMs (part 22).
+--gen-j writes generated_md_j.cu (gen_md_j.py): MD J kernels for classes that would otherwise run the generic
+md_j_1dm_kernel, built into libgvhf_md and tried by MD_build_j after the unrolled kernels (part 23).
 --gen-ip2 writes generated_ejk_ip2.cu (gen_rys_ejk_ip2.py): the Hessian's second-derivative kernels with sums per
 Cartesian tuple, tried by RYS_per_atom_jk_ip2_type12 and _type3 before their unrolled and generic kernels.
 Usage: exp_prim_screen.py TREE [--base perf] [--barrier keep|remove] [--ket none|zero|cutoff]
                                [--bra none|zero|cutoff] [--multi on|off] [--launch 128x4|off|NSQxBLOCKS|env]
                                [--generic on|off] [--gen-k CLASS:NSQxGS,...|off] [--gen-first]
                                [--gen-ip2 KIND:CLASS:NSQxGS,...|off] [--gen-ip2-files N] [--gen-ip2-env]
-                               [--j-tiles auto|off] [--j-blocks-per-sm 64]"""
+                               [--j-tiles auto|off] [--j-blocks-per-sm 64] [--gen-j 'LIJ,LKL[:TILEY] ...'|off]"""
 import argparse
 import os
 import re
@@ -88,6 +90,13 @@ ap.add_argument('--j-tiles', default='auto', choices=['auto', 'off'],
                 help="J engine (gvhf-md): auto picks the unrolled kernels' bra tile at run time to fill the SMs")
 ap.add_argument('--j-blocks-per-sm', type=int, default=64,
                 help='--j-tiles auto: the least blocks per SM a J launch gets (twice that for diagonal classes)')
+# The classes of f functions (lij, lkl <= 6) without an unrolled MD J kernel: lij + lkl >= 6, lij >= lkl, and (3,4)
+# ((fs|dd), whose bra pair comes later in the J engine's loop although its lij is smaller). On a GTX 1650 Super each
+# runs 1.1-2.4x faster than the generic md_j_1dm_kernel, even those that spill registers; (6,5) and (6,6) spill
+# 38 and 104 KB per thread and run slower, so they stay generic (part 23).
+GEN_J = '3,3 4,2 5,1 6,0 4,3 5,2 6,1 3,4 4,4 5,3 6,2 5,4 6,3 5,5 6,4'
+ap.add_argument('--gen-j', default=GEN_J,
+                help='space-separated LIJ,LKL[:TILEY] specs of generated MD J kernels (gen_md_j.py), or off')
 ap.add_argument('--launch', default='128x4',
                 help="launch shape of the one-thread kernels: off (one block of 256 per SM, as in v1.9.0), NSQxBLOCKS "
                      "(blocks of NSQ threads, at most BLOCKS per SM), or env (K and J+K from GPU4PYSCF_RYS_NSQ and "
@@ -579,6 +588,29 @@ if args.j_tiles != 'off':
         open(f'{args.tree}/{rel}', 'w').write(head + '\n' + grid_x + disp.lstrip('\n'))
     print(f'J engine: run-time bra tiles in {n_kernels["unrolled_md_j.cu"]} + {n_kernels["unrolled_md_j_4dm.cu"]} '
           f'unrolled kernels, at least {args.j_blocks_per_sm} blocks per SM')
+
+# Generated MD J kernels (bench/gpu/gen_md_j.py) for classes that would otherwise run the generic kernel:
+# generated_md_j.cu, built into libgvhf_md, and tried by MD_build_j after md_j_unrolled (single density).
+if args.gen_j != 'off':
+    here = os.path.dirname(os.path.abspath(__file__))
+    G = 'gpu4pyscf/lib/gvhf-md'
+    subprocess.run([sys.executable, os.path.join(here, 'gen_md_j.py'), f'{args.tree}/{G}/generated_md_j.cu']
+                   + args.gen_j.split(), check=True)
+    s = source(f'{G}/md_contract_j.cu')
+    decl = 'int md_j_unrolled(RysIntEnvVars *envs, JKMatrix *jk, MDBoundsInfo *bounds,\n'
+    assert s.count(decl) == 1
+    s = s.replace(decl, ('int md_j_generated(RysIntEnvVars *envs, JKMatrix *jk, MDBoundsInfo *bounds,\n'
+                         '                   float *q_cond_ij, float *q_cond_kl, double omega);\n') + decl)
+    old = '        if (!md_j_unrolled(envs, &jk, &bounds, q_cond_ij, q_cond_kl, omega)) {\n'
+    assert s.count(old) == 1
+    s = s.replace(old, '        if (!md_j_unrolled(envs, &jk, &bounds, q_cond_ij, q_cond_kl, omega) &&\n'
+                       '            !md_j_generated(envs, &jk, &bounds, q_cond_ij, q_cond_kl, omega)) {\n')
+    open(f'{args.tree}/{G}/md_contract_j.cu', 'w').write(s)
+    s = source(f'{G}/CMakeLists.txt')
+    old = '  md_contract_j.cu unrolled_md_j.cu unrolled_md_j_4dm.cu\n'
+    assert s.count(old) == 1
+    s = s.replace(old, '  md_contract_j.cu unrolled_md_j.cu unrolled_md_j_4dm.cu generated_md_j.cu\n')
+    open(f'{args.tree}/{G}/CMakeLists.txt', 'w').write(s)
 
 print(f'one-thread kernels (K, J+K): {counts["unrolled_rys_k.cu"][0]} + {counts["unrolled_rys_jk.cu"][0]}: '
       f'barrier {args.barrier}, ket skip {args.ket}, bra skip {args.bra}; multi-thread kernels '

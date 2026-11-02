@@ -53,6 +53,8 @@ def summarize(path, labels_path):
     col = {h: k for k, h in enumerate(rows[0])}
 
     def val(r, m):
+        if m not in col:   # a metric the run did not collect
+            return 0.
         s = r[col[m]].replace(',', '')
         try:
             return float(s)

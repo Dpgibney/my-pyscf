@@ -4844,6 +4844,132 @@ Third of the approved items (part 18's option 5).
 - With fixed tiles, cards with 40–132 SMs would have had most of their SMs idle in a caffeine-sized J build: part 18
   found 5–60% filled. They should gain more than this card. The A100/H100 suite would measure it.
 
+## GPU4PySCF investigation, part 23: generated J kernels for the f-function classes (node1), 2026-11-02
+Fourth of the approved items (part 18's option 6).
+- **Commit:** gpu4pyscf `exp/prim-screen` 4d3d6fe (`generated_md_j.cu`, from `exp_prim_screen.py --gen-j`).
+- **Tools:**
+  - `gen_md_j.py`, the generator;
+  - `ncu_j_class.py`, which puts the J launches of chosen classes in the profiler range;
+  - `ncu_source_regions.py --j`, which splits J kernels into the Boys function, the R tensor, the contraction and the
+    rest;
+  - `j_exact_check.py`, which compares J matrices with PySCF's unscreened J on the CPU.
+- **Data:** `p23_j_generated.txt`.
+
+### Where the J kernels spend their instructions (source-level profile, def2-TZVP, part 22)
+- **The generic kernel** (`md_j_1dm_kernel`, here (fs|dp), (fp|dp), (fd|dp)):
+  - FP64 is 10% of its instructions; its FP64 pipe is 61–66% busy.
+  - The R tensor takes 32–37% of its instructions and the contraction 51–54%, most of it integer address arithmetic
+    from index tables (IMAD, ISETP, MOV, BRA).
+  - The R tensor also has half of its stall samples, at the barriers between recursion levels.
+- **The Boys function** (`gamma_inc.cu`), in the unrolled kernels:
+
+  | class | (ss\|ss) | (ps\|ss) | (ps\|ps) | (ds\|ps) | (dp\|ps) | (dp\|ds) |
+  |---|---|---|---|---|---|---|
+  | Boys share of FP64 instructions | 60% | 81% | 72% | 61% | 51% | 36% |
+  | active lanes in it | 1.00 | 0.40 | 0.36 | 0.33 | 0.32 | 0.30 |
+
+  - The series branch (t < m/2 + 1/2) is taken by 6–12% of lanes. Its loop divides once per pass (`x *= t / bi`,
+    about 20 passes), while the rest of the warp waits. That one line is 18–30% of all instructions in md_j_1_0 to
+    md_j_3_2.
+  - The erf branch (`SQRTPIE4 / tt * erf(tt)`) is 49% of the FP64 work in (ss|ss) and 19% in (ps|ss).
+  - Not changed here: the low-order classes are not on the approved list, and the change would alter rounding. It is
+    proposed below.
+
+### The generator (`gen_md_j.py`)
+- **Frame:** that of the unrolled kernels.
+  - 16 × 16 threads, one (bra pair, ket pair) quartet per thread.
+  - Run-time bra tiles (part 22) and TILEY batches of 16 ket pairs.
+  - The same screening, reductions and atomics.
+- **Boys function:** into a local array, which stays in registers; the unrolled kernels use shared memory.
+- **R tensor:** the McMurchie–Davidson recursions, z first, then y, then x, column (u, v) by column.
+  - Each R⁽⁰⁾_tuv is contracted as soon as it exists, into both sides' accumulators:
+    - J_kl[k] += R[i+k]·D_ij[i], with the bra density from shared memory, reduced over the 16 bra lanes per quartet;
+    - J_ij[i] += R[i+k]·D_kl[k], with the ket density in registers and the phase (−1)^|k| folded in.
+  - The recursion path is the same as the generic and unrolled kernels': x if t > 0, else y, else z.
+  - Only 15 (order 6) to 32 (order 9) intermediates are live at once. The unrolled kernels instead keep the whole
+    R tensor live until the end of the quartet: md_j_3_2 holds 56 R values and needs 216 registers.
+- **Registers:** the accumulators dominate, nf3(lij) + 2·nf3(lkl) doubles. In ptxas -v at sm_75:
+  - (3,3) and (4,2) use 254 registers without spills.
+  - (5,1) and (3,4) spill 80 B, (4,3) 172 B, (5,2) 440 B and (4,4) 1.1 KB.
+  - (5,3) and (6,0)–(6,2) spill 0.9–2.4 KB, (5,4) and (6,3) 4–7 KB, (5,5) and (6,4) 13 KB.
+  - (6,5) spills 38 KB and (6,6) 104 KB.
+  - Reading the ket density from memory at each use instead of registers changed nothing: ptxas already reloads it.
+- **Dispatch:** `md_j_generated()` is tried by `MD_build_j` after `md_j_unrolled()`, for one density.
+
+### Per class (def2-TZVP, ncu GPU time; generic → generated)
+
+| class (lij, lkl) | time | FP64 pipe | warp instructions |
+|---|---|---|---|
+| (fs\|dp) (3,3) | 166 → 78 ms | 61 → 91% | 1.71 → 0.21 G |
+| (fp\|ds) (4,2) | 161 → 71 ms | 57 → 91% | 1.52 → 0.19 G |
+| (fd\|ps) (5,1) | 140 → 68 ms | 56 → 90% | 1.22 → 0.18 G |
+| (fp\|dp) (4,3) | 129 → 69 ms | 66 → 92% | 1.44 → 0.17 G |
+| (fd\|dp) (5,3), 1.3 KB spills | 88 → 38 ms | | 0.88 → 0.09 G |
+| (fp\|fp) (4,4), 1.1 KB spills | 59 → 26 ms | | 0.66 → 0.06 G |
+| (ff\|fs) (6,3), 7 KB spills | 22 → 13 ms | | |
+| (ff\|fd) (6,5), 38 KB spills | 11 → 15 ms | | |
+| (ff\|ff) (6,6), 104 KB spills | 2 → 7 ms | | |
+
+- **All 32 classes of order ≥ 6:** 1.96 s → 0.99 s. The classes of order 6–8 run 1.6–2.4× faster, and those of
+  order 9–10 1.1–2.0×.
+- **The two exceptions:** (6,5) and (6,6) ran slower than the generic kernel, so they stay generic (13 ms).
+- **FP64 work is 12–17% lower:** there are no int8 phases or recursion factors to convert and multiply.
+
+### Exactness
+- **Against part 21,** J moves by up to 7.3e−12 (values up to 35.5), where part 22's reordering moved it by 9.6e−14.
+  The arithmetic of each quartet now differs (the order of its sums and the pairing of FMAs), not only the order of
+  the atomic adds.
+- **Against the exact J,** the generated kernels are as close or closer:
+
+  | caffeine | max error | RMS error | E_J error | elements with error > 1e−12 |
+  |---|---|---|---|---|
+  | def2-TZVP, part 21 | 1.55e−11 | 7.65e−13 | −9.55e−12 Eh | 10,518 |
+  | def2-TZVP, part 23 | 1.55e−11 | 7.30e−13 | −9.35e−12 Eh | 9,524 |
+  | def2-SVP, part 21 | 6.16e−12 | 4.17e−13 | −5.85e−12 Eh | 1,678 |
+  | def2-SVP, part 23 | 6.16e−12 | 4.20e−13 | −5.73e−12 Eh | 1,682 |
+
+  - The exact J is PySCF's on the CPU without screening, which takes 11 s at def2-TZVP. The largest error, common
+    to both, is screening.
+  - The elements that moved most are those where the generic kernel was furthest off. For example, a d–d element of
+    atoms 11 and 13, 11.4 bohr apart: exact 1.3050e−10, generic −7.9e−12, generated −1.2e−12. The likely cause is
+    the generic kernel's screening by batches of its own size, but that was not checked.
+- **SCFs:** same energies to the printed digits and the same cycle counts.
+- **compute-sanitizer memcheck:** 0 errors at def2-TZVP.
+
+### Timings (GTX 1650 Super; part 22, then part 23)
+
+| caffeine | J at a fixed density | J per SCF cycle | SCF |
+|---|---|---|---|
+| def2-TZVP PBE | 4.870 → 3.892 s (−20%) | 3.665 → 2.945 s | 86.71 → 73.86 s (−15%) |
+| def2-SVP PBE | 0.500 → 0.490 s | 0.376 → 0.367 s | 15.10 → 14.90 s |
+| def2-SVP B3LYP | | 0.384 → 0.376 s | 30.40 → 30.27 s |
+
+- **def2-SVP gains little:** its only classes of order ≥ 6 are (dp|dp) and (dd|·), about 30 ms per build.
+- **Several densities are unchanged:** UKS and response J (def2-TZVP with 2 densities: 7.295 s, as before) keep
+  `md_j_4dm_kernel` for these classes. A multi-density variant would multiply the accumulators, which already set
+  the register limit.
+
+### Unit tests
+- **17-class build:** `test_scf_j_engine.py` (8), `test_scf_jk.py` (11), `test_rks.py` (17, 1 skipped),
+  `test_uks.py` (10) and `test_tdrks.py` (28) pass.
+- **Final 15-class build:** the J-engine tests pass. It differs only in sending (6,5) and (6,6) back to the generic
+  kernel.
+
+### Other cards
+- **Fast FP64:** the generic kernel executed 8× the instructions for the same FP64 work. Where FP64 is fast (A100,
+  H100), those instructions bound the time, so the generated kernels should gain more there than this card's 2×.
+- **Spills:** ptxas allocates registers per architecture, so the spills, and the choice to keep (6,5) and (6,6)
+  generic, would need checking on sm_80/sm_90.
+
+### Proposed next (not approved): the Boys function
+- **Division-free series:** the series loop and the downward recursion can multiply by tabulated reciprocals
+  1/(m + k + 1/2) instead of dividing. That is the same arithmetic up to rounding, about 1e−16 relative in F_m.
+- **erf skip:** erf(√t) is 1.0 in double precision once t is larger than about 36–49. Skipping it there is
+  bit-exact if CUDA's erf returns exactly 1.0 there, which needs checking.
+- **What it would gain:** the series line alone is 18–30% of the instructions of the low-order unrolled kernels. Those
+  kernels make up about 80% of a def2-TZVP J build and nearly all of a def2-SVP one.
+- **How to check it:** `j_exact_check.py` measures exactly this kind of rounding-level change.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

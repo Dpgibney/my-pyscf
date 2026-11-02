@@ -1,0 +1,219 @@
+# GPU4PySCF investigation part 23 (NOTES.md): generated MD J kernels for the f-function classes.
+# GTX 1650 Super at 1530 MHz (20 SMs, sm_75); caffeine; J at the converged B3LYP densities (scratch/dm_caf_b3lyp.npy,
+# scratch/dm_caf_tzvp_b3lyp.npy). Trees: "part 22" is scratch/tree_p22 (exp/prim-screen fb338f2); "part 23" the main
+# tree with exp/prim-screen 4d3d6fe (generated_md_j.cu from bench/gpu/gen_md_j.py via exp_prim_screen.py --gen-j).
+#
+# Commands (node1; the scripts are in scratch/):
+#   p23_prof.sh   ncu --section SourceCounters,WarpStateStats,SpeedOfLight on ncu_j_class.py (one launch per class,
+#                 def2-TZVP, part 22); ncu_source_regions.py --j for section 1                 (sections 1, 2)
+#   p23_gen.sh    the first 5 generated classes: build, J, ncu per launch (ncu_parts.py --part j)     (section 5)
+#   p23_gen2.sh   13 classes                                                                          (section 5)
+#   p23_val.sh    17 classes: J, ncu per launch, scf_parts.py against part 22, memcheck, unit tests
+#                                                                                         (sections 3, 4, 7, 8)
+#   p23_final.sh  the final 15 classes: J and the PBE/def2-TZVP SCF against part 22, J-engine unit tests (6, 7, 8)
+#   on the laptop: j_exact_check.py, the J matrices against PySCF's unscreened J on the CPU             (section 6)
+
+# 1) part 22's J kernels at def2-TZVP, one launch per class (ncu raw metrics)
+kernel            time ms  grid  regs  fp64 pipe %  lanes  G inst  G FP64-pipe inst
+md_j_0_0             63.2 2,184    68        87.0   1.00   0.254   0.105
+md_j_1_0            361.9 1,242    94        87.5   0.56   1.271   0.600
+md_j_1_1            270.7 4,761    95        87.9   0.60   1.013   0.457
+md_j_2_1            259.1 1,173   114        88.0   0.60   0.876   0.437
+md_j_3_1            197.2 1,276   162        89.2   0.64   0.638   0.337
+md_j_3_2            109.1 1,012   216        90.4   0.73   0.349   0.189
+md_j_1dm_kernel     166.1 1,310   254        61.5   0.97   1.710   0.194
+md_j_1dm_kernel     127.8 1,100   254        66.5   0.98   1.439   0.162
+md_j_1dm_kernel      86.2 1,310   254        61.2   0.96   0.883   0.101
+
+# 2) the same launches by source region (ncu_source_regions.py --j: the Boys function by the inlining stack
+#    (gamma_inc.cu, boys.cu); the rest by the kernel's lines). Columns: share of the launch's warp instructions, FP64
+#    instructions (D* opcodes) and stall samples; the active lanes per instruction in the region
+(ss|ss): md_j_0_0: 0.253 G warp instructions, 0.102 G FP64 (40%), 1315762 stall samples, 1.00 of the lanes active
+  region                   inst   FP64  stall  lanes  top opcodes
+  setup, screening        51.3%  33.0%  37.6%   1.00  DFMA 16% IMAD 12% ISETP 8% DMUL 7% BRA 6% LDS 6%
+  Boys function           39.9%  60.2%  58.7%   1.00  DFMA 47% DMUL 8% IMAD 6% BRA 4% MOV 4% BSYNC 3%
+  R tensor, contraction    8.1%   6.7%   3.3%   1.00  DADD 24% LDS 14% IMAD 14% DFMA 10% MOV 10% LDG 10%
+  reductions, atomics      0.7%   0.2%   0.5%   0.97  LDS 19% ISETP 14% BAR 14% STS 11% DADD 9% IMAD 5%
+(ps|ss): md_j_1_0: 1.269 G warp instructions, 0.593 G FP64 (47%), 3668871 stall samples, 0.56 of the lanes active
+  region                   inst   FP64  stall  lanes  top opcodes
+  setup, screening        20.3%  12.6%  37.3%   1.00  DFMA 18% IMAD 9% BRA 7% DMUL 7% LDS 7% SHFL 6%
+  Boys function           72.8%  81.1%  58.5%   0.40  DFMA 35% IMAD 8% DMUL 8% BRA 7% DADD 6% FSETP 5%
+  R tensor, contraction    5.8%   6.0%   2.6%   1.00  DFMA 24% LDS 18% DADD 15% DMUL 9% IMAD 9% MOV 6%
+  reductions, atomics      1.1%   0.3%   1.7%   0.98  LDS 27% BAR 20% STS 16% DADD 13% ISETP 4% BSYNC 4%
+(ps|ps): md_j_1_1: 1.011 G warp instructions, 0.452 G FP64 (45%), 3668089 stall samples, 0.60 of the lanes active
+  region                   inst   FP64  stall  lanes  top opcodes
+  setup, screening        20.6%   9.8%  31.6%   0.99  SHFL 17% DFMA 13% IMAD 10% ISETP 6% DMUL 6% BRA 5%
+  Boys function           62.2%  71.5%  57.0%   0.36  DFMA 34% DMUL 8% IMAD 8% BRA 7% DADD 6% FSETP 6%
+  R tensor, contraction   15.4%  18.1%   8.3%   1.00  DFMA 29% LDS 22% DADD 17% DMUL 7% BRA 4% LDG 4%
+  reductions, atomics      1.8%   0.5%   3.1%   0.97  LDS 26% BAR 19% STS 16% DADD 13% BSYNC 4% ISETP 4%
+(ds|ps): md_j_2_1: 0.875 G warp instructions, 0.434 G FP64 (50%), 3668702 stall samples, 0.60 of the lanes active
+  region                   inst   FP64  stall  lanes  top opcodes
+  setup, screening        15.1%   7.1%  21.3%   1.00  SHFL 19% DFMA 15% IMAD 7% ISETP 7% BRA 6% DMUL 6%
+  Boys function           59.4%  61.3%  59.4%   0.33  DFMA 34% DMUL 9% IMAD 8% BRA 7% FSETP 6% DADD 6%
+  R tensor, contraction   23.9%  31.3%  18.2%   1.00  DFMA 40% LDS 22% DMUL 16% DADD 9% BRA 2% LDG 2%
+  reductions, atomics      1.5%   0.3%   1.0%   0.88  LDS 23% BAR 17% STS 14% DADD 11% IMAD 5% LEA 4%
+(dp|ps): md_j_3_1: 0.637 G warp instructions, 0.336 G FP64 (53%), 3668439 stall samples, 0.64 of the lanes active
+  region                   inst   FP64  stall  lanes  top opcodes
+  setup, screening        12.1%   5.3%  16.9%   1.00  SHFL 19% DFMA 15% IMAD 8% ISETP 7% BRA 6% DMUL 6%
+  Boys function           52.9%  51.0%  52.1%   0.32  DFMA 33% DMUL 9% IMAD 8% BRA 7% FSETP 6% DADD 6%
+  R tensor, contraction   32.6%  43.1%  29.6%   1.00  DFMA 48% LDS 23% DMUL 16% DADD 5% BRA 1% LDG 1%
+  reductions, atomics      2.4%   0.6%   1.5%   0.99  LDS 27% BAR 20% STS 16% DADD 13% BSYNC 4% BRA 4%
+(dp|ds): md_j_3_2: 0.348 G warp instructions, 0.188 G FP64 (54%), 2281009 stall samples, 0.73 of the lanes active
+  region                   inst   FP64  stall  lanes  top opcodes
+  setup, screening        10.8%   3.3%  12.4%   0.99  SHFL 34% DFMA 11% ISETP 8% IMAD 6% BRA 4% DMUL 4%
+  Boys function           38.3%  35.8%  37.5%   0.30  DFMA 33% DMUL 9% IMAD 8% BRA 7% FSETP 6% DADD 6%
+  R tensor, contraction   47.2%  60.0%  47.9%   1.00  DFMA 52% LDS 25% DMUL 11% DADD 6% BRA 1% LDG 1%
+  reductions, atomics      3.7%   0.8%   2.3%   0.94  LDS 25% BAR 18% STS 15% DADD 12% BSYNC 4% BRA 4%
+(fs|dp): md_j_1dm_kernel: 1.708 G warp instructions, 0.165 G FP64 (10%), 3450154 stall samples, 0.97 of the lanes active
+  region                   inst   FP64  stall  lanes  top opcodes
+  setup, screening         7.7%   6.9%   8.2%   0.97  IMAD 19% IADD3 10% MOV 8% ISETP 8% BRA 6% DFMA 5%
+  Boys function            4.3%  20.5%   3.6%   0.34  DFMA 29% IMAD 10% DMUL 8% BRA 8% DADD 6% FSETP 6%
+  R tensor                31.6%  19.3%  51.0%   1.00  IMAD 23% MOV 12% ISETP 11% BRA 9% LDS 6% LDC 5%
+  contraction             54.4%  52.6%  35.3%   1.00  IMAD 18% LDS 11% BRA 10% ISETP 9% LEA 8% LD 7%
+  reductions, atomics      1.9%   0.7%   2.0%   0.91  ISETP 16% IMAD 15% BRA 10% LDS 9% LEA 9% BAR 8%
+(fp|dp): md_j_1dm_kernel: 1.438 G warp instructions, 0.140 G FP64 (10%), 2670170 stall samples, 0.98 of the lanes active
+  region                   inst   FP64  stall  lanes  top opcodes
+  setup, screening         5.6%   4.6%   7.6%   0.98  IMAD 20% IADD3 12% MOV 9% ISETP 7% LEA 5% BRA 5%
+  Boys function            3.3%  15.7%   3.8%   0.34  DFMA 29% IMAD 9% DMUL 8% BRA 8% DADD 6% FSETP 6%
+  R tensor                36.3%  21.8%  49.0%   1.00  IMAD 24% MOV 13% ISETP 12% BRA 9% LDS 6% LDC 5%
+  contraction             54.0%  57.6%  38.7%   1.00  IMAD 20% LDS 13% BRA 9% LEA 9% LD 9% DFMA 9%
+  reductions, atomics      0.8%   0.3%   0.9%   0.92  IMAD 16% ISETP 15% BRA 9% LEA 9% LDS 9% BAR 7%
+(fd|dp): md_j_1dm_kernel: 0.883 G warp instructions, 0.086 G FP64 (10%), 1802358 stall samples, 0.96 of the lanes active
+  region                   inst   FP64  stall  lanes  top opcodes
+  setup, screening         5.9%   5.8%  10.3%   0.94  IMAD 19% IADD3 12% ISETP 7% MOV 7% BRA 5% DFMA 5%
+  Boys function            3.8%  18.0%   3.4%   0.19  DFMA 29% IMAD 9% DMUL 8% BRA 7% DADD 6% FSETP 6%
+  R tensor                36.8%  20.8%  49.5%   0.98  IMAD 24% MOV 12% ISETP 11% BRA 9% LDS 6% LDC 5%
+  contraction             51.5%  54.7%  33.7%   1.00  IMAD 21% LDS 13% LEA 9% BRA 9% LD 9% DFMA 9%
+  reductions, atomics      2.0%   0.8%   3.1%   0.91  ISETP 15% IMAD 15% BRA 10% LDS 9% LEA 9% BAR 8%
+
+# 2b) the Boys function by line of gamma_inc.cu
+(ss|ss) md_j_0_0: gamma_inc.cu by line (share of the launch: inst, FP64, stall; active lanes)
+   24   2.3%   1.0%   1.3%  1.00  if (t < EPS_FLOAT64) {
+   49   7.3%   7.6%   6.1%  1.00  double tt = sqrt(t);
+   50  28.4%  48.7%  49.1%  1.00  double fval = SQRTPIE4 / tt * erf(tt);
+(ps|ss) md_j_1_0: gamma_inc.cu by line (share of the launch: inst, FP64, stall; active lanes)
+   24   0.4%   0.4%   0.5%  1.00  if (t < EPS_FLOAT64) {
+   29   0.4%   0.4%   0.3%  1.00  } else if (m > 0 && t < m*.5+.5) {
+   31   3.5%   4.5%   3.6%  0.07  double e = .5 * exp(-t);
+   35   4.7%   3.5%   6.1%  0.07  while (x > tol) {
+   36   1.5%   3.2%   0.1%  0.06  bi += 1.;
+   37  29.9%  28.8%  24.0%  0.06  x *= t / bi;
+   38   1.5%   3.2%   0.3%  0.06  s += x;
+   41   2.4%   2.1%   1.6%  0.07  double fval = s / b;
+   49   3.3%   3.0%   1.9%  0.95  double tt = sqrt(t);
+   50  12.7%  19.2%  13.6%  0.95  double fval = SQRTPIE4 / tt * erf(tt);
+   53   6.3%   7.0%   3.1%  0.81  double e = .5 * exp(-t);
+   54   1.8%   1.9%   1.1%  0.95  double b = 1. / t;
+   57   0.7%   0.8%   0.3%  0.95  fval = b * (b1 * fval - e);
+(dp|ds) md_j_3_2: gamma_inc.cu by line (share of the launch: inst, FP64, stall; active lanes)
+   31   1.3%   1.5%   1.5%  0.12  double e = .5 * exp(-t);
+   35   2.5%   1.7%   4.5%  0.10  while (x > tol) {
+   36   0.9%   1.6%   0.1%  0.10  bi += 1.;
+   37  17.7%  14.7%  15.8%  0.10  x *= t / bi;
+   38   0.9%   1.6%   0.0%  0.10  s += x;
+   41   0.9%   0.7%   0.8%  0.12  double fval = s / b;
+   45   4.3%   3.3%   3.4%  0.12  fval = (e + t * fval) / b;
+   46   0.2%   0.0%   0.1%  0.12  f[sq_id + i*block_size] = fval;
+   49   1.0%   0.8%   0.8%  0.89  double tt = sqrt(t);
+   50   3.8%   5.0%   5.8%  0.89  double fval = SQRTPIE4 / tt * erf(tt);
+   53   1.6%   1.7%   1.1%  0.83  double e = .5 * exp(-t);
+   54   0.5%   0.5%   0.7%  0.89  double b = 1. / t;
+   57   0.6%   1.0%   1.1%  0.89  fval = b * (b1 * fval - e);
+   58   0.3%   0.0%   0.1%  0.89  f[sq_id + i*block_size] = fval;
+(fs|dp) md_j_1dm_kernel: gamma_inc.cu by line (share of the launch: inst, FP64, stall; active lanes)
+   35   0.2%   0.9%   0.4%  0.11  while (x > tol) {
+   37   1.7%   8.0%   1.6%  0.11  x *= t / bi;
+   45   0.5%   2.6%   0.5%  0.13  fval = (e + t * fval) / b;
+   50   0.3%   2.5%   0.4%  0.88  double fval = SQRTPIE4 / tt * erf(tt);
+
+# 3) the generated kernels (17 classes): registers and spills (ptxas -v, sm_75)
+md_j_gen_3_3     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+md_j_gen_3_4     80 bytes stack frame, 80 bytes spill stores, 84 bytes spill loads
+md_j_gen_4_2     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+md_j_gen_4_3     128 bytes stack frame, 172 bytes spill stores, 216 bytes spill loads
+md_j_gen_4_4     744 bytes stack frame, 1140 bytes spill stores, 1180 bytes spill loads
+md_j_gen_5_1     80 bytes stack frame, 80 bytes spill stores, 92 bytes spill loads
+md_j_gen_5_2     296 bytes stack frame, 440 bytes spill stores, 468 bytes spill loads
+md_j_gen_5_3     776 bytes stack frame, 1304 bytes spill stores, 1356 bytes spill loads
+md_j_gen_5_4     2176 bytes stack frame, 4052 bytes spill stores, 4232 bytes spill loads
+md_j_gen_5_5     6848 bytes stack frame, 13404 bytes spill stores, 13832 bytes spill loads
+md_j_gen_6_0     472 bytes stack frame, 920 bytes spill stores, 936 bytes spill loads
+md_j_gen_6_1     936 bytes stack frame, 1568 bytes spill stores, 1584 bytes spill loads
+md_j_gen_6_2     1448 bytes stack frame, 2412 bytes spill stores, 2500 bytes spill loads
+md_j_gen_6_3     2992 bytes stack frame, 7020 bytes spill stores, 7320 bytes spill loads
+md_j_gen_6_4     6928 bytes stack frame, 13228 bytes spill stores, 13700 bytes spill loads
+md_j_gen_6_5     18824 bytes stack frame, 38504 bytes spill stores, 41952 bytes spill loads   (not kept)
+md_j_gen_6_6     51896 bytes stack frame, 104444 bytes spill stores, 125368 bytes spill loads (not kept)
+(all 255 registers but md_j_gen_3_3 and md_j_gen_4_2, 254; the Boys values stay in registers: no stack frame at order 6)
+
+# 4) per class at def2-TZVP, ncu GPU time: generic md_j_1dm_kernel (part 22) -> generated (17-class build)
+class     (lij,lkl)  time s: generic -> generated  speed-up   GFLOP64             G warp instructions
+(fs|dp)   (3, 3)       0.166 ->   0.078       x2.13     7.43 ->   6.19    1.710 ->  0.209
+(fp|ds)   (4, 2)       0.161 ->   0.071       x2.27     6.84 ->   5.70    1.516 ->  0.186
+(fd|ps)   (5, 1)       0.140 ->   0.068       x2.06     5.73 ->   4.76    1.224 ->  0.175
+(fp|pp)   (4, 2)       0.138 ->   0.061       x2.26     5.87 ->   4.95    1.293 ->  0.161
+(fp|dp)   (4, 3)       0.129 ->   0.069       x1.87     6.83 ->   5.98    1.439 ->  0.170
+(dp|dp)   (3, 3)       0.108 ->   0.050       x2.16     4.74 ->   3.95    1.099 ->  0.134
+(fp|fs)   (4, 3)       0.100 ->   0.054       x1.85     5.33 ->   4.66    1.126 ->  0.132
+(fd|dp)   (5, 3)       0.088 ->   0.038       x2.32     3.96 ->   3.44    0.883 ->  0.091
+(fd|ds)   (5, 2)       0.074 ->   0.038       x1.95     3.67 ->   3.25    0.758 ->  0.095
+(fd|fs)   (5, 3)       0.066 ->   0.030       x2.20     3.03 ->   2.65    0.679 ->  0.070
+(dd|ds)   (4, 2)       0.065 ->   0.030       x2.17     2.75 ->   2.33    0.612 ->  0.077
+(fd|pp)   (5, 2)       0.065 ->   0.034       x1.91     3.23 ->   2.86    0.665 ->  0.083
+(fs|fs)   (3, 3)       0.061 ->   0.029       x2.10     2.74 ->   2.29    0.641 ->  0.078
+(fp|fp)   (4, 4)       0.059 ->   0.026       x2.27     2.75 ->   2.37    0.661 ->  0.064
+(dd|pp)   (4, 2)       0.056 ->   0.027       x2.07     2.37 ->   2.02    0.524 ->  0.066
+(fd|fp)   (5, 4)       0.056 ->   0.029       x1.93     2.98 ->   2.68    0.635 ->  0.070
+(dd|dp)   (4, 3)       0.052 ->   0.029       x1.79     2.74 ->   2.42    0.580 ->  0.069
+(ff|ps)   (6, 1)       0.049 ->   0.030       x1.63     2.20 ->   1.94    0.484 ->  0.071
+(fp|dd)   (4, 4)       0.048 ->   0.021       x2.29     2.20 ->   1.89    0.527 ->  0.051
+(fs|dd)   (3, 4)       0.044 ->   0.023       x1.91     2.22 ->   1.92    0.514 ->  0.059
+(ff|ds)   (6, 2)       0.034 ->   0.018       x1.89     1.46 ->   1.34    0.338 ->  0.039
+(ff|ss)   (6, 0)       0.031 ->   0.013       x2.38     0.95 ->   0.73    0.231 ->  0.036
+(ff|pp)   (6, 2)       0.029 ->   0.018       x1.61     1.28 ->   1.17    0.294 ->  0.034
+(ff|dp)   (6, 3)       0.029 ->   0.019       x1.53     1.49 ->   1.42    0.310 ->  0.041
+(ff|fs)   (6, 3)       0.022 ->   0.013       x1.69     1.14 ->   1.09    0.238 ->  0.032
+(fd|dd)   (5, 4)       0.022 ->   0.011       x2.00     1.15 ->   1.04    0.247 ->  0.027
+(ff|fp)   (6, 4)       0.020 ->   0.014       x1.43     1.13 ->   1.11    0.227 ->  0.032
+(fd|fd)   (5, 5)       0.014 ->   0.011       x1.27     0.81 ->   0.77    0.171 ->  0.022
+(ff|fd)   (6, 5)       0.011 ->   0.015       x0.73     0.63 ->   0.61    0.138 ->  0.021
+(dd|dd)   (4, 4)       0.010 ->   0.006       x1.67     0.43 ->   0.38    0.107 ->  0.011
+(ff|dd)   (6, 4)       0.008 ->   0.007       x1.14     0.43 ->   0.42    0.088 ->  0.012
+(ff|ff)   (6, 6)       0.002 ->   0.007       x0.29     0.12 ->   0.14    0.026 ->  0.007
+all 32 classes of order >= 6: 1.957 -> 0.987 s
+
+# 5) J at a fixed density (jk_at_dm.py --part j --repeat 5, median s), as the classes were added
+classes generated            def2-TZVP   def2-SVP   max |dJ| against part 21 (def2-TZVP)
+none (part 22)                   4.868      0.500   9.6e-14
+5 (3,3 4,2 5,1 4,3 5,2)          4.192      0.488   6.7e-12
+13 (+ 3,4 4,4 5,3 6,0 6,1 6,2 5,4 6,3)
+                                 3.900          -   7.3e-12
+17 (+ 5,5 6,4 6,5 6,6)           3.899      0.489   7.3e-12
+15, final (17 but 6,5 6,6)      3.892      0.490   7.3e-12
+(in the final run part 22 took 4.870 and 0.500 s; def2-TZVP with 2 densities, which keeps md_j_4dm_kernel:
+ 7.295 s, as in part 22)
+
+# 6) against the exact J (PySCF, scf.hf.get_jk with vhfopt=None: no screening), j_exact_check.py
+def2-TZVP (max |J| 35.54)    max err   rms err  E_J err (Eh)  |err| > 1e-12
+part 21 (generic)           1.55e-11  7.65e-13     -9.55e-12          10518
+part 23, 17 classes         1.55e-11  7.30e-13     -9.34e-12           9524
+part 23, final (15 classes) 1.55e-11  7.30e-13     -9.35e-12           9524
+def2-SVP (max |J| 33.48)
+part 21                     6.16e-12  4.17e-13     -5.85e-12           1678
+part 23, 17 classes         6.16e-12  4.20e-13     -5.74e-12           1682
+The elements that moved most were where the generic kernel was furthest from the exact value, e.g. (d on atom 11,
+d on atom 13, 11.4 bohr apart): exact 1.305002e-10, part 21 1.225697e-10 (-7.9e-12), part 23 1.292884e-10 (-1.2e-12).
+
+# 7) SCFs (scf_parts.py --verbose 6, conv_tol 1e-10): part 22 -> part 23
+caffeine         E (Eh)            cycles   J first (s)     J per cycle (s)   SCF (s)
+def2-SVP PBE     -679.0403707179   18, 18   0.141 -> 0.141  0.376 -> 0.367    15.10 -> 14.90   (17 classes)
+def2-SVP B3LYP   -679.8127486398   15, 15   0.141 -> 0.141  0.384 -> 0.376    30.40 -> 30.27   (17 classes)
+def2-TZVP PBE    -679.7849175513   18, 18   0.830 -> 0.790  3.690 -> 2.956    87.32 -> 74.08   (17 classes)
+def2-TZVP PBE    -679.7849175513   18, 18   0.825 -> 0.788  3.665 -> 2.945    86.71 -> 73.86   (final, 15)
+The energies agree to the printed digits.
+
+# 8) compute-sanitizer memcheck (j_memcheck.py, CuPy's pool off) and unit tests
+memcheck, def2-TZVP, 1 density, 17 classes: ERROR SUMMARY: 0 errors
+17 classes: test_scf_j_engine 8 passed, test_scf_jk 11 passed, test_rks 17 passed 1 skipped, test_uks 10 passed,
+            test_tdrks 28 passed
+final 15 classes: test_scf_j_engine 8 passed, test_scf_jk 11 passed
