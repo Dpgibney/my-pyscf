@@ -1,0 +1,47 @@
+# GPU4PySCF investigation part 26 (NOTES.md): VV10's Fock kernel over each pair of grid points once.
+# GTX 1650 Super at 1530 MHz (sm_75); caffeine def2-SVP with B97M-V (294912 NLC grid points); the density for the fixed-
+# density comparison is the converged B3LYP one (scratch/dm_caf_b3lyp.npy). "part 25" is scratch/tree_p25 (exp/prim-
+# screen 0faf2ef); "part 26" the main tree with exp/prim-screen a837bd7 (gdft/vv10.cu from exp_prim_screen.py --vv10 sym).
+#
+# Commands (node1; the scripts are in scratch/):
+#   p26/vv10_check 60000 (nvcc -O3 -arch=sm_75 bench/gpu/vv10_check.cu)                                  (section 1)
+#   p26_val.sh  vv10_at_dm.py, nlc_grad_time.py, scf_parts.py --xc b97m_v, memcheck (vv10_at_dm.py --memcheck on
+#               benzene), unit tests                                                                  (sections 2-4)
+
+# 1) vv10_check.cu: the original kernel, the symmetric one with a per-j warp reduction, and with rotation, on 60000
+#    synthetic points; differences relative to the original, and against a long double reference at 256 points
+n = 60000: original 1622.9 ms
+  symmetric (reduction),  1 J tiles per block: 1552.5 ms (1.05x); max relative difference U 4.1e-13 W 3.1e-14 E 3.7e-14
+  symmetric (reduction),  4 J tiles per block: 1553.1 ms (1.04x); max relative difference U 4.1e-13 W 3.1e-14 E 3.9e-14
+    against long double at 256 points: original U 1.4e-13 W 1.8e-14 E 2.1e-14; this one U 3.5e-15 W 1.7e-15 E 2.0e-15
+  symmetric (reduction), 16 J tiles per block: 1555.0 ms (1.04x); max relative difference U 4.0e-13 W 3.1e-14 E 3.9e-14
+  symmetric (reduction), 64 J tiles per block: 1555.2 ms (1.04x); max relative difference U 3.6e-13 W 3.2e-14 E 3.7e-14
+  symmetric (rotation),  1 J tiles per block: 1132.7 ms (1.43x); max relative difference U 4.1e-13 W 3.1e-14 E 3.7e-14
+  symmetric (rotation),  4 J tiles per block: 1133.4 ms (1.43x); max relative difference U 4.1e-13 W 3.1e-14 E 3.9e-14
+    against long double at 256 points: original U 1.4e-13 W 1.8e-14 E 2.1e-14; this one U 3.5e-15 W 1.8e-15 E 1.8e-15
+  symmetric (rotation), 16 J tiles per block: 1136.7 ms (1.43x); max relative difference U 4.0e-13 W 3.1e-14 E 3.9e-14
+  symmetric (rotation), 64 J tiles per block: 1134.8 ms (1.43x); max relative difference U 3.6e-13 W 3.2e-14 E 3.7e-14
+ok
+
+# 2) nr_nlc_vxc at a fixed density, and the gradient's NLC terms
+== nr_nlc_vxc at a fixed density (caffeine def2-SVP, B97M-V): part 25, then part 26
+/home/danny/Chemistry/my-pyscf/scratch/tree_p25/gpu4pyscf: caffeine def2-svp b97m_v nr_nlc_vxc 29.58 s, 294912 NLC grid points; exc 0.385229398810
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp b97m_v nr_nlc_vxc 21.16 s, 294912 NLC grid points; exc 0.385229398810
+  against nlc_old.npz: exc -4.11e-15, max |vxc - ref| 2.21e-16 (max |vxc| 4.69e-03)
+== the gradient's NLC terms (nlc_grad_time.py): part 25, then part 26
+OLD /home/danny/Chemistry/my-pyscf/scratch/tree_p25/gpu4pyscf: caffeine def2-svp b97m_v at pbe orbitals, 294912 NLC grid points: get_nlc_exc 29.76 s, get_nlc_exc_full_response 66.77 s
+NEW /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp b97m_v at pbe orbitals, 294912 NLC grid points: get_nlc_exc 21.33 s, get_nlc_exc_full_response 55.45 s
+
+# 3) the SCF (scf_parts.py --verbose 6, conv_tol 1e-10)
+== SCF B97M-V/def2-SVP: part 25, then part 26
+OLD:  E (Eh) -679.7292741775; cycles 15; SCF wall (s) 496.00; XC 1.267 1.077;
+NEW:  E (Eh) -679.7292741775; cycles 15; SCF wall (s) 360.63; XC 1.253 1.076;
+
+# 4) memcheck and unit tests
+== memcheck: nr_nlc_vxc on benzene (core guess)
+========= ERROR SUMMARY: 0 errors;
+== unit tests
+dft/tests/test_numint.py: 24 passed, 27 warnings in 7.40s
+dft/tests/test_rks.py: 17 passed, 1 skipped, 66 warnings in 86.89s (0:01:26)
+dft/tests/test_uks.py: 10 passed, 33 warnings in 57.10s
+grad/tests/test_vv10_grid.py: 20 passed, 504 warnings in 443.46s (0:07:23)

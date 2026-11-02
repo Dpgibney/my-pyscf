@@ -5125,6 +5125,61 @@ Approved by the user after part 24 ("look into the boys function and the VV10 sy
   - With 1/aij and 1/akl kept beside the pair data, one reciprocal and one square root would do.
   - That means changing every unrolled kernel's shared-memory layout, so it is left as an option.
 
+## GPU4PySCF investigation, part 26: VV10's Fock kernel over each pair of grid points once (node1), 2026-11-02
+Approved with part 25; proposed in part 20, where VV10 was 93% of a B97M-V SCF.
+- **Commit:** gpu4pyscf `exp/prim-screen` a837bd7 (`gdft/vv10.cu`, from `exp_prim_screen.py --vv10 sym`).
+- **Tools:**
+  - `vv10_check.cu`: the original, a reduction variant and the rotation variant on synthetic data, and a long-double
+    reference;
+  - `vv10_at_dm.py`: `nr_nlc_vxc` at a fixed density, with memcheck mode.
+- **Data:** `p26_vv10.txt`.
+
+### Change
+- **The original:** `VXC_vv10nlc_fock_eval_UWE` summed over all ordered pairs of grid points, about 25 FP64
+  instructions per pair including a reciprocal.
+- **What is symmetric:** Φ_ij = −1/(g_ij g_ji (g_ij + g_ji)), r_ij² and the reciprocal. U and W differ between the
+  two sides only through g_ij against g_ji.
+- **The new kernel evaluates each unordered pair once and adds to both points,** about 33 instructions per pair.
+  - Tiles are 128 points. A block takes one I tile against 4 tiles J ≥ I.
+  - In a warp each lane keeps its i and meets the 32 j's of a chunk in turn: at step s, j = (lane + s) mod 32, read
+    from shared memory.
+  - The j side's three sums travel with their j to the next lane, one shuffle per sum per step. After 32 steps each
+    sum is back on its lane, complete for the warp's 32 i's.
+  - U, W and E are summed with atomics, then scaled.
+  - Diagonal tiles take j > i, and the i = j term on the i side only.
+- **A first attempt failed:** reducing the j side over the warp per j made every lane execute 15 FP64 adds and 30
+  shuffles per pair. It was 1.05× faster, against 1.43× for the rotation.
+
+### Exactness
+- **The terms are the same;** only the sums are shorter.
+- **On 60,000 synthetic points** against a long-double reference, the new kernel's errors are 10–40× smaller than
+  the original's sequential sums: U 3.5e−15, W 1.8e−15, E 1.8e−15, against 1.4e−13, 1.8e−14 and 2.1e−14.
+- **Caffeine:** the NLC energy agrees with the original to 4.1e−15 (0.385229398810) and the potential matrix to
+  2.2e−16 (values up to 4.7e−3).
+- **SCF B97M-V/def2-SVP:** the same energy, −679.7292741775 Eh, and the same 15 cycles.
+
+### Timings (GTX 1650 Super; caffeine def2-SVP, B97M-V, 294,912 NLC grid points; part 25, then part 26)
+
+| | part 25 | part 26 |
+|---|---|---|
+| `nr_nlc_vxc` at a fixed density | 29.58 s | 21.16 s (1.40×) |
+| gradient: `get_nlc_exc` | 29.76 s | 21.33 s |
+| gradient: `get_nlc_exc_full_response` | 66.77 s | 55.45 s |
+| SCF (15 cycles) | 496.0 s | 360.6 s (−27%) |
+
+- **The rest of the full-response gradient's NLC time** is the grid-response kernel, unchanged here (see Not done).
+- **Tests:** `test_vv10_grid.py` (20) runs in 443 s instead of 598 s. It passes, as do `test_numint.py` (24,
+  including `_vv10nlc` against PySCF), `test_rks.py` (17, 1 skipped) and `test_uks.py` (10).
+- **memcheck:** 0 errors (benzene).
+
+### Not done
+- **The grid response's own all-pair kernel** (`vv10_grad_eval_E_grid_response_offdiagonal`): about 34 s, the rest
+  of the full-response gradient's NLC time.
+  - Its pair factor is symmetric too.
+  - But it writes per-(atom, point) sums for batches of points, so using the symmetry means restructuring that
+    driver.
+- **The Hessian's VV10 kernels** (`vv10_hess_eval_UWABCE` and the f_t kernels) are all-pair loops of the same kind.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

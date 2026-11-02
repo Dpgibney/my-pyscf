@@ -102,6 +102,8 @@ ap.add_argument('--j-blocks-per-sm', type=int, default=64,
 GEN_J = '3,3 4,2 5,1 6,0 4,3 5,2 6,1 3,4 4,4 5,3 6,2 5,4 6,3 5,5 6,4'
 ap.add_argument('--gen-j', default=GEN_J,
                 help='space-separated LIJ,LKL[:TILEY] specs of generated MD J kernels (gen_md_j.py), or off')
+ap.add_argument('--vv10', default='sym', choices=['sym', 'old'],
+                help="VV10's Fock kernel (gdft/vv10.cu): sym evaluates each pair of grid points once (part 26)")
 ap.add_argument('--boys', default='new', choices=['new', 'old'],
                 help="the MD J engine's Boys function: new multiplies by tabulated 1/(n+1/2) in the series and the "
                      "downward recursion, and skips erf where it is 1 (part 25)")
@@ -604,6 +606,47 @@ if args.j_tiles != 'off':
         open(f'{args.tree}/{rel}', 'w').write(head + '\n' + grid_x + disp.lstrip('\n'))
     print(f'J engine: run-time bra tiles in {n_kernels["unrolled_md_j.cu"]} + {n_kernels["unrolled_md_j_4dm.cu"]} '
           f'unrolled kernels, at least {args.j_blocks_per_sm} blocks per SM')
+
+# VV10's Fock kernel (gdft/vv10.cu, VXC_vv10nlc_fock_eval_UWE; the SCF's nr_nlc_vxc and the gradient's NLC terms, part
+# 26). It summed over all ordered pairs of grid points; Phi_ij, r_ij^2, g_ij + g_ji and the reciprocal are symmetric.
+# With --vv10 sym each unordered pair is evaluated once and added to both points: tiles of 128 points, a block takes one
+# I tile against a run of VV10_JTILES tiles J >= I; in a warp each lane keeps its i and meets the 32 j's of a chunk in
+# turn, the j side's sums travelling with their j from lane to lane (a shuffle per step), so no per-j reduction is
+# needed. U, W, E are summed with atomics and scaled after. Same terms; shorter sums (bench/gpu/vv10_check.cu: 1.43x on
+# 60000 synthetic points, and 10-40x closer to a long double reference than the unpatched kernel's sequential sums).
+if args.vv10 == 'sym':
+    p = f'{args.tree}/gpu4pyscf/lib/gdft/vv10.cu'
+    s = source('gpu4pyscf/lib/gdft/vv10.cu')
+    proto = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vv10_check.cu')).read()
+    k0 = proto.index('#define VV10_TILE       128\n')
+    k1 = proto.index('// The symmetric version: block (I, g) takes')
+    k2 = proto.index('// The symmetric version without per-j reductions:')
+    k3 = proto.index('static void run_sym(')
+    new_kernels = proto[k0:k1] + proto[k2:k3]
+    i0 = s.index('__global__\nstatic void vv10_fock_eval_UWE_kernel(')
+    i1 = s.index('__global__\nstatic void vv10_fock_eval_omega_derivative_kernel(')
+    s = s[:i0] + ('#define VV10_JTILES     4\n'
+                  '// VV10_TILE (128) points per tile; VV10_JTILES J tiles per block (part 26)\n') + new_kernels + s[i1:]
+    old = ("    const dim3 threads(NG_PER_BLOCK);\n"
+           "    const dim3 blocks((ngrids+NG_PER_BLOCK-1)/NG_PER_BLOCK);\n"
+           "    vv10_fock_eval_UWE_kernel<<<blocks, threads, 0, stream>>>(U, W, E,\n"
+           "                                                              grid_coord, rho_weight, omega, kappa, ngrids);\n")
+    assert s.count(old) == 1, 'vv10 launcher'
+    new = ("    // each pair of points once (part 26): the kernel sums into U, W and E, vv10_scale_UWE_kernel applies the factors\n"
+           "    if (ngrids <= 0) {\n"
+           "        return 0;\n"
+           "    }\n"
+           "    cudaMemsetAsync(U, 0, ngrids * sizeof(double), stream);\n"
+           "    cudaMemsetAsync(W, 0, ngrids * sizeof(double), stream);\n"
+           "    cudaMemsetAsync(E, 0, ngrids * sizeof(double), stream);\n"
+           "    const int ntiles = (ngrids + VV10_TILE - 1) / VV10_TILE;\n"
+           "    const dim3 blocks(ntiles, (ntiles + VV10_JTILES - 1) / VV10_JTILES);\n"
+           "    vv10_fock_eval_UWE_rot_kernel<<<blocks, VV10_TILE, 0, stream>>>(U, W, E, grid_coord, rho_weight, omega, kappa,\n"
+           "                                                                    ngrids, VV10_JTILES);\n"
+           "    vv10_scale_UWE_kernel<<<(ngrids + 255) / 256, 256, 0, stream>>>(U, W, E, ngrids);\n")
+    s = s.replace(old, new)
+    open(p, 'w').write(s)
+    print('VV10 Fock kernel: each pair of grid points once (rotation within warps)')
 
 # The MD J engine's Boys function (gvhf-rys/gamma_inc.cu, eval_gamma_inc_fn, which only gvhf-md includes; part 25). The
 # series branch (t < m/2 + 1/2) divided once per term, about 20 terms, and once per step of the downward recursion: a
