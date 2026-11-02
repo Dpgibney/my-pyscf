@@ -5071,6 +5071,60 @@ Fifth and last of the approved items (part 18's option 7).
 - **Same structure as the J build:** the gradient runs the J build's tasks, tiles and kernels. Parts 22 and 23's
   notes on SM count and FP64 rate apply to it too.
 
+## GPU4PySCF investigation, part 25: the MD J engine's Boys function without divisions (node1), 2026-11-02
+Approved by the user after part 24 ("look into the boys function and the VV10 symmetric pair"); proposed in part 23.
+- **Commit:** gpu4pyscf `exp/prim-screen` 0faf2ef (`gvhf-rys/gamma_inc.cu`, from `exp_prim_screen.py --boys new`).
+- **Tool:** `boys_check.cu`. It checks CUDA's erf at large arguments, compares the old and new functions in ulps,
+  and times both.
+- **Data:** `p25_boys.txt`.
+
+### Change (`eval_gamma_inc_fn`, used only by gvhf-md: the J build, its gradient, DF int3c2e, PBC J)
+- **Series branch** (t < m/2 + ½): the loop divided once per term (`x *= t / bi`, about 20 terms), and the downward
+  recursion divided once per step.
+  - Both now multiply by 1/(n + ½), from a 96-entry table in constant memory.
+  - All lanes in the loop read the same index, so the reads are broadcast.
+  - The terms shrink at least twofold per step (t/(k + ½) < ½), so the index stays below m + 55.
+- **erf branch:** skips `erf(√t)` for t ≥ 49, where CUDA's erf returns exactly 1.0. `boys_check.cu` found no
+  exception among 2³⁰ points of [7, 40]; erfc(7) = 4e−23.
+
+### Exactness (`boys_check.cu`, m = 0–18, 2²² values of t in [0, 80))
+- **Unchanged to the bit:** the tiny-t, erf and erf-skipped branches.
+- **Series branch:** F_n differs by at most 3 (m = 1) to 8 (m = 18) ulps, about 1e−15 relative. That is the rounding
+  of t·(1/b) against t/b, summed over the series and carried down the recursion.
+- **J:** within 7.1e−15 of part 24's J, the same as the noise between two runs of part 24 itself.
+- **Against the exact J:** errors identical to part 24's to every printed digit (RMS 7.30e−13 at def2-TZVP,
+  4.20e−13 at def2-SVP). The J-engine gradient's errors are unchanged too.
+- **SCFs:** same energies to the printed digits, and the same cycle counts.
+
+### Timings (GTX 1650 Super; part 24, then part 25)
+| caffeine | part 24 | part 25 |
+|---|---|---|
+| J at a fixed density, def2-SVP | 0.488 s | 0.381 s (−22%) |
+| J at a fixed density, def2-TZVP | 3.890 s | 3.163 s (−19%) |
+| J-engine Coulomb gradient, def2-SVP | 0.718 s | 0.578 s |
+| J-engine Coulomb gradient, def2-TZVP | 5.84 s | 4.99 s |
+| SCF PBE/def2-SVP (J per cycle) | 14.90 s (0.367 s) | 13.41 s (0.286 s) |
+| SCF B3LYP/def2-SVP | 30.16 s | 29.00 s |
+| SCF PBE/def2-TZVP (J per cycle) | 73.88 s (2.946 s) | 63.85 s (2.399 s) |
+| PBE gradient, def2-SVP / def2-TZVP | 1.26 s / 6.82 s | 1.12 s / 5.93 s |
+
+- **Per class (def2-TZVP, ncu):** the low-order classes gain most, (ps|ss) 363 → 270 ms (−26%) and (ds|ss),
+  (pp|ss), (dp|ss) −27 to −28%. The higher classes gain 8–15%, since the Boys function is a smaller share there.
+  The whole build drops from 3.91 to 3.18 s of GPU time, with warp instructions down from 12.3 to 9.95 G.
+- **The microbenchmark** (`boys_check.cu`) puts one evaluation at 1.3–2.2× faster. Examples: m = 6 with t in
+  [0, 4] (all series) 3.75 → 1.87 ns; t in [0, 200] 2.19 → 1.46 ns.
+
+### Unit tests and memcheck
+- **All pass:** `test_scf_j_engine.py` (8), `test_scf_jk.py` (11), `test_rks.py` (17, 1 skipped), `test_uks.py` (10),
+  `test_rks_grad.py` (15), `test_uks_grad.py` (12), `test_df_int3c2e.py` (15) and `test_pbc_scf_j_engine.py` (12).
+- **memcheck:** 0 errors for the J build and the J gradient at def2-SVP.
+
+### Not done
+- **The quartet prefactor:** `fac / (aij*akl*sqrt(aij+akl))` and `aij*akl/(aij+akl)` cost two divisions and a
+  square root per quartet: 33% of (ss|ss)'s FP64 work and 10–13% of the other low-order classes'.
+  - With 1/aij and 1/akl kept beside the pair data, one reciprocal and one square root would do.
+  - That means changing every unrolled kernel's shared-memory layout, so it is left as an option.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

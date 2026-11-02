@@ -102,6 +102,9 @@ ap.add_argument('--j-blocks-per-sm', type=int, default=64,
 GEN_J = '3,3 4,2 5,1 6,0 4,3 5,2 6,1 3,4 4,4 5,3 6,2 5,4 6,3 5,5 6,4'
 ap.add_argument('--gen-j', default=GEN_J,
                 help='space-separated LIJ,LKL[:TILEY] specs of generated MD J kernels (gen_md_j.py), or off')
+ap.add_argument('--boys', default='new', choices=['new', 'old'],
+                help="the MD J engine's Boys function: new multiplies by tabulated 1/(n+1/2) in the series and the "
+                     "downward recursion, and skips erf where it is 1 (part 25)")
 ap.add_argument('--j-grad', default='on', choices=['on', 'off'],
                 help="J engine: MD_build_j_ip1 and md_j_grad.cu for the J engine's nuclear gradient")
 # The gradient's own kernels (gen_md_j.py gLIJ,LKL): both potentials one order above the densities with R to that order
@@ -601,6 +604,74 @@ if args.j_tiles != 'off':
         open(f'{args.tree}/{rel}', 'w').write(head + '\n' + grid_x + disp.lstrip('\n'))
     print(f'J engine: run-time bra tiles in {n_kernels["unrolled_md_j.cu"]} + {n_kernels["unrolled_md_j_4dm.cu"]} '
           f'unrolled kernels, at least {args.j_blocks_per_sm} blocks per SM')
+
+# The MD J engine's Boys function (gvhf-rys/gamma_inc.cu, eval_gamma_inc_fn, which only gvhf-md includes; part 25). The
+# series branch (t < m/2 + 1/2) divided once per term, about 20 terms, and once per step of the downward recursion: a
+# DDIV each, on the 6-12% of lanes that take the branch while the rest of their warp waits (part 23's profile: that one
+# line was 18-30% of the low-order J kernels' instructions). With --boys new both multiply by 1/(n + 1/2) from a table
+# in constant memory (the same index on all lanes), which changes F_n by at most 8 ulps (bench/gpu/boys_check.cu).
+# The erf branch skips erf(sqrt(t)) for t >= 49, where CUDA's erf is exactly 1 (erfc(7) = 4e-23; boys_check.cu tests
+# 2^30 points of [7, 40]), so those values are the same to the bit.
+if args.boys == 'new':
+    p = f'{args.tree}/gpu4pyscf/lib/gvhf-rys/gamma_inc.cu'
+    s = source('gpu4pyscf/lib/gvhf-rys/gamma_inc.cu')
+    old = ("    } else if (m > 0 && t < m*.5+.5) {\n"
+           "        double bi = m + .5;\n"
+           "        double e = .5 * exp(-t);\n"
+           "        double x = e;\n"
+           "        double s = e;\n"
+           "        double tol = EPS_FLOAT64 * e;\n"
+           "        while (x > tol) {\n"
+           "            bi += 1.;\n"
+           "            x *= t / bi;\n"
+           "            s += x;\n"
+           "        }\n"
+           "        double b = m + 0.5;\n"
+           "        double fval = s / b;\n"
+           "        f[sq_id + m*block_size] = fval;\n"
+           "        for (int i = m-1; i >= 0; i--) {\n"
+           "            b -= 1.;\n"
+           "            fval = (e + t * fval) / b;\n"
+           "            f[sq_id + i*block_size] = fval;\n"
+           "        }\n"
+           "    } else {\n"
+           "        double tt = sqrt(t);\n"
+           "        double fval = SQRTPIE4 / tt * erf(tt);\n")
+    new = ("    } else if (m > 0 && t < m*.5+.5) {\n"
+           "        double e = .5 * exp(-t);\n"
+           "        double x = e;\n"
+           "        double s = e;\n"
+           "        double tol = EPS_FLOAT64 * e;\n"
+           "        // the terms shrink at least twofold (t/(k+1/2) < 1/2), so k stays below m + 55\n"
+           "        for (int k = m+1; x > tol && k < BOYS_NINV; k++) {\n"
+           "            x *= t * c_inv_half[k];\n"
+           "            s += x;\n"
+           "        }\n"
+           "        double fval = s * c_inv_half[m];\n"
+           "        f[sq_id + m*block_size] = fval;\n"
+           "        for (int i = m-1; i >= 0; i--) {\n"
+           "            fval = (e + t * fval) * c_inv_half[i];\n"
+           "            f[sq_id + i*block_size] = fval;\n"
+           "        }\n"
+           "    } else {\n"
+           "        double tt = sqrt(t);\n"
+           "        double fval = SQRTPIE4 / tt;\n"
+           "        if (t < ERF_ONE_T) {\n"
+           "            fval *= erf(tt);\n"
+           "        }\n")
+    assert s.count(old) == 1, 'gamma_inc.cu'
+    s = s.replace(old, new)
+    old = "#define SQRTPIE4        .886226925452758013\n"
+    assert s.count(old) == 1
+    table = ',\n'.join('    ' + ', '.join(repr(1. / (k + .5)) for k in range(k0, min(k0 + 4, 96))) for k0 in range(0, 96, 4))
+    s = s.replace(old, old + (
+        "// 1/(n + 1/2): the series and the downward recursion multiply where they divided (my-pyscf part 25)\n"
+        "#define BOYS_NINV       96\n"
+        "static __constant__ double c_inv_half[BOYS_NINV] = {\n" + table + "\n};\n"
+        "// erf(sqrt(t)) is exactly 1 in double precision from here on (erfc(7) = 4.2e-23)\n"
+        "#define ERF_ONE_T       49.\n"))
+    open(p, 'w').write(s)
+    print('Boys function: tabulated 1/(n+1/2) in the series and the downward recursion, erf skipped for t >= 49')
 
 # Generated MD J kernels (bench/gpu/gen_md_j.py) for classes that would otherwise run the generic kernel:
 # generated_md_j.cu, built into libgvhf_md, and tried by MD_build_j after md_j_unrolled (single density). With --j-grad,
