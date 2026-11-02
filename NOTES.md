@@ -4475,6 +4475,122 @@ Savings are for this card. Every option keeps the same terms and changes only th
 8. **A source-level profile of the J engine's divergence** (SIMT 0.54–0.74).
 9. **Still open:** part 17's `__ldg` for the CPHF J/K.
 
+## GPU4PySCF investigation, part 19: the gradient's XC term through the orbitals, and the GGA density in two GEMMs (node1), 2026-11-01
+The user approved part 18's options 1 and 2 ("Do both").
+- **Commits:** gpu4pyscf `perf` a730c90 (the density) and 2258df3 (the gradient), merged into `exp/prim-screen`
+  1fc4576. The check is `bench/gpu/xc_grad_check.py` (new).
+- **Data:** `p19_xc_grad.txt`.
+
+### Change A: the GGA density from dm·ao (`dft/numint.py`)
+- **Before:** `_eval_rho2` (the density from the occupied orbitals, cpos = C sqrt(occ)) computed C^T ao and
+  C^T ∇_i ao per grid block. That is four GEMMs of nocc × n_blk × 4096, 8 n·nocc·g flops.
+- **Now:** ρ comes from c0 = C^T ao as before, unchanged to the bit. One more GEMM gives dm·ao = C c0, and
+  ∇ρ = 2 Σ_μ ∇ao_μ (dm·ao)_μ is libgdft's `GDFTcontract_rho4`, already in the library. That makes 2 GEMMs per block.
+  - The meta-GGA branch needs C^T ∇ao for τ anyway. It moves unchanged into `_eval_rho2_mgga`, which can keep all
+    three products. Both helpers hand their products to the caller (change B).
+  - dm·ao sits after c0 in the caller's buffer, and the SCF's density passes allocate nocc × 4096 more for it.
+    Allocated per block instead, it grew CuPy's pool by 7 MB for caffeine/def2-SVP; this way by 3 MB.
+- **Reach:** every GGA user of `eval_rho2`/`_eval_rho2`: the SCF (RKS and UKS), gradients, TDDFT, Hessians, NLC and
+  shielding.
+
+### Change B: the gradient's XC term without the AO matrices (`grad/rks.py`, `grad/uks.py`)
+- **Before:** `_get_exc_task` built per grid block the three n × n matrices of `_gga_grad_sum_` (12 n²g flops;
+  `_d1_dot_`, 6 n²g, for LDA; `_tau_grad_dot_`, 18 n²g more, for meta-GGAs), then contracted them with D at once.
+- **Now:** with D = C C^T, the same sums are dot products over the grid, per AO, of the AO derivatives with three
+  products:
+  - D·aow = C (C^T aow);
+  - D·ao = C (C^T ao), from change A;
+  - D·(w_τ ∇_j ao) = C (w_τ C^T ∇_j ao), also from change A's products.
+  - The dot products run in `cupy_helper.dot_rows` (part 12).
+- **Flops:** GEMMs per block, the density included, are 8 n·nocc·g (GGA), 20 n·nocc·g (meta-GGA) and
+  6 n·nocc·g (LDA).
+- **Other effects:**
+  - The density matrix now enters through the orbitals, as it already did in the density.
+  - Nothing in the path uses cuTENSOR any more, so a GGA job's first gradient no longer pays the 1.55 s start-up.
+- **Unchanged:** `_gga_grad_sum_`, `_tau_grad_dot_` and `_d1_dot_` themselves, which the Hessians, PBC, TDDFT and
+  the grid-response gradient still use. The NLC gradient (`get_nlc_exc`) also still builds the matrices.
+
+### Exactness (`xc_grad_check.py`; ab75a1b stores, the new tree compares; conv_tol 1e−10)
+At fixed orbitals: the gradient's XC term, and the XC matrix of `nr_rks`/`nr_uks`. Then each tree's own SCF and
+gradient.
+
+| caffeine | XC term | XC matrix | own SCF: ΔE, cycles | own gradient |
+|---|---|---|---|---|
+| def2-SVP SVWN | 1.4e−15 | 0 | −2.3e−13 Eh, 18 / 18 | 6.5e−13 |
+| def2-SVP PBE | 8.4e−16 | 4.4e−16 | 2.3e−13 Eh, 18 / 18 | 5.6e−13 |
+| def2-SVP B3LYP | 1.1e−15 | 4.4e−16 | 4.6e−13 Eh, 15 / 15 | 8.1e−13 |
+| def2-SVP r2SCAN | 1.1e−15 | 0 | 2.3e−13 Eh, 16 / 16 | 4.6e−13 |
+| cation, UKS SVWN | 1.6e−15 | 0 | −9.4e−11 Eh, 50 / 50 | 2.5e−10 |
+| cation, UKS B3LYP | 7.0e−16 | 4.4e−16 | −2.3e−13 Eh, 26 / 26 | 6.5e−13 |
+| cation, UKS r2SCAN | 1.8e−15 | 0 | −1.8e−12 Eh, 27 / 27 | 2.2e−12 |
+| def2-TZVP PBE | 9.8e−16 | 8.9e−16 | 0, 18 / 18 | 1.5e−12 |
+| def2-TZVP r2SCAN | 9.7e−16 | 0 | −6.8e−13 Eh, 16 / 16 | 1.5e−12 |
+
+- **Scales:** the XC term is up to 0.32, the XC matrix up to 4.4, the gradients up to 0.15 Eh/bohr.
+- **To the bit:** the XC energy and the electron count in every case. The XC matrix too, wherever the density
+  code did not change (LDA, meta-GGA).
+- **UKS SVWN** stops at max_cycle (50) in both trees.
+- **The final `numint.py`** (dm·ao in the SCF's buffer) gives the same fixed-orbital numbers for PBE, UKS B3LYP and
+  def2-TZVP PBE.
+- **Tolerance:** the first run used conv_tol 1e−12 and conv_tol_grad 1e−8. There two runs of the unmodified tree
+  took 43 and 50 (max_cycle) cycles and ended 9e−10 Eh apart. That is below the GPU J/K's rounding noise, so the
+  checks use conv_tol 1e−10 as the earlier parts' did.
+
+### Timings (GTX 1650 Super at 1530 MHz; ab75a1b, then the new tree, per case)
+- **Gradients** (`stage_times.py grad`):
+
+  | caffeine | gradient | first call | XC term |
+  |---|---|---|---|
+  | def2-SVP PBE | 4.24 → 3.05 s (−28%) | 5.82 → 3.08 s (−47%) | 1.67 → 0.47 s |
+  | def2-SVP B3LYP | 4.34 → 3.13 s (−28%) | 5.92 → 3.17 s (−46%) | 1.67 → 0.46 s |
+  | def2-SVP r2SCAN | 6.11 → 3.47 s (−43%) | 6.14 → 3.50 s (−43%) | 3.54 → 0.90 s |
+  | def2-TZVP PBE | 31.50 → 27.22 s (−14%) | 33.27 → 27.41 s (−18%) | 5.08 → 0.79 s |
+  | def2-TZVP r2SCAN | 38.06 → 27.90 s (−27%) | 38.27 → 28.01 s (−27%) | 11.66 → 1.51 s |
+
+  - Part 18 predicted −18 to −23% (GGA) and −32 to −42% (r2SCAN) at def2-SVP. The gradient's own density pass also
+    gains from change A.
+  - The two-electron part is now 82–97% of the gradient.
+- **SCF** (`scf_parts.py`; per cycle):
+
+  | caffeine | XC | of it the density pass | SCF |
+  |---|---|---|---|
+  | def2-SVP PBE | 0.624 → 0.494 s | 0.330 → 0.191 s | 25.05 → 22.66 s (−9.5%) |
+  | def2-SVP B3LYP | 0.625 → 0.497 s | 0.335 → 0.195 s | 38.70 → 36.72 s (−5.1%) |
+  | def2-SVP r2SCAN | 1.464 → 1.474 s | 0.339 → 0.342 s | 36.75 → 37.02 s (code unchanged) |
+  | def2-TZVP PBE | 1.352 → 1.136 s | 0.579 → 0.332 s | 104.53 → 100.10 s (−4.2%) |
+
+  - Same energies to the printed digits and the same cycle counts.
+  - Part 18 predicted −0.12 s per def2-SVP cycle and −0.2 s per def2-TZVP cycle; measured −0.13 and −0.22 s.
+- **An SCF plus its first gradient:**
+  - def2-SVP: PBE 30.9 → 25.7 s (−17%), B3LYP 44.6 → 39.9 s (−11%), r2SCAN 42.9 → 40.5 s (−6%).
+  - def2-TZVP: PBE 137.8 → 127.5 s (−7%), r2SCAN 171.7 → 161.4 s (−6%; part 18's SCF time, whose code is
+    unchanged).
+
+### Unit tests (the new tree)
+- All pass. The gradient files ran again after the HF fix below, the others before it (the fix changes only
+  `get_exc`'s HF path):
+  - gradients: `test_rks_grad.py` (15), `test_uks_grad.py` (12), `test_tdrks_grad.py` (7);
+  - DFT: `test_numint.py` (24), `test_rks.py` (17, 1 skipped), `test_uks.py` (10);
+  - Hessians: `test_rks_hessian.py` (12), `test_uks_hessian.py` (12);
+  - TDDFT: `test_tdrks.py` (28), `test_tduks.py` (20).
+- **A bug the first run found:** with `xc='hf'` (xctype HF) the new task looked up a buffer size for HF and failed.
+  The old code fell through its branches and returned zeros, and the new one now does the same.
+  `test_grad_hf` failed in both gradient files before the fix and passes after it.
+
+### Next
+- Still open from part 18:
+  - (3) the XC GEMMs without tile padding;
+  - (4) the meta-GGA τ term as a triangle;
+  - (5) J-engine launch tiles;
+  - (6) generated J kernels for the f classes;
+  - (7) a J-engine gradient;
+  - (8) the J engine's divergence;
+  - (9) part 17's `__ldg`.
+- **Weighs more now:** (7). The two-electron part is 82–97% of every gradient above, and for pure functionals it is
+  J only.
+- **The same change elsewhere:** the NLC gradient (`get_nlc_exc`) and the grid-response gradient
+  (`get_exc_full_response`) still build the AO matrices; the TDDFT gradients' XC terms too.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

@@ -1,0 +1,430 @@
+# GPU4PySCF investigation part 19 (NOTES.md): the gradient's XC term through the orbitals, and the GGA density in two
+# GEMMs. GTX 1650 Super at 1530 MHz; caffeine (and its cation for UKS). "ab75a1b" is node1's exp/prim-screen tree as
+# it was (scratch/tree_ab75a1b); "new" is the same tree with the new dft/numint.py, grad/rks.py and grad/uks.py
+# (scratch/tree_new), as merged into exp/prim-screen.
+#
+# Commands (node1; scratch/p19_run.sh, then scratch/p19_final.sh for the final numint.py):
+#   xc_grad_check.py --xc X [--basis B] [--charge 1 --spin 1] --save ref_CASE.npz   (ab75a1b)
+#   xc_grad_check.py --xc X [--basis B] [--charge 1 --spin 1] --ref ref_CASE.npz    (new)            (section 1)
+#   stage_times.py grad --xc X --basis B, ab75a1b then new, per case                                   (section 2)
+#   scf_parts.py --mol caffeine --basis B --xc ... --device gpu --verbose 6, ab75a1b then new          (section 3)
+#   pytest -q -p no:cacheprovider on the new tree's test files                                        (section 4)
+# Section 5 is the first exactness run, at conv_tol 1e-12 and conv_tol_grad 1e-8: there the unmodified tree's own
+# SCFs end at 43 or 50 (max_cycle) cycles from run to run, 9e-10 Eh apart, so only its fixed-orbital lines compare.
+
+# 1) exactness (xc_grad_check.py, conv_tol 1e-10): ab75a1b saves, the new tree compares
+== exactness: ab75a1b saves, the new tree compares
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp svwn RKS (charge 0, spin 0): saved scratch/p19/ref_svp_svwn.npz; E -674.234049104968, 18 cycles, SCF and gradient 26.0 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp svwn RKS (charge 0, spin 0), against scratch/p19/ref_svp_svwn.npz
+  at the stored orbitals: exc1 max|d| 1.44e-15 (max 3.2e-01), vxc max|d| 0.00e+00 (max 2.9e+00), excsum max|d| 0.00e+00 (max 8.6e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (23.8 s): dE -2.27e-13, cycles 18 against 18, gradient max|d| 6.54e-13 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp pbe RKS (charge 0, spin 0): saved scratch/p19/ref_svp_pbe.npz; E -679.040370717856, 18 cycles, SCF and gradient 31.3 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp pbe RKS (charge 0, spin 0), against scratch/p19/ref_svp_pbe.npz
+  at the stored orbitals: exc1 max|d| 8.38e-16 (max 3.1e-01), vxc max|d| 4.44e-16 (max 3.1e+00), excsum max|d| 0.00e+00 (max 9.1e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (25.9 s): dE 2.27e-13, cycles 18 against 18, gradient max|d| 5.57e-13 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp b3lyp RKS (charge 0, spin 0): saved scratch/p19/ref_svp_b3lyp.npz; E -679.812748639828, 15 cycles, SCF and gradient 40.7 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp b3lyp RKS (charge 0, spin 0), against scratch/p19/ref_svp_b3lyp.npz
+  at the stored orbitals: exc1 max|d| 1.14e-15 (max 2.5e-01), vxc max|d| 4.44e-16 (max 2.5e+00), excsum max|d| 0.00e+00 (max 7.4e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (35.7 s): dE 4.55e-13, cycles 15 against 15, gradient max|d| 8.10e-13 (max 1.6e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp r2scan RKS (charge 0, spin 0): saved scratch/p19/ref_svp_r2scan.npz; E -679.452965010406, 16 cycles, SCF and gradient 45.0 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp r2scan RKS (charge 0, spin 0), against scratch/p19/ref_svp_r2scan.npz
+  at the stored orbitals: exc1 max|d| 1.08e-15 (max 3.2e-01), vxc max|d| 0.00e+00 (max 3.3e+00), excsum max|d| 0.00e+00 (max 9.2e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (40.7 s): dE 2.27e-13, cycles 16 against 16, gradient max|d| 4.55e-13 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp svwn UKS (charge 1, spin 1): saved scratch/p19/ref_svp_uks_svwn.npz; E -673.918965094680, 50 cycles, SCF and gradient 95.0 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp svwn UKS (charge 1, spin 1), against scratch/p19/ref_svp_uks_svwn.npz
+  at the stored orbitals: exc1 max|d| 1.57e-15 (max 3.2e-01), vxc max|d| 0.00e+00 (max 2.9e+00), excsum max|d| 0.00e+00 (max 8.6e+01), nelec max|d| 0.00e+00 (max 5.1e+01)
+  own SCF and gradient (92.4 s): dE -9.41e-11, cycles 50 against 50, gradient max|d| 2.45e-10 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp b3lyp UKS (charge 1, spin 1): saved scratch/p19/ref_svp_uks_b3lyp.npz; E -679.510720087199, 26 cycles, SCF and gradient 78.0 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp b3lyp UKS (charge 1, spin 1), against scratch/p19/ref_svp_uks_b3lyp.npz
+  at the stored orbitals: exc1 max|d| 7.01e-16 (max 2.5e-01), vxc max|d| 4.44e-16 (max 2.5e+00), excsum max|d| 0.00e+00 (max 7.4e+01), nelec max|d| 0.00e+00 (max 5.1e+01)
+  own SCF and gradient (73.9 s): dE -2.27e-13, cycles 26 against 26, gradient max|d| 6.50e-13 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp r2scan UKS (charge 1, spin 1): saved scratch/p19/ref_svp_uks_r2scan.npz; E -679.154280136091, 27 cycles, SCF and gradient 139.0 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp r2scan UKS (charge 1, spin 1), against scratch/p19/ref_svp_uks_r2scan.npz
+  at the stored orbitals: exc1 max|d| 1.75e-15 (max 3.2e-01), vxc max|d| 0.00e+00 (max 3.3e+00), excsum max|d| 0.00e+00 (max 9.1e+01), nelec max|d| 0.00e+00 (max 5.1e+01)
+  own SCF and gradient (132.1 s): dE -1.82e-12, cycles 27 against 27, gradient max|d| 2.22e-12 (max 1.4e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-tzvp pbe RKS (charge 0, spin 0): saved scratch/p19/ref_tzvp_pbe.npz; E -679.784917551260, 18 cycles, SCF and gradient 137.9 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-tzvp pbe RKS (charge 0, spin 0), against scratch/p19/ref_tzvp_pbe.npz
+  at the stored orbitals: exc1 max|d| 9.84e-16 (max 2.7e-01), vxc max|d| 8.88e-16 (max 4.3e+00), excsum max|d| 0.00e+00 (max 9.1e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (127.6 s): dE 0.00e+00, cycles 18 against 18, gradient max|d| 1.47e-12 (max 1.4e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-tzvp r2scan RKS (charge 0, spin 0): saved scratch/p19/ref_tzvp_r2scan.npz; E -680.212301503470, 16 cycles, SCF and gradient 173.4 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-tzvp r2scan RKS (charge 0, spin 0), against scratch/p19/ref_tzvp_r2scan.npz
+  at the stored orbitals: exc1 max|d| 9.71e-16 (max 2.8e-01), vxc max|d| 0.00e+00 (max 4.4e+00), excsum max|d| 0.00e+00 (max 9.2e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (161.5 s): dE -6.82e-13, cycles 16 against 16, gradient max|d| 1.51e-12 (max 1.4e-01)
+CHECK DONE
+
+#    the final numint.py (dm ao in the SCF's buffer), against the same stored results; then its SCF parts
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp pbe RKS (charge 0, spin 0), against scratch/p19/ref_svp_pbe.npz
+  at the stored orbitals: exc1 max|d| 8.38e-16 (max 3.1e-01), vxc max|d| 4.44e-16 (max 3.1e+00), excsum max|d| 0.00e+00 (max 9.1e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (25.9 s): dE 0.00e+00, cycles 18 against 18, gradient max|d| 3.98e-13 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp b3lyp UKS (charge 1, spin 1), against scratch/p19/ref_svp_uks_b3lyp.npz
+  at the stored orbitals: exc1 max|d| 7.01e-16 (max 2.5e-01), vxc max|d| 4.44e-16 (max 2.5e+00), excsum max|d| 0.00e+00 (max 7.4e+01), nelec max|d| 0.00e+00 (max 5.1e+01)
+  own SCF and gradient (73.8 s): dE 0.00e+00, cycles 26 against 26, gradient max|d| 4.31e-13 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-tzvp pbe RKS (charge 0, spin 0), against scratch/p19/ref_tzvp_pbe.npz
+  at the stored orbitals: exc1 max|d| 9.84e-16 (max 2.7e-01), vxc max|d| 8.88e-16 (max 4.3e+00), excsum max|d| 0.00e+00 (max 9.1e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (127.5 s): dE -2.27e-13, cycles 18 against 18, gradient max|d| 2.18e-12 (max 1.4e-01)
+== SCF parts, def2-SVP PBE and B3LYP, final tree
+caffeine def2-svp pbe, nao 246, conv_tol 1e-10
+  E (Eh)                         -679.0403707179
+  cycles                                      18
+  gpu CuPy memory pool after the run: 0.149 GiB
+caffeine def2-svp b3lyp, nao 246, conv_tol 1e-10
+  E (Eh)                         -679.8127486398
+  cycles                                      15
+  gpu CuPy memory pool after the run: 0.149 GiB
+FINAL CHECK DONE
+
+# 2) gradient stages (stage_times.py grad; the second call; the first call's total in parentheses)
+== gradient stages: ab75a1b, then the new tree, per case
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp pbe gradient: 4.24 s (first call 5.82 s), SCF 18 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      2.50 s  58.9%  2e derivatives (jk_energy_per_atom), 1 calls
+      1.67 s  39.4%  XC term (get_exc), 1 calls
+      0.07 s   1.7%  1e terms (_hcore_energy), 1 calls
+      0.06 s   1.5%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.2%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp pbe gradient: 3.05 s (first call 3.08 s), SCF 18 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      2.51 s  82.2%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.47 s  15.4%  XC term (get_exc), 1 calls
+      0.07 s   2.4%  1e terms (_hcore_energy), 1 calls
+      0.06 s   2.1%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.3%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp b3lyp gradient: 4.34 s (first call 5.92 s), SCF 15 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      2.60 s  59.8%  2e derivatives (jk_energy_per_atom), 1 calls
+      1.67 s  38.4%  XC term (get_exc), 1 calls
+      0.07 s   1.7%  1e terms (_hcore_energy), 1 calls
+      0.06 s   1.5%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.2%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp b3lyp gradient: 3.13 s (first call 3.17 s), SCF 15 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      2.59 s  82.9%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.46 s  14.8%  XC term (get_exc), 1 calls
+      0.07 s   2.3%  1e terms (_hcore_energy), 1 calls
+      0.06 s   2.0%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.3%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp r2scan gradient: 6.11 s (first call 6.14 s), SCF 16 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      3.54 s  57.9%  XC term (get_exc), 1 calls
+      2.49 s  40.9%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.07 s   1.2%  1e terms (_hcore_energy), 1 calls
+      0.06 s   1.0%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.2%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp r2scan gradient: 3.47 s (first call 3.50 s), SCF 16 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      2.49 s  71.9%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.90 s  25.9%  XC term (get_exc), 1 calls
+      0.07 s   2.1%  1e terms (_hcore_energy), 1 calls
+      0.06 s   1.8%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.3%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-tzvp pbe gradient: 31.50 s (first call 33.27 s), SCF 18 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+     26.29 s  83.4%  2e derivatives (jk_energy_per_atom), 1 calls
+      5.08 s  16.1%  XC term (get_exc), 1 calls
+      0.14 s   0.4%  1e terms (_hcore_energy), 1 calls
+      0.12 s   0.4%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.02 s   0.1%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-tzvp pbe gradient: 27.22 s (first call 27.41 s), SCF 18 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+     26.29 s  96.6%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.79 s   2.9%  XC term (get_exc), 1 calls
+      0.14 s   0.5%  1e terms (_hcore_energy), 1 calls
+      0.12 s   0.4%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.02 s   0.1%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-tzvp r2scan gradient: 38.06 s (first call 38.27 s), SCF 16 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+     26.26 s  69.0%  2e derivatives (jk_energy_per_atom), 1 calls
+     11.66 s  30.6%  XC term (get_exc), 1 calls
+      0.14 s   0.4%  1e terms (_hcore_energy), 1 calls
+      0.12 s   0.3%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.02 s   0.0%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-tzvp r2scan gradient: 27.90 s (first call 28.01 s), SCF 16 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+     26.26 s  94.1%  2e derivatives (jk_energy_per_atom), 1 calls
+      1.51 s   5.4%  XC term (get_exc), 1 calls
+      0.14 s   0.5%  1e terms (_hcore_energy), 1 calls
+      0.12 s   0.4%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.02 s   0.1%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+
+# 3) SCF parts per cycle (scf_parts.py; the second SCF of each run): ab75a1b, then the new tree
+== def2-svp, ab75a1b
+caffeine def2-svp pbe, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.0403707179
+  cycles                                      18
+  SCF wall (s)                             25.05
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.033          0.000
+  hcore+ovlp                0.035          0.000
+  grids                     0.071          0.000
+  XC                        0.798          0.624
+  J                         0.310          0.681
+  veff rest                 0.000          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.330 s per cycle
+  gpu XC: functional (libxc)            0.006 s per cycle
+  gpu XC: Vxc integration               0.330 s per cycle
+  gpu CuPy memory pool after the run: 0.146 GiB
+caffeine def2-svp b3lyp, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.8127486398
+  cycles                                      15
+  SCF wall (s)                             38.70
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.033          0.000
+  hcore+ovlp                0.035          0.000
+  grids                     0.071          0.000
+  XC                        0.800          0.625
+  J                         0.310          0.686
+  K                         0.534          1.131
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.335 s per cycle
+  gpu XC: functional (libxc)            0.008 s per cycle
+  gpu XC: Vxc integration               0.334 s per cycle
+  gpu CuPy memory pool after the run: 0.146 GiB
+caffeine def2-svp r2scan, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.4529650104
+  cycles                                      16
+  SCF wall (s)                             36.75
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.032          0.000
+  hcore+ovlp                0.035          0.000
+  grids                     0.070          0.000
+  XC                        1.639          1.464
+  J                         0.310          0.685
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.339 s per cycle
+  gpu XC: functional (libxc)            0.013 s per cycle
+  gpu XC: Vxc integration               1.212 s per cycle
+  gpu CuPy memory pool after the run: 0.202 GiB
+== def2-svp, new tree
+caffeine def2-svp pbe, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.0403707179
+  cycles                                      18
+  SCF wall (s)                             22.68
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.033          0.000
+  hcore+ovlp                0.035          0.000
+  grids                     0.071          0.000
+  XC                        0.661          0.495
+  J                         0.313          0.685
+  veff rest                 0.000          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.191 s per cycle
+  gpu XC: functional (libxc)            0.006 s per cycle
+  gpu XC: Vxc integration               0.332 s per cycle
+  gpu CuPy memory pool after the run: 0.153 GiB
+caffeine def2-svp b3lyp, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.8127486398
+  cycles                                      15
+  SCF wall (s)                             36.77
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.033          0.000
+  hcore+ovlp                0.035          0.000
+  grids                     0.071          0.000
+  XC                        0.663          0.497
+  J                         0.312          0.694
+  K                         0.530          1.132
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.196 s per cycle
+  gpu XC: functional (libxc)            0.008 s per cycle
+  gpu XC: Vxc integration               0.336 s per cycle
+  gpu CuPy memory pool after the run: 0.153 GiB
+caffeine def2-svp r2scan, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.4529650104
+  cycles                                      16
+  SCF wall (s)                             37.02
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.032          0.000
+  hcore+ovlp                0.036          0.000
+  grids                     0.071          0.000
+  XC                        1.651          1.474
+  J                         0.321          0.689
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.342 s per cycle
+  gpu XC: functional (libxc)            0.013 s per cycle
+  gpu XC: Vxc integration               1.222 s per cycle
+  gpu CuPy memory pool after the run: 0.2 GiB
+== def2-tzvp, ab75a1b
+caffeine def2-tzvp pbe, nao 494, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.7849175513
+  cycles                                      18
+  SCF wall (s)                            104.53
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.061          0.000
+  grids                     0.070          0.000
+  XC                        2.037          1.352
+  J                         1.096          4.218
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.011
+  eig                       0.038          0.036
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.002
+  gpu XC: density on grid               0.579 s per cycle
+  gpu XC: functional (libxc)            0.006 s per cycle
+  gpu XC: Vxc integration               0.878 s per cycle
+  gpu CuPy memory pool after the run: 0.263 GiB
+== def2-tzvp, new tree
+caffeine def2-tzvp pbe, nao 494, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.7849175513
+  cycles                                      18
+  SCF wall (s)                            100.10
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.061          0.000
+  grids                     0.070          0.000
+  XC                        1.500          1.136
+  J                         1.099          4.218
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.011
+  eig                       0.038          0.036
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.002
+  gpu XC: density on grid               0.332 s per cycle
+  gpu XC: functional (libxc)            0.006 s per cycle
+  gpu XC: Vxc integration               0.879 s per cycle
+  gpu CuPy memory pool after the run: 0.269 GiB
+== def2-svp, the final numint.py
+caffeine def2-svp pbe, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.0403707179
+  cycles                                      18
+  SCF wall (s)                             22.66
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.035          0.000
+  grids                     0.070          0.000
+  XC                        0.669          0.494
+  J                         0.323          0.684
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.191 s per cycle
+  gpu XC: functional (libxc)            0.006 s per cycle
+  gpu XC: Vxc integration               0.333 s per cycle
+  gpu CuPy memory pool after the run: 0.149 GiB
+caffeine def2-svp b3lyp, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.8127486398
+  cycles                                      15
+  SCF wall (s)                             36.72
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.035          0.000
+  grids                     0.070          0.000
+  XC                        0.663          0.497
+  J                         0.312          0.693
+  K                         0.525          1.130
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.195 s per cycle
+  gpu XC: functional (libxc)            0.008 s per cycle
+  gpu XC: Vxc integration               0.336 s per cycle
+  gpu CuPy memory pool after the run: 0.149 GiB
+
+# 4) unit tests on the new tree (pytest -q; the last lines per file), then the gradient tests again with the HF fix
+== unit tests on the final tree
+grad/tests/test_rks_grad.py: FAILED ../tree_new/gpu4pyscf/grad/tests/test_rks_grad.py::KnownValues::test_grad_hf
+grad/tests/test_rks_grad.py: 1 failed, 14 passed, 138 warnings in 106.73s (0:01:46)
+grad/tests/test_uks_grad.py: FAILED ../tree_new/gpu4pyscf/grad/tests/test_uks_grad.py::KnownValues::test_grad_hf
+grad/tests/test_uks_grad.py: 1 failed, 11 passed, 48 warnings in 111.21s (0:01:51)
+grad/tests/test_tdrks_grad.py: 7 passed, 34 warnings in 134.24s (0:02:14)
+dft/tests/test_numint.py: 24 passed, 27 warnings in 5.66s
+dft/tests/test_rks.py: 17 passed, 1 skipped, 66 warnings in 92.71s (0:01:32)
+dft/tests/test_uks.py: 10 passed, 33 warnings in 62.28s (0:01:02)
+hessian/tests/test_rks_hessian.py: 12 passed, 51 warnings in 40.22s
+hessian/tests/test_uks_hessian.py: 12 passed, 51 warnings in 29.18s
+tdscf/tests/test_tdrks.py: 28 passed, 39 warnings in 17.92s
+tdscf/tests/test_tduks.py: 20 passed, 42 warnings in 27.00s
+== gradient unit tests on the final tree, with the HF fix
+grad/tests/test_rks_grad.py: 15 passed, 138 warnings in 107.88s (0:01:47)
+grad/tests/test_uks_grad.py: 12 passed, 48 warnings in 112.41s (0:01:52)
+
+# 5) the first exactness run, at conv_tol 1e-12 and conv_tol_grad 1e-8 (stopped during the UKS cases)
+== exactness: ab75a1b saves, the new tree compares
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp svwn RKS (charge 0, spin 0): saved scratch/p19/ref_svp_svwn.npz; E -674.234049104981, 36 cycles, SCF and gradient 41.7 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp svwn RKS (charge 0, spin 0), against scratch/p19/ref_svp_svwn.npz
+  at the stored orbitals: exc1 max|d| 3.68e-15 (max 3.2e-01), vxc max|d| 0.00e+00 (max 2.9e+00), excsum max|d| 0.00e+00 (max 8.6e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (39.6 s): dE -2.27e-12, cycles 36 against 36, gradient max|d| 7.60e-13 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp pbe RKS (charge 0, spin 0): saved scratch/p19/ref_svp_pbe.npz; E -679.040370718106, 43 cycles, SCF and gradient 58.4 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp pbe RKS (charge 0, spin 0), against scratch/p19/ref_svp_pbe.npz
+  at the stored orbitals: exc1 max|d| 1.01e-15 (max 3.1e-01), vxc max|d| 4.44e-16 (max 3.1e+00), excsum max|d| 0.00e+00 (max 9.1e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (55.8 s): dE -8.42e-10, cycles 50 against 43, gradient max|d| 3.36e-09 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp b3lyp RKS (charge 0, spin 0): saved scratch/p19/ref_svp_b3lyp.npz; E -679.812748639912, 35 cycles, SCF and gradient 70.2 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp b3lyp RKS (charge 0, spin 0), against scratch/p19/ref_svp_b3lyp.npz
+  at the stored orbitals: exc1 max|d| 1.15e-15 (max 2.5e-01), vxc max|d| 4.44e-16 (max 2.5e+00), excsum max|d| 0.00e+00 (max 7.4e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (80.1 s): dE -9.31e-10, cycles 50 against 35, gradient max|d| 7.95e-10 (max 1.6e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp r2scan RKS (charge 0, spin 0): saved scratch/p19/ref_svp_r2scan.npz; E -679.452965012265, 50 cycles, SCF and gradient 109.6 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp r2scan RKS (charge 0, spin 0), against scratch/p19/ref_svp_r2scan.npz
+  at the stored orbitals: exc1 max|d| 1.20e-15 (max 3.2e-01), vxc max|d| 0.00e+00 (max 3.3e+00), excsum max|d| 0.00e+00 (max 9.2e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (105.3 s): dE 5.59e-11, cycles 50 against 50, gradient max|d| 2.34e-12 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp svwn UKS (charge 1, spin 1): saved scratch/p19/ref_svp_uks_svwn.npz; E -673.918965094678, 50 cycles, SCF and gradient 95.0 s
+#    and the earlier smoke run of the same check (def2-SVP PBE): the unmodified tree took 50 cycles there, 43 above
+/home/danny/Chemistry/my-pyscf/scratch/tree_ab75a1b/gpu4pyscf: caffeine def2-svp pbe RKS (charge 0, spin 0): saved scratch/p19/ref_svp_pbe.npz; E -679.040370719005, 50 cycles, SCF and gradient 65.4 s
+/home/danny/Chemistry/my-pyscf/scratch/tree_new/gpu4pyscf: caffeine def2-svp pbe RKS (charge 0, spin 0), against scratch/p19/ref_svp_pbe.npz
+  at the stored orbitals: exc1 max|d| 1.44e-15 (max 3.1e-01), vxc max|d| 4.44e-16 (max 3.1e+00), excsum max|d| 0.00e+00 (max 9.1e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (55.8 s): dE 1.68e-11, cycles 50 against 50, gradient max|d| 1.60e-12 (max 1.5e-01)
