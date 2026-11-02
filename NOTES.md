@@ -5498,6 +5498,63 @@ Asked for by the user ("how much faster different things have become … compare
   - The 1650 Super runs FP64 at 1/32 of FP32, so the changes that cut FP64 work (VV10, the Boys function, the J
     prefactor) may give other ratios on an A100 or H100.
 
+## GPU4PySCF check: broken-symmetry singlets (node1), 2026-11-02
+The user asked whether symmetry-broken singlets had been validated. They had not.
+- **What the earlier UKS checks covered:**
+  - doublet cations (α ≠ β, but different electron counts);
+  - spin-0 closed shells (α = β);
+  - the unit tests.
+- **What only a broken-symmetry singlet tests:**
+  - shortcuts that take spin 0 to mean α = β;
+  - density screening of the two spins' K with one spin's bound. In a broken-symmetry singlet α and β sit on
+    different centres.
+- **Code reading:** the Python diff since v1.9.0 has no spin-0 shortcut. K's screening bound is
+  `condense('absmax', dms)`, the maximum over both spin densities (upstream code, used unchanged).
+- **Tools:**
+  - `bs_singlet.py`: UKS from a saved guess, the same in every tree; ⟨S²⟩, spin populations of the halves,
+    gradient, Hessian, TDA; fixed-orbital comparisons; CPU PySCF mode;
+  - `bs_table.py`; `hess_cpu_gpu.py`.
+- **Data:** `p32_bs_singlets.txt`.
+
+### Cases
+- **Molecules:** twisted ethylene, and two benzyl radicals stacked 3.8 Å apart (28 atoms, 266 AOs: α on one molecule,
+  β on the other). Both start from a HOMO/LUMO 45° mix of an RKS B3LYP guess.
+- **Methods:** PBE, B3LYP, r2SCAN, B97M-V and DF-B3LYP; SCF, gradient, Hessian, and TDA (5 states) from the reference.
+- **Every run reached a genuine broken-symmetry state:** ⟨S²⟩ 1.010–1.100, and spin populations of about ±1.0 on the
+  two halves.
+  - Both trees, and CPU PySCF, reached the same state in the same number of cycles.
+
+### Current against v1.9.0
+- **Energies** within 1.6e−12, **⟨S²⟩** within 4e−13 and **Hessians** within 1.8e−11.
+- **TDA excitation energies** within 4e−14.
+- **Gradients:**
+  - hybrids within 1.6e−12;
+  - pure functionals within 1.3e−9: the J-engine Coulomb gradient, which differs from v1.9.0's Rys one at fixed
+    orbitals too (part 24);
+  - DF 2.5e−9, but 3.2e−14 at fixed orbitals: the DF SCF's run-to-run variation.
+
+### Against CPU PySCF 2.14 (independent)
+- **Energies** within 1.6e−11 (B97M-V 1.6e−8). **Gradients at the same orbitals** within 6.6e−10 (B97M-V 6.3e−9, DF
+  4.1e−8). **TDA** within 4.5e−7.
+- **With each code's own orbitals the gradients differ by up to 1.4e−6.** A broken-symmetry state's soft
+  spin-polarization mode lets the two codes' DIIS stop at orbitals that differ at that level within
+  `conv_tol_grad`.
+
+### Upstream findings (the same in v1.9.0)
+- **GPU4PySCF does not break spin symmetry by default.**
+  - `init_guess_breaksym` is 0, where PySCF's is 1.
+  - For twisted ethylene, GPU4PySCF's default spin-0 UKS guess did not converge in 200 cycles.
+  - With `mf.init_guess_breaksym = True` it converges in 25 cycles to the same broken-symmetry state that PySCF's
+    default reaches.
+  - **So spin-0 UKS of a diradical in GPU4PySCF needs `init_guess_breaksym = True` (or a broken-symmetry guess).**
+- **The Hessian's CPHF tolerance:** GPU4PySCF's `conv_tol_cpscf` defaults to 1e−6, against PySCF's 1e−8.
+  - For the broken-symmetry singlet that leaves the Hessian 6.9e−6 from its 1e−10 value; for the triplet, 2.4e−6.
+- **PySCF's and GPU4PySCF's Hessians differ at the 1e−5 level for any state.** For example, closed-shell RKS water
+  differs by 2.2e−5 with matched CPHF tolerances and grids.
+  - Part of it is GPU4PySCF's coarser default `cphf_grids`, (50, 194) SG-1.
+  - The rest is not pinned down; it is about 3e−5 relative, or ~0.05 cm⁻¹ in a frequency.
+- **The DF UKS Hessian of the 28-atom dimer runs out of the 4 GB card in both trees.**
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
