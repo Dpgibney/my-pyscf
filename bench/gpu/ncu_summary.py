@@ -6,14 +6,24 @@ Instruction and atomic counts follow from the algorithm and carry over between G
 bytes (cache sizes) are specific to this card.
 With --ref REF.csv (and --ref-labels) it also prints, per class, the time, FP64 flops and warp instructions of
 REF next to those of NCU.csv.
+With --launches it instead prints one row per integral-kernel launch: class, kernel, block and grid size, time, FP64
+pipe busy share, SIMT efficiency, occupancy, FMA share of the FP64 instructions and, when the CSV has them, the
+largest warp-stall reasons. A grid of fewer blocks than the card has SMs leaves SMs idle (the FP64 busy share counts
+active SMs only).
+With --gemms it instead prints the BLAS GEMM launches grouped by kernel and grid size: launches, FP64 flops per
+launch, time and flop rate. The flops count every DFMA a kernel executes, the tiles' padding included, so
+flops per launch that match 2·M_pad·N_pad·K for the kernel's tile (e.g. 128x64) show how much of a small GEMM
+is padding.
 With --l2 it instead prints the L2 and stall table of a CSV with those metrics (scratch/ncu_cphf2.sh's first pass):
 the L2 atomic unit's input busy share, L2 tag and crossbar throughput, DRAM throughput, L2 requests per atomic warp
 instruction and sectors per request, the L2 hit rates of atomics and reads, the L1 hit rate of global loads, and the
 largest warp-stall reasons (stalled cycles per active warp cycle); time-weighted per class.
+A CSV may be gzipped (NCU.csv.gz).
 Usage: ncu_summary.py NCU.csv [--labels LABELS.json] [--kernel-prefix rys_k_] [--top 25]
-                      [--ref REF.csv --ref-labels REF_LABELS.json] [--l2]"""
+                      [--ref REF.csv --ref-labels REF_LABELS.json] [--l2] [--launches] [--gemms]"""
 import argparse
 import csv
+import gzip
 import json
 import re
 from collections import defaultdict
@@ -26,12 +36,20 @@ ap.add_argument('--top', type=int, default=25)
 ap.add_argument('--ref', default=None)
 ap.add_argument('--ref-labels', default=None)
 ap.add_argument('--l2', action='store_true')
+ap.add_argument('--launches', action='store_true')
+ap.add_argument('--gemms', action='store_true')
 args = ap.parse_args()
+
+
+def read_rows(path):
+    '''The CSV's rows without ncu's ==PROF== lines'''
+    with (gzip.open(path, 'rt') if path.endswith('.gz') else open(path)) as f:
+        return [r for r in csv.reader(f) if r and not r[0].startswith('==')]
 
 
 def summarize(path, labels_path):
     '''Per class (integral kernels) or kernel name (others): sums and time-weighted averages of the metrics'''
-    rows = [r for r in csv.reader(open(path)) if r and not r[0].startswith('==')]
+    rows = read_rows(path)
     col = {h: k for k, h in enumerate(rows[0])}
 
     def val(r, m):
@@ -87,7 +105,7 @@ L2_PCTS = (('atom unit', 'lts__d_atomic_input_cycles_active.avg.pct_of_peak_sust
 
 def l2_table(path, labels_path):
     '''The L2 and stall table (--l2), per class as in summarize'''
-    rows = [r for r in csv.reader(open(path)) if r and not r[0].startswith('==')]
+    rows = read_rows(path)
     col = {h: k for k, h in enumerate(rows[0])}
     stalls = [h for h in rows[0] if h.startswith('smsp__warp_issue_stalled_') and h.endswith('per_warp_active.pct')]
 
@@ -136,6 +154,79 @@ def l2_table(path, labels_path):
               " |" + ' '.join(f'{g[m] / t:10.1f}' for m in top))
 
 
+def launch_table(path, labels_path):
+    '''One row per integral-kernel launch (--launches), the longest first'''
+    rows = read_rows(path)
+    col = {h: k for k, h in enumerate(rows[0])}
+    stalls = [h for h in rows[0] if h.startswith('smsp__warp_issue_stalled_') and h.endswith('per_warp_active.pct')]
+
+    def val(r, m):
+        try:
+            return float(r[col[m]].replace(',', ''))
+        except (KeyError, ValueError):
+            return 0.
+    labels = json.load(open(labels_path)) if labels_path else []
+    out = []
+    n_int = 0
+    for r in rows[2:]:
+        name = re.sub(r'\(.*', '', r[col['Kernel Name']]).replace('void ', '')
+        if not (args.kernel_prefix and name.startswith(args.kernel_prefix)):
+            continue
+        key = labels[n_int]['class'] if n_int < len(labels) else ''
+        n_int += 1
+        f = [val(r, f'smsp__sass_thread_inst_executed_op_{o}_pred_on.sum') for o in ('dfma', 'dadd', 'dmul')]
+        out.append((val(r, 'gpu__time_duration.sum') * 1e-9, key, name, val(r, 'launch__block_size'),
+                    val(r, 'launch__grid_size'), val(r, 'sm__pipe_fp64_cycles_active.avg.pct_of_peak_sustained_active'),
+                    val(r, 'smsp__thread_inst_executed_per_inst_executed.ratio') / 32,
+                    val(r, 'sm__warps_active.avg.pct_of_peak_sustained_active'), 100 * f[0] / max(sum(f), 1),
+                    [(m, val(r, m)) for m in stalls]))
+    tot = sum(x[0] for x in out)
+    top = sorted(stalls, key=lambda m: -sum(dict(x[9])[m] * x[0] for x in out))[:4]
+    short = [m.replace('smsp__warp_issue_stalled_', '').replace('_per_warp_active.pct', '')[:10] for m in top]
+    print(f'{len(out)} launches, {tot:.3f} s')
+    print(f"{'class':10s} {'kernel':22s} {'block':>5s} {'grid':>6s} {'ms':>8s} {'%t':>5s} {'fp64 %':>6s} {'simt':>5s} "
+          f"{'occ':>5s} {'FMA %':>5s}" + (' |' + ' '.join(f'{c:>10s}' for c in short) if top else ''))
+    for t, key, name, block, grid, fp64, simt, occ, fma, st in sorted(out, key=lambda x: -x[0])[:args.top]:
+        d = dict(st)
+        print(f'{key:10s} {name[:22]:22s} {block:5.0f} {grid:6.0f} {t * 1e3:8.2f} {100 * t / tot:5.1f} {fp64:6.1f} '
+              f'{simt:5.2f} {occ:5.1f} {fma:5.1f}' + (' |' + ' '.join(f'{d[m]:10.1f}' for m in top) if top else ''))
+
+
+def gemm_table(path):
+    '''The GEMM launches (--gemms) by kernel and grid size'''
+    rows = read_rows(path)
+    col = {h: k for k, h in enumerate(rows[0])}
+
+    def val(r, m):
+        try:
+            return float(r[col[m]].replace(',', ''))
+        except ValueError:
+            return 0.
+
+    groups = defaultdict(list)
+    for r in rows[2:]:
+        name = re.sub(r'\(.*', '', r[col['Kernel Name']]).replace('void ', '')
+        if 'gemm' not in name:
+            continue
+        flop = (2 * val(r, 'smsp__sass_thread_inst_executed_op_dfma_pred_on.sum')
+                + val(r, 'smsp__sass_thread_inst_executed_op_dadd_pred_on.sum')
+                + val(r, 'smsp__sass_thread_inst_executed_op_dmul_pred_on.sum'))
+        groups[(name[:40], int(val(r, 'launch__grid_size')))].append((flop, val(r, 'gpu__time_duration.sum') * 1e-9))
+    print(f"{'kernel':40s} {'grid':>5s} {'n':>4s} {'GFLOP/launch min':>16s} {'mean':>6s} {'max':>6s} {'time s':>7s} "
+          f"{'GFLOP/s':>7s}")
+    for (name, grid), xs in sorted(groups.items()):
+        fl = [x[0] / 1e9 for x in xs]
+        t = sum(x[1] for x in xs)
+        print(f"{name:40s} {grid:5d} {len(xs):4d} {min(fl):16.3f} {sum(fl) / len(fl):6.3f} {max(fl):6.3f} {t:7.3f} "
+              f"{sum(fl) / t:7.1f}")
+
+
+if args.gemms:
+    gemm_table(args.csv)
+    raise SystemExit
+if args.launches:
+    launch_table(args.csv, args.labels)
+    raise SystemExit
 if args.l2:
     l2_table(args.csv, args.labels)
     raise SystemExit

@@ -1,0 +1,745 @@
+# GPU4PySCF investigation part 18 (NOTES.md; profile only): the SCF and the gradient. GTX 1650 Super at 1530 MHz;
+# caffeine def2-SVP (246 AOs) and def2-TZVP (494 AOs) with PBE, B3LYP and r2SCAN, conv_tol 1e-10; gpu4pyscf
+# exp/prim-screen ab75a1b.
+#
+# Commands (node1):
+#   scf_parts.py --mol caffeine --basis B --xc pbe,b3lyp,r2scan --device gpu --verbose 6   (section 1;
+#     scratch/scfgrad_prof.sh)
+#   stage_times.py grad --xc X --basis B                                                    (section 2)
+#   stage_times.py grad --xc pbe|r2scan --basis def2-svp --first-stages                     (section 3)
+#   grad_xc_first_call.py --xc pbe|r2scan, then --xc pbe --basis def2-tzvp                  (section 4;
+#     scratch/first_call2.sh, first_call3.sh)
+#   ncu --profile-from-start off --csv --page raw --print-units base --metrics ... \
+#       ncu_parts.py --part j|xc|gradxc --basis B --xc X [--dm DM.npy] --labels ...         (sections 5 and 6;
+#     scratch/ncu_scf.sh -> ncu/ncu_scfgrad_*.csv, the XC ones gzipped): one J build, nr_rks call or get_exc call
+#     each, at the converged density; parts xc and gradxc pass the density with its orbitals attached, as the SCF
+#     and the gradient do. Summaries: ncu_summary.py CSV [--labels L --kernel-prefix md_j] [--launches] [--gemms]
+#   gemm_tile_padding.py                                                                    (section 7)
+
+# 1) SCF parts per cycle (scf_parts.py; the second SCF of each run)
+
+caffeine def2-svp pbe, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.0403707179
+  cycles                                      18
+  SCF wall (s)                             25.20
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.035          0.000
+  grids                     0.070          0.000
+  XC                        0.805          0.628
+  J                         0.312          0.685
+  veff rest                 0.000          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.332 s per cycle
+  gpu XC: functional (libxc)            0.006 s per cycle
+  gpu XC: Vxc integration               0.332 s per cycle
+  gpu CuPy memory pool after the run: 0.146 GiB
+
+caffeine def2-svp b3lyp, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.8127486398
+  cycles                                      15
+  SCF wall (s)                             38.88
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.036          0.000
+  grids                     0.069          0.000
+  XC                        0.806          0.629
+  J                         0.322          0.693
+  K                         0.531          1.132
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.338 s per cycle
+  gpu XC: functional (libxc)            0.008 s per cycle
+  gpu XC: Vxc integration               0.335 s per cycle
+  gpu CuPy memory pool after the run: 0.146 GiB
+
+caffeine def2-svp r2scan, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.4529650104
+  cycles                                      16
+  SCF wall (s)                             37.04
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.028          0.000
+  hcore+ovlp                0.035          0.000
+  grids                     0.070          0.000
+  XC                        1.654          1.476
+  J                         0.313          0.690
+  veff rest                 0.000          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.342 s per cycle
+  gpu XC: functional (libxc)            0.013 s per cycle
+  gpu XC: Vxc integration               1.223 s per cycle
+  gpu CuPy memory pool after the run: 0.202 GiB
+
+
+caffeine def2-tzvp pbe, nao 494, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.7849175513
+  cycles                                      18
+  SCF wall (s)                            104.45
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.060          0.000
+  grids                     0.070          0.000
+  XC                        2.022          1.353
+  J                         1.099          4.213
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.011
+  eig                       0.038          0.036
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.002
+  gpu XC: density on grid               0.578 s per cycle
+  gpu XC: functional (libxc)            0.006 s per cycle
+  gpu XC: Vxc integration               0.879 s per cycle
+  gpu CuPy memory pool after the run: 0.263 GiB
+
+caffeine def2-tzvp b3lyp, nao 494, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -680.5697781456
+  cycles                                      15
+  SCF wall (s)                            233.04
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.060          0.000
+  grids                     0.069          0.000
+  XC                        2.010          1.346
+  J                         1.090          4.257
+  K                         2.099          9.521
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.011
+  eig                       0.038          0.035
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.002
+  gpu XC: density on grid               0.588 s per cycle
+  gpu XC: functional (libxc)            0.008 s per cycle
+  gpu XC: Vxc integration               0.883 s per cycle
+  gpu CuPy memory pool after the run: 0.263 GiB
+
+caffeine def2-tzvp r2scan, nao 494, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -680.2123015035
+  cycles                                      16
+  SCF wall (s)                            133.42
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.061          0.000
+  grids                     0.070          0.000
+  XC                        4.341          3.666
+  J                         1.094          4.269
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.011
+  eig                       0.038          0.036
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.002
+  gpu XC: density on grid               0.592 s per cycle
+  gpu XC: functional (libxc)            0.013 s per cycle
+  gpu XC: Vxc integration               3.329 s per cycle
+  gpu CuPy memory pool after the run: 0.263 GiB
+
+# 2) gradient stages (stage_times.py grad; the second call, after an untimed first one)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp pbe gradient: 4.26 s (first call 5.84 s), SCF 18 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      2.51 s  59.0%  2e derivatives (jk_energy_per_atom), 1 calls
+      1.67 s  39.3%  XC term (get_exc), 1 calls
+      0.07 s   1.7%  1e terms (_hcore_energy), 1 calls
+      0.06 s   1.5%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.2%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp b3lyp gradient: 4.33 s (first call 5.88 s), SCF 15 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      2.59 s  59.9%  2e derivatives (jk_energy_per_atom), 1 calls
+      1.67 s  38.4%  XC term (get_exc), 1 calls
+      0.07 s   1.7%  1e terms (_hcore_energy), 1 calls
+      0.06 s   1.4%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.2%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp r2scan gradient: 6.12 s (first call 6.15 s), SCF 16 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      3.55 s  58.0%  XC term (get_exc), 1 calls
+      2.50 s  40.8%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.07 s   1.2%  1e terms (_hcore_energy), 1 calls
+      0.06 s   1.0%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.2%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-tzvp pbe gradient: 31.52 s (first call 33.21 s), SCF 18 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+     26.29 s  83.4%  2e derivatives (jk_energy_per_atom), 1 calls
+      5.09 s  16.1%  XC term (get_exc), 1 calls
+      0.14 s   0.4%  1e terms (_hcore_energy), 1 calls
+      0.12 s   0.4%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.02 s   0.1%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-tzvp b3lyp gradient: 32.99 s (first call 34.70 s), SCF 15 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+     27.78 s  84.2%  2e derivatives (jk_energy_per_atom), 1 calls
+      5.07 s  15.4%  XC term (get_exc), 1 calls
+      0.14 s   0.4%  1e terms (_hcore_energy), 1 calls
+      0.12 s   0.4%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.02 s   0.0%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-tzvp r2scan gradient: 38.29 s (first call 38.38 s), SCF 16 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+     26.41 s  69.0%  2e derivatives (jk_energy_per_atom), 1 calls
+     11.74 s  30.7%  XC term (get_exc), 1 calls
+      0.14 s   0.4%  1e terms (_hcore_energy), 1 calls
+      0.12 s   0.3%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.02 s   0.0%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+
+# 3) the gradient's first call by stage (stage_times.py grad --first-stages), then its second call
+first call: 5.84 s
+      3.23 s  55.3%  XC term (get_exc), 1 calls
+      2.53 s  43.4%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.07 s   1.3%  1e terms (_hcore_energy), 1 calls
+      0.06 s   1.1%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.2%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp pbe gradient: 4.24 s (first call 5.84 s), SCF 18 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      2.50 s  58.9%  2e derivatives (jk_energy_per_atom), 1 calls
+      1.67 s  39.3%  XC term (get_exc), 1 calls
+      0.07 s   1.7%  1e terms (_hcore_energy), 1 calls
+      0.06 s   1.5%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.2%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+first call: 6.17 s
+      3.56 s  57.8%  XC term (get_exc), 1 calls
+      2.53 s  41.0%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.07 s   1.2%  1e terms (_hcore_energy), 1 calls
+      0.07 s   1.1%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.2%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp r2scan gradient: 6.12 s (first call 6.17 s), SCF 16 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      3.55 s  58.0%  XC term (get_exc), 1 calls
+      2.49 s  40.8%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.07 s   1.2%  1e terms (_hcore_energy), 1 calls
+      0.06 s   1.0%  of it: kinetic and nuclear attraction (_grad_nuc_without_ecp), 1 calls
+      0.01 s   0.2%  of it: overlap derivatives (get_ovlp), 1 calls
+      0.00 s   0.0%  energy-weighted density (make_rdm1e), 1 calls
+      0.00 s   0.0%  nuclear repulsion (grad_nuc), 1 calls
+
+# 4) the XC term's first and second calls under cProfile, and the grid blocks' AO counts (grad_xc_first_call.py)
+== caffeine def2-svp pbe: get_exc call 1, 3.22 s
+         61937 function calls (61935 primitive calls) in 3.222 seconds
+   Ordered by: cumulative time
+   List reduced from 313 to 22 due to restriction <22>
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    3.222    3.222 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:219(get_exc)
+     11/9    0.014    0.001    3.221    0.358 {method 'acquire' of '_thread.lock' objects}
+        1    0.000    0.000    3.220    3.220 /usr/lib/python3.12/concurrent/futures/_base.py:646(__exit__)
+        1    0.000    0.000    3.220    3.220 /usr/lib/python3.12/concurrent/futures/thread.py:219(shutdown)
+        1    0.000    0.000    3.220    3.220 /usr/lib/python3.12/threading.py:1115(join)
+        1    0.000    0.000    3.220    3.220 /usr/lib/python3.12/threading.py:1153(_wait_for_tstate_lock)
+        1    0.000    0.000    3.207    3.207 /usr/lib/python3.12/threading.py:1016(_bootstrap)
+        1    0.000    0.000    3.206    3.206 /usr/lib/python3.12/threading.py:1056(_bootstrap_inner)
+        1    0.000    0.000    3.206    3.206 /usr/lib/python3.12/threading.py:999(run)
+        1    0.000    0.000    3.206    3.206 /usr/lib/python3.12/concurrent/futures/thread.py:69(_worker)
+        1    0.000    0.000    3.206    3.206 /usr/lib/python3.12/concurrent/futures/thread.py:53(run)
+        1    0.011    0.011    3.206    3.206 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:139(_get_exc_task)
+       72    0.002    0.000    1.560    0.022 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:384(_gga_grad_sum_)
+      144    0.001    0.000    1.555    0.011 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:372(_d1_dot_)
+      144    0.001    0.000    1.553    0.011 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/lib/cutensor.py:163(contract)
+      144    0.002    0.000    1.552    0.011 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/lib/cutensor.py:69(contraction)
+      432    0.000    0.000    1.542    0.004 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/lib/cutensor.py:44(_create_tensor_descriptor)
+      432    1.541    0.004    1.541    0.004 {built-in method cupyx.cutensor.create_tensor_descriptor}
+       72    1.258    0.017    1.280    0.018 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:232(eval_rho2)
+       72    0.002    0.000    0.293    0.004 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:2231(eval_xc_eff)
+       72    0.010    0.000    0.290    0.004 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:1786(eval_xc_eff)
+      144    0.269    0.002    0.273    0.002 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/libxc.py:215(compute)
+== caffeine def2-svp pbe: get_exc call 2, 1.67 s
+         60776 function calls (60774 primitive calls) in 1.671 seconds
+   Ordered by: cumulative time
+   List reduced from 272 to 22 due to restriction <22>
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    1.671    1.671 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:219(get_exc)
+     11/9    0.014    0.001    1.670    0.186 {method 'acquire' of '_thread.lock' objects}
+        1    0.000    0.000    1.670    1.670 /usr/lib/python3.12/concurrent/futures/_base.py:646(__exit__)
+        1    0.000    0.000    1.670    1.670 /usr/lib/python3.12/concurrent/futures/thread.py:219(shutdown)
+        1    0.000    0.000    1.670    1.670 /usr/lib/python3.12/threading.py:1115(join)
+        1    0.000    0.000    1.670    1.670 /usr/lib/python3.12/threading.py:1153(_wait_for_tstate_lock)
+        1    0.000    0.000    1.656    1.656 /usr/lib/python3.12/threading.py:1016(_bootstrap)
+        1    0.000    0.000    1.656    1.656 /usr/lib/python3.12/threading.py:1056(_bootstrap_inner)
+        1    0.000    0.000    1.656    1.656 /usr/lib/python3.12/threading.py:999(run)
+        1    0.000    0.000    1.656    1.656 /usr/lib/python3.12/concurrent/futures/thread.py:69(_worker)
+        1    0.000    0.000    1.656    1.656 /usr/lib/python3.12/concurrent/futures/thread.py:53(run)
+        1    0.011    0.011    1.656    1.656 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:139(_get_exc_task)
+       72    1.285    0.018    1.307    0.018 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:232(eval_rho2)
+       72    0.002    0.000    0.293    0.004 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:2231(eval_xc_eff)
+       72    0.010    0.000    0.289    0.004 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:1786(eval_xc_eff)
+      144    0.269    0.002    0.272    0.002 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/libxc.py:215(compute)
+       72    0.006    0.000    0.019    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:189(_eval_rho2)
+       72    0.002    0.000    0.018    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:384(_gga_grad_sum_)
+       72    0.002    0.000    0.018    0.000 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/linalg/_einsum.py:444(einsum)
+       72    0.001    0.000    0.013    0.000 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/linalg/_einsum.py:359(reduced_binary_einsum)
+      144    0.001    0.000    0.013    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:372(_d1_dot_)
+       72    0.001    0.000    0.010    0.000 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/_core/_gufuncs.py:539(__call__)
+AO derivative order 1: 72 blocks, 294912 points; AOs per block 128-222 (median 165) of 246; blocks by 64-AO tile: 65-128: 1, 129-192: 58, 193-256: 13
+AO derivative order 2: 72 blocks, 294912 points; AOs per block 128-222 (median 165) of 246; blocks by 64-AO tile: 65-128: 1, 129-192: 58, 193-256: 13
+== caffeine def2-svp r2scan: get_exc call 1, 3.55 s
+         89513 function calls (89511 primitive calls) in 3.550 seconds
+   Ordered by: cumulative time
+   List reduced from 314 to 22 due to restriction <22>
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    3.550    3.550 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:219(get_exc)
+     11/9    0.035    0.003    3.548    0.394 {method 'acquire' of '_thread.lock' objects}
+        1    0.000    0.000    3.548    3.548 /usr/lib/python3.12/concurrent/futures/_base.py:646(__exit__)
+        1    0.000    0.000    3.548    3.548 /usr/lib/python3.12/concurrent/futures/thread.py:219(shutdown)
+        1    0.000    0.000    3.548    3.548 /usr/lib/python3.12/threading.py:1115(join)
+        1    0.000    0.000    3.548    3.548 /usr/lib/python3.12/threading.py:1153(_wait_for_tstate_lock)
+        1    0.000    0.000    3.514    3.514 /usr/lib/python3.12/threading.py:1016(_bootstrap)
+        1    0.000    0.000    3.513    3.513 /usr/lib/python3.12/threading.py:1056(_bootstrap_inner)
+        1    0.000    0.000    3.513    3.513 /usr/lib/python3.12/threading.py:999(run)
+        1    0.000    0.000    3.513    3.513 /usr/lib/python3.12/concurrent/futures/thread.py:69(_worker)
+        1    0.000    0.000    3.513    3.513 /usr/lib/python3.12/concurrent/futures/thread.py:53(run)
+        1    0.012    0.012    3.513    3.513 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:139(_get_exc_task)
+       72    2.991    0.042    3.026    0.042 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:232(eval_rho2)
+       72    0.002    0.000    0.301    0.004 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:2231(eval_xc_eff)
+       72    0.014    0.000    0.297    0.004 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:1786(eval_xc_eff)
+      144    0.270    0.002    0.275    0.002 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/libxc.py:215(compute)
+       72    0.002    0.000    0.061    0.001 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/linalg/_einsum.py:444(einsum)
+       72    0.001    0.000    0.057    0.001 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/linalg/_einsum.py:359(reduced_binary_einsum)
+       72    0.001    0.000    0.054    0.001 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/_core/_gufuncs.py:539(__call__)
+       72    0.000    0.000    0.048    0.001 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/_core/_gufuncs.py:388(_apply_func_to_inputs)
+       72    0.048    0.001    0.048    0.001 {built-in method cupy._core._routines_linalg.matmul}
+       72    0.020    0.000    0.045    0.001 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:400(_tau_grad_dot_)
+== caffeine def2-svp r2scan: get_exc call 2, 3.54 s
+         88352 function calls (88350 primitive calls) in 3.541 seconds
+   Ordered by: cumulative time
+   List reduced from 273 to 22 due to restriction <22>
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    3.541    3.541 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:219(get_exc)
+        1    0.000    0.000    3.541    3.541 /usr/lib/python3.12/concurrent/futures/_base.py:646(__exit__)
+        1    0.000    0.000    3.541    3.541 /usr/lib/python3.12/concurrent/futures/thread.py:219(shutdown)
+        1    0.000    0.000    3.541    3.541 /usr/lib/python3.12/threading.py:1115(join)
+     11/9    0.036    0.003    3.541    0.393 {method 'acquire' of '_thread.lock' objects}
+        1    0.000    0.000    3.541    3.541 /usr/lib/python3.12/threading.py:1153(_wait_for_tstate_lock)
+        1    0.000    0.000    3.505    3.505 /usr/lib/python3.12/threading.py:1016(_bootstrap)
+        1    0.000    0.000    3.505    3.505 /usr/lib/python3.12/threading.py:1056(_bootstrap_inner)
+        1    0.000    0.000    3.504    3.504 /usr/lib/python3.12/threading.py:999(run)
+        1    0.000    0.000    3.504    3.504 /usr/lib/python3.12/concurrent/futures/thread.py:69(_worker)
+        1    0.000    0.000    3.504    3.504 /usr/lib/python3.12/concurrent/futures/thread.py:53(run)
+        1    0.012    0.012    3.504    3.504 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:139(_get_exc_task)
+       72    3.066    0.043    3.101    0.043 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:232(eval_rho2)
+       72    0.002    0.000    0.301    0.004 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:2231(eval_xc_eff)
+       72    0.014    0.000    0.297    0.004 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:1786(eval_xc_eff)
+      144    0.270    0.002    0.275    0.002 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/libxc.py:215(compute)
+       72    0.019    0.000    0.044    0.001 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:400(_tau_grad_dot_)
+       72    0.014    0.000    0.032    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:189(_eval_rho2)
+      360    0.002    0.000    0.031    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:372(_d1_dot_)
+      360    0.001    0.000    0.025    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/lib/cutensor.py:163(contract)
+      360    0.006    0.000    0.024    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/lib/cutensor.py:69(contraction)
+       72    0.002    0.000    0.018    0.000 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/linalg/_einsum.py:444(einsum)
+AO derivative order 1: 72 blocks, 294912 points; AOs per block 128-222 (median 165) of 246; blocks by 64-AO tile: 65-128: 1, 129-192: 58, 193-256: 13
+AO derivative order 2: 72 blocks, 294912 points; AOs per block 128-222 (median 165) of 246; blocks by 64-AO tile: 65-128: 1, 129-192: 58, 193-256: 13
+== caffeine def2-tzvp pbe: get_exc call 1, 6.67 s
+         62069 function calls (62067 primitive calls) in 6.673 seconds
+   Ordered by: cumulative time
+   List reduced from 314 to 22 due to restriction <22>
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    6.673    6.673 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:219(get_exc)
+     11/9    0.000    0.000    6.672    0.741 {method 'acquire' of '_thread.lock' objects}
+        1    0.000    0.000    6.672    6.672 /usr/lib/python3.12/concurrent/futures/_base.py:646(__exit__)
+        1    0.000    0.000    6.672    6.672 /usr/lib/python3.12/concurrent/futures/thread.py:219(shutdown)
+        1    0.000    0.000    6.672    6.672 /usr/lib/python3.12/threading.py:1115(join)
+        1    0.000    0.000    6.672    6.672 /usr/lib/python3.12/threading.py:1153(_wait_for_tstate_lock)
+        1    0.000    0.000    6.672    6.672 /usr/lib/python3.12/threading.py:1016(_bootstrap)
+        1    0.000    0.000    6.672    6.672 /usr/lib/python3.12/threading.py:1056(_bootstrap_inner)
+        1    0.000    0.000    6.672    6.672 /usr/lib/python3.12/threading.py:999(run)
+        1    0.000    0.000    6.672    6.672 /usr/lib/python3.12/concurrent/futures/thread.py:69(_worker)
+        1    0.052    0.052    6.672    6.672 /usr/lib/python3.12/concurrent/futures/thread.py:53(run)
+        1    0.011    0.011    6.620    6.620 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:139(_get_exc_task)
+       72    4.467    0.062    4.490    0.062 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:232(eval_rho2)
+       72    0.002    0.000    1.573    0.022 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:384(_gga_grad_sum_)
+      144    0.001    0.000    1.568    0.011 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:372(_d1_dot_)
+      144    0.001    0.000    1.566    0.011 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/lib/cutensor.py:163(contract)
+      144    0.002    0.000    1.565    0.011 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/lib/cutensor.py:69(contraction)
+      432    0.000    0.000    1.555    0.004 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/lib/cutensor.py:44(_create_tensor_descriptor)
+      432    1.554    0.004    1.554    0.004 {built-in method cupyx.cutensor.create_tensor_descriptor}
+       72    0.002    0.000    0.476    0.007 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:2231(eval_xc_eff)
+       72    0.010    0.000    0.473    0.007 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:1786(eval_xc_eff)
+      144    0.452    0.003    0.456    0.003 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/libxc.py:215(compute)
+== caffeine def2-tzvp pbe: get_exc call 2, 5.12 s
+         60776 function calls (60774 primitive calls) in 5.119 seconds
+   Ordered by: cumulative time
+   List reduced from 273 to 22 due to restriction <22>
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    5.119    5.119 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:219(get_exc)
+        1    0.000    0.000    5.119    5.119 /usr/lib/python3.12/concurrent/futures/_base.py:646(__exit__)
+        1    0.000    0.000    5.119    5.119 /usr/lib/python3.12/concurrent/futures/thread.py:219(shutdown)
+        1    0.000    0.000    5.119    5.119 /usr/lib/python3.12/threading.py:1115(join)
+     11/9    0.000    0.000    5.119    0.569 {method 'acquire' of '_thread.lock' objects}
+        1    0.000    0.000    5.119    5.119 /usr/lib/python3.12/threading.py:1153(_wait_for_tstate_lock)
+        1    0.000    0.000    5.118    5.118 /usr/lib/python3.12/threading.py:1016(_bootstrap)
+        1    0.000    0.000    5.118    5.118 /usr/lib/python3.12/threading.py:1056(_bootstrap_inner)
+        1    0.000    0.000    5.118    5.118 /usr/lib/python3.12/threading.py:999(run)
+        1    0.000    0.000    5.118    5.118 /usr/lib/python3.12/concurrent/futures/thread.py:69(_worker)
+        1    0.052    0.052    5.118    5.118 /usr/lib/python3.12/concurrent/futures/thread.py:53(run)
+        1    0.010    0.010    5.066    5.066 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:139(_get_exc_task)
+       72    4.511    0.063    4.534    0.063 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:232(eval_rho2)
+       72    0.002    0.000    0.476    0.007 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:2231(eval_xc_eff)
+       72    0.010    0.000    0.473    0.007 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:1786(eval_xc_eff)
+      144    0.453    0.003    0.456    0.003 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/libxc.py:215(compute)
+       72    0.006    0.000    0.020    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/dft/numint.py:189(_eval_rho2)
+       72    0.002    0.000    0.017    0.000 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/linalg/_einsum.py:444(einsum)
+       72    0.002    0.000    0.017    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:384(_gga_grad_sum_)
+       72    0.001    0.000    0.013    0.000 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/linalg/_einsum.py:359(reduced_binary_einsum)
+      144    0.001    0.000    0.012    0.000 /home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/grad/rks.py:372(_d1_dot_)
+       72    0.001    0.000    0.010    0.000 /home/danny/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/_core/_gufuncs.py:539(__call__)
+AO derivative order 1: 72 blocks, 294912 points; AOs per block 210-442 (median 319) of 494; blocks by 64-AO tile: 193-256: 3, 257-320: 37, 321-384: 17, 385-448: 15
+AO derivative order 2: 72 blocks, 294912 points; AOs per block 210-442 (median 319) of 494; blocks by 64-AO tile: 193-256: 3, 257-320: 37, 321-384: 17, 385-448: 15
+
+# 5) J engine, one get_j at the converged caffeine def2-SVP B3LYP density: per class, then per launch
+total: 133 launches, 0.778 s GPU, 26.3 GFLOP FP64 (33.8 GFLOP/s), 1.90 G warp instructions, 0.29 M atomic instructions, 0.05 GB DRAM
+class/kernel                                n  time s    %t  GFLOP64   %fl fp64 %inst fp64 util  simt   occ regs  M atom  MB dram
+(ps|ss)                                     1   0.110  14.1     4.34  16.5       47.1      87.3  0.57  47.8   94    0.02      1.3
+(dp|ss)                                     1   0.076   9.8     0.90   3.4       49.8      86.6  0.57  25.0  128    0.01      1.0
+(ps|ps)                                     1   0.072   9.3     3.37  12.8       45.5      87.9  0.60  49.6   94    0.03      0.7
+(pp|ps)                                     1   0.070   9.0     3.01  11.4       50.0      88.1  0.60  25.0  114    0.01      1.0
+(ds|ps)                                     1   0.069   8.9     2.25   8.6       49.9      87.9  0.61  25.0  114    0.01      1.1
+(dp|ps)                                     1   0.064   8.2     2.04   7.7       52.8      89.1  0.65  25.0  162    0.01      1.0
+(pp|ss)                                     1   0.050   6.4     1.59   6.1       47.6      87.3  0.55  43.0  106    0.02      2.1
+(ds|ss)                                     1   0.048   6.2     1.15   4.4       47.1      86.8  0.57  40.1  106    0.01      0.9
+(dp|pp)                                     1   0.046   5.9     1.16   4.4       54.5      90.5  0.73  25.0  216    0.01      0.8
+(dp|ds)                                     1   0.044   5.6     0.84   3.2       53.9      90.2  0.73  25.0  216    0.01      0.7
+(ds|pp)                                     1   0.026   3.4     1.19   4.5       50.0      89.1  0.68  25.0  128    0.01      3.3
+(ss|ss)                                     1   0.019   2.4     1.36   5.2       42.1      86.8  1.00  47.1   70    0.00      0.2
+(pp|pp)                                     1   0.018   2.3     0.78   3.0       49.9      89.2  0.68  25.0  128    0.01      0.5
+(ds|ds)                                     1   0.013   1.7     0.41   1.6       49.4      88.9  0.69  25.0  128    0.00      0.6
+(dp|dp)                                     1   0.012   1.6     0.53   2.0       11.3      60.9  0.97  25.0  254    0.04      0.4
+(dd|ss)                                     1   0.010   1.3     0.18   0.7       51.5      86.9  0.62  25.0  180    0.00      0.3
+(dd|ps)                                     1   0.009   1.1     0.45   1.7       55.3      89.8  0.70  25.0  232    0.00      0.9
+(dd|pp)                                     1   0.008   1.0     0.30   1.2       11.6      57.2  0.96  25.0  254    0.04      0.5
+(dd|dp)                                     1   0.007   0.9     0.22   0.9       11.3      66.4  0.98  25.0  254    0.01      0.4
+(dd|ds)                                     1   0.006   0.7     0.22   0.8       11.5      56.9  0.96  25.0  254    0.03      0.9
+(dd|dd)                                     1   0.001   0.1     0.03   0.1       11.0      63.6  0.95  25.0  254    0.00      0.2
+dm_to_Rt_kernel                             1   0.001   0.1     0.00   0.0        7.6      39.2  0.96  28.8   70    0.00      7.9
+Rt_to_dm_kernel                             1   0.000   0.0     0.00   0.0        9.0      50.0  0.95  29.2   71    0.00      5.1
+cub::DeviceSegmentedReduceKernel<reduce:   30   0.000   0.0     0.00   0.0        0.0       0.0  0.94  71.4   64    0.00      1.4
+ket_sorted2sph_kernel                       1   0.000   0.0     0.00   0.0        3.1      29.2  0.34  24.0   72    0.00      1.8
+ket_sph2sorted_kernel                       1   0.000   0.0     0.00   0.0        4.0      36.7  0.32  24.1   64    0.00      2.0
+cupy_copy__float32_float32                 30   0.000   0.0     0.00   0.0        0.0       0.0  0.85   9.5   16    0.00      0.2
+bra_sph2sorted_kernel                       1   0.000   0.0     0.00   0.0        2.3      19.6  0.96  41.2  109    0.00      3.4
+bra_sorted2sph_kernel                       1   0.000   0.0     0.00   0.0        2.0      19.4  0.95  59.5   76    0.00      3.2
+cupy_log__float64_float64                   1   0.000   0.0     0.00   0.0       30.9      82.4  1.00  85.6   32    0.00      0.5
+_transpose_dsum                             1   0.000   0.0     0.00   0.0        2.9      19.1  0.99  92.4   38    0.00      2.8
+dabsmax_condense                            1   0.000   0.0     0.00   0.0        5.0      53.2  0.94  66.6   60    0.00      1.9
+cupy_take                                   7   0.000   0.0     0.00   0.0        0.0       0.0  0.98  24.9   30    0.00      0.4
+cupy_multiply__float64_float_float64        1   0.000   0.0     0.00   0.0        2.7      19.8  1.00  86.9   18    0.00      2.5
+cupy_add__float32_float32_float32           6   0.000   0.0     0.00   0.0        0.0       0.0  0.98  16.3   24    0.00      0.1
+cupy_copy__float_float32                    6   0.000   0.0     0.00   0.0        5.9      17.3  0.99  23.8   16    0.00      0.0
+cupy_copy__uint32_uint32                    6   0.000   0.0     0.00   0.0        0.0       0.0  0.98  16.2   16    0.00      0.1
+cupy_add__int32_int_int32                   3   0.000   0.0     0.00   0.0        0.0       0.0  1.00  60.2   18    0.00      0.2
+cupy_copy__int32_int32                      3   0.000   0.0     0.00   0.0        0.0       0.0  0.72  43.7   16    0.00      0.1
+cupy_multiply__int32_int32_int32            2   0.000   0.0     0.00   0.0        0.0       0.0  1.00  59.8   24    0.00      0.2
+cupy_copy__float64_float32                  1   0.000   0.0     0.00   0.0        5.0      40.3  1.00  80.6   20    0.00      0.4
+cupy_add__float64_float_float64             1   0.000   0.0     0.00   0.0        2.7      21.9  1.00  74.5   18    0.00      0.5
+cub::DeviceScanKernel<scan::policy_hub<i    1   0.000   0.0     0.00   0.0        0.0       0.0  1.00  12.5   64    0.00      0.1
+cupy_equal__int32_int_bool                  2   0.000   0.0     0.00   0.0        0.0       0.0  0.03   3.1   16    0.00      0.0
+cupy_add__int32_int32_int32                 1   0.000   0.0     0.00   0.0        0.0       0.0  1.00  79.3   16    0.00      0.0
+cupy_floor_divide__int32_int_int32          1   0.000   0.0     0.00   0.0        0.0       0.0  1.00  61.2   23    0.00      0.1
+cupy_copy__uint32_int32                     1   0.000   0.0     0.00   0.0        0.0       0.0  1.00  60.0   16    0.00      0.1
+cub::DeviceScanInitKernel<cub::ScanTileS    1   0.000   0.0     0.00   0.0        0.0       0.0  1.00  12.0   16    0.00      0.0
+
+21 launches, 0.776 s
+class      kernel                 block   grid       ms    %t fp64 %  simt   occ FMA % |long_score    barrier tex_thrott       wait
+(ps|ss)    md_j_1_0                 256    112   109.54  14.1   87.3  0.57  47.8  71.8 |      61.9       28.4        4.1        2.9
+(dp|ss)    md_j_3_0                 256      7    76.27   9.8   86.6  0.57  25.0  69.2 |      72.3       16.5        3.2        4.9
+(ps|ps)    md_j_1_1                 256   1156    72.13   9.3   87.9  0.60  49.6  67.4 |      64.5       25.0        5.7        2.8
+(pp|ps)    md_j_2_1                 256     24    69.67   9.0   88.1  0.60  25.0  67.2 |      75.6       12.4        3.9        4.9
+(ds|ps)    md_j_2_1                 256     24    69.14   8.9   87.9  0.61  25.0  67.2 |      74.4       13.6        3.9        4.9
+(dp|ps)    md_j_3_1                 256     15    64.02   8.2   89.1  0.65  25.0  70.0 |      74.8       11.3        6.5        4.5
+(pp|ss)    md_j_2_0                 256     40    49.79   6.4   87.3  0.55  43.0  70.3 |      64.6       25.2        5.1        3.1
+(ds|ss)    md_j_2_0                 256     40    48.05   6.2   86.8  0.57  40.1  70.3 |      64.0       25.7        4.7        3.3
+(dp|pp)    md_j_3_2                 256      9    45.64   5.9   90.5  0.73  25.0  74.7 |      73.9        6.9       11.9        4.3
+(dp|ds)    md_j_3_2                 256      8    43.51   5.6   90.2  0.73  25.0  74.7 |      73.7        7.1       11.8        4.3
+(ds|pp)    md_j_2_2                 256     42    26.13   3.4   89.1  0.68  25.0  70.1 |      77.4        9.0        5.3        4.8
+(ss|ss)    md_j_0_0                 256    121    18.59   2.4   86.8  1.00  47.1  71.9 |      82.4        5.1        6.5        3.2
+(pp|pp)    md_j_2_2                 256     49    18.17   2.3   89.2  0.68  25.0  70.1 |      77.7        8.6        5.4        4.8
+(ds|ds)    md_j_2_2                 256     36    13.13   1.7   88.9  0.69  25.0  70.1 |      77.1        9.2        5.3        4.8
+(dp|dp)    md_j_1dm_kernel          256   1035    12.42   1.6   60.9  0.97  25.0  67.3 |      38.3       38.5        0.3       10.5
+(dd|ss)    md_j_4_0                 256      9    10.00   1.3   86.9  0.62  25.0  68.0 |      70.3       16.8        5.3        4.5
+(dd|ps)    md_j_4_1                 256     19     8.89   1.1   89.8  0.70  25.0  72.4 |      72.8       10.2       10.2        4.1
+(dd|pp)    md_j_1dm_kernel          256     96     7.66   1.0   57.2  0.96  25.0  70.1 |      34.8       43.5        0.3        9.5
+(dd|dp)    md_j_1dm_kernel          256     15     7.13   0.9   66.4  0.98  25.0  73.3 |      42.3       32.8        0.2       11.1
+(dd|ds)    md_j_1dm_kernel          256     79     5.62   0.7   56.9  0.96  25.0  70.1 |      34.7       43.4        0.3        9.6
+(dd|dd)    md_j_1dm_kernel          256     36     0.89   0.1   63.6  0.95  25.0  69.9 |      42.4       33.1        0.2       11.1
+
+# 5) J engine, one get_j at the converged caffeine def2-TZVP B3LYP density: per class, then per launch
+total: 214 launches, 5.409 s GPU, 254.5 GFLOP FP64 (47.1 GFLOP/s), 29.75 G warp instructions, 7.26 M atomic instructions, 0.39 GB DRAM
+class/kernel                                n  time s    %t  GFLOP64   %fl fp64 %inst fp64 util  simt   occ regs  M atom  MB dram
+(ps|ss)                                     1   0.382   7.1    17.07   6.7       47.2      87.5  0.56  49.4   94    0.06      6.9
+(ds|ps)                                     1   0.290   5.4    13.82   5.4       50.0      88.0  0.60  25.0  114    0.06      5.6
+(ps|ps)                                     1   0.272   5.0    13.20   5.2       45.5      87.9  0.60  49.9   94    0.12      3.9
+(pp|ps)                                     1   0.258   4.8    11.53   4.5       50.1      88.1  0.60  25.0  114    0.05      4.6
+(dp|ps)                                     1   0.231   4.3    11.90   4.7       52.9      89.2  0.64  25.0  162    0.07      6.1
+(fs|ps)                                     1   0.189   3.5     9.40   3.7       52.8      89.0  0.65  25.0  162    0.06      4.0
+(fs|dp)                                     1   0.167   3.1     7.43   2.9       11.3      61.4  0.97  25.0  254    0.52      2.5
+(dp|ss)                                     1   0.167   3.1     5.32   2.1       49.9      87.1  0.54  25.0  128    0.03      1.9
+(ds|ss)                                     1   0.166   3.1     7.13   2.8       47.4      87.9  0.55  48.8  106    0.08      3.7
+(fp|ds)                                     1   0.160   3.0     6.84   2.7       11.5      57.1  0.96  25.0  254    0.97      4.9
+(pp|ss)                                     1   0.147   2.7     6.15   2.4       47.7      87.9  0.54  48.7  106    0.07      3.5
+(fd|ps)                                     1   0.144   2.7     5.72   2.2       12.3      56.4  0.96  25.0  254    0.20      2.1
+(dp|ds)                                     1   0.142   2.6     7.79   3.1       54.3      90.4  0.73  25.0  216    0.06      3.2
+(fp|pp)                                     1   0.139   2.6     5.87   2.3       11.6      57.4  0.96  25.0  254    0.75      4.8
+(fp|ps)                                     1   0.138   2.5     8.49   3.3       55.3      89.8  0.70  25.0  232    0.08      5.4
+(fp|dp)                                     1   0.137   2.5     6.82   2.7       11.3      66.5  0.98  25.0  254    0.18      2.0
+(ds|pp)                                     1   0.120   2.2     7.16   2.8       50.1      89.2  0.68  25.0  128    0.04      5.9
+(fs|ss)                                     1   0.116   2.1     4.11   1.6       49.6      86.8  0.56  25.0  128    0.03      1.5
+(dp|pp)                                     1   0.111   2.1     6.65   2.6       54.6      90.6  0.73  25.0  216    0.05      4.6
+(dp|dp)                                     1   0.107   2.0     4.74   1.9       11.3      60.9  0.97  25.0  254    0.34      1.6
+(fp|fs)                                     1   0.107   2.0     5.33   2.1       11.2      66.8  0.98  25.0  254    0.15      5.1
+(fs|pp)                                     1   0.100   1.8     5.40   2.1       54.6      90.5  0.74  25.0  216    0.04      2.0
+(fs|ds)                                     1   0.099   1.8     5.86   2.3       54.1      90.3  0.74  25.0  216    0.05      2.6
+(fd|dp)                                     1   0.089   1.6     3.96   1.6       11.4      61.3  0.96  25.0  254    0.31      3.4
+(fp|ss)                                     1   0.084   1.6     3.38   1.3       51.5      87.5  0.59  25.0  180    0.04      1.3
+(fd|ds)                                     1   0.082   1.5     3.66   1.4       11.6      62.8  0.97  25.0  254    0.12      1.6
+(fd|pp)                                     1   0.072   1.3     3.23   1.3       11.6      62.9  0.97  25.0  254    0.09      1.2
+(ds|ds)                                     1   0.072   1.3     4.00   1.6       49.7      89.1  0.68  25.0  128    0.03      4.6
+(ss|ss)                                     1   0.071   1.3     5.35   2.1       42.3      86.9  1.00  48.4   70    0.01      2.2
+(fd|fs)                                     1   0.067   1.2     3.03   1.2       11.3      61.6  0.96  25.0  254    0.27      1.3
+(dd|ds)                                     1   0.065   1.2     2.75   1.1       11.6      56.8  0.96  25.0  254    0.40      1.3
+(fd|fp)                                     1   0.062   1.2     2.98   1.2       11.3      68.2  0.97  25.0  254    0.08      1.3
+(fs|fs)                                     1   0.061   1.1     2.74   1.1       11.1      61.4  0.97  25.0  254    0.23      0.9
+(dd|ps)                                     1   0.060   1.1     3.53   1.4       55.3      89.8  0.70  25.0  232    0.03      1.4
+(fp|fp)                                     1   0.059   1.1     2.75   1.1       11.0      64.5  0.95  25.0  254    0.15      0.9
+(dd|dp)                                     1   0.058   1.1     2.74   1.1       11.3      66.2  0.98  25.0  254    0.07      1.3
+(dd|pp)                                     1   0.057   1.0     2.37   0.9       11.6      57.1  0.96  25.0  254    0.30      2.0
+(pp|pp)                                     1   0.052   1.0     2.87   1.1       50.0      89.2  0.68  25.0  128    0.02      3.9
+(fp|dd)                                     1   0.050   0.9     2.20   0.9       11.1      64.3  0.95  25.0  254    0.10      1.1
+(ff|ps)                                     1   0.049   0.9     2.19   0.9       11.6      61.0  0.97  25.0  254    0.09      1.4
+(fs|dd)                                     1   0.046   0.9     2.22   0.9       10.9      67.8  0.98  25.0  254    0.05      2.4
+(fd|ss)                                     1   0.044   0.8     2.40   0.9       58.9      87.8  0.68  25.0  228    0.03      0.9
+(dd|ss)                                     1   0.041   0.8     1.42   0.6       51.5      87.5  0.59  25.0  180    0.02      1.1
+(ff|dp)                                     1   0.038   0.7     1.48   0.6       11.4      64.6  0.97  25.0  254    0.03      1.2
+(ff|ds)                                     1   0.034   0.6     1.46   0.6       11.3      59.9  0.95  25.0  254    0.24      1.2
+(ff|ss)                                     1   0.033   0.6     0.94   0.4       12.1      47.8  0.95  25.0  254    0.08      0.7
+(fd|dd)                                     1   0.031   0.6     1.14   0.4       11.3      67.7  0.96  25.0  254    0.03      0.8
+(ff|pp)                                     1   0.029   0.5     1.28   0.5       11.4      60.4  0.95  25.0  254    0.18      1.0
+(ff|fs)                                     1   0.029   0.5     1.14   0.4       11.3      65.0  0.97  25.0  254    0.03      1.2
+(ff|fp)                                     1   0.021   0.4     1.12   0.4       11.2      69.6  0.97  25.0  254    0.06      1.3
+(fd|fd)                                     1   0.014   0.3     0.81   0.3       11.1      72.7  0.98  25.0  254    0.03      0.5
+(ff|fd)                                     1   0.012   0.2     0.63   0.2       11.2      70.9  0.97  25.0  254    0.02      1.1
+(dd|dd)                                     1   0.010   0.2     0.43   0.2       11.1      63.5  0.95  25.0  254    0.02      0.4
+(ff|dd)                                     1   0.009   0.2     0.43   0.2       11.3      69.1  0.97  25.0  254    0.02      0.6
+(ff|ff)                                     1   0.006   0.1     0.12   0.0       11.1      75.2  0.98  25.0  254    0.00      0.3
+dm_to_Rt_kernel                             1   0.004   0.1     0.03   0.0        7.3      26.3  0.97  35.0   70    0.00    112.9
+Rt_to_dm_kernel                             1   0.003   0.1     0.03   0.0        8.7      36.0  0.96  37.1   71    0.00     64.8
+cub::DeviceSegmentedReduceKernel<reduce:   50   0.001   0.0     0.00   0.0        0.0       0.0  0.94  71.3   64    0.00      2.4
+ket_sorted2sph_kernel                       1   0.000   0.0     0.00   0.0        3.4      30.6  0.26  26.5   72    0.00      7.9
+ket_sph2sorted_kernel                       1   0.000   0.0     0.00   0.0        4.7      40.3  0.25  26.8   64    0.00      8.3
+
+55 launches, 5.401 s
+class      kernel                 block   grid       ms    %t fp64 %  simt   occ FMA % |long_score    barrier       wait tex_thrott
+(ps|ss)    md_j_1_0                 256    405   381.87   7.1   87.5  0.56  49.4  71.7 |      63.4       27.6        2.8        4.3
+(ds|ps)    md_j_2_1                 256    138   290.19   5.4   88.0  0.60  25.0  67.1 |      75.2       12.8        4.9        3.9
+(ps|ps)    md_j_1_1                 256   4761   272.09   5.0   87.9  0.60  49.9  67.4 |      65.2       24.3        2.7        5.8
+(pp|ps)    md_j_2_1                 256     92   258.14   4.8   88.1  0.60  25.0  67.2 |      75.9       12.1        4.9        3.9
+(dp|ps)    md_j_3_1                 256     87   230.53   4.3   89.2  0.64  25.0  70.0 |      75.8       10.3        4.5        6.6
+(fs|ps)    md_j_3_1                 256     87   189.32   3.5   89.0  0.65  25.0  70.0 |      74.9       11.3        4.4        6.5
+(fs|dp)    md_j_1dm_kernel          256   1048   167.44   3.1   61.5  0.97  25.0  67.3 |      38.7       38.1       10.5        0.3
+(dp|ss)    md_j_3_0                 256     42   166.89   3.1   87.1  0.54  25.0  69.2 |      74.1       14.9        5.0        2.9
+(ds|ss)    md_j_2_0                 256    234   166.01   3.1   87.9  0.55  48.8  70.2 |      63.5       26.7        2.8        5.6
+(fp|ds)    md_j_1dm_kernel          256   1004   160.46   3.0   57.1  0.96  25.0  70.1 |      34.9       43.3        9.5        0.3
+(pp|ss)    md_j_2_0                 256    156   146.66   2.7   87.9  0.54  48.7  70.3 |      64.1       25.5        2.8        5.7
+(fd|ps)    md_j_1dm_kernel          256    172   143.89   2.7   56.4  0.96  25.0  68.9 |      31.0       49.4        8.6        0.4
+(dp|ds)    md_j_3_2                 256     69   142.45   2.6   90.4  0.73  25.0  74.7 |      74.2        6.6        4.3       11.8
+(fp|pp)    md_j_1dm_kernel          256    748   138.73   2.6   57.4  0.96  25.0  70.1 |      35.0       43.3        9.5        0.3
+(fp|ps)    md_j_4_1                 256     76   137.59   2.5   89.8  0.70  25.0  72.3 |      73.7        9.4        4.1       10.0
+(fp|dp)    md_j_1dm_kernel          256    176   137.03   2.5   66.5  0.98  25.0  73.3 |      42.2       32.9       11.1        0.2
+(ds|pp)    md_j_2_2                 256    252   119.88   2.2   89.2  0.68  25.0  70.1 |      77.8        8.5        4.8        5.4
+(fs|ss)    md_j_3_0                 256     42   116.22   2.2   86.8  0.56  25.0  69.2 |      73.2       15.9        4.9        2.9
+(dp|pp)    md_j_3_2                 256     51   111.04   2.1   90.6  0.73  25.0  74.7 |      74.4        6.5        4.3       11.9
+(dp|dp)    md_j_1dm_kernel          256   8646   107.36   2.0   61.0  0.97  25.0  67.3 |      38.3       38.6       10.4        0.3
+(fp|fs)    md_j_1dm_kernel          256    156   106.80   2.0   66.8  0.98  25.0  73.3 |      42.5       32.3       11.2        0.2
+(fs|pp)    md_j_3_2                 256     51   100.01   1.9   90.5  0.74  25.0  74.7 |      73.9        7.4        4.3       11.5
+(fs|ds)    md_j_3_2                 256     69    99.20   1.8   90.3  0.74  25.0  74.7 |      73.8        7.5        4.3       11.4
+(fd|dp)    md_j_1dm_kernel          256    393    88.55   1.6   61.3  0.96  25.0  73.3 |      38.5       38.5       10.1        0.3
+(fp|ss)    md_j_4_0                 256     36    83.96   1.6   87.5  0.59  25.0  67.9 |      73.2       14.3        4.6        4.8
+
+# 6) the SCF's XC part, one nr_rks call at the converged density (xc_svp_b3lyp): per kernel, then the GEMM launches by grid size
+total: 2151 launches, 0.628 s GPU, 61.7 GFLOP FP64 (98.2 GFLOP/s), 1.70 G warp instructions, 0.00 M atomic instructions, 9.81 GB DRAM
+class/kernel                                n  time s    %t  GFLOP64   %fl fp64 %inst fp64 util  simt   occ regs  M atom  MB dram
+volta_dgemm_128x64_tn                      72   0.271  43.2    30.84  50.0       75.2      98.9  1.00  22.3  234    0.00   1332.0
+volta_dgemm_64x64_nt                      284   0.269  42.8    25.73  41.7       75.8      98.9  1.00  16.3  238    0.00   2040.2
+_cart_kernel_deriv1<0>                    432   0.025   3.9     1.73   2.8       27.3      81.1  0.99  80.7   50    0.00    752.1
+_cart_kernel_deriv1<1>                    288   0.020   3.3     1.43   2.3       28.8      81.6  0.99  86.1   50    0.00   1500.3
+dscale_ao_kernel                           72   0.012   2.0     0.40   0.6        4.3      26.8  1.00  90.9   64    0.00   2083.3
+_sph_kernel_deriv1<2>                     144   0.011   1.8     0.70   1.1       38.9      82.8  1.00  79.5   62    0.00    777.2
+GDFTcontract_rho_kernel                   288   0.007   1.2     0.14   0.2        7.8      38.0  1.00  96.2   64    0.00    920.1
+work_gga_gpu_vxc_unpol                      2   0.003   0.5     0.25   0.4       43.4      87.8  0.96  58.9  106    0.00     37.4
+volta_dgemm_128x64_nt                       4   0.003   0.5     0.27   0.4       76.3      98.7  1.00  17.6  234    0.00     23.3
+work_lda_gpu_vxc_unpol                      2   0.003   0.4     0.21   0.3       45.5      86.9  0.98  52.8   88    0.00     23.1
+_add_sparse                                72   0.001   0.1     0.00   0.0        2.1       5.8  0.95  72.2   34    0.00     50.0
+cupy_copy__float64_float64                289   0.001   0.1     0.00   0.0        0.0       0.0  1.00  60.3   16    0.00     39.7
+_add_out                                   10   0.000   0.1     0.01   0.0        3.4      12.3  1.00  89.6   28    0.00     68.0
+cublasLt::splitKreduce_kernel<32, 16, in   17   0.000   0.1     0.01   0.0       14.0      38.4  0.90  78.0   56    0.00     48.7
+cupy_multiply__float64_float64_float64      5   0.000   0.1     0.00   0.0        1.7      12.0  1.00  92.9   22    0.00     62.7
+cupy_multiply__float64_float_float64       74   0.000   0.0     0.00   0.0        2.7      15.5  1.00  66.9   18    0.00     26.6
+cupy_take                                  73   0.000   0.0     0.00   0.0        0.0       0.0  1.00  42.1   30    0.00      7.4
+vec3_norm2_kernel_f_order                   1   0.000   0.0     0.00   0.0        6.5      28.6  1.00  89.0   19    0.00      9.2
+cub::DeviceReduceKernel<cub::policy_hub<    2   0.000   0.0     0.00   0.0       17.6      45.9  0.97  83.1   46    0.00      5.3
+cupy_prepare_array_indexing                 4   0.000   0.0     0.00   0.0        0.0       0.0  1.00  82.1   20    0.00      2.7
+cupy_scan_naive                             4   0.000   0.0     0.00   0.0        0.0       0.0  1.00  69.1   20    0.00      0.1
+_transpose_dsum                             1   0.000   0.0     0.00   0.0        2.9      18.2  0.99  84.9   38    0.00      0.7
+cupy_scatter_update                         1   0.000   0.0     0.00   0.0        0.0       0.0  1.00  86.5   34    0.00      1.3
+cupy_getitem_mask                           2   0.000   0.0     0.00   0.0        0.0       0.0  0.97  49.7   22    0.00      0.2
+
+kernel                                    grid    n GFLOP/launch min   mean    max  time s GFLOP/s
+volta_dgemm_128x64_nt                       32    4            0.067  0.067  0.067   0.003    95.2
+volta_dgemm_128x64_tn                       50    1            0.138  0.138  0.138   0.001    99.6
+volta_dgemm_128x64_tn                       78   42            0.409  0.409  0.409   0.148   116.4
+volta_dgemm_128x64_tn                       88   13            0.543  0.543  0.543   0.066   106.3
+volta_dgemm_128x64_tn                       96   16            0.403  0.403  0.403   0.056   115.6
+volta_dgemm_64x64_nt                        64  284            0.072  0.091  0.118   0.269    95.7
+
+# 6) the SCF's XC part, one nr_rks call at the converged density (xc_svp_r2scan): per kernel, then the GEMM launches by grid size
+total: 3215 launches, 1.467 s GPU, 154.9 GFLOP FP64 (105.5 GFLOP/s), 3.92 G warp instructions, 0.00 M atomic instructions, 16.83 GB DRAM
+class/kernel                                n  time s    %t  GFLOP64   %fl fp64 %inst fp64 util  simt   occ regs  M atom  MB dram
+volta_dgemm_128x64_tn                     288   1.085  73.9   123.37  79.7       75.0      98.9  1.00  22.3  234    0.00   5368.4
+volta_dgemm_64x64_nt                      284   0.269  18.3    25.73  16.6       75.8      98.8  1.00  16.3  238    0.00   2041.5
+_cart_kernel_deriv1<0>                    432   0.025   1.7     1.73   1.1       27.3      81.0  0.99  80.7   50    0.00    756.5
+_cart_kernel_deriv1<1>                    288   0.020   1.4     1.43   0.9       28.8      81.6  0.99  86.1   50    0.00   1501.8
+cupy_multiply__float64_float64_float64    221   0.015   1.0     0.15   0.1        2.3      17.5  1.00  91.3   22    0.00   2410.6
+dscale_ao_kernel                           72   0.012   0.8     0.40   0.3        4.3      26.8  1.00  90.9   64    0.00   2079.4
+GDFTcontract_rho_kernel                   504   0.012   0.8     0.24   0.2        7.8      42.3  1.00  96.1   64    0.00   1339.0
+_sph_kernel_deriv1<2>                     144   0.011   0.8     0.70   0.5       38.9      82.8  1.00  79.5   62    0.00    778.9
+work_mgga_gpu_vxc_unpol                     2   0.010   0.7     0.79   0.5       50.9      86.7  0.96  24.9  255    0.00     53.6
+volta_dgemm_128x64_nt                       4   0.003   0.2     0.27   0.2       76.3      98.7  1.00  17.6  234    0.00     23.1
+cublasLt::splitKreduce_kernel<32, 16, in   68   0.002   0.1     0.02   0.0       14.0      37.2  0.90  84.6   56    0.00    204.2
+_add_sparse                                72   0.001   0.1     0.00   0.0        2.1       5.7  0.95  72.2   34    0.00     51.3
+cupy_copy__float64_float64                289   0.001   0.1     0.00   0.0        0.0       0.0  1.00  63.7   16    0.00     41.7
+cupy_multiply__float64_float_float64      156   0.001   0.1     0.01   0.0        2.7      14.8  1.00  66.1   18    0.00     78.3
+cupy_add__float64_float64_float64         221   0.001   0.0     0.00   0.0        2.2       7.3  1.00  40.2   22    0.00     50.2
+cupy_take                                  74   0.000   0.0     0.00   0.0        0.0       0.0  1.00  51.4   30    0.00     16.8
+cupy_multiply__float_float64_float64       72   0.000   0.0     0.00   0.0        2.7       6.5  1.00  19.2   18    0.00      2.7
+cupy_scatter_update                         2   0.000   0.0     0.00   0.0        0.0       0.0  1.00  90.8   34    0.00     10.4
+vec3_norm2_kernel_f_order                   1   0.000   0.0     0.00   0.0        6.5      28.5  1.00  88.8   19    0.00      9.2
+cub::DeviceReduceKernel<cub::policy_hub<    2   0.000   0.0     0.00   0.0       17.6      45.2  0.97  82.5   46    0.00      5.3
+cupy_prepare_array_indexing                 4   0.000   0.0     0.00   0.0        0.0       0.0  1.00  82.1   20    0.00      2.8
+cupy_scan_naive                             4   0.000   0.0     0.00   0.0        0.0       0.0  1.00  69.2   20    0.00      0.1
+_transpose_dsum                             1   0.000   0.0     0.00   0.0        2.9      18.1  0.99  85.3   38    0.00      0.7
+cupy_getitem_mask                           2   0.000   0.0     0.00   0.0        0.0       0.0  0.97  50.2   22    0.00      0.3
+
+kernel                                    grid    n GFLOP/launch min   mean    max  time s GFLOP/s
+volta_dgemm_128x64_nt                       32    4            0.067  0.067  0.067   0.003    95.2
+volta_dgemm_128x64_tn                       50    4            0.138  0.138  0.138   0.006    99.6
+volta_dgemm_128x64_tn                       78  168            0.409  0.409  0.409   0.591   116.4
+volta_dgemm_128x64_tn                       88   52            0.543  0.543  0.543   0.265   106.4
+volta_dgemm_128x64_tn                       96   64            0.403  0.403  0.403   0.223   115.6
+volta_dgemm_64x64_nt                        64  284            0.072  0.091  0.118   0.269    95.7
+
+# 6) the gradient's XC term, one get_exc call at the converged density (gradxc_svp_b3lyp): per kernel, then the GEMM launches by grid size
+total: 4189 launches, 1.640 s GPU, 162.5 GFLOP FP64 (99.1 GFLOP/s), 4.00 G warp instructions, 0.00 M atomic instructions, 31.51 GB DRAM
+class/kernel                                n  time s    %t  GFLOP64   %fl fp64 %inst fp64 util  simt   occ regs  M atom  MB dram
+volta_dgemm_64x64_tn                      144   1.203  73.4   130.41  80.3       74.7      98.8  1.00  17.6  242    0.00   6471.1
+volta_dgemm_64x64_nt                      284   0.269  16.4    25.73  15.8       75.8      98.9  1.00  16.3  238    0.00   2039.4
+_cart_kernel_deriv2<1>                    144   0.054   3.3     1.80   1.1       30.0      37.1  1.00  48.4  118    0.00   8379.5
+GDFT_make_dR_dao_w_kernel                  72   0.028   1.7     1.04   0.6       11.7      35.0  1.00  91.8   42    0.00   4849.6
+_cart_kernel_deriv2<0>                    216   0.025   1.6     1.38   0.8       31.2      65.6  1.00  85.9   60    0.00   3385.2
+_sph_kernel_deriv2<2>                      72   0.020   1.2     0.80   0.5       36.5      48.4  1.00  24.6  204    0.00   2952.7
+dscale_ao_kernel                           72   0.012   0.8     0.40   0.2        4.3      26.8  1.00  90.9   64    0.00   2079.1
+GDFTcontract_rho_kernel                   288   0.007   0.4     0.14   0.1        7.8      38.1  1.00  96.2   64    0.00    914.5
+work_gga_gpu_vxc_unpol                    144   0.005   0.3     0.25   0.2       43.4      82.1  0.96  24.8  106    0.00     28.6
+work_lda_gpu_vxc_unpol                    144   0.004   0.2     0.21   0.1       45.5      80.5  0.98  24.9   88    0.00     17.3
+volta_dgemm_128x64_nt                       4   0.003   0.2     0.27   0.2       76.3      98.7  1.00  17.6  234    0.00     23.0
+_add_out                                  720   0.002   0.1     0.01   0.0        3.4       6.8  1.00  23.5   28    0.00     51.3
+cupy_scan_naive                           288   0.001   0.1     0.00   0.0        0.0       0.0  1.00  66.0   20    0.00      6.9
+cupy_copy__float64_float64                144   0.001   0.0     0.00   0.0        0.0       0.0  1.00  76.7   16    0.00     89.7
+gemvNSP_kernel<double, double, double, d   44   0.001   0.0     0.01   0.0        6.0      52.9  0.62  88.3   32    0.00     37.3
+cupy_multiply__float64_float64_float64    216   0.001   0.0     0.00   0.0        2.1      11.1  1.00  54.4   16    0.00     29.9
+cupy_take                                 146   0.001   0.0     0.00   0.0        0.0       0.0  0.99  60.7   30    0.00     35.1
+_take_last2d                               72   0.001   0.0     0.00   0.0        0.0       0.0  0.95  65.5   16    0.00     30.8
+std::enable_if<!T7, void>::type internal   28   0.001   0.0     0.01   0.0        8.5      74.3  0.35  55.5   96    0.00     37.0
+cupy_multiply__float64_float_float64      216   0.001   0.0     0.00   0.0        2.7      11.8  1.00  42.3   18    0.00     18.5
+cupy_getitem_mask                         144   0.000   0.0     0.00   0.0        0.0       0.0  0.97  48.6   22    0.00     10.5
+cupy_power__float64_float_float64          72   0.000   0.0     0.00   0.0       42.3      47.0  0.80   6.2   46    0.00      0.7
+cupy_greater__float64_float_bool          145   0.000   0.0     0.00   0.0        2.6       4.4  0.97  12.2   18    0.00      0.8
+vec3_norm2_kernel_f_order                  72   0.000   0.0     0.00   0.0        6.5      48.0  1.00  82.2   19    0.00      7.6
+
+kernel                                    grid    n GFLOP/launch min   mean    max  time s GFLOP/s
+volta_dgemm_128x64_nt                       32    4            0.067  0.067  0.067   0.003    95.2
+volta_dgemm_64x64_nt                        64  284            0.072  0.091  0.118   0.269    95.8
+volta_dgemm_64x64_tn                        84   46            0.408  0.693  0.706   0.314   101.4
+volta_dgemm_64x64_tn                       162   34            0.915  0.915  0.915   0.286   108.8
+volta_dgemm_64x64_tn                       168   38            0.815  0.815  0.815   0.275   112.7
+volta_dgemm_64x64_tn                       176   10            1.478  1.478  1.479   0.134   110.2
+volta_dgemm_64x64_tn                       240   16            1.355  1.355  1.356   0.194   111.9
+
+# 6) the gradient's XC term, one get_exc call at the converged density (gradxc_svp_r2scan): per kernel, then the GEMM launches by grid size
+total: 5629 launches, 3.507 s GPU, 358.7 GFLOP FP64 (102.3 GFLOP/s), 10.06 G warp instructions, 0.00 M atomic instructions, 51.07 GB DRAM
+class/kernel                                n  time s    %t  GFLOP64   %fl fp64 %inst fp64 util  simt   occ regs  M atom  MB dram
+volta_dgemm_64x64_tn                      360   3.002  85.6   326.06  90.9       74.8      98.8  1.00  17.6  242    0.00  16177.9
+volta_dgemm_64x64_nt                      284   0.269   7.7    25.73   7.2       75.8      98.8  1.00  16.3  238    0.00   2037.9
+_cart_kernel_deriv2<1>                    144   0.054   1.5     1.80   0.5       30.0      37.2  1.00  48.5  118    0.00   8379.0
+cupy_take                                 362   0.044   1.2     0.00   0.0        0.0       0.0  1.00  91.9   30    0.00   7124.5
+GDFT_make_dR_dao_w_kernel                  72   0.028   0.8     1.04   0.3       11.7      35.0  1.00  91.7   42    0.00   4849.8
+_cart_kernel_deriv2<0>                    216   0.025   0.7     1.38   0.4       31.2      65.7  1.00  85.9   60    0.00   3380.2
+_sph_kernel_deriv2<2>                      72   0.020   0.6     0.80   0.2       36.5      48.5  1.00  24.6  204    0.00   2951.7
+cupy_multiply__float64_float64_float64    432   0.015   0.4     0.15   0.0        2.3      17.4  1.00  89.9   16    0.00   2372.7
+work_mgga_gpu_vxc_unpol                   144   0.013   0.4     0.79   0.2       50.9      85.4  0.96  24.9  255    0.00     47.7
+dscale_ao_kernel                           72   0.012   0.4     0.40   0.1        4.3      26.8  1.00  90.9   64    0.00   2078.3
+GDFTcontract_rho_kernel                   504   0.012   0.3     0.24   0.1        7.8      42.6  1.00  96.1   64    0.00   1328.6
+volta_dgemm_128x64_nt                       4   0.003   0.1     0.27   0.1       76.3      98.7  1.00  17.6  234    0.00     23.2
+cupy_multiply__float64_float_float64     1080   0.002   0.1     0.01   0.0        2.7       7.6  1.00  24.3   18    0.00     51.0
+cupy_add__float64_float64_float64         648   0.002   0.0     0.00   0.0        2.2       5.2  1.00  18.3   22    0.00     42.0
+cupy_scan_naive                           288   0.001   0.0     0.00   0.0        0.0       0.0  1.00  66.0   20    0.00      6.9
+cupy_copy__float64_float64                144   0.001   0.0     0.00   0.0        0.0       0.0  1.00  76.5   16    0.00     88.8
+gemvNSP_kernel<double, double, double, d   44   0.001   0.0     0.01   0.0        6.0      53.0  0.62  88.4   32    0.00     36.9
+_take_last2d                               72   0.001   0.0     0.00   0.0        0.0       0.0  0.95  65.6   16    0.00     29.7
+std::enable_if<!T7, void>::type internal   28   0.001   0.0     0.01   0.0        8.5      74.5  0.35  55.4   96    0.00     36.7
+cupy_getitem_mask                         144   0.000   0.0     0.00   0.0        0.0       0.0  0.97  48.7   22    0.00     10.7
+cupy_power__float64_float_float64          72   0.000   0.0     0.00   0.0       42.3      46.9  0.80   6.2   46    0.00      0.7
+cupy_greater__float64_float_bool          145   0.000   0.0     0.00   0.0        2.6       4.4  0.97  12.2   18    0.00      0.8
+vec3_norm2_kernel_f_order                  72   0.000   0.0     0.00   0.0        6.5      46.8  1.00  82.5   19    0.00      7.7
+cupy_copy__bool_bool                       72   0.000   0.0     0.00   0.0        0.0       0.0  1.00  81.2   16    0.00      0.7
+
+kernel                                    grid    n GFLOP/launch min   mean    max  time s GFLOP/s
+volta_dgemm_128x64_nt                       32    4            0.067  0.067  0.067   0.003    95.2
+volta_dgemm_64x64_nt                        64  284            0.072  0.091  0.118   0.269    95.8
+volta_dgemm_64x64_tn                        84  115            0.408  0.693  0.706   0.784   101.6
+volta_dgemm_64x64_tn                       162   85            0.915  0.915  0.915   0.712   109.2
+volta_dgemm_64x64_tn                       168   95            0.815  0.815  0.815   0.686   112.9
+volta_dgemm_64x64_tn                       176   25            1.478  1.478  1.479   0.336   110.1
+volta_dgemm_64x64_tn                       240   40            1.355  1.356  1.356   0.484   112.1
+
+# 7) the Vxc GEMM's time against a block's AO count (gemm_tile_padding.py)
+   n      ms useful GFLOP/s  GFLOP/s counting 128x64 tiles
+  96   1.411           53.5                           95.1
+ 128   1.425           94.2                           94.2
+ 129   3.484           39.1                          115.6
+ 139   3.486           45.4                          115.5
+ 150   3.586           51.4                          112.3
+ 160   3.588           58.4                          112.2
+ 171   3.587           66.8                          112.3
+ 181   3.588           74.8                          112.2
+ 192   3.585           84.2                          112.3
+ 193   5.059           60.3                          106.1
+ 203   5.060           66.7                          106.1
+ 224   5.062           81.2                          106.1
+ 246   5.063           97.9                          106.0
+ 256   5.064          106.0                          106.0

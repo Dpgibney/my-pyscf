@@ -4303,6 +4303,178 @@ The user approved profiling the CPHF's J/K (part 16's option 1). Nothing in GPU4
    - `_get_vxc_deriv1`'s per-atom GEMMs (about 4 s);
    - the rest of the second derivatives (2–4 s).
 
+## GPU4PySCF investigation, part 18 (profile only): the SCF and the gradient (node1), 2026-11-01
+The user asked for a profile of the SCF iterations and the gradients after part 17. Nothing in GPU4PySCF changed.
+- **Setup:** GTX 1650 Super at 1530 MHz; `exp/prim-screen` ab75a1b. The SCF and gradient code have not changed
+  since part 8.
+- **Cases:** caffeine at def2-SVP (246 AOs) and def2-TZVP (494 AOs), with PBE, B3LYP and r2SCAN; conv_tol 1e−10.
+- **Data:** `scf_grad_profile.txt`. The raw Nsight CSVs are in `ncu/ncu_scfgrad_*.csv` (the XC ones gzipped;
+  `ncu_summary.py` reads both).
+- **New in the tools:**
+  - `stage_times.py grad` times the gradient's stages, and `--first-stages` times its first call.
+  - `ncu_parts.py --part gradxc` profiles the gradient's XC term. `--part xc` and `gradxc` now pass the density with
+    its orbitals attached, as the SCF and the gradient do, so the density pass works from the orbitals there too.
+  - `ncu_summary.py --launches` prints one row per integral launch with its grid size; `--gemms` groups the GEMM
+    launches by grid size.
+  - `grad_xc_first_call.py` (cProfile of the XC term's first two calls, and the grid blocks' AO counts) and
+    `gemm_tile_padding.py` (the Vxc GEMM's time against a block's AO count).
+
+### Where an SCF cycle spends its time (`scf_parts.py`; seconds per cycle, the second SCF of each run)
+
+| caffeine | cycles | XC | J | K | rest | cycle |
+|---|---|---|---|---|---|---|
+| def2-SVP PBE | 18 | 0.628 (47%) | 0.685 (51%) | – | 0.018 | 1.33 |
+| def2-SVP B3LYP | 15 | 0.629 (25%) | 0.693 (28%) | 1.132 (46%) | 0.018 | 2.47 |
+| def2-SVP r2SCAN | 16 | 1.476 (68%) | 0.690 (32%) | – | 0.018 | 2.18 |
+| def2-TZVP PBE | 18 | 1.353 (24%) | 4.213 (75%) | – | 0.052 | 5.62 |
+| def2-TZVP B3LYP | 15 | 1.346 (9%) | 4.257 (28%) | 9.521 (63%) | 0.051 | 15.18 |
+| def2-TZVP r2SCAN | 16 | 3.666 (46%) | 4.269 (53%) | – | 0.052 | 7.99 |
+
+- **K** is the largest part of a hybrid's cycle. Parts 1–7 worked on its kernels, which are FP64-bound at 74–87%
+  busy (part 7), so it was not profiled again.
+- **J** is half of a pure functional's cycle at def2-SVP, and 75% of PBE's at def2-TZVP.
+- **XC:** GPU4PySCF's sub-timers split it into the density pass, libxc and the Vxc pass: 0.33, 0.006–0.013 and
+  0.33 s at def2-SVP (r2SCAN's Vxc pass 1.22 s); 0.58–0.59, 0.006–0.013 and 0.88 s at def2-TZVP (r2SCAN 3.33 s).
+  libxc is 1–2% of the XC part.
+- **Everything else** (Fock build, DIIS, eigensolver, density) takes 18 ms per cycle at def2-SVP and 52 ms at
+  def2-TZVP.
+
+### The XC part (Nsight Compute, one `nr_rks` call at the converged density; def2-SVP)
+
+| kernels | B3LYP | r2SCAN |
+|---|---|---|
+| all | 0.628 s | 1.467 s |
+| density pass GEMMs, C^T φ and C^T ∇_iφ (4 per block, 51 orbital columns) | 0.272 s | 0.272 s |
+| Vxc pass GEMMs | 0.271 s (1 per block) | 1.085 s (4 per block, 3 of them for τ: 0.81 s) |
+| AO evaluation (in each pass) | 0.056 s | 0.056 s |
+| scaling and density contractions | 0.019 s | 0.040 s |
+| libxc | 0.006 s | 0.010 s |
+
+- **The grid blocks:** 72 blocks of 4096 points, each with its own subset of 128–222 of the 246 AOs (median 165;
+  `grad_xc_first_call.py`). 58 of them have 129–192 AOs.
+- **The FP64 pipe is 99% busy in the GEMMs (96–116 GFLOP/s counted, against 122 at peak), but much of it is tile
+  padding.**
+  - cuBLAS runs the Vxc GEMM (n × 4096)·(4096 × n) in 128 × 64 tiles. The flops Nsight Compute counts per launch are
+    exactly 2·256·192·4096 for every block with 129–192 AOs, and 2·256·256·4096 above that (`--gemms`).
+  - The time follows the tiles (`gemm_tile_padding.py`): 1.43 ms for 128 AOs, 3.48–3.59 ms for 129–192, 5.06 ms
+    for 193–256. A block with 139 AOs does useful work at 45 GFLOP/s.
+  - **Useful share** of the FP64 work, from the blocks' AO counts: 55% in the Vxc GEMMs (also r2SCAN's τ GEMMs,
+    which have the same shape) and 78% in the density pass (51 orbitals in 64-row tiles).
+  - Padding-free GEMMs at the same pipe rate would save about 0.12 s per cycle for a GGA and 0.49 s for r2SCAN at
+    def2-SVP.
+  - At def2-TZVP the blocks have 210–442 of the 494 AOs (median 319). With the same tiles about a quarter of the
+    Vxc GEMMs' work would be padding.
+  - Tiles are chosen per architecture and shape, so other cards differ.
+- **Fewer flops, separately from the padding:**
+  - **GGA density pass:** its 4 GEMMs cost 8 n·nocc·g flops. ψ = C(C^T φ) = Dφ gives ∇ρ = 2 Σ_μ ∇φ_μ ψ_μ with 2 GEMMs.
+    Meta-GGAs need C^T ∇_iφ for τ anyway.
+  - **Meta-GGA τ term:** three full GEMMs ∇_iφ^T (w_τ ∇_iφ) build a symmetric result. One product with K = 3g, of
+    which only the upper triangle is computed, would halve them.
+- **Other cards:** on cards with fast FP64 these GEMMs shrink 10–100×. The AO evaluation, which runs in both passes,
+  and the elementwise kernels then weigh more.
+
+### The J engine (Nsight Compute, one `get_j` at the converged B3LYP density)
+- **Totals:** 0.776 s at def2-SVP and 5.40 s at def2-TZVP. The SCF's per-cycle J is lower (0.69 and 4.2 s), since
+  most cycles build from the density change.
+- **The unrolled kernels are FP64-bound where they run:** the FP64 pipe is 88% busy (time-weighted) on the SMs they
+  occupy.
+  - SIMT efficiency is 0.54–0.74; it is 1.00 only for (ss|ss).
+  - The likely cause: lanes of a warp take different branches of the Boys function (`gamma_inc.cu`, three branches
+    and a loop). No source-level profile has been done.
+- **Fixed tiles leave SMs idle at def2-SVP.** Each kernel's block takes a fixed tile of pair batches; `md_j_3_0`, for
+  example, takes 48 × 46 batches of 16 pairs.
+  - At def2-SVP, 7 of the 21 launches have 7–19 blocks for the 20 SMs, at one block (8 warps) per SM.
+  - Counting each launch's time by its blocks per SM (rounded up) against an even spread gives 0.20 s (26%) of idle
+    SMs at def2-SVP and 0.40 s (7%) at def2-TZVP.
+  - Screening is per 16-pair batch on global batch indices, so smaller tiles compute the same integrals; only the
+    order of the atomic adds changes.
+  - On cards with 80–132 SMs the same grids would fill only 5–60% of the SMs.
+- **At def2-TZVP the generic kernel `md_j_1dm_kernel` runs 32 classes** (those with f functions, and (dp|dp) and
+  (dd|·)): 2.05 s, 38% of the build.
+  - Its FP64 pipe is 62% busy, and FP64 is only 11–12% of its instructions; barrier stalls are 32–49%.
+  - At def2-SVP it runs 5 classes in 34 ms (4%).
+
+### The gradient (`stage_times.py grad`)
+
+| caffeine | gradient | 2e derivatives | XC term | rest | first call |
+|---|---|---|---|---|---|
+| def2-SVP PBE | 4.26 s | 2.51 (59%) | 1.67 (39%) | 0.08 | 5.84 |
+| def2-SVP B3LYP | 4.33 s | 2.59 (60%) | 1.67 (38%) | 0.07 | 5.88 |
+| def2-SVP r2SCAN | 6.12 s | 2.50 (41%) | 3.55 (58%) | 0.07 | 6.15 |
+| def2-TZVP PBE | 31.52 s | 26.29 (83%) | 5.09 (16%) | 0.14 | 33.21 |
+| def2-TZVP B3LYP | 32.99 s | 27.78 (84%) | 5.07 (15%) | 0.14 | 34.70 |
+| def2-TZVP r2SCAN | 38.29 s | 26.41 (69%) | 11.74 (31%) | 0.14 | 38.38 |
+
+- **The two-electron part** runs part 8's generated kernels. PBE's (J only) costs as much as B3LYP's (J + 0.2 K): the
+  kernels evaluate each integral once for both, and only the density products differ.
+- **The XC term** (Nsight Compute, `get_exc` at def2-SVP; the kernels add up to the measured time):
+
+  | kernels | B3LYP | r2SCAN |
+  |---|---|---|
+  | all | 1.640 s | 3.507 s |
+  | GEMMs building AO matrices: `_gga_grad_sum_` (2 per block), `_tau_grad_dot_` (3 more) | 1.203 s (73%) | 3.002 s (86%) |
+  | the density pass's orbital GEMMs | 0.272 s | 0.272 s |
+  | AO evaluation with second derivatives | 0.099 s | 0.099 s |
+  | `dR_dao_w`, scaling, gathers, contractions | 0.047 s | 0.111 s |
+  | libxc (per block) | 0.009 s | 0.013 s |
+
+  - **What it does:** each block builds three n × n matrices, ∇_xφ^T aow + (∂_x∇φ·w)^T φ and so on (12 n²g flops;
+    meta-GGA τ adds 18 n²g). It then contracts them with D at once (`einsum('nij,ij->ni')`), into one number per AO
+    and direction. Their (3n × 4096)·(4096 × n) GEMMs pad less than the SCF's: 73–86% of the work is useful.
+  - **Contracting D first gives the same sums:** exc1[μ,x] = Σ_g ∇_xφ_μ (D aow)_μ + Σ_g (∂_x∇φ·w)_μ (Dφ)_μ. That is
+    2 GEMMs (4 n²g) plus dot products per AO over the grid. Meta-GGA τ adds Σ_j Σ_g ∂_x∂_jφ_μ w_τ (D∇_jφ)_μ
+    (6 n²g).
+  - **With the orbitals,** which `get_exc` already takes for the density: D aow = C(C^T aow), Dφ = C(C^T φ) and
+    D∇_jφ = C(C^T ∇_jφ), where C^T φ and C^T ∇_jφ are the density pass's own products. That is 6 n·nocc·g (GGA) or
+    12 n·nocc·g (meta-GGA) flops, against 12 n²g and 30 n²g now.
+- **The first call** (`--first-stages`, `grad_xc_first_call.py`): PBE's XC term takes 3.22 s on its first call and
+  1.67 s after; r2SCAN's takes 3.55 s both times.
+  - The extra 1.55 s is in `cupyx.cutensor.create_tensor_descriptor`: 1.54 s over its 432 calls in the first call,
+    13 ms for all of `_d1_dot_` in the second. Its first call starts up cuTENSOR, once per process.
+    `_gga_grad_sum_`'s `_d1_dot_` goes through cuTENSOR (`gpu4pyscf.lib.cutensor.contract`).
+  - A GGA SCF uses cuBLAS only (`ao.dot`), so in a GGA job the gradient pays the start-up. A meta-GGA SCF's
+    `_tau_dot` already uses cuTENSOR, so there it falls in the SCF's first cycle.
+  - For caffeine nothing else in an SCF and gradient uses cuTENSOR (the gradient's other uses are for ECPs).
+  - The start-up is the same 1.55 s at def2-TZVP (6.67 → 5.12 s), so it does not depend on the system.
+
+### Options (exact; not started)
+Savings are for this card. Every option keeps the same terms and changes only the order of the sums.
+1. **The gradient's XC term with the density contracted first** (Python, `perf`).
+   - The orbital form makes the GEMMs 6 n·nocc·g (GGA) or 12 n·nocc·g (meta-GGA) flops; the dense form with D makes
+     them 4 n²g and 10 n²g.
+   - **Prediction:**
+     - def2-SVP: XC term 1.67 → 0.7–0.9 s (GGA) and 3.55 → 1.0–1.6 s (r2SCAN). Gradients 4.2–4.3 → 3.3–3.5 s
+       (−18 to −23%) and 6.12 → 3.6–4.2 s (−32 to −42%).
+     - def2-TZVP, from the blocks' tile counts (they reproduce the measured 5.1 s XC term within 4%): −8 to −11%
+       (GGA) and −17 to −24% (r2SCAN).
+     - It also removes the 1.55 s cuTENSOR start-up from GGA jobs.
+2. **The GGA density pass from ψ = C(C^T φ)** (Python, `perf`): 2 GEMMs instead of 4.
+   - **Prediction:** −0.12 s per def2-SVP cycle (PBE −9%, B3LYP −5%) and about −0.2 s per def2-TZVP cycle (PBE −4%).
+   - The gradient's density pass gains the same, and option 1's Dφ comes with it.
+3. **The XC GEMMs without tile padding** (microbenchmark first).
+   - Smaller tiles for the blocks' 128–222 AOs, through cuBLASLt's algorithm selection per shape. cupy does not wrap
+     cuBLASLt, but `libcublasLt.so.12` ships with the wheel.
+   - **Prediction:** up to −0.12 s per def2-SVP cycle for GGAs and −0.49 s for r2SCAN, if smaller tiles keep the
+     pipe as busy.
+4. **The meta-GGA τ term as one triangular product** (microbenchmark first; `cublasDsyrkx`, or a batched GEMM over
+   the triangle's tiles).
+   - **Prediction:** −0.3 to −0.4 s per def2-SVP r2SCAN cycle (−14 to −19%) and about −1.1 s per def2-TZVP cycle
+     (−14%). It compounds with option 3.
+5. **J-engine launch tiles from the problem size** (CUDA, `exp/prim-screen`).
+   - **Prediction:** J −0.15 to −0.2 s per def2-SVP cycle (PBE −12%, B3LYP −7%, r2SCAN −8%) and about −0.3 s at
+     def2-TZVP (PBE −5%).
+   - It should gain far more on cards with many SMs.
+6. **J engine: generated kernels for the f classes** (CUDA).
+   - **Prediction:** at the unrolled kernels' 88% FP64 busy, −0.6 s per full def2-TZVP build (−11%); per cycle
+     about −0.45 s (PBE −8%).
+   - Fewer instructions would count for more on cards with fast FP64.
+7. **A J-engine gradient for pure functionals** (large: new derivative kernels).
+   - The two-electron part is 69–83% of a def2-TZVP PBE or r2SCAN gradient.
+   - **Rough estimate:** the derivative raises the bra's Hermite order by one, so 1.5–2 J builds, 6–9 s instead of
+     26 s. Hybrids keep the Rys kernels for K.
+8. **A source-level profile of the J engine's divergence** (SIMT 0.54–0.74).
+9. **Still open:** part 17's `__ldg` for the CPHF J/K.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

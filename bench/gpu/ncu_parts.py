@@ -10,7 +10,10 @@ RYS_per_atom_jk_ip2_type12 and _type3, labelled 't12' and 't3'). --dm DM.npy (jk
 running the SCF.
 Part cphfjk is the Hessian CPHF's one-pass J+K (_VHFOpt.get_jk, RYS_build_jk, as hessian.rhf._get_jk_mo runs it) at
 the response densities of --dms DMS.npz (cphf_jk_dms.py); --dm is still needed for the SCF-free setup.
-Usage: ncu_parts.py --part k|j|jk|xc|grad|ejk2|cphfjk [--xc b3lyp] [--basis def2-svp] [--mol caffeine]
+Parts xc (the SCF's nr_rks) and gradxc (the gradient's XC term, grad.rks.get_exc) take the SCF's density with its
+orbitals attached, as the SCF and the gradient pass it (the density pass then works from the orbitals), so they
+always run the SCF; --dm is ignored there.
+Usage: ncu_parts.py --part k|j|jk|xc|gradxc|grad|ejk2|cphfjk [--xc b3lyp] [--basis def2-svp] [--mol caffeine]
                     [--labels FILE] [--dm DM.npy] [--dms DMS.npz]"""
 import argparse
 import ctypes
@@ -25,11 +28,11 @@ import cupy  # noqa: E402
 from pyscf import gto, lib  # noqa: E402
 from gpu4pyscf.dft import rks  # noqa: E402
 from gpu4pyscf.scf import jk, j_engine  # noqa: E402
-from gpu4pyscf.grad import rhf as rhf_grad  # noqa: E402
+from gpu4pyscf.grad import rhf as rhf_grad, rks as rks_grad  # noqa: E402
 from gpu4pyscf.hessian import rhf as rhf_hess  # noqa: E402
 
 ap = argparse.ArgumentParser()
-ap.add_argument('--part', required=True, choices=['k', 'j', 'jk', 'xc', 'grad', 'ejk2', 'cphfjk'])
+ap.add_argument('--part', required=True, choices=['k', 'j', 'jk', 'xc', 'gradxc', 'grad', 'ejk2', 'cphfjk'])
 ap.add_argument('--dms', default=None, help='part cphfjk: the response densities (cphf_jk_dms.py)')
 ap.add_argument('--xc', default='b3lyp')
 ap.add_argument('--basis', default='def2-svp')
@@ -42,13 +45,13 @@ atom = n_alkane(int(args.mol[1:])) if args.mol[0] == 'c' and args.mol[1:].isdigi
     {'caffeine': CAFFEINE, 'benzene': BENZENE}[args.mol]
 mol = gto.M(atom=atom, basis=args.basis, verbose=0)
 mf = rks.RKS(mol, xc=args.xc)
-if args.dm:
+if args.dm and args.part not in ('xc', 'gradxc'):
     dm = cupy.asarray(numpy.load(args.dm))
-    if args.part == 'xc':
-        mf.grids.build()
 else:
     mf.kernel()
-    dm = cupy.asarray(mf.make_rdm1())
+    dm = mf.make_rdm1()   # with mo_coeff and mo_occ attached
+    if args.part not in ('xc', 'gradxc'):
+        dm = cupy.asarray(dm)
 g = mf.nuc_grad_method()
 if args.part == 'cphfjk':
     # the Hessian CPHF's one-pass J+K (hessian.rhf._get_jk_mo) at its response densities
@@ -57,6 +60,7 @@ if args.part == 'cphfjk':
 build = {'k': lambda: mf.get_k(mol, dm, 1), 'j': lambda: mf.get_j(mol, dm, 1),
          'jk': lambda: mf.get_jk(mol, dm, 1),
          'xc': lambda: mf._numint.nr_rks(mol, mf.grids, mf.xc, dm),
+         'gradxc': lambda: rks_grad.get_exc(mf._numint, mol, mf.grids, mf.xc, dm),
          'grad': lambda: g.jk_energy_per_atom(dm, 1., .2),
          'ejk2': lambda: rhf_hess._partial_ejk_ip2(mol, dm, j_factor=1., k_factor=.2),
          'cphfjk': lambda: kopt.get_jk(cphf_dms, 1, 0)}[args.part]
