@@ -4667,6 +4667,92 @@ first: part 19's change in the gradient's remaining XC terms.
 Part 21: the XC GEMMs, padding-free tiles and the meta-GGA τ triangle, starting with a benchmark
 (`xc_gemm_bench.py`).
 
+## GPU4PySCF investigation, part 21: the XC part's per-block A·Bᵀ products through cuBLAS's algorithm 1 (node1), 2026-11-01
+Second of the approved items: the XC GEMMs without tile padding, and the meta-GGA τ term as a triangle, starting
+with a benchmark.
+- **Commits:** gpu4pyscf `perf` 79b2c43, merged into `exp/prim-screen` c6c7ce0.
+- **Tools:** `xc_gemm_bench.py` (cuBLAS algorithms for the Vxc product; the τ term three ways) and
+  `xc_gemm_algos.py` (every per-block GEMM shape of the XC code against cuBLAS's algorithms).
+- **Data:** `p21_xc_gemm.txt`.
+
+### What the benchmark showed (GTX 1650 Super; K = 4096 grid points, n a block's AO count)
+- **The Vxc product ao·aowᵀ** (n × K)·(K × n): `cublasGemmEx` with `CUBLAS_GEMM_ALGO1` against cuBLAS's default
+  heuristic, which is what `cupy.dot` and cuTENSOR use.
+
+  | n | 48 | 96 | 128 | 139 | 165–192 | 222 | 260 | 319 | 400 | 442 | 600 | 800 |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | default (ms) | 0.225 | 1.389 | 1.404 | 3.479 | 3.58 | 5.054 | 7.951 | 7.958 | 18.27 | 18.27 | 32.87 | 54.78 |
+  | algorithm 1 (ms) | 0.196 | 0.730 | 1.401 | 1.921 | 2.62 | 3.486 | 5.737 | 6.95 | 11.81 | 13.72 | 25.18 | 43.44 |
+
+  - The default's times step at multiples of 128 (part 18's padding); algorithm 1's grow with n.
+  - Algorithm 1 is the fastest, or within 3% of it, at every n from 40 to 800. Below that it is at most 5 µs
+    slower (0.112 against 0.107 ms at n = 24 and 32).
+- **The thin products** (C^T ao, nocc × K; C c0, n × K) are already fastest with the default, within 1–7%.
+- **The τ term** (three products with the derivatives, symmetric in sum):
+  - `cublasDsyrkx` on the stacked derivatives (K = 3·4096, lower triangle only) is slower than three GEMMs at
+    these sizes: 16.5 against 10.8 ms at n = 165. No triangle, then.
+  - One stacked GEMM beats the three default ones (7.9 ms), but with algorithm 1 the three take 7.85 ms against the
+    stack's 7.63 ms. That is not worth the stacking copy.
+
+### Change (`lib/cupy_helper.py`, `dft/numint.py`)
+- **`cupy_helper.dot_abt(a, b, out, beta)`:** out = a·bᵀ + β·out for row-major a and b, through `cublasGemmEx`.
+  - On compute capability 7.5 it uses algorithm 1, elsewhere the default; newer devices ignore the algorithm
+    numbers anyway.
+  - Where algorithm 1 returns `CUBLAS_STATUS_NOT_SUPPORTED` (odd block lengths, for one), it runs the default.
+- **Callers:** the Vxc passes of `nr_rks`, `nr_uks` and `nr_nlc_vxc`; the response in `nr_rks_fxc` and
+  `nr_uks_fxc`; and `_tau_dot`. That is every per-block ao·aowᵀ of the XC code.
+- **cuTENSOR:** the meta-GGA paths no longer go through it.
+
+### Exactness (`xc_grad_check.py` against part 19's stored unmodified-code results; conv_tol 1e−10)
+
+| caffeine | XC matrix at fixed orbitals | own SCF: ΔE, cycles | own gradient |
+|---|---|---|---|
+| def2-SVP SVWN | 3.6e−15 | −2.3e−13 Eh, 18 / 18 | 4.1e−13 |
+| def2-SVP PBE | 2.2e−15 | −2.3e−13 Eh, 18 / 18 | 5.4e−13 |
+| def2-SVP B3LYP | 1.8e−15 | 4.6e−13 Eh, 15 / 15 | 9.4e−13 |
+| def2-SVP r2SCAN | 2.7e−15 | 0, 16 / 16 | 3.4e−13 |
+| cation, UKS SVWN | 3.6e−15 | −2.6e−11 Eh, 50 / 50 (max_cycle) | 6.7e−11 |
+| cation, UKS B3LYP | 1.8e−15 | 2.3e−13 Eh, 26 / 26 | 4.2e−13 |
+| cation, UKS r2SCAN | 4.0e−15 | −1.4e−12 Eh, 27 / 27 | 2.0e−12 |
+| def2-TZVP PBE | 7.6e−15 | 4.6e−13 Eh, 18 / 18 | 9.1e−13 |
+| def2-TZVP r2SCAN | 9.8e−15 | −4.6e−13 Eh, 16 / 16 | 1.7e−12 |
+
+The XC matrix reaches 4.4. The XC energy and the electron count stay the same to the bit, since the density code
+did not change.
+
+### Timings (GTX 1650 Super; part 20, then part 21)
+
+| caffeine | XC per cycle | of it the Vxc pass | SCF |
+|---|---|---|---|
+| def2-SVP PBE | 0.494 → 0.396 s | 0.332 → 0.229 s | 22.6 → 20.8 s (−8%) |
+| def2-SVP B3LYP | 0.497 → 0.400 s | 0.336 → 0.231 s | 36.7 → 35.2 s (−4%) |
+| def2-SVP r2SCAN | 1.474 → 1.081 s | 1.222 → 0.802 s | 37.0 → 30.3 s (−18%) |
+| def2-TZVP PBE | 1.136 → 0.975 s | 0.879 → 0.712 s | 100.1 → 97.0 s (−3%) |
+| def2-TZVP r2SCAN | 3.665 → 3.024 s | 3.328 → 2.648 s | 133.4 → 122.5 s (−8%) |
+
+- Same energies to the printed digits, and the same cycle counts.
+- **TDA gradient** (def2-SVP B3LYP, state 1): 57.4 → 54.7 s; its XC response (`nr_rks_fxc`, 27 calls)
+  13.9 → 11.3 s.
+
+### Unit tests
+- **All pass on the final tree:**
+  - DFT: `test_numint.py` (24), `test_rks.py` (17, 1 skipped), `test_uks.py` (10);
+  - TDDFT: `test_tdrks.py` (28), `test_tduks.py` (20);
+  - Hessians: `test_rks_hessian.py` (12), `test_uks_hessian.py` (12);
+  - gradients: `test_rks_grad.py` (15), `test_uks_grad.py` (12), `test_grid_response.py` (7),
+    `test_tdrks_grad.py` (7), `test_vv10_grid.py` (20).
+- **What the first run caught:** UKS, TDDFT, the UKS Hessian, grid response and VV10 failed with
+  `CUBLAS_STATUS_NOT_SUPPORTED`. Their small molecules and the grid response's masked grids give blocks of
+  arbitrary length, and for some of them algorithm 1 is unsupported. Caffeine's blocks are all 4096 points, so the
+  checks and timings above never met such a block.
+- **The fix:** `dot_abt` now runs the default there. Nothing has been computed when the call fails, so the
+  fallback is exact. The timings and checks are unaffected.
+
+### Other cards
+- **Ampere and newer:** cuBLAS ignores the algorithm numbers there, so those cards keep their default. Their padding
+  costs would have to be measured on the A100/H100 suite; cuBLASLt's tile selection would be the tool there.
+- **Volta (sm_70):** it honours the numbers but was not measured, so it keeps the default too.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

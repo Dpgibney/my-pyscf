@@ -1,0 +1,437 @@
+# GPU4PySCF investigation part 21 (NOTES.md): the XC part's per-block A.B^T products through cuBLAS's algorithm 1.
+# GTX 1650 Super at 1530 MHz; caffeine. "part 20" is scratch/tree_p20 (exp/prim-screen 0f32fb7's Python files),
+# "part 21" is scratch/tree_p21 (with dot_abt; exp/prim-screen c6c7ce0).
+#
+# Commands (node1):
+#   xc_gemm_bench.py                                   (section 1)
+#   xc_gemm_algos.py; then --n 24,48,64,96,128,129,600,800 and --n 16,24,32,40,128,192,256   (section 2)
+#   xc_grad_check.py --xc X [...] --ref scratch/p19/ref_CASE.npz on part 21 (part 19's stored ab75a1b results)
+#                                                       (section 3)
+#   scf_parts.py --mol caffeine --basis B --xc ... --device gpu --verbose 6, part 20 then part 21   (section 4)
+#   stage_times.py tdgrad --xc b3lyp, part 20 then part 21                                       (section 5)
+#   pytest -q: first without, then with the fallback for shapes algorithm 1 does not support    (section 6)
+
+# 1) the Vxc product and the tau term (xc_gemm_bench.py)
+1) Vxc GEMM, K = 4096: ms per call (useful GFLOP/s)
+   n           cupy      gemmEx -1            best algo  padded tiles
+ 139   3.521 (  45)   3.478 (  46)   1:   1.922 (  82)         2.54x
+      all algorithms (ms): -1:3.48 1:1.92 2:5.52 3:10.95 4:2.77 5:4.14
+ 165   3.594 (  62)   3.584 (  62)   1:   2.617 (  85)         1.81x
+      all algorithms (ms): -1:3.58 1:2.62 2:5.51 3:10.95 4:2.77 5:4.14
+ 181   3.595 (  75)   3.587 (  75)   1:   2.618 ( 103)         1.50x
+      all algorithms (ms): -1:3.59 1:2.62 2:5.51 3:10.95 4:2.78 5:4.14
+ 222   5.062 (  80)   5.054 (  80)   1:   3.485 ( 116)         1.33x
+      all algorithms (ms): -1:5.05 1:3.48 2:5.52 3:10.96 4:4.84 5:5.61
+ 319   7.964 ( 105)   7.180 ( 116)   1:   6.959 ( 120)         1.21x
+      all algorithms (ms): -1:7.18 1:6.96 2:11.01 3:10.97 4:7.57 5:8.42
+ 442  18.295 (  87)  18.280 (  88)   1:  13.718 ( 117)         1.17x
+      all algorithms (ms): -1:18.28 1:13.72 2:16.49 3:21.92 4:14.43 5:16.47
+
+2) meta-GGA tau term, three derivatives of K = 4096: ms per call (useful GFLOP/s of the full product)
+   n        3 GEMMs     1 GEMM, 3K     dsyrkx, 3K  max |d| syrkx
+ 139  10.426 (  46)  12.330 (  39)  16.542 (  29)        8.3e-12
+ 165  10.768 (  62)   7.884 (  85)  16.490 (  41)        7.2e-12
+ 181  10.769 (  75)   7.898 ( 102)  16.482 (  49)        8.6e-12
+ 222  15.151 (  80)  13.564 (  89)  16.503 (  73)        8.2e-12
+ 319  21.532 ( 116)  24.969 ( 100)  32.831 (  76)        8.0e-12
+ 442  54.812 (  88)  46.697 ( 103)  49.366 (  97)        9.4e-12
+
+# 2) cuBLAS algorithms at every per-block GEMM shape of the XC code (xc_gemm_algos.py)
+shape         n default ms  best      ms     x  algorithms within 3% of the best
+c^T ao      139      0.800     2   0.797  1.00  [-1, 2, 3, 4, 5]
+c c0        139      0.789     3   0.780  1.01  [-1, 2, 3, 4]
+ao aow^T    139      3.479     1   1.921  1.81  [1]
+tau, 3K     139     12.333     1   5.235  2.36  [1]
+c^T ao      165      0.921     5   0.915  1.01  [-1, 2, 3, 4, 5]
+c c0        165      0.782     3   0.780  1.00  [-1, 2, 3, 4]
+ao aow^T    165      3.581     1   2.615  1.37  [1]
+tau, 3K     165      8.673     1   7.626  1.14  [1, 4]
+c^T ao      181      1.006     4   0.998  1.01  [-1, 2, 3, 4, 5]
+c c0        181      0.782     3   0.781  1.00  [-1, 2, 3, 4]
+ao aow^T    181      3.581     1   2.619  1.37  [1]
+tau, 3K     181      7.893     1   7.630  1.03  [1, 4]
+c^T ao      222      1.221     2   1.217  1.00  [-1, 2, 3, 4, 5]
+c c0        222      1.087     2   1.011  1.07  [2]
+ao aow^T    222      5.054     1   3.486  1.45  [1]
+tau, 3K     222     14.976     1  10.252  1.46  [1]
+c^T ao      260      1.221    -1   1.221  1.00  [-1]
+c c0        260      1.243     3   1.241  1.00  [-1, 3]
+ao aow^T    260      7.951     1   5.737  1.39  [1]
+tau, 3K     260     25.668     1  16.961  1.51  [1]
+c^T ao      319      1.544    -1   1.544  1.00  [-1]
+c c0        319      1.245     3   1.241  1.00  [-1, 3]
+ao aow^T    319      7.958     4   6.917  1.15  [1, 4]
+tau, 3K     319     24.984     4  20.730  1.21  [1, 4]
+c^T ao      400      1.865    -1   1.865  1.00  [-1]
+c c0        400      1.783     2   1.778  1.00  [-1, 2, 4]
+ao aow^T    400     18.271     1  11.810  1.55  [1]
+tau, 3K     400     49.352     1  35.260  1.40  [1]
+c^T ao      442      2.079    -1   2.079  1.00  [-1]
+c c0        442      1.850     2   1.778  1.04  [2, 4]
+ao aow^T    442     18.274     1  13.716  1.33  [1]
+tau, 3K     442     46.747     4  40.661  1.15  [1, 4]
+shape         n default ms  best      ms     x  algorithms within 3% of the best
+c^T ao       24      0.151     4   0.142  1.06  [4, 5]
+c c0         24      0.323     4   0.291  1.11  [4]
+ao aow^T     24      0.108    -1   0.108  1.00  [-1]
+tau, 3K      24      0.253    -1   0.253  1.00  [-1]
+c^T ao       48      0.277     2   0.273  1.01  [-1, 2, 3]
+c c0         48      0.319     4   0.288  1.11  [4]
+ao aow^T     48      0.225     1   0.196  1.15  [1]
+tau, 3K      48      2.767     1   1.231  2.25  [1]
+c^T ao       64      0.362     2   0.359  1.01  [-1, 2, 3]
+c c0         64      0.321     4   0.289  1.11  [4]
+ao aow^T     64      0.594     1   0.327  1.81  [1]
+tau, 3K      64      2.769     1   1.232  2.25  [1]
+c^T ao       96      0.535     2   0.530  1.01  [-1, 2, 3, 4, 5]
+c c0         96      0.551     4   0.537  1.03  [-1, 2, 4]
+ao aow^T     96      1.389     1   0.730  1.90  [1]
+tau, 3K      96      4.143     1   2.108  1.97  [1]
+c^T ao      128      0.708     2   0.703  1.01  [-1, 2, 3, 4, 5]
+c c0        128      0.552     4   0.538  1.02  [-1, 2, 4]
+ao aow^T    128      1.404     1   1.400  1.00  [-1, 1, 4]
+tau, 3K     128      3.349    -1   3.349  1.00  [-1]
+c^T ao      129      0.749     5   0.742  1.01  [-1, 2, 3, 4, 5]
+c c0        129      0.782     3   0.779  1.00  [-1, 2, 3]
+ao aow^T    129      3.477     1   1.919  1.81  [1]
+tau, 3K     129     12.349     1   5.233  2.36  [1]
+c^T ao      600      2.722    -1   2.722  1.00  [-1]
+c c0        600      2.473     3   2.468  1.00  [-1, 3]
+ao aow^T    600     32.873     1  25.180  1.31  [1]
+tau, 3K     600     82.299     1  75.199  1.09  [1]
+c^T ao      800      3.684    -1   3.684  1.00  [-1]
+c c0        800      3.245     3   3.238  1.00  [-1, 2, 3]
+ao aow^T    800     54.778     1  43.436  1.26  [1]
+tau, 3K     800    164.258     1 130.064  1.26  [1]
+   (and, with algorithm 1's own time: n=16 0.137->0.113, 24 0.107 default vs 0.112, 32 0.108 vs 0.112, 40 0.225->0.196,
+    128 1.404->1.401, 192 3.580->2.619, 256 5.059->4.531 ms)
+
+# 3) exactness against the unmodified code's stored results
+== exactness: the part-21 tree against the stored ab75a1b results (part 19)
+/home/danny/Chemistry/my-pyscf/scratch/tree_p21/gpu4pyscf: caffeine def2-svp svwn RKS (charge 0, spin 0), against scratch/p19/ref_svp_svwn.npz
+  at the stored orbitals: exc1 max|d| 1.44e-15 (max 3.2e-01), vxc max|d| 3.55e-15 (max 2.9e+00), excsum max|d| 0.00e+00 (max 8.6e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (21.9 s): dE -2.27e-13, cycles 18 against 18, gradient max|d| 4.09e-13 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_p21/gpu4pyscf: caffeine def2-svp pbe RKS (charge 0, spin 0), against scratch/p19/ref_svp_pbe.npz
+  at the stored orbitals: exc1 max|d| 8.38e-16 (max 3.1e-01), vxc max|d| 2.22e-15 (max 3.1e+00), excsum max|d| 0.00e+00 (max 9.1e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (24.1 s): dE -2.27e-13, cycles 18 against 18, gradient max|d| 5.39e-13 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_p21/gpu4pyscf: caffeine def2-svp b3lyp RKS (charge 0, spin 0), against scratch/p19/ref_svp_b3lyp.npz
+  at the stored orbitals: exc1 max|d| 1.14e-15 (max 2.5e-01), vxc max|d| 1.78e-15 (max 2.5e+00), excsum max|d| 0.00e+00 (max 7.4e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (34.1 s): dE 4.55e-13, cycles 15 against 15, gradient max|d| 9.41e-13 (max 1.6e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_p21/gpu4pyscf: caffeine def2-svp r2scan RKS (charge 0, spin 0), against scratch/p19/ref_svp_r2scan.npz
+  at the stored orbitals: exc1 max|d| 1.08e-15 (max 3.2e-01), vxc max|d| 2.66e-15 (max 3.3e+00), excsum max|d| 0.00e+00 (max 9.2e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (34.0 s): dE 0.00e+00, cycles 16 against 16, gradient max|d| 3.36e-13 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_p21/gpu4pyscf: caffeine def2-svp svwn UKS (charge 1, spin 1), against scratch/p19/ref_svp_uks_svwn.npz
+  at the stored orbitals: exc1 max|d| 1.57e-15 (max 3.2e-01), vxc max|d| 3.55e-15 (max 2.9e+00), excsum max|d| 0.00e+00 (max 8.6e+01), nelec max|d| 0.00e+00 (max 5.1e+01)
+  own SCF and gradient (82.3 s): dE -2.64e-11, cycles 50 against 50, gradient max|d| 6.69e-11 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_p21/gpu4pyscf: caffeine def2-svp b3lyp UKS (charge 1, spin 1), against scratch/p19/ref_svp_uks_b3lyp.npz
+  at the stored orbitals: exc1 max|d| 7.01e-16 (max 2.5e-01), vxc max|d| 1.78e-15 (max 2.5e+00), excsum max|d| 0.00e+00 (max 7.4e+01), nelec max|d| 0.00e+00 (max 5.1e+01)
+  own SCF and gradient (68.6 s): dE 2.27e-13, cycles 26 against 26, gradient max|d| 4.19e-13 (max 1.5e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_p21/gpu4pyscf: caffeine def2-svp r2scan UKS (charge 1, spin 1), against scratch/p19/ref_svp_uks_r2scan.npz
+  at the stored orbitals: exc1 max|d| 1.75e-15 (max 3.2e-01), vxc max|d| 4.00e-15 (max 3.3e+00), excsum max|d| 0.00e+00 (max 9.1e+01), nelec max|d| 0.00e+00 (max 5.1e+01)
+  own SCF and gradient (109.3 s): dE -1.36e-12, cycles 27 against 27, gradient max|d| 1.97e-12 (max 1.4e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_p21/gpu4pyscf: caffeine def2-tzvp pbe RKS (charge 0, spin 0), against scratch/p19/ref_tzvp_pbe.npz
+  at the stored orbitals: exc1 max|d| 9.84e-16 (max 2.7e-01), vxc max|d| 7.55e-15 (max 4.3e+00), excsum max|d| 0.00e+00 (max 9.1e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (124.5 s): dE 4.55e-13, cycles 18 against 18, gradient max|d| 9.13e-13 (max 1.4e-01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_p21/gpu4pyscf: caffeine def2-tzvp r2scan RKS (charge 0, spin 0), against scratch/p19/ref_tzvp_r2scan.npz
+  at the stored orbitals: exc1 max|d| 9.71e-16 (max 2.8e-01), vxc max|d| 9.77e-15 (max 4.4e+00), excsum max|d| 0.00e+00 (max 9.2e+01), nelec max|d| 0.00e+00 (max 1.0e+02)
+  own SCF and gradient (150.7 s): dE -4.55e-13, cycles 16 against 16, gradient max|d| 1.67e-12 (max 1.4e-01)
+
+# 4) SCF parts per cycle
+== def2-svp, part 20
+caffeine def2-svp pbe, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.0403707179
+  cycles                                      18
+  SCF wall (s)                             22.64
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.035          0.000
+  grids                     0.070          0.000
+  XC                        0.661          0.494
+  J                         0.312          0.685
+  veff rest                 0.000          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.191 s per cycle
+  gpu XC: functional (libxc)            0.006 s per cycle
+  gpu XC: Vxc integration               0.332 s per cycle
+  gpu CuPy memory pool after the run: 0.149 GiB
+caffeine def2-svp b3lyp, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.8127486398
+  cycles                                      15
+  SCF wall (s)                             36.72
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.035          0.000
+  grids                     0.070          0.000
+  XC                        0.665          0.497
+  J                         0.312          0.691
+  K                         0.528          1.132
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.013          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.195 s per cycle
+  gpu XC: functional (libxc)            0.008 s per cycle
+  gpu XC: Vxc integration               0.336 s per cycle
+  gpu CuPy memory pool after the run: 0.149 GiB
+caffeine def2-svp r2scan, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.4529650104
+  cycles                                      16
+  SCF wall (s)                             37.00
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.032          0.000
+  hcore+ovlp                0.035          0.000
+  grids                     0.071          0.000
+  XC                        1.651          1.474
+  J                         0.312          0.689
+  veff rest                 0.000          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.341 s per cycle
+  gpu XC: functional (libxc)            0.013 s per cycle
+  gpu XC: Vxc integration               1.222 s per cycle
+  gpu CuPy memory pool after the run: 0.2 GiB
+== def2-svp, part 21
+caffeine def2-svp pbe, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.0403707179
+  cycles                                      18
+  SCF wall (s)                             20.78
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.035          0.000
+  grids                     0.070          0.000
+  XC                        0.563          0.396
+  J                         0.313          0.684
+  veff rest                 0.000          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.013          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.191 s per cycle
+  gpu XC: functional (libxc)            0.006 s per cycle
+  gpu XC: Vxc integration               0.229 s per cycle
+  gpu CuPy memory pool after the run: 0.149 GiB
+caffeine def2-svp b3lyp, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.8127486398
+  cycles                                      15
+  SCF wall (s)                             35.22
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.035          0.000
+  grids                     0.070          0.000
+  XC                        0.573          0.400
+  J                         0.312          0.693
+  K                         0.520          1.134
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.195 s per cycle
+  gpu XC: functional (libxc)            0.008 s per cycle
+  gpu XC: Vxc integration               0.231 s per cycle
+  gpu CuPy memory pool after the run: 0.149 GiB
+caffeine def2-svp r2scan, nao 246, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.4529650104
+  cycles                                      16
+  SCF wall (s)                             30.31
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.028          0.000
+  hcore+ovlp                0.035          0.000
+  grids                     0.070          0.000
+  XC                        1.263          1.081
+  J                         0.312          0.688
+  veff rest                 0.000          0.001
+  Fock+DIIS                 0.000          0.003
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.342 s per cycle
+  gpu XC: functional (libxc)            0.013 s per cycle
+  gpu XC: Vxc integration               0.802 s per cycle
+  gpu CuPy memory pool after the run: 0.2 GiB
+== def2-tzvp, part 20
+caffeine def2-tzvp pbe, nao 494, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.7849175513
+  cycles                                      18
+  SCF wall (s)                            100.09
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.061          0.000
+  grids                     0.070          0.000
+  XC                        1.504          1.136
+  J                         1.096          4.217
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.011
+  eig                       0.038          0.036
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.002
+  gpu XC: density on grid               0.331 s per cycle
+  gpu XC: functional (libxc)            0.006 s per cycle
+  gpu XC: Vxc integration               0.879 s per cycle
+  gpu CuPy memory pool after the run: 0.266 GiB
+caffeine def2-tzvp r2scan, nao 494, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -680.2123015035
+  cycles                                      16
+  SCF wall (s)                            133.38
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.061          0.000
+  grids                     0.070          0.000
+  XC                        4.332          3.665
+  J                         1.095          4.268
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.011
+  eig                       0.038          0.036
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.002
+  gpu XC: density on grid               0.592 s per cycle
+  gpu XC: functional (libxc)            0.013 s per cycle
+  gpu XC: Vxc integration               3.328 s per cycle
+  gpu CuPy memory pool after the run: 0.266 GiB
+== def2-tzvp, part 21
+caffeine def2-tzvp pbe, nao 494, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -679.7849175513
+  cycles                                      18
+  SCF wall (s)                             96.96
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.061          0.000
+  grids                     0.070          0.000
+  XC                        1.339          0.975
+  J                         1.100          4.213
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.011
+  eig                       0.038          0.036
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.002
+  gpu XC: density on grid               0.330 s per cycle
+  gpu XC: functional (libxc)            0.006 s per cycle
+  gpu XC: Vxc integration               0.712 s per cycle
+  gpu CuPy memory pool after the run: 0.266 GiB
+caffeine def2-tzvp r2scan, nao 494, conv_tol 1e-10
+                                             gpu
+  E (Eh)                         -680.2123015035
+  cycles                                      16
+  SCF wall (s)                            122.45
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.028          0.000
+  hcore+ovlp                0.061          0.000
+  grids                     0.070          0.000
+  XC                        3.707          3.024
+  J                         1.097          4.265
+  veff rest                 0.001          0.001
+  Fock+DIIS                 0.000          0.011
+  eig                       0.038          0.036
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.002
+  gpu XC: density on grid               0.592 s per cycle
+  gpu XC: functional (libxc)            0.013 s per cycle
+  gpu XC: Vxc integration               2.648 s per cycle
+  gpu CuPy memory pool after the run: 0.266 GiB
+
+# 5) TDA gradient stages
+== TDA gradient stages (B3LYP, 5 states): part 20, then part 21
+/home/danny/Chemistry/my-pyscf/scratch/tree_p20/gpu4pyscf: caffeine def2-svp b3lyp TDA gradient of state 1: 57.42 s, SCF 15 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+     35.40 s  61.7%  Z-vector CPHF (cphf.solve), 1 calls
+     24.23 s  42.2%  J/K builds (get_jk), 28 calls
+     13.93 s  24.3%  XC response (nr_rks_fxc), 27 calls
+      9.42 s  16.4%  XC kernel contractions (_contract_xc_kernel), 2 calls
+      9.37 s  16.3%  2e derivatives (jk_energies_per_atom), 1 calls
+      0.21 s   0.4%  ground-state XC kernel (cache_xc_kernel), 1 calls
+/home/danny/Chemistry/my-pyscf/scratch/tree_p21/gpu4pyscf: caffeine def2-svp b3lyp TDA gradient of state 1: 54.71 s, SCF 15 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+     32.81 s  60.0%  Z-vector CPHF (cphf.solve), 1 calls
+     24.18 s  44.2%  J/K builds (get_jk), 28 calls
+     11.27 s  20.6%  XC response (nr_rks_fxc), 27 calls
+      9.43 s  17.2%  XC kernel contractions (_contract_xc_kernel), 2 calls
+      9.37 s  17.1%  2e derivatives (jk_energies_per_atom), 1 calls
+      0.21 s   0.4%  ground-state XC kernel (cache_xc_kernel), 1 calls
+
+# 6) unit tests: first version (no fallback), then the final one
+== unit tests on the part-21 tree
+dft/tests/test_numint.py: FAILED ../tree_p21/gpu4pyscf/dft/tests/test_numint.py::KnownValues::test_get_rho_with_derivatives_restricted_dm_input
+dft/tests/test_numint.py: FAILED ../tree_p21/gpu4pyscf/dft/tests/test_numint.py::KnownValues::test_get_rho_with_derivatives_unrestricted_dm_input
+dft/tests/test_numint.py: 3 failed, 21 passed, 26 warnings in 4.60s
+dft/tests/test_rks.py: 
+dft/tests/test_rks.py: 17 passed, 1 skipped, 66 warnings in 91.22s (0:01:31)
+dft/tests/test_uks.py: FAILED ../tree_p21/gpu4pyscf/dft/tests/test_uks.py::KnownValues::test_uks_wb97
+dft/tests/test_uks.py: FAILED ../tree_p21/gpu4pyscf/dft/tests/test_uks.py::KnownValues::test_uks_wb97m_d3bj
+dft/tests/test_uks.py: 9 failed, 1 passed, 33 warnings in 3.96s
+tdscf/tests/test_tdrks.py: ERROR ../tree_p21/gpu4pyscf/tdscf/tests/test_tdrks.py::KnownValues::test_tddft_vind
+tdscf/tests/test_tdrks.py: ERROR ../tree_p21/gpu4pyscf/tdscf/tests/test_tdrks.py::KnownValues::test_transition_multipoles
+tdscf/tests/test_tdrks.py: 3 warnings, 28 errors in 7.12s
+tdscf/tests/test_tduks.py: ERROR ../tree_p21/gpu4pyscf/tdscf/tests/test_tduks.py::KnownValues::test_tddft_lda
+tdscf/tests/test_tduks.py: ERROR ../tree_p21/gpu4pyscf/tdscf/tests/test_tduks.py::KnownValues::test_tddft_vind
+tdscf/tests/test_tduks.py: 21 warnings, 20 errors in 9.07s
+hessian/tests/test_rks_hessian.py: 
+hessian/tests/test_rks_hessian.py: 12 passed, 51 warnings in 38.58s
+hessian/tests/test_uks_hessian.py: FAILED ../tree_p21/gpu4pyscf/hessian/tests/test_uks_hessian.py::KnownValues::test_hessian_pbe_D4
+hessian/tests/test_uks_hessian.py: FAILED ../tree_p21/gpu4pyscf/hessian/tests/test_uks_hessian.py::KnownValues::test_hessian_rsh
+hessian/tests/test_uks_hessian.py: 7 failed, 5 passed, 51 warnings in 27.32s
+grad/tests/test_rks_grad.py: FAILED ../tree_p21/gpu4pyscf/grad/tests/test_rks_grad.py::KnownValues::test_grid_response_no_radii_adjustment
+grad/tests/test_rks_grad.py: FAILED ../tree_p21/gpu4pyscf/grad/tests/test_rks_grad.py::KnownValues::test_grid_response_stratmann
+grad/tests/test_rks_grad.py: 3 failed, 12 passed, 126 warnings in 87.55s (0:01:27)
+grad/tests/test_vv10_grid.py: FAILED ../tree_p21/gpu4pyscf/grad/tests/test_vv10_grid.py::KnownValues::test_wb97xv_loose_grid_with_response
+grad/tests/test_vv10_grid.py: FAILED ../tree_p21/gpu4pyscf/grad/tests/test_vv10_grid.py::KnownValues::test_wb97xv_with_response_to_cpu
+grad/tests/test_vv10_grid.py: 10 failed, 10 passed, 256 warnings in 569.82s (0:09:29)
+TESTS DONE
+== unit tests on the part-21 tree with the algorithm fallback
+dft/tests/test_numint.py: 
+dft/tests/test_numint.py: 24 passed, 27 warnings in 5.09s
+dft/tests/test_rks.py: 
+dft/tests/test_rks.py: 17 passed, 1 skipped, 66 warnings in 91.11s (0:01:31)
+dft/tests/test_uks.py: 
+dft/tests/test_uks.py: 10 passed, 33 warnings in 59.96s
+tdscf/tests/test_tdrks.py: 
+tdscf/tests/test_tdrks.py: 28 passed, 39 warnings in 17.71s
+tdscf/tests/test_tduks.py: 
+tdscf/tests/test_tduks.py: 20 passed, 42 warnings in 25.54s
+hessian/tests/test_rks_hessian.py: 
+hessian/tests/test_rks_hessian.py: 12 passed, 51 warnings in 39.42s
+hessian/tests/test_uks_hessian.py: 
+hessian/tests/test_uks_hessian.py: 12 passed, 51 warnings in 31.19s
+grad/tests/test_rks_grad.py: 
+grad/tests/test_rks_grad.py: 15 passed, 138 warnings in 106.26s (0:01:46)
+grad/tests/test_uks_grad.py: 
+grad/tests/test_uks_grad.py: 12 passed, 48 warnings in 107.41s (0:01:47)
+grad/tests/test_grid_response.py: 
+grad/tests/test_grid_response.py: 7 passed, 198 warnings in 59.51s
+grad/tests/test_tdrks_grad.py: 
+grad/tests/test_tdrks_grad.py: 7 passed, 34 warnings in 134.13s (0:02:14)
+grad/tests/test_vv10_grid.py: 
+grad/tests/test_vv10_grid.py: 20 passed, 508 warnings in 601.04s (0:10:01)
+TESTS2 DONE
