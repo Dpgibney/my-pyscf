@@ -22,16 +22,21 @@ factor below that, many orders of magnitude under the SCF's 1e-13 shell-quartet 
 run-time value, chosen so that a launch fills the SMs (part 22).
 --gen-j writes generated_md_j.cu (gen_md_j.py): MD J kernels for classes that would otherwise run the generic
 md_j_1dm_kernel, built into libgvhf_md and tried by MD_build_j after the unrolled kernels (part 23).
+--j-grad adds MD_build_j_ip1 (the J engine with both pairs' Hermite orders one higher) and md_j_grad.cu (the
+pairs' derivative Hermite densities against those potentials) for the J engine's nuclear gradient (part 24);
+--gen-j-ip1 the gradient's own kernels for those classes (generated_md_j_ip1.cu), which MD_build_j_ip1 tries first.
 --gen-ip2 writes generated_ejk_ip2.cu (gen_rys_ejk_ip2.py): the Hessian's second-derivative kernels with sums per
 Cartesian tuple, tried by RYS_per_atom_jk_ip2_type12 and _type3 before their unrolled and generic kernels.
 Usage: exp_prim_screen.py TREE [--base perf] [--barrier keep|remove] [--ket none|zero|cutoff]
                                [--bra none|zero|cutoff] [--multi on|off] [--launch 128x4|off|NSQxBLOCKS|env]
                                [--generic on|off] [--gen-k CLASS:NSQxGS,...|off] [--gen-first]
                                [--gen-ip2 KIND:CLASS:NSQxGS,...|off] [--gen-ip2-files N] [--gen-ip2-env]
-                               [--j-tiles auto|off] [--j-blocks-per-sm 64] [--gen-j 'LIJ,LKL[:TILEY] ...'|off]"""
+                               [--j-tiles auto|off] [--j-blocks-per-sm 64] [--gen-j 'LIJ,LKL[:TILEY] ...'|off]
+                               [--j-grad on|off] [--gen-j-ip1 'LIJ,LKL ...'|off]"""
 import argparse
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -97,6 +102,14 @@ ap.add_argument('--j-blocks-per-sm', type=int, default=64,
 GEN_J = '3,3 4,2 5,1 6,0 4,3 5,2 6,1 3,4 4,4 5,3 6,2 5,4 6,3 5,5 6,4'
 ap.add_argument('--gen-j', default=GEN_J,
                 help='space-separated LIJ,LKL[:TILEY] specs of generated MD J kernels (gen_md_j.py), or off')
+ap.add_argument('--j-grad', default='on', choices=['on', 'off'],
+                help="J engine: MD_build_j_ip1 and md_j_grad.cu for the J engine's nuclear gradient")
+# The gradient's own kernels (gen_md_j.py gLIJ,LKL): both potentials one order above the densities with R to that order
+# only, where the raised J kernels run R one order higher and half their contraction on zeros (part 24)
+GEN_J_IP1 = ('0,0 1,0 1,1 2,0 2,1 2,2 3,0 3,1 3,2 3,3 4,0 4,1 4,2 4,3 4,4 5,0 5,1 5,2 5,3 5,4 5,5 3,4 '
+             '6,0 6,1 6,2 6,3')
+ap.add_argument('--gen-j-ip1', default=GEN_J_IP1,
+                help='--j-grad on: space-separated LIJ,LKL[:TILEY] classes with their own gradient kernels, or off')
 ap.add_argument('--launch', default='128x4',
                 help="launch shape of the one-thread kernels: off (one block of 256 per SM, as in v1.9.0), NSQxBLOCKS "
                      "(blocks of NSQ threads, at most BLOCKS per SM), or env (K and J+K from GPU4PYSCF_RYS_NSQ and "
@@ -590,13 +603,17 @@ if args.j_tiles != 'off':
           f'unrolled kernels, at least {args.j_blocks_per_sm} blocks per SM')
 
 # Generated MD J kernels (bench/gpu/gen_md_j.py) for classes that would otherwise run the generic kernel:
-# generated_md_j.cu, built into libgvhf_md, and tried by MD_build_j after md_j_unrolled (single density).
+# generated_md_j.cu, built into libgvhf_md, and tried by MD_build_j after md_j_unrolled (single density). With --j-grad,
+# the J engine's gradient (part 24): MD_build_j_ip1, MD_build_j with both pairs' Hermite orders one higher (their
+# densities in that layout, the top components zero), and md_j_grad.cu (Rt_ip1_dot_dm: the pairs' derivative Hermite
+# densities against those potentials, per atom).
+G = 'gpu4pyscf/lib/gvhf-md'
+here = os.path.dirname(os.path.abspath(__file__))
+s = source(f'{G}/md_contract_j.cu')
+cmake_files = ''
 if args.gen_j != 'off':
-    here = os.path.dirname(os.path.abspath(__file__))
-    G = 'gpu4pyscf/lib/gvhf-md'
     subprocess.run([sys.executable, os.path.join(here, 'gen_md_j.py'), f'{args.tree}/{G}/generated_md_j.cu']
                    + args.gen_j.split(), check=True)
-    s = source(f'{G}/md_contract_j.cu')
     decl = 'int md_j_unrolled(RysIntEnvVars *envs, JKMatrix *jk, MDBoundsInfo *bounds,\n'
     assert s.count(decl) == 1
     s = s.replace(decl, ('int md_j_generated(RysIntEnvVars *envs, JKMatrix *jk, MDBoundsInfo *bounds,\n'
@@ -605,12 +622,66 @@ if args.gen_j != 'off':
     assert s.count(old) == 1
     s = s.replace(old, '        if (!md_j_unrolled(envs, &jk, &bounds, q_cond_ij, q_cond_kl, omega) &&\n'
                        '            !md_j_generated(envs, &jk, &bounds, q_cond_ij, q_cond_kl, omega)) {\n')
-    open(f'{args.tree}/{G}/md_contract_j.cu', 'w').write(s)
-    s = source(f'{G}/CMakeLists.txt')
-    old = '  md_contract_j.cu unrolled_md_j.cu unrolled_md_j_4dm.cu\n'
+    cmake_files += ' generated_md_j.cu'
+if args.j_grad == 'on':
+    args_c = ('double *vj, double *dm, int n_dm, int dm_size,\n'
+              '                RysIntEnvVars *envs, int *scheme, int *shls_slice,\n'
+              '                int npairs_ij, int npairs_kl,\n'
+              '                int *pair_ij_mapping, int *pair_kl_mapping,\n'
+              '                int *pair_ij_loc, int *pair_kl_loc,\n'
+              '                float *qd_ij_max, float *qd_kl_max,\n'
+              '                float *q_cond_ij, float *q_cond_kl, float cutoff,\n'
+              '                int *atm, int natm, int *bas, int nbas, double *env)\n')
+    old = 'int MD_build_j(' + args_c
     assert s.count(old) == 1
-    s = s.replace(old, '  md_contract_j.cu unrolled_md_j.cu unrolled_md_j_4dm.cu generated_md_j.cu\n')
-    open(f'{args.tree}/{G}/CMakeLists.txt', 'w').write(s)
+    s = s.replace(old, 'static int md_build_j(int lshift, ' + args_c)
+    old = ('    int ll = bas[ANG_OF + lsh0*BAS_SLOTS];\n'
+           '    int lij = li + lj;\n'
+           '    int lkl = lk + ll;\n'
+           '    int order = lij + lkl;\n'
+           '    int nf3ij = (lij+1)*(lij+2)*(lij+3)/6;\n')
+    assert s.count(old) == 1
+    s = s.replace(old, ('    int ll = bas[ANG_OF + lsh0*BAS_SLOTS];\n'
+                        '    // MD_build_j_ip1: both pairs\' Hermite potentials lshift orders above their densities\n'
+                        '    li += lshift;\n'
+                        '    lk += lshift;\n'
+                        '    int lij = li + lj;\n'
+                        '    int lkl = lk + ll;\n'
+                        '    int order = lij + lkl;\n'
+                        '    int nf3ij = (lij+1)*(lij+2)*(lij+3)/6;\n'))
+    old = ('        fprintf(stderr, "CUDA Error in MD_build_j: %s\\n", cudaGetErrorString(err));\n'
+           '        return 1;\n'
+           '    }\n'
+           '    return 0;\n'
+           '}\n')
+    assert s.count(old) == 1, 'MD_build_j end'
+    call = ('vj, dm, n_dm, dm_size, envs, scheme, shls_slice, npairs_ij, npairs_kl, pair_ij_mapping, '
+            'pair_kl_mapping,\n                      pair_ij_loc, pair_kl_loc, qd_ij_max, qd_kl_max, q_cond_ij, '
+            'q_cond_kl, cutoff, atm, natm, bas, nbas, env')
+    s = s.replace(old, old + ('\nint MD_build_j(' + args_c + '{\n    return md_build_j(0, ' + call + ');\n}\n'
+                              '\n// The J engine\'s gradient: the Hermite potentials of both pairs one order above their densities, which\n'
+                              '// are given in that layout with their top-order components zero\n'
+                              'int MD_build_j_ip1(' + args_c + '{\n    return md_build_j(1, ' + call + ');\n}\n'))
+    shutil.copyfile(os.path.join(here, 'md_j_grad.cu'), f'{args.tree}/{G}/md_j_grad.cu')
+    cmake_files += ' md_j_grad.cu'
+    if args.gen_j_ip1 != 'off':
+        subprocess.run([sys.executable, os.path.join(here, 'gen_md_j.py'), f'{args.tree}/{G}/generated_md_j_ip1.cu']
+                       + ['g' + c for c in args.gen_j_ip1.split()], check=True)
+        decl = 'int md_j_unrolled(RysIntEnvVars *envs, JKMatrix *jk, MDBoundsInfo *bounds,\n'
+        assert s.count(decl) == 1
+        s = s.replace(decl, ('int md_j_generated_ip1(RysIntEnvVars *envs, JKMatrix *jk, MDBoundsInfo *bounds,\n'
+                             '                       float *q_cond_ij, float *q_cond_kl, double omega);\n') + decl)
+        old = '        if (!md_j_unrolled(envs, &jk, &bounds, q_cond_ij, q_cond_kl, omega)'
+        assert s.count(old) == 1
+        s = s.replace(old, '        if (!(lshift && md_j_generated_ip1(envs, &jk, &bounds, q_cond_ij, q_cond_kl, omega)) &&\n'
+                           '            !md_j_unrolled(envs, &jk, &bounds, q_cond_ij, q_cond_kl, omega)')
+        cmake_files += ' generated_md_j_ip1.cu'
+open(f'{args.tree}/{G}/md_contract_j.cu', 'w').write(s)
+s = source(f'{G}/CMakeLists.txt')
+old = '  md_contract_j.cu unrolled_md_j.cu unrolled_md_j_4dm.cu\n'
+assert s.count(old) == 1
+s = s.replace(old, '  md_contract_j.cu unrolled_md_j.cu unrolled_md_j_4dm.cu' + cmake_files + '\n')
+open(f'{args.tree}/{G}/CMakeLists.txt', 'w').write(s)
 
 print(f'one-thread kernels (K, J+K): {counts["unrolled_rys_k.cu"][0]} + {counts["unrolled_rys_jk.cu"][0]}: '
       f'barrier {args.barrier}, ket skip {args.ket}, bra skip {args.bra}; multi-thread kernels '

@@ -4,7 +4,8 @@ the converged density is then bracketed with cudaProfilerStart/Stop, so run it a
 For the J/K builders it records, in launch order, the angular-momentum class of each call of the integral launcher
 (RYS_build_k, RYS_build_jk, MD_build_j) and writes them to --labels, so ncu's per-launch rows can be grouped by
 class (ncu_summary.py).
-Part grad is the gradient's two-electron energy derivatives (jk_energy_per_atom with B3LYP's factors,
+Part jgrad is the J engine's gradient of a pure functional (jk_energy_per_atom with k_factor 0: MD_build_j_ip1,
+part 24). Part grad is the gradient's two-electron energy derivatives (jk_energy_per_atom with B3LYP's factors,
 RYS_per_atom_jk_ip1); part ejk2 the Hessian's second derivatives (_partial_ejk_ip2 with B3LYP's factors,
 RYS_per_atom_jk_ip2_type12 and _type3, labelled 't12' and 't3'). --dm DM.npy (jk_at_dm.py --save-dm) takes a saved density in the original AO basis instead of
 running the SCF.
@@ -13,7 +14,7 @@ the response densities of --dms DMS.npz (cphf_jk_dms.py); --dm is still needed f
 Parts xc (the SCF's nr_rks) and gradxc (the gradient's XC term, grad.rks.get_exc) take the SCF's density with its
 orbitals attached, as the SCF and the gradient pass it (the density pass then works from the orbitals), so they
 always run the SCF; --dm is ignored there.
-Usage: ncu_parts.py --part k|j|jk|xc|gradxc|grad|ejk2|cphfjk [--xc b3lyp] [--basis def2-svp] [--mol caffeine]
+Usage: ncu_parts.py --part k|j|jk|xc|gradxc|grad|jgrad|ejk2|cphfjk [--xc b3lyp] [--basis def2-svp] [--mol caffeine]
                     [--labels FILE] [--dm DM.npy] [--dms DMS.npz]"""
 import argparse
 import ctypes
@@ -32,7 +33,7 @@ from gpu4pyscf.grad import rhf as rhf_grad, rks as rks_grad  # noqa: E402
 from gpu4pyscf.hessian import rhf as rhf_hess  # noqa: E402
 
 ap = argparse.ArgumentParser()
-ap.add_argument('--part', required=True, choices=['k', 'j', 'jk', 'xc', 'gradxc', 'grad', 'ejk2', 'cphfjk'])
+ap.add_argument('--part', required=True, choices=['k', 'j', 'jk', 'xc', 'gradxc', 'grad', 'jgrad', 'ejk2', 'cphfjk'])
 ap.add_argument('--dms', default=None, help='part cphfjk: the response densities (cphf_jk_dms.py)')
 ap.add_argument('--xc', default='b3lyp')
 ap.add_argument('--basis', default='def2-svp')
@@ -62,6 +63,7 @@ build = {'k': lambda: mf.get_k(mol, dm, 1), 'j': lambda: mf.get_j(mol, dm, 1),
          'xc': lambda: mf._numint.nr_rks(mol, mf.grids, mf.xc, dm),
          'gradxc': lambda: rks_grad.get_exc(mf._numint, mol, mf.grids, mf.xc, dm),
          'grad': lambda: g.jk_energy_per_atom(dm, 1., .2),
+         'jgrad': lambda: g.jk_energy_per_atom(dm, 1., 0.),
          'ejk2': lambda: rhf_hess._partial_ejk_ip2(mol, dm, j_factor=1., k_factor=.2),
          'cphfjk': lambda: kopt.get_jk(cphf_dms, 1, 0)}[args.part]
 build()  # screening data, module loading, memory pool
@@ -95,6 +97,8 @@ elif args.part == 'cphfjk':
     record(jk.libvhf_rys, 'RYS_build_jk', kopt)
 elif args.part == 'j':
     record(j_engine.libvhf_md, 'MD_build_j', opt_j)
+elif args.part == 'jgrad':
+    record(j_engine.libvhf_md, 'MD_build_j_ip1', opt_j)
 elif args.part == 'grad':
     record(rhf_grad.libvhf_rys, 'RYS_per_atom_jk_ip1', opt_k)
 elif args.part == 'ejk2':

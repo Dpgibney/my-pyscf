@@ -1,0 +1,168 @@
+# GPU4PySCF investigation part 24 (NOTES.md): the J engine's nuclear gradient for pure functionals.
+# GTX 1650 Super at 1530 MHz (20 SMs); caffeine; the Coulomb gradients at the converged B3LYP densities
+# (scratch/dm_caf_b3lyp.npy, scratch/dm_caf_tzvp_b3lyp.npy) and full PBE / r2SCAN gradients at their own SCFs.
+# Trees: "part 23" the main tree before part 24 (Rys gradient RYS_per_atom_jk_ip1 with k_factor 0); "raised" is
+# scratch/tree_p24a (MD_build_j_ip1 through the J kernels with both pairs' orders raised, the densities zero-padded);
+# "part 24" the final tree (the gradient's own kernels, generated_md_j_ip1.cu, tried first).
+#
+# Commands (node1; the scripts are in scratch/):
+#   p24_prof.sh   stage_times.py grad --xc pbe|r2scan --basis def2-svp|def2-tzvp on part 23           (section 1)
+#   p24_grads.sh, p24_ip1.sh  j_grad_proto.py: the J engine's Coulomb gradient against the Rys one at a fixed
+#                 density (raised, then own kernels); ncu per launch (ncu_parts.py --part jgrad)   (sections 2-4)
+#   p24_check.sh, p24_val.sh  grad_jengine_check.py (full gradients, J engine against the Rys path at one SCF),
+#                 stage_times.py, memcheck (j_memcheck.py --grad), unit tests                     (sections 6-8)
+#   on the laptop: j_grad_exact.py, the gradients against PySCF's unscreened int2e_ip1 on the CPU      (section 5)
+
+# 1) part 23's pure-functional gradients by stage (stage_times.py grad)
+-- pbe def2-svp
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp pbe gradient: 3.04 s (first call 3.08 s), SCF 18 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      2.50 s  82.2%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.47 s  15.4%  XC term (get_exc), 1 calls
+-- r2scan def2-svp
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp r2scan gradient: 3.47 s (first call 3.51 s), SCF 16 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+      2.50 s  72.0%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.90 s  25.9%  XC term (get_exc), 1 calls
+-- pbe def2-tzvp
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-tzvp pbe gradient: 27.21 s (first call 27.33 s), SCF 18 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+     26.28 s  96.6%  2e derivatives (jk_energy_per_atom), 1 calls
+      0.79 s   2.9%  XC term (get_exc), 1 calls
+-- r2scan def2-tzvp
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-tzvp r2scan gradient: 27.88 s (first call 28.04 s), SCF 16 cycles, SM [1530.0, 1530.0, 1530.0] MHz
+     26.24 s  94.1%  2e derivatives (jk_energy_per_atom), 1 calls
+      1.51 s   5.4%  XC term (get_exc), 1 calls
+
+# 2) the Coulomb gradient at a fixed density (j_grad_proto.py, median of 2; Rys = _jk_energy_per_atom(j=1, k=0))
+case        Rys       raised J kernels   own kernels   max |g_Rys - g_J|   (max |g|)   sum over atoms: J engine, Rys
+def2-SVP    2.489 s   1.004 s            0.718 s       6.6e-10             (31.0)      4.8e-14, 5.3e-12
+def2-TZVP   26.17 s   8.749 s            5.879 s       1.3e-09             (27.8)      8.3e-14, 1.1e-11
+The Rys gradient is 4.000000 times Rt_ip1_dot_dm's sum in every component: E_J = 2 sum_P D^P.V^P over the J engine's
+unique pairs, and the derivative of either density in it.
+
+# 3) the gradient's own kernels: registers and spills (ptxas -v, sm_75; all 255 registers or fewer)
+md_j_ip1_0_0     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+md_j_ip1_1_0     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+md_j_ip1_1_1     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+md_j_ip1_2_0     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+md_j_ip1_2_1     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+md_j_ip1_2_2     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+md_j_ip1_3_0     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+md_j_ip1_3_1     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+md_j_ip1_3_2     16 bytes stack frame, 12 bytes spill stores, 12 bytes spill loads
+md_j_ip1_3_3     168 bytes stack frame, 240 bytes spill stores, 272 bytes spill loads
+md_j_ip1_3_4     712 bytes stack frame, 1228 bytes spill stores, 1272 bytes spill loads
+md_j_ip1_4_0     48 bytes stack frame, 80 bytes spill stores, 92 bytes spill loads
+md_j_ip1_4_1     384 bytes stack frame, 540 bytes spill stores, 580 bytes spill loads
+md_j_ip1_4_2     504 bytes stack frame, 728 bytes spill stores, 760 bytes spill loads
+md_j_ip1_4_3     960 bytes stack frame, 1776 bytes spill stores, 1828 bytes spill loads
+md_j_ip1_4_4     1888 bytes stack frame, 3840 bytes spill stores, 3976 bytes spill loads
+md_j_ip1_5_0     496 bytes stack frame, 976 bytes spill stores, 988 bytes spill loads
+md_j_ip1_5_1     1464 bytes stack frame, 2352 bytes spill stores, 2392 bytes spill loads
+md_j_ip1_5_2     1712 bytes stack frame, 2872 bytes spill stores, 2920 bytes spill loads
+md_j_ip1_5_3     4344 bytes stack frame, 8672 bytes spill stores, 9220 bytes spill loads
+md_j_ip1_5_4     4808 bytes stack frame, 9624 bytes spill stores, 10536 bytes spill loads
+md_j_ip1_5_5     13712 bytes stack frame, 30520 bytes spill stores, 31524 bytes spill loads
+md_j_ip1_6_0     1160 bytes stack frame, 2132 bytes spill stores, 2164 bytes spill loads
+md_j_ip1_6_1     2568 bytes stack frame, 4860 bytes spill stores, 5068 bytes spill loads
+md_j_ip1_6_2     4256 bytes stack frame, 7104 bytes spill stores, 7808 bytes spill loads
+md_j_ip1_6_3     9256 bytes stack frame, 19096 bytes spill stores, 21784 bytes spill loads
+
+# 4) per class at def2-TZVP, ncu GPU time: raised J kernels -> own kernels
+class/kernel                                      time s         GFLOP64     G warp inst
+(ps|ss)                                   0.620 ->  0.473  33.57 ->  22.01  2.069 ->  1.625
+(ds|ps)                                   0.540 ->  0.378  39.09 ->  22.15  1.697 ->  1.152
+(ps|ps)                                   0.522 ->  0.390  32.94 ->  19.77  1.772 ->  1.304
+(pp|ps)                                   0.451 ->  0.316  32.61 ->  18.48  1.416 ->  0.962
+(dp|ps)                                   0.434 ->  0.302  35.26 ->  20.08  1.123 ->  0.846
+(fs|ps)                                   0.343 ->  0.238  27.91 ->  15.88  0.882 ->  0.662
+(ds|ss)                                   0.292 ->  0.207  17.74 ->  10.47  0.927 ->  0.684
+(fp|ps)                                   0.291 ->  0.198  25.40 ->  14.62  0.722 ->  0.543
+(ds|pp)                                   0.259 ->  0.173  20.82 ->  12.07  0.681 ->  0.511
+(dp|ds)                                   0.256 ->  0.166  22.26 ->  13.09  0.622 ->  0.444
+(pp|ss)                                   0.250 ->  0.180  15.31 ->   9.04  0.800 ->  0.591
+(dp|ss)                                   0.230 ->  0.156  15.67 ->   8.76  0.709 ->  0.485
+(dp|pp)                                   0.217 ->  0.141  19.00 ->  11.18  0.530 ->  0.379
+(ss|ss)                                   0.201 ->  0.169   9.95 ->   7.83  0.745 ->  0.605
+(fs|ds)                                   0.192 ->  0.125  16.75 ->   9.85  0.469 ->  0.335
+(fs|dp)                                   0.177 ->  0.121  16.78 ->  10.24  0.449 ->  0.315
+(fs|ss)                                   0.177 ->  0.119  12.14 ->   6.79  0.542 ->  0.370
+(fs|pp)                                   0.176 ->  0.114  15.45 ->   9.09  0.429 ->  0.305
+(fp|ds)                                   0.173 ->  0.111  15.92 ->   9.58  0.418 ->  0.290
+(fd|ps)                                   0.157 ->  0.109  14.26 ->   8.37  0.409 ->  0.304
+(fp|dp)                                   0.156 ->  0.107  15.37 ->   9.63  0.400 ->  0.273
+(fp|pp)                                   0.151 ->  0.097  13.84 ->   8.33  0.361 ->  0.250
+(fp|ss)                                   0.150 ->  0.094  10.71 ->   6.02  0.390 ->  0.282
+(ds|ds)                                   0.146 ->  0.098  11.62 ->   6.74  0.386 ->  0.291
+(dd|ps)                                   0.122 ->  0.084  10.54 ->   6.07  0.303 ->  0.229
+(fp|fs)                                   0.121 ->  0.083  11.99 ->   7.51  0.312 ->  0.213
+(fd|fp)                                   0.118 ->  0.044   6.75 ->   4.07  1.447 ->  0.112
+(dp|dp)                                   0.116 ->  0.078  10.69 ->   6.52  0.290 ->  0.205
+(ff|ps)                                   0.115 ->  0.051   5.95 ->   3.38  1.277 ->  0.121
+(fs|dd)                                   0.107 ->  0.035   5.58 ->   3.09  1.295 ->  0.092
+(pp|pp)                                   0.104 ->  0.069   8.35 ->   4.84  0.275 ->  0.206
+(fd|dp)                                   0.098 ->  0.065   8.45 ->   5.42  0.241 ->  0.169
+(fd|ds)                                   0.095 ->  0.061   8.74 ->   5.38  0.254 ->  0.159
+(fd|pp)                                   0.084 ->  0.054   7.68 ->   4.73  0.222 ->  0.139
+(fd|ss)                                   0.080 ->  0.050   5.99 ->   3.38  0.219 ->  0.144
+(fd|fs)                                   0.077 ->  0.050   6.50 ->   4.17  0.186 ->  0.130
+(ff|ss)                                   0.073 ->  0.021   2.72 ->   1.36  0.661 ->  0.053
+(dd|ds)                                   0.072 ->  0.046   6.51 ->   3.92  0.171 ->  0.119
+(fp|fp)                                   0.070 ->  0.039   5.69 ->   3.69  0.164 ->  0.102
+(fs|fs)                                   0.067 ->  0.045   6.21 ->   3.79  0.169 ->  0.120
+(ff|dp)                                   0.067 ->  0.041   3.44 ->   2.19  0.728 ->  0.074
+(dd|dp)                                   0.065 ->  0.044   6.22 ->   3.90  0.162 ->  0.111
+(dd|ss)                                   0.065 ->  0.041   4.49 ->   2.52  0.165 ->  0.118
+(dd|pp)                                   0.063 ->  0.041   5.63 ->   3.39  0.147 ->  0.102
+(ff|ds)                                   0.062 ->  0.031   3.50 ->   2.18  0.702 ->  0.066
+(fp|dd)                                   0.059 ->  0.031   4.54 ->   2.94  0.131 ->  0.082
+(ff|pp)                                   0.054 ->  0.025   3.08 ->   1.91  0.617 ->  0.057
+(ff|fs)                                   0.051 ->  0.032   2.64 ->   1.69  0.560 ->  0.057
+(fd|dd)                                   0.047 ->  0.018   2.61 ->   1.57  0.562 ->  0.044
+(ff|fp)                                   0.039 ->  0.039   2.44 ->   2.44  0.485 ->  0.485
+(fd|fd)                                   0.029 ->  0.020   1.76 ->   1.14  0.368 ->  0.037
+(ff|fd)                                   0.019 ->  0.019   1.24 ->   1.24  0.243 ->  0.243
+(ff|dd)                                   0.015 ->  0.015   0.93 ->   0.93  0.186 ->  0.186
+(dd|dd)                                   0.014 ->  0.008   0.91 ->   0.59  0.026 ->  0.017
+Rt_ip1_dot_dm_kernel                      0.013 ->  0.012   0.22 ->   0.22  0.015 ->  0.015
+(ff|ff)                                   0.004 ->  0.004   0.24 ->   0.24  0.054 ->  0.054
+dm_to_Rt_kernel                           0.004 ->  0.004   0.03 ->   0.03  0.009 ->  0.009
+cub::DeviceSegmentedReduceKernel<reduce:  0.001 ->  0.001   0.00 ->   0.00  0.025 ->  0.025
+ket_sph2sorted_kernel                     0.000 ->  0.000   0.00 ->   0.00  0.003 ->  0.003
+
+# 5) against the exact Coulomb gradient (PySCF, int2e_ip1 on the CPU without screening; j_grad_exact.py)
+case                 max err    rms err    sum over atoms
+def2-SVP  Rys        7.08e-10   2.16e-10   5.3e-12
+          J engine   1.62e-10   4.44e-11   4.8e-14
+def2-TZVP Rys        1.09e-09   3.59e-10   1.1e-11
+          J engine   5.68e-10   1.52e-10   8.3e-14
+caffeine cation, UKS PBE/def2-SVP (the total density; grad_jengine_check.py --save):
+          Rys        2.40e-09   7.02e-10   3.9e-12
+          J engine   2.42e-11   7.25e-12   2.1e-14
+
+# 6) full gradients at one converged SCF (grad_jengine_check.py: J engine, then the Rys path)
+caffeine                     E (Eh)            gradient: J engine   Rys       max |dg|   (max |g|)
+PBE/def2-SVP                 -679.0403707179   1.26 s               3.04 s    6.8e-10    (0.146)
+r2SCAN/def2-SVP              -679.4529650104   1.69 s               3.47 s    7.8e-10    (0.150)
+cation UKS PBE/def2-SVP      -678.7490982009   1.61 s               3.30 s    2.4e-09    (0.140)
+PBE/def2-TZVP                -679.7849175513   6.77 s               27.23 s   1.0e-09    (0.140)
+The net force (sum over atoms, 1.5e-5 to 1.3e-4) is the grid's and the same in both.
+
+# 7) the gradient's stages on the final tree (stage_times.py grad --xc pbe)
+caffeine def2-svp pbe gradient: 1.26 s (part 23: 3.04 s)
+      0.72 s  57.0%  2e derivatives (jk_energy_per_atom)   (part 23: 2.50 s)
+      0.47 s  37.1%  XC term (get_exc)
+caffeine def2-tzvp pbe gradient: 6.82 s (part 23: 27.21 s)
+      5.88 s  86.3%  2e derivatives (jk_energy_per_atom)   (part 23: 26.28 s)
+      0.79 s  11.7%  XC term (get_exc)
+
+# 8) memcheck and unit tests
+memcheck (j_memcheck.py --grad, CuPy's pool off), first run: invalid 4-byte reads in Rt_ip1_dot_dm_kernel
+  (md_j_grad.cu:67, ao_loc[ish]) at def2-SVP and def2-TZVP: get_ej_ip1 passed cp.asarray(ao_loc).data.ptr inline, so
+  the array was freed before the asynchronous kernel read it (the pool kept the memory, so the results were right).
+  With the array held until the kernel has run:
+  def2-svp: J gradient built, ERROR SUMMARY: 0 errors
+  def2-tzvp: J gradient built, ERROR SUMMARY: 0 errors
+  (the gradient as before: max |g(fixed) - g(before)| 3.9e-14)
+unit tests on the final tree (pytest -q):
+  grad/tests: test_rks_grad 15 passed, test_uks_grad 12, test_grid_response 7, test_tdrks_grad 7, test_vv10_grid 20
+  scf/tests: test_scf_j_engine 8, test_scf_jk 11; dft/tests: test_rks 17 (1 skipped), test_uks 10
+J at fixed densities on the final tree: within 7.1e-15 of part 23's J, 0.489 and 3.894 s (unchanged).

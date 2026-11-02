@@ -4970,6 +4970,107 @@ Fourth of the approved items (part 18's option 6).
   kernels make up about 80% of a def2-TZVP J build and nearly all of a def2-SVP one.
 - **How to check it:** `j_exact_check.py` measures exactly this kind of rounding-level change.
 
+## GPU4PySCF investigation, part 24: the J engine's nuclear gradient for pure functionals (node1), 2026-11-02
+Fifth and last of the approved items (part 18's option 7).
+- **Commits:** gpu4pyscf `exp/prim-screen` 2536863 (`MD_build_j_ip1`, `md_j_grad.cu` and `generated_md_j_ip1.cu`,
+  from `exp_prim_screen.py --j-grad on --gen-j-ip1`); `perf` 6011265 (`j_engine._VHFOpt.get_ej_ip1` and the
+  dispatch in `grad.rhf.Gradients.jk_energy_per_atom`), merged into `exp/prim-screen` 0f3c06d.
+- **Tools:**
+  - `j_grad_proto.py`, the prototype, which compares with the Rys gradient at a fixed density;
+  - `grad_jengine_check.py`, which compares full gradients by both paths at one SCF;
+  - `j_grad_exact.py`, which compares with PySCF's unscreened `int2e_ip1` on the CPU;
+  - `ncu_parts.py --part jgrad` and `j_memcheck.py --grad`.
+- **Data:** `p24_j_grad.txt`.
+
+### Where the gradient spent its time (part 23)
+- **The two-electron term dominated:** 2.50 of 3.04 s (82%) of a PBE/def2-SVP gradient, and 26.28 of 27.21 s
+  (97%) at def2-TZVP.
+- **It ran the Rys kernel even without exchange:** for pure functionals `jk_energy_per_atom` called
+  `RYS_per_atom_jk_ip1` with k_factor 0, through a Rys optimizer built only for it. The SCF's J-engine optimizer was
+  already there.
+
+### Method
+- **The pair derivatives:** a pair's charge distribution G_i G_j moves with its centers as
+  ∂/∂A_x (G_i G_j) = 2a G_{i+1_x} G_j − i_x G_{i−1_x} G_j, and likewise for B. Its Hermite expansion reaches one
+  order more than the pair's.
+- **The gradient:** E_J = 2 Σ_P D^P·V^P over the J engine's unique pairs, so dE_J/dA = 4 Σ_{P∋A} D_x^{P,A}·V^P.
+  - V^P is the pair's Hermite potential to order lij+1.
+  - D_x^{P,A} is its derivative Hermite density, built from the E coefficients of the shifted pairs.
+- **`MD_build_j_ip1`:** `MD_build_j` with lshift = 1.
+  - It first tries the gradient's own kernels (`md_j_generated_ip1`), in which R runs to order L+1.
+    - The bra potential to lij+1 comes from the ket density to lkl.
+    - The ket potential to lkl+1 comes from the bra density to lij.
+    - They come from `gen_md_j.py`'s new `g` specs: 26 classes, (0,0) to (6,3).
+  - Otherwise it runs the J kernels with both orders raised and the densities zero-padded. Those take R one order
+    higher and spend half of their contraction on zeros.
+  - The pair data, the screening and the tasks are the J build's.
+- **`Rt_ip1_dot_dm`** (`md_j_grad.cu`): one thread per pair, 12 ms at def2-TZVP.
+  - It builds the E coefficients up to (li+1, lj+1, lij+1).
+  - It contracts the six derivative densities with V^P and the density, and adds the results to the two atoms.
+- **Dispatch:** `get_ej_ip1` runs when k_factor is 0, omega is 0, the library has the functions, and no shells lie
+  beyond LMAX.
+  - It takes the total density (the sum over spins for UKS), symmetrized; E_J depends only on the symmetric part.
+  - It reuses the SCF's `_opt_jengine`.
+- **The constant 4:** the prototype measured it as exactly 4.000000 in every component.
+
+### Exactness
+
+| caffeine, Coulomb gradient | max error | RMS error | sum over atoms |
+|---|---|---|---|
+| def2-SVP, Rys | 7.08e−10 | 2.16e−10 | 5.3e−12 |
+| def2-SVP, J engine | 1.62e−10 | 4.44e−11 | 4.8e−14 |
+| def2-TZVP, Rys | 1.09e−09 | 3.59e−10 | 1.1e−11 |
+| def2-TZVP, J engine | 5.68e−10 | 1.52e−10 | 8.3e−14 |
+
+- **Reference:** the exact gradient from PySCF's `int2e_ip1` on the CPU without screening (8 s at def2-SVP, 121 s at
+  def2-TZVP).
+- **Result:** the J engine is 2–5× closer to it than the Rys path. It is also translationally invariant to 1e−13,
+  where the Rys path is at 1e−11.
+- **The two paths:** they differ by up to 6.6e−10 (def2-SVP) and 1.3e−9 (def2-TZVP), on components up to 31.
+- **UKS (the caffeine cation, PBE/def2-SVP):** the paths differ by 2.4e−9, all of it the Rys path's error. The
+  Rys gradient is 2.4e−9 from the exact one, the J engine 2.4e−11.
+- **Several densities:** the J engine needs the total density only, so UKS uses one density as well.
+
+### Timings (GTX 1650 Super)
+
+| caffeine, Coulomb gradient at a fixed density | Rys | raised J kernels | own kernels |
+|---|---|---|---|
+| def2-SVP | 2.489 s | 1.004 s | 0.718 s (3.5×) |
+| def2-TZVP | 26.17 s | 8.749 s | 5.879 s (4.45×) |
+
+| caffeine, full gradient at one SCF | Rys (part 23) | part 24 |
+|---|---|---|
+| PBE/def2-SVP | 3.04 s | 1.26 s (2.4×) |
+| r2SCAN/def2-SVP | 3.47 s | 1.69 s |
+| cation UKS PBE/def2-SVP | 3.30 s | 1.61 s |
+| PBE/def2-TZVP | 27.23 s | 6.77 s (4.0×) |
+
+- **Where the time goes now:** in the def2-SVP PBE gradient the two-electron term takes 0.72 s of 1.26 s, and the
+  XC term 0.47 s.
+- **Per class** (def2-TZVP, ncu): every class with its own kernel beats the raised path, even with spills of up to
+  30 KB.
+  - FP64 work falls from 653 to 391 GFLOP and GPU time from 8.75 to 5.88 s.
+  - (6,4) to (6,6) keep the raised path: 77 ms.
+
+### Unit tests and memcheck
+- **All pass on the final tree:**
+  - gradients: `test_rks_grad.py` (15), `test_uks_grad.py` (12), `test_grid_response.py` (7),
+    `test_tdrks_grad.py` (7), `test_vv10_grid.py` (20);
+  - J engine: `test_scf_j_engine.py` (8), `test_scf_jk.py` (11);
+  - DFT: `test_rks.py` (17, 1 skipped), `test_uks.py` (10).
+- **J builds:** unchanged, within 7.1e−15 of part 23's J at the same speed.
+- **A use-after-free, found by memcheck and fixed before the commit:**
+  - The first version passed `cp.asarray(ao_loc).data.ptr` to `Rt_ip1_dot_dm` inline, so the temporary array was
+    freed before the asynchronous kernel read it.
+  - CuPy's pool kept the memory, so the results were right, but memcheck (pool off) reported invalid 4-byte reads
+    at `md_j_grad.cu`:67.
+  - Holding the array until the kernel has run gives 0 errors at def2-SVP and def2-TZVP, with the same gradient
+    (3.9e−14).
+
+### Other cards
+- **Same structure as the J build:** the gradient runs the J build's tasks, tiles and kernels. Parts 22 and 23's
+  notes on SM count and FP64 rate apply to it too.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

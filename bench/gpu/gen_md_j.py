@@ -14,7 +14,9 @@ contraction addresses from index tables at run time (part 23's profile: FP64 is 
     where the unrolled kernels keep the whole R tensor live until the end of the quartet.
 A dispatcher md_j_generated() launches them; MD_build_j calls it after md_j_unrolled() and before the generic kernel
 (single density only; several densities keep md_j_4dm_kernel).
-Usage: gen_md_j.py OUT.cu LIJ,LKL[:TILEY] ...   e.g. gen_md_j.py generated_md_j.cu 3,3 4,2:16"""
+A spec gLIJ,LKL writes the gradient's kernel md_j_ip1_LIJ_LKL instead (r_tensor's ip1, dispatched by
+md_j_generated_ip1, which MD_build_j_ip1 tries first); one file holds one kind.
+Usage: gen_md_j.py OUT.cu [g]LIJ,LKL[:TILEY] ...   e.g. gen_md_j.py generated_md_j.cu 3,3 4,2:16"""
 import sys
 
 # the largest bra tile in batches of 16 pairs (the run-time tile is cut to fill the SMs, part 22)
@@ -30,11 +32,15 @@ def herm(l):
     return [(t, u, v) for t in range(l + 1) for u in range(l + 1 - t) for v in range(l + 1 - t - u)]
 
 
-def r_tensor(lij, lkl):
-    '''The R recursions with the contraction of each R^(0) as soon as it is computed: lines of code'''
-    L = lij + lkl
-    bra = {c: n for n, c in enumerate(herm(lij))}
+def r_tensor(lij, lkl, ip1=False):
+    '''The R recursions with the contraction of each R^(0) as soon as it is computed: lines of code. With ip1 (the
+    J engine's gradient) both potentials reach one order more than the densities, R one order more than the J build's:
+    the bra potential (order lij+1) from the ket density (order lkl), the ket potential (order lkl+1) from the bra density
+    (order lij), all in the layout of one more order per pair.'''
+    L = lij + lkl + (1 if ip1 else 0)
+    bra = {c: n for n, c in enumerate(herm(lij + (1 if ip1 else 0)))}
     ket = list(enumerate(herm(lkl)))
+    ket_out = {c: n for n, c in enumerate(herm(lkl + 1))}
     out = []
 
     def name(n, t, u, v):
@@ -57,6 +63,16 @@ def r_tensor(lij, lkl):
 
     def consume(t, u, v):
         r = name(0, t, u, v)
+        if ip1:
+            for kk, (kt, ku, kv) in ket:      # the bra potential from the ket density
+                i = (t - kt, u - ku, v - kv)
+                if min(i) >= 0 and sum(i) <= lij + 1:
+                    out.append(f'            vj_ij[{bra[i]}] += {r} * dkl[{kk}];')
+            for i in herm(lij):               # the ket potential from the bra density
+                k = (t - i[0], u - i[1], v - i[2])
+                if min(k) >= 0 and sum(k) <= lkl + 1:
+                    out.append(f'            vkl[{ket_out[k]}] += {r} * dm_ij_cache[{bra[i] * 16}];')
+            return
         for kk, (kt, ku, kv) in ket:
             i = (t - kt, u - ku, v - kv)
             if min(i) < 0 or sum(i) > lij:
@@ -81,16 +97,20 @@ def r_tensor(lij, lkl):
     return out
 
 
-def kernel(lij, lkl, tiley):
-    L = lij + lkl
-    nij, nkl = nf3(lij), nf3(lkl)
+def kernel(lij, lkl, tiley, ip1=False):
+    up = 1 if ip1 else 0
+    L = lij + lkl + up
+    nij, nkl = nf3(lij + up), nf3(lkl + up)     # the potentials' (and with ip1 the densities' layout) components
     bsy = 16 * tiley
     diag = lij == lkl
     ket = herm(lkl)
+    ket_pos = [herm(lkl + up).index(c) for c in ket]   # the ket density's components in its layout
+    name = f'md_j_ip1_{lij}_{lkl}' if ip1 else f'md_j_gen_{lij}_{lkl}'
     s = []
-    s.append(f'// lij={lij}, lkl={lkl}: TILEX={TILEX} (largest; run-time tilex), TILEY={tiley}\n'
+    s.append(f'// lij={lij}, lkl={lkl}{" (gradient: the potentials one order up)" if ip1 else ""}: '
+             f'TILEX={TILEX} (largest; run-time tilex), TILEY={tiley}\n'
              '__global__ __launch_bounds__(256, 1) static\n'
-             f'void md_j_gen_{lij}_{lkl}(KERNEL_ARGS)\n{{\n'
+             f'void {name}(KERNEL_ARGS)\n{{\n'
              '    KERNEL_SETUP();\n'
              '    // the bra tile, from the grid that md_j_gen_grid_x chose\n'
              '    int tilex = ((bounds.npairs_ij + 15) / 16 + gridDim.x - 1) / gridDim.x;\n'
@@ -246,17 +266,17 @@ def kernel(lij, lkl, tiley):
              f'            boys_fn(gamma_inc, theta, rr, omega, fac, {L}, 0, 1);\n'
              '            // the ket pair\'s Hermite density, with the phase (-1)^|k| of its components\n'
              '            const double *dm_kl = jk.dm + pair_kl_loc[task_kl < npairs_kl ? task_kl : task_kl0];\n'
-             f'            double dkl[{nkl}];\n')
+             f'            double dkl[{len(ket)}];\n')
     for kk, c in enumerate(ket):
         sign = '-' if sum(c) % 2 else ''
-        s.append(f'            dkl[{kk}] = {sign}dm_kl[{kk}];\n')
+        s.append(f'            dkl[{kk}] = {sign}dm_kl[{ket_pos[kk]}];\n')
     s.append(f'            double vkl[{nkl}];\n'
              '#pragma unroll\n'
              f'            for (int kl = 0; kl < {nkl}; ++kl) {{\n'
              '                vkl[kl] = 0.;\n'
              '            }\n')
-    s.append('\n'.join(r_tensor(lij, lkl)) + '\n')
-    for kk, c in enumerate(ket):
+    s.append('\n'.join(r_tensor(lij, lkl, ip1)) + '\n')
+    for kk, c in enumerate(herm(lkl + up)):
         op = '-=' if sum(c) % 2 else '+='
         s.append('            for (int offset = 8; offset > 0; offset /= 2) {\n'
                  f'                vkl[{kk}] += __shfl_down_sync(mask, vkl[{kk}], offset);\n'
@@ -344,7 +364,8 @@ static int md_j_gen_grid_x(int npairs_ij, int tilex_max, int grid_y, int diagona
 
 
 def default_tiley(lkl):
-    '''About 40 KB of shared memory for the ket tile (vj_kl cache and pair data), at most 32 batches'''
+    '''About 40 KB of shared memory for the ket tile (vj_kl cache and pair data), at most 32 batches; lkl is the
+    order of the ket's potential'''
     return max(1, min(32, 5000 // (16 * (nf3(lkl) + 4))))
 
 
@@ -353,37 +374,50 @@ def main():
     specs = []
     for a in sys.argv[2:]:
         cls, _, ty = a.partition(':')
-        lij, lkl = map(int, cls.split(','))
-        specs.append((lij, lkl, int(ty) if ty else default_tiley(lkl)))
+        ip1 = cls.startswith('g')
+        lij, lkl = map(int, cls.lstrip('g').split(','))
+        specs.append((lij, lkl, int(ty) if ty else default_tiley(lkl + ip1), ip1))
+    modes = {sp[3] for sp in specs}
+    assert len(modes) == 1, 'J and gradient kernels go to separate files'
+    ip1 = modes.pop()
     src = [HEAD]
-    for lij, lkl, ty in specs:
-        src.append(kernel(lij, lkl, ty))
+    for lij, lkl, ty, _ in specs:
+        src.append(kernel(lij, lkl, ty, ip1))
         src.append('\n')
     src.append(GRID_X)
-    src.append('int md_j_generated(RysIntEnvVars *envs, JKMatrix *jk, MDBoundsInfo *bounds,\n'
-               '                   float *q_cond_ij, float *q_cond_kl, double omega)\n{\n'
-               '    int npairs_ij = bounds->npairs_ij;\n'
+    if ip1:
+        # MD_build_j_ip1 has raised the pairs' orders by one before this is called
+        src.append('int md_j_generated_ip1(RysIntEnvVars *envs, JKMatrix *jk, MDBoundsInfo *bounds,\n'
+                   '                       float *q_cond_ij, float *q_cond_kl, double omega)\n{\n')
+        key = '(bounds->lij-1)*11 + bounds->lkl-1'
+    else:
+        src.append('int md_j_generated(RysIntEnvVars *envs, JKMatrix *jk, MDBoundsInfo *bounds,\n'
+                   '                   float *q_cond_ij, float *q_cond_kl, double omega)\n{\n')
+        key = 'bounds->lij*11 + bounds->lkl'
+    src.append('    int npairs_ij = bounds->npairs_ij;\n'
                '    int npairs_kl = bounds->npairs_kl;\n'
                '    int diagonal = bounds->pair_ij_mapping == bounds->pair_kl_mapping;\n'
                '    dim3 threads(16, 16);\n'
-               '    switch (bounds->lij*11 + bounds->lkl) {\n')
-    for lij, lkl, ty in specs:
+               f'    switch ({key}) {{\n')
+    for lij, lkl, ty, _ in specs:
         bsy = 16 * ty
+        name = f'md_j_ip1_{lij}_{lkl}' if ip1 else f'md_j_gen_{lij}_{lkl}'
         # the Rp region also holds the bra-side reduction's 256 doubles (vj_cache = Rp_cache)
-        shm = (nf3(lkl) + 4) * bsy + max(64 + 16 * nf3(lij), 256)
+        shm = (nf3(lkl + ip1) + 4) * bsy + max(64 + 16 * nf3(lij + ip1), 256)
         src.append(f'    case {lij * 11 + lkl}: {{ // TILEY={ty}, {shm * 8} bytes of shared memory\n'
                    f'        dim3 blocks(md_j_gen_grid_x(npairs_ij, {TILEX}, (npairs_kl + {bsy - 1}) / {bsy}, diagonal),\n'
                    f'                    (npairs_kl + {bsy - 1}) / {bsy}, 1);\n'
-                   f'        cudaFuncSetAttribute(md_j_gen_{lij}_{lkl}, cudaFuncAttributeMaxDynamicSharedMemorySize, {shm * 8});\n'
-                   f'        md_j_gen_{lij}_{lkl}<<<blocks, threads, {shm * 8}>>>(*envs, *jk, *bounds, q_cond_ij, q_cond_kl);\n'
+                   f'        cudaFuncSetAttribute({name}, cudaFuncAttributeMaxDynamicSharedMemorySize, {shm * 8});\n'
+                   f'        {name}<<<blocks, threads, {shm * 8}>>>(*envs, *jk, *bounds, q_cond_ij, q_cond_kl);\n'
                    '    } break;\n')
     src.append('    default: return 0;\n'
                '    }\n'
                '    return 1;\n'
                '}\n')
     open(out, 'w').write(''.join(src))
-    for lij, lkl, ty in specs:
-        print(f'md_j_gen_{lij}_{lkl}: TILEY {ty}, {nf3(lij)} x {nf3(lkl)} Hermite components, order {lij + lkl}')
+    for lij, lkl, ty, _ in specs:
+        print(f'{"md_j_ip1" if ip1 else "md_j_gen"}_{lij}_{lkl}: TILEY {ty}, {nf3(lij)} x {nf3(lkl)} Hermite components, '
+              f'order {lij + lkl + ip1}')
 
 
 if __name__ == '__main__':
