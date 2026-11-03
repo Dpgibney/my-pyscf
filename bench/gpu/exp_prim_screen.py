@@ -108,6 +108,9 @@ ap.add_argument('--j-prefactor', default='rsqrt', choices=['rsqrt', 'old'],
 ap.add_argument('--vv10', default='sym', choices=['sym', 'old'],
                 help="VV10's Fock kernel and the gradient's grid-response pair term (gdft/vv10.cu): sym evaluates each "
                      "pair of grid points once (parts 26 and 28)")
+ap.add_argument('--dm-ldg', default='off', choices=['on', 'off'],
+                help="K and J+K kernels: the density loads of their density loops through __ldg (part 34: exact, but "
+                     "no faster on the GTX 1650 Super, so off)")
 ap.add_argument('--vv10-fock', default='lean', choices=['lean', 'rot'],
                 help="VV10's Fock kernel with --vv10 sym: lean takes part 26's rotation with a lean inner loop (no per-pair "
                      "tests off the diagonal tiles, packed loads, the reciprocal without the IEEE slow path; part 33)")
@@ -1045,6 +1048,29 @@ old = '  md_contract_j.cu unrolled_md_j.cu unrolled_md_j_4dm.cu\n'
 assert s.count(old) == 1
 s = s.replace(old, '  md_contract_j.cu unrolled_md_j.cu unrolled_md_j_4dm.cu' + cmake_files + '\n')
 open(f'{args.tree}/{G}/CMakeLists.txt', 'w').write(s)
+
+# Density loads through __ldg in the K and J+K kernels' density loops (part 34; part 17's option 1). The densities
+# are read-only there, but each group of loads came after the previous group's atomics, since the compiler cannot rule
+# out that dm aliases vk or vj; read-only (non-coherent) loads let it issue them early. The FP64 instructions are the
+# same, so each thread's sums are bitwise unchanged; only the (already unordered) atomics may land in another order.
+# The unrolled and generated files are rewritten from perf's sources above on every run; rys_contract_k.cuh's
+# load_dm (the generic K and J+K kernels) is taken from perf's source here.
+if args.dm_ldg == 'on':
+    ldg = {}
+    for name, pat, rep in (('unrolled_rys_k.cu', r'= dm\[([^\]]*)\];', r'= __ldg(dm + (\1));'),
+                           ('unrolled_rys_jk.cu', r'= dm\[([^\]]*)\];', r'= __ldg(dm + (\1));'),
+                           ('generated_rys_k.cu', r'\bdm\[([^\]]*)\]', r'__ldg(dm + (\1))'),
+                           ('rys_contract_k.cuh', r'dm_cache\[i\*3\+j\] = dm_local\[i\*nao\+j\];',
+                            'dm_cache[i*3+j] = __ldg(dm_local + i*nao+j);')):
+        p = f'{args.tree}/{D}/{name}'
+        if name == 'generated_rys_k.cu' and args.gen_k == 'off':
+            continue
+        s_ = source(f'{D}/{name}') if name == 'rys_contract_k.cuh' else open(p).read()
+        s_, n = re.subn(pat, rep, s_)
+        assert n > 0, name
+        open(p, 'w').write(s_)
+        ldg[name] = n
+    print('density loads through __ldg: ' + ', '.join(f'{k} {v}' for k, v in ldg.items()))
 
 print(f'one-thread kernels (K, J+K): {counts["unrolled_rys_k.cu"][0]} + {counts["unrolled_rys_jk.cu"][0]}: '
       f'barrier {args.barrier}, ket skip {args.ket}, bra skip {args.bra}; multi-thread kernels '

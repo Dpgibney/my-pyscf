@@ -5642,6 +5642,69 @@ Asked for by the user ("a deep dive into the SCF procedure of wB97M-V … specif
 - **Hessians too:** the Hessian's VV10 kernels (f_t, UWABCE) also scale with the square of the NLC grid's points. Not
   measured.
 
+## GPU4PySCF investigation, part 34: the exchange kernels' atomics - measured, __ldg tried, density lanes modelled (node1), 2026-11-02
+Asked for by the user ("Could you try the exchange kernels idea?"): part 17's option 2, outputs that consecutive tasks
+share kept in registers instead of one FP64 atomic per element. Nothing in GPU4PySCF changed.
+- **Tools:**
+  - `dlane_check.cu`: the density phase of a multi-density J+K build, current against density lanes;
+  - `exp_prim_screen.py --dm-ldg` (off by default);
+  - the profiles reuse part 17's tools (`ncu_parts.py`, `ncu_summary.py --l2`, `cphf_jk_parts.py`).
+- **Data:** `p34_exchange_atomics.txt`.
+
+### Where atomics matter (caffeine def2-SVP, B3LYP, current build)
+
+| | K at one density (the SCF's) | CPHF J+K at 72 densities |
+|---|---|---|
+| GPU time | 1.01 s | 6.99 s |
+| FP64 work | 59.3 GFLOP | 358 GFLOP |
+| atomic warp instructions | 14 M | 1354 M (about 41 G adds) |
+| L2 atomic units busy | 3.5% | 49% (47–57% in the top classes) |
+| FP64 pipe busy | 82–90% | 38–88% by class |
+| main stalls | | long scoreboard 59%, lg throttle 20% |
+
+- **The SCF's K is bound by FP64.** Its atomics hardly load the memory system, so keeping outputs in registers cannot
+  speed up SCF exchange.
+  - Part 17's "atomics are half the floor" holds for the multi-density builds only: the Hessian's CPHF, TDDFT and
+    polarizabilities.
+- **The CPHF call is unchanged since part 17:** 1.30 s at 1 density, 7.26 s at 72 (85 ms per density).
+
+### __ldg on the density loads (part 17's option 1)
+- **Applied** to the unrolled K and J+K kernels (1372 and 2080 loads), the generated K kernels (21,560) and the
+  generic kernels' `load_dm`.
+- **Exact:**
+  - J/K within 5e−14 at 1, 8 and 72 densities, and short-range K within 2e−15;
+  - the Hessian within 1.0e−11 and TDDFT within 4.5e−15;
+  - `test_scf_jk`, `test_jk_one_pass`, `test_rks`, `test_uks`, `test_rks_hessian` and `test_tdrks` pass.
+- **No faster:**
+  - the CPHF call 7.26 → 7.34 s at 72 densities, 1.30 → 1.29 s at 1;
+  - K 1.000 → 1.004 s;
+  - the Hessian 146.0 → 146.2 s, TDDFT 47.8 → 47.6 s.
+- **So the loads did not wait on the order the compiler kept,** contrary to part 17's reading of the SASS; the memory
+  system itself is the bound. The option stays in the generator, off.
+
+### Density lanes, modelled (`dlane_check.cu`: the density phase only, integrals from a hash)
+- **The design:**
+  - a block takes one bra pair, with ket pairs sorted by k;
+  - a batch of integrals is staged in shared memory;
+  - each lane takes one density, with densities laid out fastest;
+  - J_ij stays in registers for the block, and K_ik and K_jk while k repeats;
+  - the remaining atomics are coalesced.
+- **s functions (nf 1, 120 shells):** 3.12× at 32 densities and 2.97× at 64. The current pattern runs at 10× the
+  FP64 floor; lanes run at 3.3×.
+- **p functions (nf 3, 40 shells):** 1.06× and 1.10×. Both versions are near the FP64 floor (172 ms for 486
+  multiply-adds per quartet and density); lanes spill registers in this first version.
+- **The ceiling for the real build:**
+  - Every CPHF launch at 90% FP64-busy with the same FP64 work would give 6.99 → 4.38 s (1.60×).
+  - That is about 13 s of the 146 s B3LYP Hessian at best. Realistically about 6%; TDDFT more; the SCF and gradients
+    nothing.
+
+### Decision
+- **Not built:** density lanes would mean a new density phase for every K and J+K kernel family (unrolled, generated,
+  generic, multi-thread), the transposed density layout and k-sorted task lists, for at most 1.6× on the multi-density
+  builds on this card.
+- **Where it should pay more:** on cards with fast FP64 (A100, H100) the FP64 floor drops about 16× against memory, so
+  most classes would sit where the s-function model gains 3×. `dlane_check.cu` runs in seconds there.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

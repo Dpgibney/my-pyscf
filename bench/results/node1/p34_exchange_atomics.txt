@@ -1,0 +1,148 @@
+# GPU4PySCF investigation part 34 (NOTES.md): the exchange kernels' atomics - measured, __ldg tried, density lanes
+# modelled. Nothing in GPU4PySCF changed (exp_prim_screen.py --dm-ldg stays off). GTX 1650 Super at 1530 MHz; caffeine
+# def2-SVP, B3LYP; the CPHF densities are part 17's (scratch/cphf_dms1.npz, 72 response densities of the first call).
+#
+# Commands (node1): scratch/p34_ncu.sh (cphf_jk_parts.py, ncu_parts.py --part k and --part cphfjk with part 17's metric
+# sets), scratch/p34_val.sh (the __ldg build against part 33: jk_at_dm.py, cphf_jk_parts.py, overview.py, unit tests),
+# dlane_check (nvcc -O3 -arch=sm_75 bench/gpu/dlane_check.cu). ncu_summary.py made the tables.
+
+# 1) one K build at one density (the SCF's): per kernel, then L2 atomics and stalls per class
+WARNING: 0 integral kernels but 266 labels; classes may be misassigned
+total: 279 launches, 1.009 s GPU, 59.3 GFLOP FP64 (58.7 GFLOP/s), 3.75 G warp instructions, 14.01 M atomic instructions, 0.32 GB DRAM
+class/kernel                                n  time s    %t  GFLOP64   %fl fp64 %inst fp64 util  simt   occ regs  M atom  MB dram
+rys_k_1000                                 36   0.139  13.8     6.99  11.8       37.8      84.8  0.70  36.9  138    0.79      7.4
+rys_k_1010                                 27   0.112  11.1     5.92  10.0       39.2      88.9  0.69  36.7  168    0.99      7.3
+rys_k_2111                                  6   0.073   7.2     5.64   9.5       45.1      86.9  0.94  25.0  200    1.23      3.0
+rys_k_2110                                 12   0.072   7.1     4.86   8.2       57.1      89.7  0.79  24.8  255    0.92      6.7
+rys_k_0000                                 25   0.070   6.9     2.90   4.9       35.3      81.6  0.62  36.4  136    0.18      3.9
+rys_k_1100                                 18   0.063   6.2     3.35   5.7       39.8      86.9  0.70  36.5  155    0.37      3.8
+rys_k_1110                                 15   0.063   6.2     3.83   6.5       48.9      88.5  0.74  24.7  198    0.62      5.0
+rys_k_2010                                 18   0.058   5.8     3.39   5.7       43.7      89.1  0.75  36.2  168    1.16      6.8
+rys_k_2000                                 18   0.044   4.4     2.20   3.7       36.5      86.0  0.70  36.2  159    0.48      4.8
+rys_k_2011                                  9   0.039   3.9     2.61   4.4       56.5      90.1  0.79  24.4  255    0.58     11.6
+class/kernel  time s atom unit %   L2 tag %  xbar>L2 %     DRAM % req/atom sec/req L2 atom hit L2 rd hit L1 ld hit |long_score    barrier tex_thrott       wait   selected  (stalled % of active warp cycles)
+(ps|ss)        0.139        1.5        0.8        1.1        0.0     7.48    1.76        99.8      90.2      98.2 |      62.6       28.1        2.3        4.2        1.2
+(ps|ps)        0.112        2.2        1.8        2.4        0.0    11.06    1.95        99.9      96.7      99.0 |      55.5       27.2       10.8        3.9        1.2
+(dp|pp)        0.073        4.3        4.2        5.3        0.0    11.14    2.20        99.9      99.5      90.0 |      48.4       13.3       29.7        4.0        1.5
+(dp|ps)        0.072        3.4        2.8        3.7        0.1    11.25    1.98        99.9      95.1      97.0 |      63.1       15.2       15.6        3.9        1.2
+(ss|ss)        0.070        0.6        0.4        0.5        0.0     6.77    1.75        99.8      85.6      98.4 |      47.5       44.2        0.8        4.4        1.2
+(pp|ss)        0.063        1.5        0.8        1.1        0.0     7.52    1.76        99.8      88.9      99.3 |      57.2       28.6        8.0        3.7        1.2
+(pp|ps)        0.063        2.6        2.0        2.8        0.0    11.23    1.95        99.9      91.8      98.8 |      54.9       20.8       17.1        4.6        1.4
+(ds|ps)        0.058        5.2        4.1        5.6        0.1    11.21    1.98        99.9      93.7      97.6 |      61.8       17.1       15.4        3.6        1.1
+all            1.009        3.5        3.3        4.1        0.2    11.29    1.93        99.9      95.4      96.6 |      55.6       24.7       12.3        4.2        1.4
+
+# 2) one CPHF J+K build at 72 densities: per kernel, then L2 atomics and stalls per class
+WARNING: 0 integral kernels but 266 labels; classes may be misassigned
+total: 277 launches, 6.996 s GPU, 358.2 GFLOP FP64 (51.2 GFLOP/s), 19.27 G warp instructions, 1354.19 M atomic instructions, 259.24 GB DRAM
+class/kernel                                n  time s    %t  GFLOP64   %fl fp64 %inst fp64 util  simt   occ regs  M atom  MB dram
+rys_jk_kernel                              18   1.038  14.8    83.76  23.4       34.6      88.4  0.82  22.0  255  170.45  12545.5
+rys_jk_2111                                 6   0.624   8.9    39.40  11.0       46.5      60.8  0.93  25.0  208  134.26  14413.4
+rys_k_2110                                 12   0.600   8.6    39.10  10.9       41.8      64.4  0.94  24.8  255  106.72  27623.5
+rys_k_2010                                 18   0.516   7.4    20.28   5.7       38.7      42.7  0.93  24.8  174  110.81  31786.7
+rys_k_1010                                 27   0.504   7.2    17.28   4.8       32.9      44.5  0.87  36.9  168   97.09  31131.3
+rys_k_1000                                 36   0.433   6.2    12.79   3.6       25.8      42.6  0.87  37.1  140   84.64  18343.2
+rys_jk_2120                                 6   0.398   5.7    13.66   3.8       36.9      38.1  0.89  25.0  168   91.78   9777.3
+rys_k_1110                                 15   0.390   5.6    20.72   5.8       47.6      55.9  0.91  24.8  200   68.45  18395.2
+rys_k_2100                                 12   0.316   4.5    10.56   2.9       38.8      36.9  0.92  24.9  176   56.87  10142.9
+rys_jk_2210                                 6   0.304   4.3    14.05   3.9       37.1      47.2  0.96  25.0  168   73.41   5767.6
+class/kernel  time s atom unit %   L2 tag %  xbar>L2 %     DRAM % req/atom sec/req L2 atom hit L2 rd hit L1 ld hit |long_score lg_throttl    barrier tex_thrott       wait  (stalled % of active warp cycles)
+(dp|pp)        0.624       55.1       57.1       68.3       12.5    15.60    1.66        97.0      84.7      56.0 |      45.4       35.7        6.3        8.7        2.2
+(dp|ps)        0.600       46.9       42.7       50.0       25.1    17.49    1.42        91.4      33.3      56.8 |      48.9       25.2        8.5       13.2        2.0
+(ds|ps)        0.516       56.6       49.1       60.9       33.6    14.58    1.61        90.0      32.6      63.8 |      56.2       29.3        8.0        2.4        2.1
+(ps|ps)        0.504       49.6       43.5       53.9       33.9    13.87    1.61        88.6      38.8      62.2 |      58.4       20.9       14.5        2.3        1.7
+(ps|ss)        0.433       51.6       36.0       43.0       23.3    13.88    1.31        91.0      47.9      41.1 |      74.4        4.7       16.1        0.5        2.4
+(dp|ds)        0.398       55.7       53.7       69.5       13.4    16.27    1.50        96.9      76.8      68.0 |      53.5       34.2        6.6        2.2        1.6
+(pp|ps)        0.390       45.6       40.8       49.0       25.8    16.13    1.48        91.0      37.3      59.9 |      51.6       25.3       11.5        7.5        2.0
+(dp|dp)        0.321       36.0       35.6       46.1       10.9    15.30    1.61        96.3      52.9      81.7 |      82.6        0.1        4.9        0.1        8.0
+all            6.993       48.8       44.1       54.1       20.2    15.42    1.51        93.7      55.0      64.1 |      59.3       20.3       10.9        4.3        2.8
+#    Bound for any change on the memory side: every launch at 90% FP64-busy with the same FP64 work would take the
+#    integral kernels from 6.99 s to 4.38 s (1.60x), computed from the per-launch FP64-pipe share above.
+
+# 3) the timings of p34_ncu.sh, then the __ldg build against part 33 (p34_val.sh): exact, no faster
+== CPHF J+K call time against the number of densities (cphf_jk_parts.py, current tree)
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp, nao 246, 72 densities saved
+  72 densities: 7.299 s, kernels 7.286 s (101.2 ms per density)
+      0.636 s   8.7%  (dp|pp) (6 launches)
+      0.610 s   8.4%  (dp|ps) (12 launches)
+      0.553 s   7.6%  (ps|ps) (27 launches)
+      0.529 s   7.3%  (ds|ps) (18 launches)
+      0.457 s   6.3%  (ps|ss) (36 launches)
+      0.424 s   5.8%  (pp|ps) (15 launches)
+  24 densities: 2.952 s, kernels 2.942 s (122.6 ms per density)
+      0.242 s   8.2%  (dp|pp) (6 launches)
+      0.232 s   7.9%  (ps|ps) (27 launches)
+      0.230 s   7.8%  (dp|ps) (12 launches)
+      0.228 s   7.8%  (ps|ss) (36 launches)
+      0.193 s   6.6%  (ds|ps) (18 launches)
+      0.168 s   5.7%  (pp|ps) (15 launches)
+  8 densities: 1.733 s, kernels 1.723 s (215.4 ms per density)
+      0.197 s  11.4%  (ps|ss) (36 launches)
+      0.149 s   8.6%  (ps|ps) (27 launches)
+      0.137 s   7.9%  (dp|pp) (6 launches)
+      0.119 s   6.9%  (dp|ps) (12 launches)
+      0.105 s   6.1%  (ds|ps) (18 launches)
+      0.101 s   5.9%  (pp|ss) (18 launches)
+  1 densities: 1.294 s, kernels 1.285 s (1284.6 ms per density)
+      0.165 s  12.8%  (ps|ss) (36 launches)
+      0.137 s  10.7%  (ps|ps) (27 launches)
+      0.099 s   7.7%  (ss|ss) (25 launches)
+      0.090 s   7.0%  (dp|ps) (12 launches)
+      0.087 s   6.8%  (pp|ss) (18 launches)
+      0.078 s   6.1%  (dp|pp) (6 launches)
+== ncu: one K build, caffeine def2-SVP B3LYP density (single density, the SCF case)
+ncu: caffeine def2-svp b3lyp part k: nao 246, 266 launcher calls; rows 283
+== ncu: one CPHF J+K build at 72 densities
+ncu: caffeine def2-svp b3lyp part cphfjk: nao 246, 266 launcher calls; rows 281
+
+== save part 33's tree as scratch/tree_p33, install the __ldg density loads, build
+build ok
+56aa4149351f20ab813b018f634e4f45  gpu4pyscf/gpu4pyscf/lib/libgvhf_rys.so
+62e3959b3a4bb6f8517918a42913669e  /home/danny/Chemistry/my-pyscf/scratch/tree_p33/gpu4pyscf/lib/libgvhf_rys.so
+== registers and spills of the K and J+K kernels (old -> new), the changed ones
+0 kernels, 0 changed (name: REG STACK LOCAL old -> new)
+kernels with local memory (spills): old 0, new 0
+== J/K at fixed densities (caffeine def2-SVP, B3LYP density): part 33, then part 34
+/home/danny/Chemistry/my-pyscf/scratch/tree_p33/gpu4pyscf: k median 1.000 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: k median 1.004 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 2.22e-15 (max |ref| 9.79e+00)
+/home/danny/Chemistry/my-pyscf/scratch/tree_p33/gpu4pyscf: jk median 1.481 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: jk median 1.466 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  max |jk - ref| = 3.20e-14 (max |ref| 3.56e+01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_p33/gpu4pyscf: jk median 6.961 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: jk median 7.013 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  max |jk - ref| = 4.97e-14 (max |ref| 3.56e+01)
+/home/danny/Chemistry/my-pyscf/scratch/tree_p33/gpu4pyscf: k median 1.728 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: k median 1.726 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  max |k - ref| = 2.11e-15 (max |ref| 9.11e+00)
+== CPHF J+K call at the saved response densities: part 33, then part 34
+-- OLD
+  72 densities: 7.257 s, kernels 7.245 s (100.6 ms per density)
+  24 densities: 2.948 s, kernels 2.938 s (122.4 ms per density)
+  8 densities: 1.732 s, kernels 1.722 s (215.3 ms per density)
+  1 densities: 1.301 s, kernels 1.292 s (1291.9 ms per density)
+-- NEW
+  72 densities: 7.340 s, kernels 7.327 s (101.8 ms per density)
+  24 densities: 2.962 s, kernels 2.952 s (123.0 ms per density)
+  8 densities: 1.727 s, kernels 1.718 s (214.7 ms per density)
+  1 densities: 1.286 s, kernels 1.276 s (1276.2 ms per density)
+== B3LYP caffeine def2-SVP end to end (overview.py): part 33, then part 34
+{"label": "part33", "tree": "/home/danny/Chemistry/my-pyscf/scratch/tree_p33/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b3lyp", "df": false, "one_pass": false, "nao": 246, "E": -679.8127486398283, "cycles": 15, "times": {"scf": 24.51, "grad": 3.17, "hess": 146.0}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0], "hess": [1530.0, 1530.0, 1530.0]}}
+{"label": "part34", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b3lyp", "df": false, "one_pass": false, "nao": 246, "E": -679.8127486398279, "cycles": 15, "times": {"scf": 24.44, "grad": 3.17, "hess": 146.18}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0], "hess": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 4.547473508864641e-13, "grad": 6.856737400084967e-13, "hess": 1.0459189070388675e-11}, "max_ref": {"e": 679.8127486398283, "grad": 0.15532726331423097, "hess": 0.9954898445535374}}
+{"label": "part33", "tree": "/home/danny/Chemistry/my-pyscf/scratch/tree_p33/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b3lyp", "df": false, "one_pass": false, "nao": 246, "E": -679.8127486398283, "cycles": 15, "times": {"scf": 24.47, "tddft": 47.8}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "tddft": [1530.0, 1530.0, 1530.0]}}
+{"label": "part34", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b3lyp", "df": false, "one_pass": false, "nao": 246, "E": -679.8127486398281, "cycles": 15, "times": {"scf": 24.39, "tddft": 47.64}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "tddft": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 2.2737367544323206e-13, "tddft": 4.468647674116255e-15}, "max_ref": {"e": 679.8127486398283, "tddft": 0.20336392254050212}}
+== unit tests
+scf/tests/test_scf_jk.py: 11 passed in 23.22s
+scf/tests/test_jk_one_pass.py: 9 passed, 33 warnings in 64.09s (0:01:04)
+dft/tests/test_rks.py: 17 passed, 1 skipped, 66 warnings in 86.30s (0:01:26)
+dft/tests/test_uks.py: 10 passed, 33 warnings in 56.76s
+hessian/tests/test_rks_hessian.py: 12 passed, 51 warnings in 39.30s
+tdscf/tests/test_tdrks.py: 28 passed, 39 warnings in 17.49s
+
+
+# 4) dlane_check.cu: the density phase of a J+K build, a thread per quartet (current) against density lanes, with the
+#    integrals from a hash (memory pattern only). FP64 floors at the card's peak: nf 1 about 166 ms (64 densities),
+#    nf 3 about 172 ms (64 densities)
+nf 1, 120 shells (nao 120), 32 densities, 2.64e+07 quartets: current    739.1 ms, lanes    236.6 ms (3.12x); max |difference| 7.8e-13 (max 9.9e+01)
+nf 1, 120 shells (nao 120), 64 densities, 2.64e+07 quartets: current   1615.6 ms, lanes    543.3 ms (2.97x); max |difference| 8.8e-13 (max 9.9e+01)
+nf 3, 40 shells (nao 120), 32 densities, 3.37e+05 quartets: current    109.5 ms, lanes    103.7 ms (1.06x); max |difference| 3.0e-13 (max 9.2e+01)
+nf 3, 40 shells (nao 120), 64 densities, 3.37e+05 quartets: current    218.2 ms, lanes    198.7 ms (1.10x); max |difference| 2.6e-13 (max 9.2e+01)
