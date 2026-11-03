@@ -5635,6 +5635,13 @@ Asked for by the user ("a deep dive into the SCF procedure of wB97M-V … specif
 | level 1 | 97,024 | 71.4 s | −2.8e−6 Eh | 1.2e−5 |
 | level 0 | 21,504 | 42.7 s | −2.3e−4 Eh | 4.1e−5 |
 
+- **Settings:** `mf.nlcgrids.atom_grid = (50, 194)` and `mf.nlcgrids.prune = gpu4pyscf.dft.gen_grid.sg1_prune` give
+  SG-1; `mf.nlcgrids.level = 2` gives level 2.
+- **The user's decision (2026-11-02):** not a default, since the work here is exact changes, but it stays in view for
+  future approximate-mode options.
+- **Hessians too:** the Hessian's VV10 kernels (f_t, UWABCE) also scale with the square of the NLC grid's points. Not
+  measured.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
