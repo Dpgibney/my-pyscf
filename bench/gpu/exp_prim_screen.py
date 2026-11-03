@@ -108,6 +108,9 @@ ap.add_argument('--j-prefactor', default='rsqrt', choices=['rsqrt', 'old'],
 ap.add_argument('--vv10', default='sym', choices=['sym', 'old'],
                 help="VV10's Fock kernel and the gradient's grid-response pair term (gdft/vv10.cu): sym evaluates each "
                      "pair of grid points once (parts 26 and 28)")
+ap.add_argument('--vv10-fock', default='lean', choices=['lean', 'rot'],
+                help="VV10's Fock kernel with --vv10 sym: lean takes part 26's rotation with a lean inner loop (no per-pair "
+                     "tests off the diagonal tiles, packed loads, the reciprocal without the IEEE slow path; part 33)")
 ap.add_argument('--vv10-hess', default='wide', choices=['wide', 'old'],
                 help="the Hessian's VV10 kernels (gdft/vv10.cu): wide gives the response kernel f_t up to 36 trials per "
                      "thread with the weight folded into the pair matrix, EUW_with_weight1 up to 24 derivatives per "
@@ -631,6 +634,15 @@ if args.vv10 == 'sym':
     k2 = proto.index('// The symmetric version without per-j reductions:')
     k3 = proto.index('static void run_sym(')
     new_kernels = proto[k0:k1] + proto[k2:k3]
+    if args.vv10_fock == 'lean':
+        # part 33: the rotation kernel's inner loop without per-pair tests off the diagonal tiles, with packed loads
+        # and a reciprocal that skips the IEEE slow path (bitwise the same 1/x): 46.5 instructions per pair instead of
+        # 78, 28 FP64 instead of 34 (bench/gpu/vv10_fock2_check.cu: 1.23x on the GTX 1650 Super)
+        lproto = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vv10_fock2_check.cu')).read()
+        l0 = lproto.index('// ===== the library version')
+        l0 = lproto.index('\n', l0) + 1
+        l1 = lproto.index('// ===== end of the library version =====')
+        new_kernels = proto[k0:k1] + lproto[l0:l1]
     i0 = s.index('__global__\nstatic void vv10_fock_eval_UWE_kernel(')
     i1 = s.index('__global__\nstatic void vv10_fock_eval_omega_derivative_kernel(')
     s = s[:i0] + ('#define VV10_JTILES     4\n'
@@ -652,6 +664,15 @@ if args.vv10 == 'sym':
            "    vv10_fock_eval_UWE_rot_kernel<<<blocks, VV10_TILE, 0, stream>>>(U, W, E, grid_coord, rho_weight, omega, kappa,\n"
            "                                                                    ngrids, VV10_JTILES);\n"
            "    vv10_scale_UWE_kernel<<<(ngrids + 255) / 256, 256, 0, stream>>>(U, W, E, ngrids);\n")
+    if args.vv10_fock == 'lean':
+        new = (new.replace('// each pair of points once (part 26)', '// each pair of points once (parts 26 and 33)')
+                  .replace('vv10_scale_UWE_kernel applies the factors', 'vv10_scale_UWE_lean_kernel applies the factors')
+                  .replace('vv10_fock_eval_UWE_rot_kernel<<<blocks, VV10_TILE, 0, stream>>>(U, W, E, grid_coord, rho_weight, omega, kappa,\n'
+                           '                                                                    ngrids, VV10_JTILES);',
+                           'vv10_fock_eval_UWE_lean_kernel<<<blocks, VV10_TILE, 0, stream>>>(U, W, E, grid_coord, rho_weight, omega, kappa,\n'
+                           '                                                                     ngrids, VV10_JTILES);')
+                  .replace('vv10_scale_UWE_kernel<<<', 'vv10_scale_UWE_lean_kernel<<<'))
+        assert 'vv10_fock_eval_UWE_lean_kernel' in new and 'vv10_scale_UWE_lean_kernel<<<' in new
     s = s.replace(old, new)
     # the grid response's pair term (part 28): de[B] = 3 sum_{j on B} T_j with T_j = sum over points i on other atoms of
     # K_ij (r_i - r_j), K_ij = rho_w_i rho_w_j Phi_ij f_ij symmetric, each unordered pair once by the same rotation;
@@ -685,7 +706,8 @@ if args.vv10 == 'sym':
         '    return 0;\n'
         '}\n\n'))
     open(p, 'w').write(s)
-    print('VV10 Fock kernel: each pair of grid points once (rotation within warps); the grid response\'s pair term too')
+    print('VV10 Fock kernel: each pair of grid points once (rotation within warps' + (', lean inner loop' if args.vv10_fock == 'lean' else '')
+          + '); the grid response\'s pair term too')
 
 # The Hessian's VV10 kernels (gdft/vv10.cu; hessian/rks.py _get_enlc_deriv2, _get_vnlc_deriv1 and nr_rks_fnlc_mo, the
 # CPHF's NLC response, once per Krylov cycle; part 29).

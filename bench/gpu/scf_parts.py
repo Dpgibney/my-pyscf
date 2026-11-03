@@ -37,7 +37,7 @@ args = ap.parse_args()
 
 # (part, path from mf to the method's owner, method)
 TIMED = [('init guess', '', 'get_init_guess'), ('hcore+ovlp', '', 'get_hcore'), ('hcore+ovlp', '', 'get_ovlp'),
-         ('grids', 'grids', 'build'), ('XC', '_numint', 'nr_rks'),
+         ('grids', 'grids', 'build'), ('XC', '_numint', 'nr_rks'), ('NLC (VV10)', '_numint', 'nr_nlc_vxc'),
          ('J', '', 'get_j'), ('K', '', 'get_k'), ('J+K', '', 'get_jk'), ('J+K', 'with_df', 'get_jk'),
          ('veff rest', '', 'get_veff'), ('Fock+DIIS', '', 'get_fock'), ('eig', '', 'eig'),
          ('occ+density', '', 'get_occ'), ('occ+density', '', 'make_rdm1'), ('energy', '', 'energy_tot'),

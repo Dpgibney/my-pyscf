@@ -1,0 +1,128 @@
+# GPU4PySCF investigation part 33 (NOTES.md): the wB97M-V SCF on the GPU, and VV10's Fock kernel with a lean inner loop.
+# GTX 1650 Super at 1530 MHz (sm_75); caffeine def2-SVP (246 AOs, 294912 grid points on both grids). "part 30" is
+# scratch/tree_p30 (exp/prim-screen 04c5428); "part 33" the main tree with exp/prim-screen 29bfd96 (gdft/vv10.cu from
+# exp_prim_screen.py --vv10-fock lean).
+#
+# Commands (node1; the scripts are in scratch/): p33_prof.sh (scf_parts.py on part 30), the prototypes by hand
+# (vv10_fock2_check.cu, rcp_newton_check.cu), p33_val.sh (build, vv10_at_dm.py, overview.py SCF+gradient for wB97M-V
+# and B97M-V, memcheck, unit tests), p33b.sh (scf_parts.py on part 33, rsh_k_split.py, nlc_grid_levels.py).
+
+# 1) where the wB97M-V SCF spends its time, part 30 (scf_parts.py, GPU4PySCF's timers on, which add a little)
+== wB97M-V SCF profile, caffeine def2-SVP (current tree, GPU4PySCF sub-timers on)
+  E (Eh)                         -679.5842696754
+  cycles                                      14
+  SCF wall (s)                            359.92
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.033          0.000
+  grids                     0.069          0.000
+  XC                        1.244          1.070
+  NLC (VV10)               21.345         20.978
+  J                         0.109          0.275
+  K                         0.680          1.683
+  veff rest                 0.069          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.011
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.343 s per cycle
+  gpu XC: functional (libxc)            0.009 s per cycle
+  gpu XC: Vxc integration               0.804 s per cycle
+  gpu CuPy memory pool after the run: 0.163 GiB
+
+# 2) the prototypes: VV10's Fock kernel, part 26's rotation against the lean variants (60000 and 20011 synthetic
+#    points; long double reference at 256 points), and the reciprocal against the IEEE 1/x
+#    Instructions per pair in the inner loop (sm_75 SASS, cuobjdump): part 26 78 (34 FP64: 13 DFMA, 11 DMUL, 10 DADD;
+#    6 LDS.64, 6 SHFL, about 17 of branch bookkeeping for the diagonal tests, 7 for the signed % 32, g_ij recomputed
+#    twice); lean 61 (29 FP64); lean with packed loads and the Newton reciprocal 46.5 (28 FP64, 3 LDS.128, no BSSY).
+== vv10_fock2_check 60000
+n = 60000: original (v1.9.0) 1625.3 ms
+  original                 against long double at 256 points: U 1.4e-13 W 1.8e-14 E 2.1e-14
+  part 26 (rotation)         1133.3 ms (1.43x the original, 1.00x part 26); against the original U 4.1e-13 W 3.1e-14 E 3.9e-14; against long double U 3.5e-15 W 1.8e-15 E 1.8e-15
+  lean                        949.0 ms (1.71x the original, 1.19x part 26); against the original U 4.1e-13 W 3.1e-14 E 3.9e-14; against long double U 3.5e-15 W 1.8e-15 E 1.8e-15
+  lean, packed loads          949.8 ms (1.71x the original, 1.19x part 26); against the original U 4.1e-13 W 3.1e-14 E 3.9e-14; against long double U 3.5e-15 W 1.8e-15 E 1.8e-15
+  lean, packed, fast rcp      920.6 ms (1.77x the original, 1.23x part 26); against the original U 4.1e-13 W 3.1e-14 E 3.9e-14; against long double U 3.5e-15 W 1.8e-15 E 1.8e-15
+  library version             920.7 ms (1.77x the original, 1.23x part 26); against the original U 4.1e-13 W 3.1e-14 E 3.9e-14; against long double U 3.5e-15 W 1.8e-15 E 1.8e-15
+ok
+== vv10_fock2_check 20011
+n = 20011: original (v1.9.0) 181.6 ms
+  original                 against long double at 256 points: U 6.0e-14 W 1.2e-14 E 1.6e-14
+  part 26 (rotation)          127.6 ms (1.42x the original, 1.00x part 26); against the original U 1.4e-13 W 1.9e-14 E 2.2e-14; against long double U 3.7e-15 W 1.2e-15 E 2.1e-15
+  lean                        107.0 ms (1.70x the original, 1.19x part 26); against the original U 1.4e-13 W 1.9e-14 E 2.2e-14; against long double U 3.5e-15 W 1.2e-15 E 1.9e-15
+  lean, packed loads          107.0 ms (1.70x the original, 1.19x part 26); against the original U 1.4e-13 W 1.9e-14 E 2.2e-14; against long double U 3.5e-15 W 1.2e-15 E 2.1e-15
+  lean, packed, fast rcp      103.6 ms (1.75x the original, 1.23x part 26); against the original U 1.4e-13 W 1.9e-14 E 2.2e-14; against long double U 3.5e-15 W 1.2e-15 E 1.9e-15
+  library version             103.7 ms (1.75x the original, 1.23x part 26); against the original U 1.4e-13 W 1.9e-14 E 2.2e-14; against long double U 3.5e-15 W 1.2e-15 E 1.9e-15
+ok
+== rcp_newton_check
+268435456 values in [1e-300, 1e+300]: 0 differ from the correctly rounded 1/x, by at most 0 ulp
+268435456 values in [0.001, 1e+18]: 0 differ from the correctly rounded 1/x, by at most 0 ulp
+268435456 values in [1e+300, 1e+307]: 0 differ from the correctly rounded 1/x, by at most 0 ulp
+
+# 3) validation: build, nr_nlc_vxc at a fixed density, the SCF and gradient (overview.py; part 30, then part 33),
+#    memcheck, unit tests
+== save part 30's tree as scratch/tree_p30, install the lean VV10 Fock kernel, build
+ea59a7de937421633476dc04911ffb02  gpu4pyscf/gpu4pyscf/lib/gdft/vv10.cu
+build ok
+98519af9ab6fde2adcfef970b61a8a5a  gpu4pyscf/gpu4pyscf/lib/libgdft.so
+91f36c4a4d30ec2d0c7d39d3a3104461  /home/danny/Chemistry/my-pyscf/scratch/tree_p30/gpu4pyscf/lib/libgdft.so
+REG:16 SHARED:0 REG:62 SHARED:18432 
+== nr_nlc_vxc at a fixed density (caffeine def2-SVP, wB97M-V at the B3LYP density): part 30, then part 33
+/home/danny/Chemistry/my-pyscf/scratch/tree_p30/gpu4pyscf: caffeine def2-svp wb97m_v nr_nlc_vxc 21.15 s, 294912 NLC grid points; exc 0.385229398810
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp wb97m_v nr_nlc_vxc 17.27 s, 294912 NLC grid points; exc 0.385229398810
+  against nlc_old.npz: exc 0.00e+00, max |vxc - ref| 8.67e-19 (max |vxc| 4.69e-03)
+== wb97m_v SCF and gradient, caffeine def2-SVP (overview.py): part 30, then part 33
+{"label": "part30", "tree": "/home/danny/Chemistry/my-pyscf/scratch/tree_p30/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "wb97m_v", "df": false, "one_pass": false, "nao": 246, "E": -679.5842696754163, "cycles": 14, "times": {"scf": 358.27, "grad": 29.6}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0]}}
+{"label": "part33", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "wb97m_v", "df": false, "one_pass": false, "nao": 246, "E": -679.5842696754161, "cycles": 14, "times": {"scf": 299.88, "grad": 25.71}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 2.2737367544323206e-13, "grad": 2.913225216616411e-13}, "max_ref": {"e": 679.5842696754163, "grad": 0.1674879094116134}}
+== b97m_v SCF and gradient, caffeine def2-SVP (overview.py): part 30, then part 33
+{"label": "part30", "tree": "/home/danny/Chemistry/my-pyscf/scratch/tree_p30/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b97m_v", "df": false, "one_pass": false, "nao": 246, "E": -679.7292741774528, "cycles": 15, "times": {"scf": 360.44, "grad": 22.82}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0]}}
+{"label": "part33", "tree": "/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b97m_v", "df": false, "one_pass": false, "nao": 246, "E": -679.7292741774519, "cycles": 15, "times": {"scf": 298.25, "grad": 18.94}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 9.094947017729282e-13, "grad": 1.3500311979441904e-13}, "max_ref": {"e": 679.7292741774528, "grad": 0.15197132255525803}}
+== memcheck: nr_nlc_vxc on benzene (core guess)
+========= ERROR SUMMARY: 0 errors;
+== unit tests
+dft/tests/test_numint.py: 24 passed, 27 warnings in 4.94s
+dft/tests/test_rks.py: 17 passed, 1 skipped, 66 warnings in 85.62s (0:01:25)
+dft/tests/test_uks.py: 10 passed, 33 warnings in 56.43s
+grad/tests/test_vv10_grid.py: 20 passed, 504 warnings in 367.95s (0:06:07)
+tdscf/tests/test_tdrks_vv10.py: 6 passed, 36 warnings in 135.69s (0:02:15)
+
+# 4) after part 33: the profile again, the range-separated K as one pass or two, and the NLC grid's cost and effect
+#    (an approximation, measured for information: GPU4PySCF's default NLC grid is level 3, like PySCF's)
+== wB97M-V SCF profile after part 33, caffeine def2-SVP (GPU4PySCF sub-timers on)
+  cycles                                      14
+  SCF wall (s)                            304.06
+  part: first | per cycle    first s  per-cycle s
+  init guess                0.029          0.000
+  hcore+ovlp                0.033          0.000
+  grids                     0.070          0.000
+  XC                        1.254          1.077
+  NLC (VV10)               17.569         17.246
+  J                         0.114          0.276
+  K                         0.678          1.686
+  veff rest                 0.071          0.001
+  Fock+DIIS                 0.000          0.002
+  eig                       0.012          0.012
+  occ+density               0.001          0.001
+  energy                    0.000          0.000
+  gradient                  0.001          0.001
+  untimed                                  0.001
+  gpu XC: density on grid               0.346 s per cycle
+  gpu XC: functional (libxc)            0.010 s per cycle
+  gpu XC: Vxc integration               0.810 s per cycle
+  gpu CuPy memory pool after the run: 0.163 GiB
+== range-separated K: one pass against K(erf) + K(erfc), caffeine def2-SVP, wB97M-V factors, at the B3LYP density
+/home/danny/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf: caffeine def2-svp wb97m_v (omega 0.3, lr 1.0, sr 0.15000000000000002), nao 246, best of 3:
+  one pass lr*K(erf) + sr*K(erfc)    1.713 s
+  K(erf)                             0.997 s
+  K(erfc)                            1.726 s
+  the two passes                     2.723 s (0.63x the one pass)
+  full-range K (for scale)           0.998 s
+  max |K(one pass) - (lr K(erf) + sr K(erfc))| 2.16e-13 (max |K| 2.04e+00)
+== NLC grid levels, caffeine def2-SVP wB97M-V (SCF and gradient)
+caffeine def2-svp wb97m_v: the NLC grid against the default (level 3)
+  NLC grid    3:  294912 points, SCF 14 cycles   297.6 s, E -679.5842696754 (+0.00e+00 Eh), gradient  25.5 s, max |dg| 0.00e+00
+  NLC grid    2:  209920 points, SCF 14 cycles   172.4 s, E -679.5842694354 (+2.40e-07 Eh), gradient  17.1 s, max |dg| 1.32e-06
+  NLC grid    1:   97024 points, SCF 14 cycles    71.4 s, E -679.5842724989 (-2.82e-06 Eh), gradient  10.3 s, max |dg| 1.22e-05
+  NLC grid    0:   21504 points, SCF 14 cycles    42.7 s, E -679.5844999086 (-2.30e-04 Eh), gradient   8.4 s, max |dg| 4.14e-05
+  NLC grid  sg1:  102400 points, SCF 14 cycles    76.0 s, E -679.5842680507 (+1.62e-06 Eh), gradient  10.6 s, max |dg| 5.26e-06

@@ -5555,6 +5555,86 @@ The user asked whether symmetry-broken singlets had been validated. They had not
   - The rest is not pinned down; it is about 3e−5 relative, or ~0.05 cm⁻¹ in a frequency.
 - **The DF UKS Hessian of the 28-atom dimer runs out of the 4 GB card in both trees.**
 
+## GPU4PySCF investigation, part 33: the ωB97M-V SCF, and VV10's Fock kernel with a lean inner loop (node1), 2026-11-02
+Asked for by the user ("a deep dive into the SCF procedure of wB97M-V … specifically for the GPU variant").
+- **Commit:** gpu4pyscf `exp/prim-screen` 29bfd96 (`gdft/vv10.cu`, from `exp_prim_screen.py --vv10-fock lean`).
+- **Tools:**
+  - `scf_parts.py` now times VV10 (`nr_nlc_vxc`) as its own part;
+  - `vv10_fock2_check.cu`: part 26's kernel against the lean variants, and the library version between markers;
+  - `rcp_newton_check.cu`, `rsh_k_split.py`, `nlc_grid_levels.py`.
+- **Data:** `p33_vv10_lean.txt`.
+
+### Where the ωB97M-V SCF goes (caffeine def2-SVP, part 30)
+- **360 s for 14 cycles, about 25.7 s per cycle:**
+  - VV10 20.98 s (87%);
+  - the range-separated K 1.68 s (7%);
+  - the meta-GGA XC 1.07 s (4%: density 0.34, integration 0.80);
+  - J 0.28 s (1%).
+- **The NLC grid is the main grid's, level 3** (294,912 points), the same as PySCF's default.
+- **The K is already one pass:** `RYS_build_k` evaluates 0.15/r + 0.85·erf(ωr)/r with two sets of Rys roots per
+  quartet. That is 1.72× a full-range K (1.713 against 0.998 s).
+
+### Change: VV10's Fock kernel
+- **Part 26's rotation kernel ran 78 instructions per pair of grid points, 34 of them FP64.**
+  - The diagonal tile's tests (j ≥ i, j > i) branched on every pair; about 17 instructions went to branch bookkeeping.
+  - The lane-rotation index took a signed `% 32`, about 7 instructions.
+  - g_ij was recomputed in each branch.
+- **The lean version:**
+  - Off-diagonal tiles (all but 1 in ntiles) run a loop with no tests; the diagonal tile keeps them.
+  - The index is `(lane + s) & 31`, and the tile's six values are read as three `double2`.
+  - The reciprocal is `rcp.approx.ftz.f64` and two Newton steps, without the IEEE division's slow-path test. It is
+    bitwise the correctly rounded 1/x on 2²⁸ values each of [1e−300, 1e300], [1e−3, 1e18] and [1e300, 1e307].
+  - The sums are S_E = Σ ρw_j inv and S_U = Σ ρw_j inv² (g_ji g_sum + g_ij g_ji), and S_W likewise with r²; they are
+    scaled by 1.5, 1.5 and −1.5.
+- **The result:** 46.5 instructions per pair, 28 of them FP64.
+  - It is 1.23× faster than part 26 on synthetic data (920 against 1133 ms, 60,000 points), with the same errors
+    against long double.
+  - Packed loads alone change nothing on this FP64-bound card (949 against 948 ms). They reduce the instruction count,
+    which matters where issue rather than FP64 is the limit.
+
+### Exactness
+- **The NLC energy** at a fixed density is identical to 12 digits; the potential agrees to 8.7e−19.
+- **The SCFs** reach the same energies (within 1e−12 Eh) in the same cycles. The gradients agree within 3e−13.
+
+### Timings (GTX 1650 Super, caffeine def2-SVP; part 30, then part 33)
+
+| | part 30 | part 33 |
+|---|---|---|
+| `nr_nlc_vxc` at a fixed density (ωB97M-V) | 21.15 s | 17.27 s (1.22×) |
+| ωB97M-V SCF (14 cycles) | 358.3 s | 299.9 s (1.19×) |
+| ωB97M-V gradient | 29.6 s | 25.7 s |
+| B97M-V SCF (15 cycles) | 360.4 s | 298.3 s (1.21×) |
+| B97M-V gradient | 22.8 s | 18.9 s |
+
+- **After this part:** VV10 takes 17.25 of about 21.7 s per cycle (85%); K 1.69 s, XC 1.08 s, J 0.28 s.
+- **Tests:** `test_numint.py` (24), `test_rks.py` (17, 1 skipped), `test_uks.py` (10), `test_vv10_grid.py` (20,
+  368 s against 439 s) and `test_tdrks_vv10.py` (6) pass. memcheck: 0 errors.
+
+### Looked at, not done
+- **K as two passes, K(erf) + K(erfc):**
+  - The erfc pass has its own distance screening, but at caffeine's size it removes little.
+  - K(erf) costs 0.997 s and K(erfc) 1.726 s, so the two together are 0.63× the one pass.
+  - It could pay off only for much larger molecules.
+  - The two passes agree with the one pass to 2.2e−13. So the one pass's screening, with the erf part's Schwarz
+    bounds for an operator that is 15% full-range, costs at most ~2e−13 in K.
+- **The meta-GGA XC (4%):**
+  - τ takes three products per block next to the GGA-like one, and the AOs are evaluated twice per cycle (density,
+    then integration).
+  - Merging the products, or keeping the AOs (2.3 GB for caffeine), would gain at most ~1% here.
+- **VV10's pair arithmetic is near its floor:** 28 FP64 per pair. r² from precomputed |r|² would save 2 more but
+  loses precision for close pairs.
+
+### The NLC grid (an approximation; for information)
+ωB97M-V on caffeine/def2-SVP with a coarser NLC grid:
+
+| NLC grid | points | SCF | ΔE | max Δgradient |
+|---|---|---|---|---|
+| level 3 (default) | 294,912 | 297.6 s | – | – |
+| level 2 | 209,920 | 172.4 s | +2.4e−7 Eh | 1.3e−6 |
+| SG-1, (50, 194) (Q-Chem's default for VV10) | 102,400 | 76.0 s | +1.6e−6 Eh | 5.3e−6 |
+| level 1 | 97,024 | 71.4 s | −2.8e−6 Eh | 1.2e−5 |
+| level 0 | 21,504 | 42.7 s | −2.3e−4 Eh | 4.1e−5 |
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
