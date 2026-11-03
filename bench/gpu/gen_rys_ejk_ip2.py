@@ -20,8 +20,10 @@ task in dd_pool; threads 0-2 run the TRR and HRR of one direction each (gen_rys_
 l one higher, type3 i and k, as the generic kernels); the outputs of a pass, ordered by tuple, cut into runs of about
 equal cost, one per thread; where a warp holds k > 1 gout_ids, its lanes run one instruction stream with per-lane
 addresses (h = gout_id % k). The bra pair's sums (type12: ij, ii, jj) are added once per bra pair, the others per task.
+--drop-l uses translational invariance: at a fixed root the first-derivative factors of a tuple sum to zero,
+fi + fj + fk + fl = 0, so T3 = -(T0 + T1 + T2), formed at the end of each tuple's run instead of with an FMA per output.
 --files N writes the kernels into N translation units, balanced by size.
-Usage: gen_rys_ejk_ip2.py OUT.cu [--files N] KIND:CLASS[:NSQxGS] ...   e.g. gen_rys_ejk_ip2.py out.cu 12:2110:16x16 3:2110"""
+Usage: gen_rys_ejk_ip2.py OUT.cu [--files N] [--drop-l] KIND:CLASS[:NSQxGS] ...   e.g. gen_rys_ejk_ip2.py out.cu 12:2110:16x16 3:2110"""
 import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -30,6 +32,7 @@ from gen_rys_ejk import sel, DD_CACHE_MAX, PRIM_LOOPS  # noqa: E402
 
 XYZ = 'xyz'
 COST_OUT, COST_TUPLE = 8, 60   # rough FP64 operations per output and per tuple end, for cutting the runs
+DROP_L = False   # --drop-l
 GROUPS = {12: (('ij', 'bra', 9), ('ii', 'bra', 6), ('jj', 'bra', 6), ('kl', 'task', 9), ('kk', 'task', 6),
                ('ll', 'task', 6)),
           3: (('ik', 'task', 9), ('jk', 'task', 9), ('il', 'task', 9), ('jl', 'task', 9))}
@@ -85,7 +88,7 @@ def passes(li, lj, lk, ll, gs, k):
         seq = [(t, n) for t in sorted(groups) for n in groups[t]]
         cum, acc = [], 0
         for p, (t, n) in enumerate(seq):
-            acc += COST_OUT + (COST_TUPLE if p + 1 == len(seq) or seq[p + 1][0] != t else 0)
+            acc += COST_OUT - DROP_L + (COST_TUPLE if p + 1 == len(seq) or seq[p + 1][0] != t else 0)
             cum.append(acc)
         bounds = [0]
         for m in range(1, W):
@@ -217,6 +220,8 @@ def tuple_end(code, d, ts, I):
     e = (d + 1) % 3
     out = [f'{I}Ai = {code.tab(d, ts, 0)};', f'{I}Aj = {code.tab(d, ts, 1)};',
            f'{I}Ak = {code.tab(d, ts, 2)};', f'{I}Al = {code.tab(d, ts, 3)};']
+    if DROP_L:
+        out += [f'{I}T3 = -(T0 + T1 + T2);']
     for grp, expr in code.second_factors(d, ts).items():
         out += [f'{I}{var(grp, d, d)} += ({expr}) * S;']
     # T0..T3: the sums of fi, fj, fk, fl of direction e
@@ -254,7 +259,7 @@ def pass_code(code, d, lanes, comps, k, I):
         out += [f'{I}w = dd_cache[{sel([n * nsq for n in ns])}] * {code.g(f, [code.addr(tuple(x[f] for x in c)) for c in cs])};',
                 f'{I}S {op} w * {code.g(e, [code.addr(tuple(x[e] for x in c)) for c in cs])};']
         te = [tuple(x[e] for x in c) for c in cs]
-        for b in range(4):
+        for b in range(3 if DROP_L else 4):
             out += [f'{I}T{b} {op} {code.tab(e, te, b)} * w;']
         ends = p + 1 == P or any(lane[p + 1][0] is not None and lane[p + 1][0] != last[h]
                                  for h, lane in enumerate(lanes))
@@ -536,7 +541,11 @@ CALL = 'envs, jk, bounds, q_cond_ij, q_cond_kl, dm_penalty, s_cond_ij, s_cond_kl
 
 
 def main():
+    global DROP_L
     args = sys.argv[1:]
+    if '--drop-l' in args:
+        args.remove('--drop-l')
+        DROP_L = True
     n_files = 1
     if args[1] == '--files':
         n_files = int(args[2])

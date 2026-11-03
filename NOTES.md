@@ -5705,6 +5705,101 @@ share kept in registers instead of one FP64 atomic per element. Nothing in GPU4P
 - **Where it should pay more:** on cards with fast FP64 (A100, H100) the FP64 floor drops about 16× against memory, so
   most classes would sit where the s-function model gains 3×. `dlane_check.cu` runs in seconds there.
 
+## GPU4PySCF investigation, part 35: translational invariance in the derivative kernels (node1), 2026-11-03
+Asked for by the user (option 1 of the symmetries question; "Yes" to measuring it first): a shell quartet's
+derivatives with respect to its four centers sum to zero, so one of them follows from the other three.
+- **Tools:**
+  - `gen_rys_ejk.py --drop-j`, as `exp_prim_screen.py --ejk-drop j` (now the default);
+  - `gen_rys_ejk_ip2.py --drop-l`, as `exp_prim_screen.py --ip2-drop l` (off);
+  - the A/B is `scratch/p35_ab.sh` (`deriv_at_dm.py`, `overview.py`, unit tests); the profiles use `ncu_parts.py`.
+- **Data:** `p35_translational.txt`.
+
+### Why it is exact per root and per tuple
+- At a fixed Rys root, the 2D integral I_x(t) of a tuple t = (ix, jx, kx, lx) depends on the centers' relative
+  positions only. The root itself depends on ρ|P−Q|², which a common shift leaves unchanged.
+- Its derivatives with respect to the four centers' x coordinates are the factors the kernels already form,
+  f_i(t) = 2a_i I_x(ix+1) − ix I_x(ix−1), and so on. So f_i + f_j + f_k + f_l = 0 for every tuple and root.
+- The same holds for each thread's sums per quartet, since each is Σ_t f_c(t) S(t) over that thread's tuples.
+- A derivative formed as minus the other three carries their rounding. It is not an approximation.
+
+### Where the gradient's time goes (ncu, the build before this part)
+- **caffeine def2-TZVP, B3LYP's J + 0.2 K:** 27.9 s of GPU time under ncu.
+  - 99.3% is in the generated kernels, with the FP64 pipe 80–91% busy in the large classes.
+  - The generic kernel, for (ff|ff) only, takes 0.7%. No upstream unrolled kernel runs.
+- **def2-SVP:** 2.6 s, all of it in generated kernels.
+- **What this means for the idea:** part 8's kernels already sum per tuple. Upstream's kernels add 12 derivative
+  terms per output, where dropping a center would cut a quarter of that work; those kernels no longer run.
+  - What is left to drop is center j's factor and FMA per tuple and direction: 3–4 of the ~14 FP64 operations.
+  - The per-output work (2 FP64 per output and direction) stays.
+
+### The gradient kernels (`--drop-j`)
+- **The change:**
+  - j's factor and FMA are left out of every tuple.
+  - v_j now accumulates the sum over tasks of v_k + v_l, and j's atom gets −(v_i + v_j). This needs no extra
+    registers, and j's atomics stay once per bra pair.
+  - The run model's cost per tuple drops from 14 to 10 FP64, so the runs are cut at slightly different places.
+- **Model:** the output phase's FP64 per thread (the largest thread of a quartet) drops 10–31% by class.
+- **Registers:** 255 or below, as before; 28 of the 63 kernels changed.
+  - The stack (spills) shrank in 21, e.g. (fp|ff) 888 → 656 bytes and (fd|ff) 2576 → 2248.
+  - It grew in 5, e.g. (ff|dd) 904 → 1072 and (ff|fd) 2784 → 2856.
+  - (ps|ss) and (ds|ss) need fewer registers (174 → 168 and 230 → 168).
+- **The stage at fixed densities** (caffeine, B3LYP density, `deriv_at_dm.py`; median of 3, two interleaved
+  rounds, 1530 MHz):
+
+  | build | before | after | max \|Δ\| (values up to) |
+  |---|---|---|---|
+  | def2-SVP, J + K | 2.596 s | 2.317 s (−10.7%) | 2.1e−12 (30) |
+  | def2-SVP, B3LYP's J + 0.2 K | 2.595 s | 2.317 s (−10.7%) | 4.0e−12 (31) |
+  | def2-SVP, short-range K (ω = −0.3) | 4.680 s | 4.157 s (−11.2%) | 3.1e−14 (0.35) |
+  | def2-TZVP, J + K | 27.755 s | 25.081 s (−9.6%) | 8.6e−12 (27) |
+  | def2-TZVP, B3LYP's J + 0.2 K | 27.760 s | 25.086 s (−9.6%) | 7.0e−12 (28) |
+  | def2-TZVP, short-range K | 50.17 s | 45.09 s (−10.1%) | 1.9e−13 (0.30) |
+  | J alone (the J engine, unchanged) | 0.560 / 4.861 s | 0.561 / 4.864 s | 4e−14 |
+
+  - The differences are part 8's rounding level: the generated kernels differ from v1.9.0 by 2–8e−12.
+  - The two-electron gradient summed over the atoms, zero in exact arithmetic, is 3.1e−12 with this change
+    (9.4e−12 before) for B3LYP's factors on def2-SVP.
+- **End to end** (B3LYP caffeine def2-SVP, `overview.py`):
+  - the gradient takes 3.19 → 2.89 s (−9.4%), within 3.0e−12 Eh/bohr;
+  - the SCF is unchanged (24.45 → 24.48 s, 15 cycles both, ΔE 4.5e−13 Eh);
+  - so is the Hessian (146.05 → 145.94 s, within 1.1e−11), which does not use these kernels.
+- **Per class under ncu** (def2-TZVP; section 5 of the data):
+  - 27.92 → 25.24 s of GPU time, and FP64 work 2063 → 1804 GFLOP (−12.5%).
+  - Every generated class is faster, by 2.5–14%, most by 7–13%.
+  - The smallest gains are in three of the classes that spill most, (ff|fd) 2.5%, (fd|ff) 3.8% and (ff|fp) 4.4%,
+    and in (ss|ss), 3.5%, whose time is mostly roots and primitive loops.
+- **Unit tests:** test_rhf_grad, test_rks_grad, test_uhf_grad, test_uks_grad, test_tdrks_grad, test_rks_hessian and
+  test_uks_hessian pass.
+- **Commit:** gpu4pyscf `exp/prim-screen` e5e3551 (`generated_ejk_ip1*.cu`, from `exp_prim_screen.py --ejk-drop j`,
+  now the default). node1's tree is that build; `scratch/tree_p35` keeps a copy.
+
+### The Hessian kernels (`--drop-l`): neutral, so off
+- **The change:**
+  - Per output and pass the kernels form w = dd · I_f, S += w · I_e and four sums T_b += B_b(t_e) · w, one per
+    first-derivative factor: 6 FP64 and 7 loads.
+  - With T3 = −(T0 + T1 + T2) at each tuple end, that is 5 FP64 and 6 loads per output, and 2 adds per tuple end.
+- **Measured** (def2-SVP, two interleaved rounds):
+  - B3LYP's factors 22.95 → 22.98 s;
+  - short-range K 31.79 → 31.81 s;
+  - long-range K 22.44 → 22.48 s;
+  - values within 1.0e−11.
+- **Why nothing:** the tuple ends dominate.
+  - Each costs about 50 FP64: six second-derivative factors and eight mixed-term FMAs.
+  - A lane's run averages about 6 outputs per tuple end. In warps with 2 or 4 lanes, every lane also applies its
+    sums wherever another lane's tuple changes.
+  - So the dropped FMA was about 7% of a pass, and the two adds per tuple end took most of that back.
+
+### What is left from this symmetry
+- **Fusing type12 and type3.** Both kernels form the same S and T0–T3 per output; only their tuple-end factors
+  differ (type12: ii, jj, ij, kk, ll, kl; type3: ik, jk, il, jl).
+  - One kernel would do the per-output passes once instead of twice.
+  - Translational invariance would cut its ten second-derivative blocks to six: ii, ik, il, kk, kl, ll, with
+    ij = −(ii + ik + il), kj = −(ki + kk + kl), lj = −(li + lk + ll), and jj = −(ji + jk + jl).
+  - The cost: type12's g layout (all four centers one higher), and about 63 sums per thread against 42 and 36 now,
+    so more spills.
+  - The stage is about 23 s of the 146 s B3LYP Hessian, so even 1.7× on it would save about 8 s (5%).
+- **The generic (ff|ff) gradient kernel** is 0.7% of the def2-TZVP gradient: not worth it.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

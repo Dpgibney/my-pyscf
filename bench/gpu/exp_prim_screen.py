@@ -27,10 +27,14 @@ pairs' derivative Hermite densities against those potentials) for the J engine's
 --gen-j-ip1 the gradient's own kernels for those classes (generated_md_j_ip1.cu), which MD_build_j_ip1 tries first.
 --gen-ip2 writes generated_ejk_ip2.cu (gen_rys_ejk_ip2.py): the Hessian's second-derivative kernels with sums per
 Cartesian tuple, tried by RYS_per_atom_jk_ip2_type12 and _type3 before their unrolled and generic kernels.
+--ejk-drop j (the default) has the generated gradient kernels take j's derivative from translational invariance,
+d_j = -(d_i + d_k + d_l) per quartet (part 35); --ip2-drop l does the same for the Hessian kernels' sums T3, which
+measured neutral, so it is off.
 Usage: exp_prim_screen.py TREE [--base perf] [--barrier keep|remove] [--ket none|zero|cutoff]
                                [--bra none|zero|cutoff] [--multi on|off] [--launch 128x4|off|NSQxBLOCKS|env]
                                [--generic on|off] [--gen-k CLASS:NSQxGS,...|off] [--gen-first]
                                [--gen-ip2 KIND:CLASS:NSQxGS,...|off] [--gen-ip2-files N] [--gen-ip2-env]
+                               [--ejk-drop j|off] [--ip2-drop l|off]
                                [--j-tiles auto|off] [--j-blocks-per-sm 64] [--gen-j 'LIJ,LKL[:TILEY] ...'|off]
                                [--j-grad on|off] [--gen-j-ip1 'LIJ,LKL ...'|off]"""
 import argparse
@@ -67,6 +71,9 @@ GEN_EJK = ('0000:128x1,1000:128x1,1010:128x1,1011:128x1,1100:128x1,1110:128x1,20
 ap.add_argument('--gen-ejk', default=GEN_EJK,
                 help='comma-separated CLASS:NSQxGS specs of generated gradient kernels (gen_rys_ejk.py; NSQx1 is one '
                      'thread per quartet), or off')
+ap.add_argument('--ejk-drop', default='j', choices=['j', 'off'],
+                help="generated gradient kernels: j's derivative from translational invariance, as minus the sum of "
+                     "the other centers' (gen_rys_ejk.py --drop-j; part 35)")
 ap.add_argument('--gen-ejk-files', type=int, default=4,
                 help='translation units for the generated gradient kernels, so that the library compiles in parallel')
 # The generated second-derivative kernels of part 16 (gen_rys_ejk_ip2.py), KIND:CLASS:NSQxGS with KIND 12 or 3: every
@@ -82,6 +89,9 @@ GEN_IP2 = ('12:2110:16x16,12:2111:8x32,3:2110:32x8,3:2111:16x16,12:2011:16x16,12
 ap.add_argument('--gen-ip2', default=GEN_IP2,
                 help='comma-separated KIND:CLASS:NSQxGS specs of generated Hessian second-derivative kernels '
                      '(gen_rys_ejk_ip2.py; KIND 12 or 3), or off')
+ap.add_argument('--ip2-drop', default='off', choices=['l', 'off'],
+                help="generated second-derivative kernels: the sum of l's first-derivative factors from translational "
+                     "invariance, as minus those of the other centers (gen_rys_ejk_ip2.py --drop-l; neutral in part 35)")
 ap.add_argument('--gen-ip2-files', type=int, default=4,
                 help='translation units for the generated second-derivative kernels')
 ap.add_argument('--gen-ip2-env', action='store_true',
@@ -484,7 +494,8 @@ if args.gen_ejk != 'off':
         if os.path.exists(stale):
             os.remove(stale)
     subprocess.run([sys.executable, os.path.join(here, 'gen_rys_ejk.py'), f'{args.tree}/{D}/generated_ejk_ip1.cu',
-                    '--files', str(args.gen_ejk_files)] + args.gen_ejk.split(','), check=True)
+                    '--files', str(args.gen_ejk_files)] + ['--drop-j'] * (args.ejk_drop == 'j')
+                   + args.gen_ejk.split(','), check=True)
     p = f'{args.tree}/{D}/rys_contract_jk_ip1.cu'
     s = open(p).read()
     decl = 'extern int rys_ejk_ip1_unrolled(RysIntEnvVars *envs, JKEnergy *jk, BoundsInfo *bounds,\n'
@@ -522,7 +533,8 @@ if args.gen_ip2 != 'off':
         if os.path.exists(stale):
             os.remove(stale)
     subprocess.run([sys.executable, os.path.join(here, 'gen_rys_ejk_ip2.py'), f'{args.tree}/{D}/generated_ejk_ip2.cu',
-                    '--files', str(args.gen_ip2_files)] + args.gen_ip2.split(','), check=True)
+                    '--files', str(args.gen_ip2_files)] + ['--drop-l'] * (args.ip2_drop == 'l')
+                   + args.gen_ip2.split(','), check=True)
     p = f'{args.tree}/{D}/rys_contract_jk_ip2.cu'
     s = open(p).read()
     for kind in ('type12', 'type3'):

@@ -20,9 +20,13 @@ Everything else follows the unrolled multi-thread kernels:
   - threads 0-2 run the TRR and HRR of one direction each (gen_rys_k.recursions for (li+1, lj, lk+1, ll): the gradient
     needs i+1 and k+1); the j and l derivatives come from i+1 and k+1 by the HRR, as in the unrolled kernels;
   - each thread adds its sums with atomicAdd: per task to the atoms of k and l, per bra pair to those of i and j.
+--drop-j uses translational invariance: at a fixed root the 1D integrals depend on the centers' relative positions only,
+so for every tuple the four derivative factors sum to zero, f_i + f_j + f_k + f_l = 0, and so do each thread's sums
+per quartet. The kernels then skip j's factor and FMA, keep the sum over tasks of v_k + v_l in v_j, and add
+-(v_i + v_j) to j's atom.
 --files N writes the kernels into N translation units (OUT.cu with the dispatcher, OUT_1.cu, ...), balanced by size,
 so that the library compiles in parallel.
-Usage: gen_rys_ejk.py OUT.cu [--files N] CLASS[:NSQxGS] ...   e.g. gen_rys_ejk.py generated_ejk_ip1.cu 2111:32x8"""
+Usage: gen_rys_ejk.py OUT.cu [--files N] [--drop-j] CLASS[:NSQxGS] ...   e.g. gen_rys_ejk.py generated_ejk_ip1.cu 2111:32x8"""
 import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -30,6 +34,17 @@ from gen_rys_k import cart, recursions  # noqa: E402
 
 DD_CACHE_MAX = 101250
 XYZ = 'xyz'
+DROP_J = False   # --drop-j
+
+
+def centers():
+    '''The centers whose derivative factors the kernels compute'''
+    return 'ikl' if DROP_J else 'ijkl'
+
+
+def chunk_cost():
+    '''FP64 operations per tuple chunk: about 2.5 per derivative factor and its FMA'''
+    return 10 if DROP_J else 14
 
 
 def passes(li, lj, lk, ll, gs, k=1):
@@ -45,10 +60,11 @@ def passes(li, lj, lk, ll, gs, k=1):
         for n, c in enumerate(comps):
             groups.setdefault(tuple(x[d] for x in c), []).append(n)
         seq = [(t, n) for t in sorted(groups) for n in groups[t]]
-        # cost: 2 FP64 per output, about 14 per chunk (4 derivative factors, 4 FMAs); cut at equal shares
+        # cost: 2 FP64 per output, about 14 per chunk (4 derivative factors, 4 FMAs; 10 with --drop-j); cut at
+        # equal shares
         cum, acc = [], 0
         for p, (t, n) in enumerate(seq):
-            acc += 2 + (14 if p + 1 == len(seq) or seq[p + 1][0] != t else 0)
+            acc += 2 + (chunk_cost() if p + 1 == len(seq) or seq[p + 1][0] != t else 0)
             cum.append(acc)
         W = gs // k
         bounds = [0]
@@ -179,16 +195,17 @@ def kernel(li, lj, lk, ll, nsq, gs):
                 fk = f'ak2 * {g(d, a + sk)}' + (f' - {kx} * {g(d, a - sk)}' if kx else '')
                 fl = f'al2 * ({g(d, a + sk)} - {rl[d]} * {g(d, a)})' + (f' - {lx} * {g(d, a - sl)}' if lx else '')
                 for v, f in (('i', fi), ('j', fj), ('k', fk), ('l', fl)):
-                    body += [f'{I5}v_{v}{XYZ[d]} += ({f}) * s;']
+                    if v in centers():
+                        body += [f'{I5}v_{v}{XYZ[d]} += ({f}) * s;']
         body += [f'{I5}break;']
     body += [f'{I4}    }}', f'{I4}}}']
     L += body + [f'{I3}}}', '        }']
-    L += EPILOGUE.splitlines()
+    L += epilogue().splitlines()
     smem_max = nsq * (6 + 3 * G + 2 * nroots_sr)
     if k > 1:
         ops = [sum(2 * len(lanes[0]) for d in range(3) for lanes in [runs[d][w]]) for w in range(gs // k)]
     else:
-        ops = [sum(2 * len(ns) + 14 for d in range(3) for t, ns in runs[d][m]) for m in range(gs)]
+        ops = [sum(2 * len(ns) + chunk_cost() for d in range(3) for t, ns in runs[d][m]) for m in range(gs)]
     return name, G, nf, '\n'.join(L), smem_max, ops
 
 
@@ -297,10 +314,11 @@ def kernel_one_thread(li, lj, lk, ll, nsq):
             fk = f'ak2 * {g(d, a + sk)}' + (f' - {kx} * {g(d, a - sk)}' if kx else '')
             fl = f'al2 * ({g(d, a + sk)} - {rl[d]} * {g(d, a)})' + (f' - {lx} * {g(d, a - sl)}' if lx else '')
             for v, f in (('i', fi), ('j', fj), ('k', fk), ('l', fl)):
-                body += [f'{I4}    v_{v}{XYZ[d]} += ({f}) * s;']
+                if v in centers():
+                    body += [f'{I4}    v_{v}{XYZ[d]} += ({f}) * s;']
     body += [f'{I4}}}']
     L += body + [f'{I3}}}', '        }']
-    L += EPILOGUE.splitlines()
+    L += epilogue().splitlines()
     return name, G, nf, '\n'.join(L), nsq * 2 * 2 * ((li + lj + lk + ll + 1) // 2 + 1), [0]
 
 
@@ -361,7 +379,8 @@ def merged(runs, comps, k, nsq, G, sj, sk, sl, addr, I4, I5):
                 fk = f'ak2 * {g(d, [x + sk for x in a])}' + minus(2, sk)
                 fl = f'al2 * ({g(d, [x + sk for x in a])} - {rl[d]} * {g(d, a)})' + minus(3, sl)
                 for v, f in (('i', fi), ('j', fj), ('k', fk), ('l', fl)):
-                    out += [f'{I5}v_{v}{XYZ[d]} += ({f}) * s;']
+                    if v in centers():
+                        out += [f'{I5}v_{v}{XYZ[d]} += ({f}) * s;']
         out += [f'{I5}break;']
     return out
 
@@ -547,6 +566,23 @@ EPILOGUE = '''        if (task_id >= ntasks) {
 }
 '''
 
+
+def epilogue():
+    if not DROP_J:
+        return EPILOGUE
+    e = EPILOGUE.replace('''        atomicAdd(ejk+la*3+2, v_lz);
+    }''', '''        atomicAdd(ejk+la*3+2, v_lz);
+        // translational invariance: j's derivative is minus the sum of the other three centers'
+        v_jx += v_kx + v_lx;
+        v_jy += v_ky + v_ly;
+        v_jz += v_kz + v_lz;
+    }''')
+    for x in 'xyz':
+        e = e.replace(f'v_j{x});', f'-(v_i{x} + v_j{x}));')
+    assert e.count('-(v_i') == 3 and e.count('v_jz += ') == 1
+    return e
+
+
 HEADER = '''// Generated by bench/gpu/gen_rys_ejk.py of the my-pyscf workspace: multi-thread Rys gradient kernels
 // (RYS_per_atom_jk_ip1) that sum the outputs per Cartesian tuple before applying the derivative factors.
 // Do not edit by hand.
@@ -589,7 +625,11 @@ CALL = 'envs, jk, bounds, q_cond_ij, q_cond_kl, dm_penalty, s_cond_ij, s_cond_kl
 
 
 def main():
+    global DROP_J
     args = sys.argv[1:]
+    if '--drop-j' in args:
+        args.remove('--drop-j')
+        DROP_J = True
     n_files = 1
     if args[1] == '--files':
         n_files = int(args[2])

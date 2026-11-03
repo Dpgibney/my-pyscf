@@ -1,0 +1,338 @@
+# GPU4PySCF investigation part 35 (NOTES.md): translational invariance in the derivative kernels. GTX 1650 Super at
+# 1530 MHz; caffeine with its converged B3LYP densities (scratch/dm_caf_b3lyp.npy, dm_caf_tzvp_b3lyp.npy).
+# Adopted: exp_prim_screen.py --ejk-drop j (gen_rys_ejk.py --drop-j), gpu4pyscf exp/prim-screen e5e3551.
+# Measured neutral and left off: --ip2-drop l (gen_rys_ejk_ip2.py --drop-l).
+
+== 1. Where the gradient's two-electron time goes before this part (ncu_parts.py --part grad, B3LYP's J + 0.2 K)
+--- caffeine def2-TZVP (ncu_summary.py, the build before this part)
+total: 758 launches, 27.923 s GPU, 2062.7 GFLOP FP64 (73.9 GFLOP/s), 127.19 G warp instructions, 0.00 M atomic instructions, 0.00 GB DRAM
+  generated (rys_ejk_ip1_gen_*)                27.735 s (summed over the CSV rows)
+  generic (rys_ejk_ip1_kernel)       1 kernels    0.188 s
+  other kernels                      7 kernels    0.000 s
+class/kernel                                n  time s    %t  GFLOP64   %fl fp64 %inst fp64 util  simt   occ regs  M atom  MB dram
+rys_ejk_ip1_gen_2110                       16   1.535   5.5   125.37   6.1       42.8      88.4  0.97   0.0  255    0.00      0.0
+rys_ejk_ip1_gen_3121                        4   1.370   4.9   106.82   5.2       22.2      84.0  0.99   0.0  255    0.00      0.0
+rys_ejk_ip1_gen_2111                        6   1.281   4.6   108.46   5.3       42.2      88.6  0.98   0.0  255    0.00      0.0
+rys_ejk_ip1_gen_3110                       16   1.244   4.5   101.09   4.9       43.6      89.0  0.98   0.0  255    0.00      0.0
+rys_ejk_ip1_gen_3111                        6   0.844   3.0    71.44   3.5       41.9      89.1  0.99   0.0  255    0.00      0.0
+rys_ejk_ip1_gen_2010                       32   0.821   2.9    58.23   2.8       70.9      91.0  0.80   0.0  254    0.00      0.0
+rys_ejk_ip1_gen_1000                       80   0.817   2.9    44.21   2.1       50.3      83.9  0.67   0.0  174    0.00      0.0
+rys_ejk_ip1_gen_2011                       12   0.792   2.8    65.33   3.2       43.4      88.8  0.97   0.0  255    0.00      0.0
+rys_ejk_ip1_gen_1110                       20   0.746   2.7    52.51   2.5       76.2      91.0  0.79   0.0  255    0.00      0.0
+rys_ejk_ip1_gen_1010                       48   0.746   2.7    45.56   2.2       60.1      88.8  0.72   0.0  255    0.00      0.0
+--- caffeine def2-SVP (ncu_summary.py, the build before this part)
+total: 274 launches, 2.616 s GPU, 180.2 GFLOP FP64 (68.9 GFLOP/s), 8.41 G warp instructions, 0.00 M atomic instructions, 0.00 GB DRAM
+  generated (rys_ejk_ip1_gen_*)                 2.616 s (summed over the CSV rows)
+  other kernels                      7 kernels    0.000 s
+class/kernel                                n  time s    %t  GFLOP64   %fl fp64 %inst fp64 util  simt   occ regs  M atom  MB dram
+rys_ejk_ip1_gen_2110                       12   0.296  11.3    23.44  13.0       43.1      88.3  0.97   0.0  255    0.00      0.0
+rys_ejk_ip1_gen_2111                        6   0.241   9.2    19.61  10.9       42.1      88.6  0.98   0.0  255    0.00      0.0
+rys_ejk_ip1_gen_1000                       36   0.240   9.2    12.74   7.1       51.4      84.0  0.67   0.0  174    0.00      0.0
+rys_ejk_ip1_gen_1010                       27   0.214   8.2    12.72   7.1       61.1      89.0  0.71   0.0  255    0.00      0.0
+rys_ejk_ip1_gen_1110                       15   0.213   8.1    14.71   8.2       76.5      91.1  0.78   0.0  255    0.00      0.0
+rys_ejk_ip1_gen_1111                        7   0.161   6.1    12.91   7.2       40.8      87.4  0.97   0.0  255    0.00      0.0
+rys_ejk_ip1_gen_2011                        9   0.158   6.0    12.54   7.0       43.5      88.5  0.97   0.0  255    0.00      0.0
+rys_ejk_ip1_gen_2010                       18   0.158   6.0    10.65   5.9       71.5      90.8  0.78   0.0  254    0.00      0.0
+rys_ejk_ip1_gen_1011                       12   0.130   5.0     7.73   4.3       75.8      89.7  0.68   0.0  255    0.00      0.0
+rys_ejk_ip1_gen_1100                       18   0.115   4.4     6.97   3.9       62.3      87.4  0.71   0.0  255    0.00      0.0
+
+== 2. The run model of the generated gradient kernels: output-phase FP64 per root, before and with --drop-j
+# output-phase FP64 per root and quartet (model): all threads, and the largest thread
+class  shape   all old  all new    cut   max old max new    cut
+0000   128x1        42       32  25.0%        42      32  25.0%
+1000   128x1        90       69  23.3%        90      69  23.3%
+1010   128x1       198      156  21.2%       198     156  21.2%
+1011   128x1       450      366  18.7%       450     366  18.7%
+1100   128x1       198      156  21.2%       198     156  21.2%
+1110   128x1       450      366  18.7%       450     366  18.7%
+2000   128x1       144      112  21.9%       144     112  21.9%
+2010   128x1       324      261  19.4%       324     261  19.4%
+2020   128x1       540      446  17.5%       540     446  17.5%
+2100   128x1       324      261  19.4%       324     261  19.4%
+2200   128x1       540      446  17.5%       540     446  17.5%
+3000   128x1       204      162  20.6%       204     162  20.6%
+3010   128x1       468      384  17.9%       468     384  17.9%
+3100   128x1       468      384  17.9%       468     384  17.9%
+2011   64x4        828      681  17.8%       234     190  18.6%
+2021   64x4       1368     1107  19.1%       360     310  13.7%
+2110   64x4        828      681  17.8%       234     190  18.6%
+3011   64x4       1152      999  13.3%       306     268  12.3%
+3020   64x4        828      666  19.6%       240     190  20.6%
+3110   64x4       1152      999  13.3%       306     268  12.3%
+1111   32x8       1098      996   9.3%       180     141  21.7%
+2111   32x8       2016     1660  17.6%       282     237  16.0%
+2120   32x8       1476     1158  21.5%       210     171  18.6%
+2210   32x8       1440     1132  21.4%       210     171  18.6%
+2022   32x8       2448     2061  15.8%       336     285  15.2%
+2121   32x8       3312     2913  12.0%       456     381  16.4%
+2211   32x8       3348     2913  13.0%       456     382  16.1%
+2220   32x8       2448     2061  15.8%       336     285  15.2%
+3021   32x8       2016     1794  11.0%       288     249  13.5%
+3022   32x8       3636     3129  13.9%       486     414  14.8%
+3030   32x8       1320     1136  14.0%       192     159  17.2%
+3031   32x8       3096     2718  12.2%       420     358  14.6%
+3111   32x8       2952     2512  14.9%       390     339  13.1%
+3120   32x8       2088     1768  15.3%       294     249  15.3%
+3130   32x8       3060     2718  11.2%       414     369  10.9%
+3200   32x8        828      717  13.4%       138     111  19.6%
+3210   32x8       2016     1794  11.0%       288     249  13.5%
+3220   32x8       3636     3129  13.9%       486     414  14.8%
+3300   32x8       1320     1136  14.0%       192     159  17.2%
+3310   32x8       3096     2718  12.2%       420     358  14.6%
+2122   16x16      3996     3416  14.5%       564     482  14.6%
+2221   16x16      4008     3314  17.3%       534     444  16.9%
+2222   16x16      6990     6016  13.9%       966     820  15.1%
+3032   16x16      3504     3118  11.0%       510     416  18.5%
+3033   16x16      5346     4746  11.2%       738     666   9.8%
+3121   16x16      3462     2932  15.3%       474     392  17.4%
+3122   16x16      5916     5068  14.3%       810     705  13.0%
+3131   16x16      5082     4312  15.1%       702     579  17.5%
+3132   16x16      8976     8000  10.9%      1200    1084   9.6%
+3211   16x16      3246     2932   9.7%       474     392  17.4%
+3221   16x16      5844     5056  13.5%       780     670  14.0%
+3230   16x16      3618     3144  13.1%       510     416  18.5%
+3231   16x16      9090     7982  12.2%      1236    1084  12.3%
+3311   16x16      5052     4420  12.5%       702     579  17.5%
+3320   16x16      3504     3118  11.0%       510     416  18.5%
+3330   16x16      5346     4746  11.2%       738     666   9.8%
+3133   8x32       8754     7476  14.6%      1410    1136  19.5%
+3222   8x32       7074     5534  21.8%      1104     765  30.7%
+3232   8x32      10308     8804  14.6%      1470    1212  17.6%
+3233   8x32      15534    13557  12.7%      2460    2014  18.1%
+3321   8x32       5958     4974  16.5%       870     711  18.3%
+3322   8x32      10278     8625  16.1%      1458    1196  18.0%
+3331   8x32       8910     7552  15.2%      1374    1158  15.7%
+3332   8x32      15684    13500  13.9%      2388    2014  15.6%
+
+== 3. The A/B (scratch/p35_ab.sh): old = part 33's tree (scratch/tree_p33), new = --ejk-drop j and --ip2-drop l
+== install the drop-j gradient and drop-l Hessian kernels, build (old and live libraries before:)
+7a8fcb121a1c8b4d2bf6dd3f04add150  gpu4pyscf/gpu4pyscf/lib/libgvhf_rys.so
+62e3959b3a4bb6f8517918a42913669e  scratch/tree_p33/gpu4pyscf/lib/libgvhf_rys.so
+build ok
+build 163.72 s
+== registers and spills of the generated derivative kernels (old -> new)
+102 old, 102 new generated derivative kernels (REG STACK LOCAL)
+  rys_ejk_ip1_gen_100013: (174, 0, 0) -> (168, 0, 0)
+  rys_ejk_ip1_gen_200013: (230, 0, 0) -> (168, 0, 0)
+  rys_ejk_ip1_gen_202113: (255, 8, 0) -> (255, 0, 0)
+  rys_ejk_ip1_gen_210013: (255, 32, 0) -> (254, 8, 0)
+  rys_ejk_ip1_gen_303213: (255, 128, 0) -> (255, 72, 0)
+  rys_ejk_ip1_gen_303313: (255, 184, 0) -> (255, 176, 0)
+  rys_ejk_ip1_gen_310013: (255, 40, 0) -> (255, 32, 0)
+  rys_ejk_ip1_gen_312113: (255, 72, 0) -> (255, 80, 0)
+  rys_ejk_ip1_gen_312213: (255, 288, 0) -> (255, 264, 0)
+  rys_ejk_ip1_gen_313113: (255, 240, 0) -> (255, 264, 0)
+  rys_ejk_ip1_gen_313313: (255, 888, 0) -> (255, 656, 0)
+  rys_ejk_ip1_gen_320013: (255, 8, 0) -> (255, 0, 0)
+  rys_ejk_ip1_gen_321113: (255, 96, 0) -> (255, 72, 0)
+  rys_ejk_ip1_gen_322013: (255, 16, 0) -> (255, 0, 0)
+  rys_ejk_ip1_gen_322113: (255, 296, 0) -> (255, 272, 0)
+  rys_ejk_ip1_gen_322213: (255, 392, 0) -> (255, 312, 0)
+  rys_ejk_ip1_gen_323013: (255, 96, 0) -> (255, 56, 0)
+  rys_ejk_ip1_gen_323113: (255, 424, 0) -> (255, 344, 0)
+  rys_ejk_ip1_gen_323213: (255, 904, 0) -> (255, 744, 0)
+  rys_ejk_ip1_gen_323313: (255, 2576, 0) -> (255, 2248, 0)
+  rys_ejk_ip1_gen_331013: (255, 8, 0) -> (255, 0, 0)
+  rys_ejk_ip1_gen_331113: (255, 152, 0) -> (255, 136, 0)
+  rys_ejk_ip1_gen_332013: (255, 112, 0) -> (255, 64, 0)
+  rys_ejk_ip1_gen_332113: (255, 192, 0) -> (255, 176, 0)
+  rys_ejk_ip1_gen_332213: (255, 904, 0) -> (255, 1072, 0)
+  rys_ejk_ip1_gen_333013: (255, 168, 0) -> (255, 152, 0)
+  rys_ejk_ip1_gen_333113: (255, 464, 0) -> (255, 496, 0)
+  rys_ejk_ip1_gen_333213: (255, 2784, 0) -> (255, 2856, 0)
+  rys_ejk_ip2_type12_gen_202113: (255, 88, 0) -> (255, 96, 0)
+  rys_ejk_ip2_type12_gen_202213: (255, 160, 0) -> (255, 144, 0)
+  rys_ejk_ip2_type12_gen_211113: (255, 112, 0) -> (255, 104, 0)
+  rys_ejk_ip2_type12_gen_212013: (255, 80, 0) -> (255, 72, 0)
+  rys_ejk_ip2_type12_gen_212113: (255, 160, 0) -> (255, 152, 0)
+  rys_ejk_ip2_type12_gen_222013: (255, 136, 0) -> (255, 128, 0)
+  rys_ejk_ip2_type3_gen_111113: (255, 0, 0) -> (255, 8, 0)
+  rys_ejk_ip2_type3_gen_202213: (255, 112, 0) -> (255, 104, 0)
+  rys_ejk_ip2_type3_gen_211013: (254, 0, 0) -> (255, 0, 0)
+  rys_ejk_ip2_type3_gen_211113: (255, 56, 0) -> (255, 48, 0)
+  rys_ejk_ip2_type3_gen_212013: (255, 32, 0) -> (255, 8, 0)
+  rys_ejk_ip2_type3_gen_212213: (255, 176, 0) -> (255, 184, 0)
+  rys_ejk_ip2_type3_gen_221013: (255, 16, 0) -> (255, 8, 0)
+  rys_ejk_ip2_type3_gen_222013: (255, 112, 0) -> (255, 72, 0)
+changed: 42; with stack: old 68, new 65
+== gradient two-electron energy derivatives at fixed densities (caffeine, B3LYP density): old, new, old, new
+old svp: scratch/tree_p33/gpu4pyscf: ejk1_jk     median   2.596 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old svp: scratch/tree_p33/gpu4pyscf: ejk1_b3lyp  median   2.595 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old svp: scratch/tree_p33/gpu4pyscf: ejk1_j      median   0.560 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old svp: scratch/tree_p33/gpu4pyscf: ejk1_srk    median   4.679 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp: gpu4pyscf/gpu4pyscf: ejk1_jk     median   2.316 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp: gpu4pyscf/gpu4pyscf: ejk1_b3lyp  median   2.318 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp: gpu4pyscf/gpu4pyscf: ejk1_j      median   0.561 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp: gpu4pyscf/gpu4pyscf: ejk1_srk    median   4.157 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp:   ejk1_jk     max |d - ref| = 2.14e-12 (max |ref| 3.01e+01)
+new svp:   ejk1_b3lyp  max |d - ref| = 4.03e-12 (max |ref| 3.08e+01)
+new svp:   ejk1_j      max |d - ref| = 1.78e-14 (max |ref| 3.10e+01)
+new svp:   ejk1_srk    max |d - ref| = 3.11e-14 (max |ref| 3.46e-01)
+old svp: scratch/tree_p33/gpu4pyscf: ejk1_jk     median   2.595 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old svp: scratch/tree_p33/gpu4pyscf: ejk1_b3lyp  median   2.595 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old svp: scratch/tree_p33/gpu4pyscf: ejk1_j      median   0.560 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old svp: scratch/tree_p33/gpu4pyscf: ejk1_srk    median   4.681 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp: gpu4pyscf/gpu4pyscf: ejk1_jk     median   2.318 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp: gpu4pyscf/gpu4pyscf: ejk1_b3lyp  median   2.315 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp: gpu4pyscf/gpu4pyscf: ejk1_j      median   0.560 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp: gpu4pyscf/gpu4pyscf: ejk1_srk    median   4.156 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp:   ejk1_jk     max |d - ref| = 2.15e-12 (max |ref| 3.01e+01)
+new svp:   ejk1_b3lyp  max |d - ref| = 4.04e-12 (max |ref| 3.08e+01)
+new svp:   ejk1_j      max |d - ref| = 3.91e-14 (max |ref| 3.10e+01)
+new svp:   ejk1_srk    max |d - ref| = 3.10e-14 (max |ref| 3.46e-01)
+old tzvp: scratch/tree_p33/gpu4pyscf: ejk1_jk     median  27.751 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old tzvp: scratch/tree_p33/gpu4pyscf: ejk1_b3lyp  median  27.755 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old tzvp: scratch/tree_p33/gpu4pyscf: ejk1_j      median   4.860 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old tzvp: scratch/tree_p33/gpu4pyscf: ejk1_srk    median  50.169 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new tzvp: gpu4pyscf/gpu4pyscf: ejk1_jk     median  25.080 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new tzvp: gpu4pyscf/gpu4pyscf: ejk1_b3lyp  median  25.085 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new tzvp: gpu4pyscf/gpu4pyscf: ejk1_j      median   4.862 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new tzvp: gpu4pyscf/gpu4pyscf: ejk1_srk    median  45.094 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new tzvp:   ejk1_jk     max |d - ref| = 8.56e-12 (max |ref| 2.71e+01)
+new tzvp:   ejk1_b3lyp  max |d - ref| = 6.96e-12 (max |ref| 2.77e+01)
+new tzvp:   ejk1_j      max |d - ref| = 3.91e-14 (max |ref| 2.78e+01)
+new tzvp:   ejk1_srk    max |d - ref| = 1.85e-13 (max |ref| 2.96e-01)
+old tzvp: scratch/tree_p33/gpu4pyscf: ejk1_jk     median  27.759 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old tzvp: scratch/tree_p33/gpu4pyscf: ejk1_b3lyp  median  27.765 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old tzvp: scratch/tree_p33/gpu4pyscf: ejk1_j      median   4.862 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old tzvp: scratch/tree_p33/gpu4pyscf: ejk1_srk    median  50.170 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new tzvp: gpu4pyscf/gpu4pyscf: ejk1_jk     median  25.082 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new tzvp: gpu4pyscf/gpu4pyscf: ejk1_b3lyp  median  25.086 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new tzvp: gpu4pyscf/gpu4pyscf: ejk1_j      median   4.865 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new tzvp: gpu4pyscf/gpu4pyscf: ejk1_srk    median  45.088 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new tzvp:   ejk1_jk     max |d - ref| = 8.54e-12 (max |ref| 2.71e+01)
+new tzvp:   ejk1_b3lyp  max |d - ref| = 6.97e-12 (max |ref| 2.77e+01)
+new tzvp:   ejk1_j      max |d - ref| = 2.13e-14 (max |ref| 2.78e+01)
+new tzvp:   ejk1_srk    max |d - ref| = 1.83e-13 (max |ref| 2.96e-01)
+== Hessian two-electron second derivatives at the fixed density (caffeine def2-SVP): old, new, old, new
+old svp: scratch/tree_p33/gpu4pyscf: ejk2        median  22.950 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old svp: scratch/tree_p33/gpu4pyscf: ejk2_srk    median  31.785 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old svp: scratch/tree_p33/gpu4pyscf: ejk2_lrk    median  22.445 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp: gpu4pyscf/gpu4pyscf: ejk2        median  22.980 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp: gpu4pyscf/gpu4pyscf: ejk2_srk    median  31.806 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp: gpu4pyscf/gpu4pyscf: ejk2_lrk    median  22.474 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp:   ejk2        max |d - ref| = 1.01e-11 (max |ref| 5.30e+01)
+new svp:   ejk2_srk    max |d - ref| = 1.45e-13 (max |ref| 7.10e-01)
+new svp:   ejk2_lrk    max |d - ref| = 3.81e-14 (max |ref| 2.72e-01)
+old svp: scratch/tree_p33/gpu4pyscf: ejk2        median  22.942 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old svp: scratch/tree_p33/gpu4pyscf: ejk2_srk    median  31.783 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+old svp: scratch/tree_p33/gpu4pyscf: ejk2_lrk    median  22.434 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp: gpu4pyscf/gpu4pyscf: ejk2        median  22.982 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp: gpu4pyscf/gpu4pyscf: ejk2_srk    median  31.817 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp: gpu4pyscf/gpu4pyscf: ejk2_lrk    median  22.479 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+new svp:   ejk2        max |d - ref| = 1.01e-11 (max |ref| 5.30e+01)
+new svp:   ejk2_srk    max |d - ref| = 1.53e-13 (max |ref| 7.10e-01)
+new svp:   ejk2_lrk    max |d - ref| = 3.78e-14 (max |ref| 2.72e-01)
+== B3LYP caffeine def2-SVP SCF + gradient + Hessian (overview.py): old, then new
+{"label": "part33", "tree": "scratch/tree_p33/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b3lyp", "df": false, "one_pass": false, "nao": 246, "E": -679.8127486398283, "cycles": 15, "times": {"scf": 24.45, "grad": 3.19, "hess": 146.05}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0], "hess": [1530.0, 1530.0, 1530.0]}}
+{"label": "part35", "tree": "gpu4pyscf/gpu4pyscf", "mol": "caffeine", "basis": "def2-svp", "xc": "b3lyp", "df": false, "one_pass": false, "nao": 246, "E": -679.8127486398279, "cycles": 15, "times": {"scf": 24.48, "grad": 2.89, "hess": 145.94}, "sm_mhz": {"scf": [1530.0, 1530.0, 1530.0], "grad": [1530.0, 1530.0, 1530.0], "hess": [1530.0, 1530.0, 1530.0]}, "max_diff": {"e": 4.547473508864641e-13, "grad": 3.0375701953744283e-12, "hess": 1.1262102361797588e-11}, "max_ref": {"e": 679.8127486398283, "grad": 0.15532726331427094, "hess": 0.9954898445499678}}
+== unit tests
+grad/tests/test_rhf_grad.py: 7 passed in 21.26s
+grad/tests/test_rks_grad.py: 15 passed, 138 warnings in 97.23s (0:01:37)
+grad/tests/test_uhf_grad.py: 6 passed in 30.80s
+grad/tests/test_uks_grad.py: 12 passed, 48 warnings in 100.15s (0:01:40)
+grad/tests/test_tdrks_grad.py: 7 passed, 33 warnings in 132.71s (0:02:12)
+hessian/tests/test_rks_hessian.py: 12 passed, 51 warnings in 37.22s
+hessian/tests/test_uks_hessian.py: 12 passed, 51 warnings in 29.59s
+P35AB DONE
+
+== 4. The final state (scratch/p35_final.sh): the Hessian kernels back to part 33's, rebuilt, saved as scratch/tree_p35
+== the Hessian kernels back to part 33's, build
+build ok
+== sources against part 33 (only the four generated gradient files should differ)
+Files gpu4pyscf/gpu4pyscf/lib/gvhf-rys/generated_ejk_ip1_1.cu and scratch/tree_p33/gpu4pyscf/lib/gvhf-rys/generated_ejk_ip1_1.cu differ
+Files gpu4pyscf/gpu4pyscf/lib/gvhf-rys/generated_ejk_ip1_2.cu and scratch/tree_p33/gpu4pyscf/lib/gvhf-rys/generated_ejk_ip1_2.cu differ
+Files gpu4pyscf/gpu4pyscf/lib/gvhf-rys/generated_ejk_ip1_3.cu and scratch/tree_p33/gpu4pyscf/lib/gvhf-rys/generated_ejk_ip1_3.cu differ
+Files gpu4pyscf/gpu4pyscf/lib/gvhf-rys/generated_ejk_ip1.cu and scratch/tree_p33/gpu4pyscf/lib/gvhf-rys/generated_ejk_ip1.cu differ
+207972cca876b3c1f9d81c0eb29f50da  gpu4pyscf/gpu4pyscf/lib/gvhf-rys/generated_ejk_ip1.cu
+207972cca876b3c1f9d81c0eb29f50da  scratch/p35_stage/generated_ejk_ip1.cu
+650c74b056376b27abf2b16f4d84c653  gpu4pyscf/gpu4pyscf/lib/gvhf-rys/generated_ejk_ip1_1.cu
+650c74b056376b27abf2b16f4d84c653  scratch/p35_stage/generated_ejk_ip1_1.cu
+7e607cf15e3237ce492bf61f73426684  gpu4pyscf/gpu4pyscf/lib/gvhf-rys/generated_ejk_ip1_2.cu
+7e607cf15e3237ce492bf61f73426684  scratch/p35_stage/generated_ejk_ip1_2.cu
+b2c7ee6ae2621309ec9008c1e457640c  gpu4pyscf/gpu4pyscf/lib/gvhf-rys/generated_ejk_ip1_3.cu
+b2c7ee6ae2621309ec9008c1e457640c  scratch/p35_stage/generated_ejk_ip1_3.cu
+== save the package as scratch/tree_p35
+340M	scratch/tree_p35
+== check: the gradient stage against the A/B's new build, the Hessian stage against part 33 (def2-SVP)
+gpu4pyscf/gpu4pyscf: ejk1_b3lyp  median   2.321 s of 3, SM [1530.0, 1530.0, 1530.0] MHz
+  ejk1_b3lyp  max |d - ref| = 4.97e-14 (max |ref| 3.08e+01)
+gpu4pyscf/gpu4pyscf: ejk2        median  22.873 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk2_srk    median  31.774 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+gpu4pyscf/gpu4pyscf: ejk2_lrk    median  22.428 s of 1, SM [1530.0, 1530.0, 1530.0] MHz
+  ejk2        max |d - ref| = 1.35e-13 (max |ref| 5.30e+01)
+  ejk2_srk    max |d - ref| = 3.22e-14 (max |ref| 7.10e-01)
+  ejk2_lrk    max |d - ref| = 1.43e-15 (max |ref| 2.72e-01)
+== the per-class profile
+ncu new tzvp grad: caffeine def2-tzvp b3lyp part grad: nao 494, 750 launcher calls
+P35NCUB DONE
+P35FINAL DONE
+
+== 5. Per class, caffeine def2-TZVP gradient stage under ncu: part 33 against the final build (raw CSV rows)
+all: time 27.922 -> 25.240 s (-9.6%), FP64 2062.7 -> 1804.4 GFLOP (-12.5%)
+class    launches  time old  time new  change  GFLOP old GFLOP new  change
+2110           16     1.535     1.385   -9.8%     125.37    108.98  -13.1%
+3121            4     1.370     1.219  -11.0%     106.82     91.02  -14.8%
+2111            6     1.281     1.139  -11.1%     108.46     93.71  -13.6%
+3110           16     1.244     1.148   -7.7%     101.09     90.20  -10.8%
+3111            6     0.844     0.763   -9.6%      71.44     62.76  -12.2%
+2010           32     0.821     0.725  -11.7%      58.23     50.58  -13.1%
+1000           80     0.817     0.731  -10.5%      44.21     39.69  -10.2%
+2011           12     0.792     0.715   -9.7%      65.33     57.66  -11.7%
+1110           20     0.746     0.650  -12.9%      52.51     44.75  -14.8%
+1010           48     0.746     0.658  -11.8%      45.56     39.89  -12.4%
+3211            3     0.705     0.651   -7.7%      55.06     48.89  -11.2%
+3221            2     0.682     0.618   -9.4%      51.95     44.93  -13.5%
+3011           12     0.621     0.571   -8.0%      50.01     45.37   -9.3%
+1111            7     0.589     0.558   -5.3%      48.34     44.74   -7.5%
+3210            8     0.578     0.538   -6.9%      47.37     42.76   -9.7%
+2121            4     0.567     0.524   -7.6%      47.48     42.83   -9.8%
+3120            8     0.550     0.500   -9.2%      44.29     38.99  -12.0%
+3021            8     0.529     0.496   -6.3%      41.85     38.53   -7.9%
+3010           32     0.529     0.466  -11.9%      35.71     31.12  -12.8%
+3131            4     0.505     0.453  -10.3%      37.92     32.38  -14.6%
+2210            8     0.500     0.434  -13.3%      40.87     34.24  -16.2%
+3321            2     0.494     0.442  -10.5%      32.88     27.15  -17.4%
+2120            8     0.484     0.424  -12.4%      39.19     32.96  -15.9%
+2100           20     0.468     0.412  -11.9%      30.92     26.48  -14.3%
+1011           16     0.453     0.393  -13.2%      28.66     24.73  -13.7%
+2021            8     0.425     0.376  -11.5%      34.98     30.19  -13.7%
+3020           16     0.403     0.358  -11.2%      31.23     27.18  -13.0%
+1100           30     0.398     0.356  -10.6%      24.54     21.21  -13.6%
+3122            2     0.374     0.335  -10.3%      28.12     24.32  -13.5%
+2221            2     0.361     0.310  -14.0%      28.20     23.40  -17.0%
+3222            1     0.354     0.311  -12.2%      23.55     18.38  -21.9%
+3231            2     0.347     0.322   -7.4%      24.56     21.44  -12.7%
+3220            4     0.329     0.297   -9.6%      27.08     23.79  -12.2%
+2000           40     0.325     0.286  -11.8%      18.32     16.28  -11.1%
+2211            3     0.324     0.294   -9.2%      27.47     24.38  -11.3%
+3100           20     0.307     0.269  -12.6%      19.48     16.72  -14.1%
+3132            2     0.300     0.277   -7.7%      20.85     18.60  -10.8%
+3310            8     0.292     0.266   -8.9%      22.31     19.77  -11.4%
+3311            3     0.289     0.262   -9.4%      21.61     18.74  -13.3%
+3232            1     0.288     0.269   -6.6%      14.89     12.67  -14.9%
+3130            8     0.282     0.263   -6.8%      22.43     20.29   -9.6%
+3000           40     0.268     0.238  -11.0%      14.68     12.85  -12.5%
+3331            2     0.263     0.251   -4.4%      14.93     12.48  -16.4%
+3200           10     0.260     0.241   -7.3%      19.99     17.96  -10.1%
+3031            8     0.244     0.225   -7.7%      18.55     16.83   -9.3%
+0000           65     0.241     0.232   -3.5%       9.57      9.16   -4.3%
+3332            1     0.225     0.220   -2.5%       8.79      7.51  -14.6%
+2020           16     0.197     0.174  -11.7%      13.58     11.89  -12.5%
+2122            2     0.189     0.172   -9.1%      14.70     12.80  -12.9%
+generic         1     0.188     0.189   +0.9%       9.41      9.41   +0.0%
+3320            4     0.177     0.159  -10.0%      12.79     11.23  -12.2%
+3022            4     0.175     0.159   -8.8%      14.00     12.53  -10.5%
+3230            4     0.173     0.156   -9.6%      13.11     11.35  -13.4%
+3030           16     0.171     0.158   -7.8%      12.72     11.51   -9.5%
+3322            1     0.170     0.157   -7.5%       8.75      7.30  -16.6%
+3133            2     0.153     0.143   -6.6%       8.51      7.24  -15.0%
+3032            4     0.152     0.142   -6.7%      10.73      9.84   -8.2%
+2220            4     0.151     0.136   -9.9%      12.19     10.63  -12.8%
+3233            1     0.123     0.118   -3.8%       5.00      4.33  -13.3%
+2200           10     0.116     0.103  -11.3%       7.72      6.63  -14.2%
+3300           10     0.103     0.093   -9.0%       7.46      6.57  -12.0%
+3330            4     0.100     0.091   -8.7%       6.96      6.11  -12.1%
+2022            4     0.086     0.078   -9.2%       6.76      6.02  -11.0%
+2222            1     0.079     0.072   -8.4%       5.92      5.14  -13.2%
+3033            4     0.068     0.065   -4.1%       4.74      4.33   -8.6%
