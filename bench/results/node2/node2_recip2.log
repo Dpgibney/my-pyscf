@@ -1,0 +1,21 @@
+== keep the FMA build as pyscf-fma, build the shared-division version (21:57)
+  build ok
+== the kernels on fixed inputs (vv10_check.py, level-1 caffeine grid, 6 threads, best of 3)
+pyscf-fma: 97000 points, same_grid 1.123 s, two_grids 2.031 s, grad 0.424 s; E_nlc 0.378874207820 / 0.378874207820
+pyscf: 97000 points, same_grid 1.308 s, two_grids 1.900 s, grad 0.399 s; E_nlc 0.378874207820 / 0.378874207820
+pyscf-fma: 97000 points, same_grid 1.125 s, two_grids 1.949 s, grad 0.409 s; E_nlc 0.378874207820 / 0.378874207820
+pyscf: 97000 points, same_grid 1.313 s, two_grids 1.902 s, grad 0.405 s; E_nlc 0.378874207820 / 0.378874207820
+  same_exc  max |diff| 1.75e-16, relative to max |value| 3.61e-14
+  same_vxc  max |diff| 3.09e-11, relative to max |value| 2.30e-14
+  two_exc   max |diff| 1.72e-16, relative to max |value| 3.56e-14
+  two_vxc   max |diff| 2.95e-11, relative to max |value| 2.20e-14
+  grad      max |diff| 1.21e-16, relative to max |value| 5.62e-14
+  e_same    max |diff| 7.22e-16, relative to max |value| 1.90e-15
+  e_two     max |diff| 1.33e-15, relative to max |value| 3.52e-15
+== wB97M-V SCF, default NLC grid: the FMA build against shared divisions (ABBA, 2 reps)
+scf_caffeine_svp_wb97mv         fma rep0   189.49s  core=Zen  other=154.60  xc_kernels=13.47  ao_eval=11.86
+scf_caffeine_svp_wb97mv      recip2 rep0   211.77s  core=Zen  other=176.80  xc_kernels=13.46  ao_eval=11.84
+scf_caffeine_svp_wb97mv      recip2 rep1   212.57s  core=Zen  other=177.61  xc_kernels=13.46  ao_eval=11.83
+scf_caffeine_svp_wb97mv         fma rep1   189.06s  core=Zen  other=154.20  xc_kernels=13.40  ao_eval=11.84
+saved /home/danny/Chemistry/my-pyscf/bench/results/20261103-215809_node2-recip2.json
+NODE2 RECIP2 DONE

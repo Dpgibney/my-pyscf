@@ -5959,8 +5959,27 @@ the VV10 kernel improvements to the CPU").
   - I had estimated 1.2–1.4×, but FMA removes ~18% of the loop's FP operations for 2% of time. So operations are
     not what bounds the loop; the likely bound is its one division per pair (`vdivpd` on ymm, slow and only
     partly pipelined on Zen 2).
-  - The next idea is one division per two pairs (Montgomery's trick: 1/(p_a p_b) gives 1/p_a = p_b q and
-    1/p_b = p_a q), not tried yet.
+- **One division per two pairs: tried, slower, reverted** (asked for by the user: "Sure try it"):
+  - Montgomery's trick: q = 1/(p_a p_b) gives 1/p_a = p_b q and 1/p_b = p_a q, for lanes j..j+3 against
+    j+4..j+7.
+  - GCC's auto-vectorizer kept two of the four loops scalar ("complicated access pattern", "not profitable"),
+    so the version tested wrote the loops with explicit 4-wide vectors (`vector_size(32)`). All four then did one
+    `vdivpd` per 8 pairs.
+  - Results moved by 3e−16.
+  - node2 (`node2_recip2.sh`), against the FMA build:
+
+    | test | FMA build | shared division |
+    |---|---|---|
+    | the SCF's (pair-once) call | 1.12 s | 1.31 s, 16% slower |
+    | two-grid call | 1.95–2.03 s | 1.90 s |
+    | gradient kernel | 0.41–0.42 s | 0.40–0.41 s |
+    | wB97M-V SCF, default grid (ABBA, 2 reps) | 189.3 s | 212.2 s, 12% slower |
+
+    The laptop was slightly slower in every call.
+  - So the division was not the bound either; or, if it was, the pair-once tile's register spills cost more than
+    the saved division. That tile spilled to 120 stack accesses: AVX2 has 16 ymm registers for its ~26 live
+    vectors.
+  - The file is back at ecc08b80b. node2's rebuild matches the saved FMA build byte for byte.
 - **Not done:**
   - the Hessian's VV10 kernels;
   - the NLC term's own pass over its grid (AO values, density, potential matrix). At the default level its points
