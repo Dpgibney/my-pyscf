@@ -1,0 +1,73 @@
+<frozen site>:107: RuntimeWarning: Unexpected value in sys.prefix, expected /home/danny/Chemistry/my-pyscf/.venv, got /home/danny/Chemistry/my-pyscf/bench/../.venv
+<frozen site>:107: RuntimeWarning: Unexpected value in sys.exec_prefix, expected /home/danny/Chemistry/my-pyscf/.venv, got /home/danny/Chemistry/my-pyscf/bench/../.venv
+WARNING: machine is not benchmark-ready (see scripts/check_power.sh); timings are recorded but flagged.
+scf_caffeine_svp_pbe           base rep0    26.40s  core=Zen  blas=9.14  ao_eval=7.02  jk=4.67
+scf_caffeine_svp_pbe           perf rep0     8.81s  core=Zen  jk=4.35  xc_kernels=3.41  libxc=0.30
+scf_caffeine_svp_pbe           perf rep1     8.70s  core=Zen  jk=4.34  xc_kernels=3.34  libxc=0.29
+scf_caffeine_svp_pbe           base rep1    26.25s  core=Zen  blas=9.08  ao_eval=7.01  jk=4.66
+scf_caffeine_svp_b3lyp         base rep0    27.56s  core=Zen  blas=8.60  jk=7.10  ao_eval=6.61
+scf_caffeine_svp_b3lyp         perf rep0     8.57s  core=Zen  jk=4.42  xc_kernels=3.20  other=0.24
+scf_caffeine_svp_b3lyp         perf rep1     8.58s  core=Zen  jk=4.41  xc_kernels=3.20  other=0.25
+scf_caffeine_svp_b3lyp         base rep1    27.66s  core=Zen  blas=8.68  jk=7.10  ao_eval=6.66
+scf_caffeine_svp_r2scan        base rep0    37.05s  core=Zen  blas=14.51  xc_kernels=10.20  ao_eval=6.24
+scf_caffeine_svp_r2scan        perf rep0    13.09s  core=Zen  xc_kernels=7.67  jk=4.10  libxc=0.56
+scf_caffeine_svp_r2scan        perf rep1    13.15s  core=Zen  xc_kernels=7.69  jk=4.10  libxc=0.56
+scf_caffeine_svp_r2scan        base rep1    37.01s  core=Zen  blas=14.50  xc_kernels=10.21  ao_eval=6.23
+scf_caffeine+_svp_b3lyp_uks    base rep0    66.45s  core=Zen  blas=25.44  jk=16.09  xc_kernels=11.56
+scf_caffeine+_svp_b3lyp_uks    perf rep0    17.08s  core=Zen  xc_kernels=8.59  jk=5.75  libxc=1.15
+scf_caffeine+_svp_b3lyp_uks    perf rep1    17.02s  core=Zen  xc_kernels=8.51  jk=5.74  libxc=1.16
+scf_caffeine+_svp_b3lyp_uks    base rep1    66.44s  core=Zen  blas=25.43  jk=16.06  xc_kernels=11.55
+scf_caffeine_tzvp_dfpbe        base rep0    57.52s  core=Zen  blas=19.98  jk=14.14  ao_eval=13.67
+scf_caffeine_tzvp_dfpbe        perf rep0    26.25s  core=Zen  xc_kernels=22.30  numpy=1.21  other=0.87
+scf_caffeine_tzvp_dfpbe        perf rep1    26.16s  core=Zen  xc_kernels=22.24  numpy=1.19  other=0.85
+scf_caffeine_tzvp_dfpbe        base rep1    57.72s  core=Zen  blas=20.19  jk=14.15  ao_eval=13.67
+grad_benzene_svp_b3lyp         base rep0     3.98s  core=Zen  jk=2.65  other=0.50  xc_kernels=0.35
+grad_benzene_svp_b3lyp         perf rep0     1.05s  core=Zen  jk=0.55  other=0.32  xc_kernels=0.16
+grad_benzene_svp_b3lyp         perf rep1     0.77s  core=Zen  jk=0.55  xc_kernels=0.16  other=0.04
+grad_benzene_svp_b3lyp         base rep1     3.70s  core=Zen  jk=2.65  xc_kernels=0.35  ao_eval=0.31
+grad_caffeine_svp_b3lyp        base rep0    25.87s  core=Zen  jk=21.22  xc_kernels=1.58  blas=1.23
+grad_caffeine_svp_b3lyp        perf rep0     8.58s  core=Zen  jk=7.36  xc_kernels=1.09  other=0.07
+grad_caffeine_svp_b3lyp        perf rep1     8.58s  core=Zen  jk=7.36  xc_kernels=1.09  other=0.07
+grad_caffeine_svp_b3lyp        base rep1    25.89s  core=Zen  jk=21.25  xc_kernels=1.58  blas=1.23
+tda_benzene_svp_b3lyp          base rep0    21.96s  core=Zen  blas=9.71  xc_kernels=7.55  jk=2.88
+tda_benzene_svp_b3lyp          perf rep0     2.49s  core=Zen  xc_kernels=1.90  jk=0.36  other=0.06
+tda_benzene_svp_b3lyp          perf rep1     2.49s  core=Zen  xc_kernels=1.91  jk=0.36  other=0.06
+tda_benzene_svp_b3lyp          base rep1    21.96s  core=Zen  blas=9.70  xc_kernels=7.57  jk=2.87
+tddft_benzene_svp_b3lyp        base rep0    58.13s  core=Zen  blas=25.69  xc_kernels=20.21  jk=7.76
+tddft_benzene_svp_b3lyp        perf rep0     6.53s  core=Zen  xc_kernels=5.06  jk=0.93  other=0.17
+tddft_benzene_svp_b3lyp        perf rep1     6.55s  core=Zen  xc_kernels=5.07  jk=0.93  other=0.17
+tddft_benzene_svp_b3lyp        base rep1    58.17s  core=Zen  blas=25.70  xc_kernels=20.20  jk=7.79
+tda_caffeine_svp_b3lyp         base rep0   252.97s  core=Zen  jk=107.42  blas=81.34  xc_kernels=56.89
+tda_caffeine_svp_b3lyp         perf rep0    36.18s  core=Zen  xc_kernels=25.44  jk=9.75  other=0.40
+tda_caffeine_svp_b3lyp         perf rep1    35.99s  core=Zen  xc_kernels=25.25  jk=9.73  other=0.40
+tda_caffeine_svp_b3lyp         base rep1   253.49s  core=Zen  jk=107.70  blas=81.33  xc_kernels=57.13
+hess_benzene_svp_b3lyp         base rep0   100.12s  core=Zen  jk=31.94  xc_kernels=30.98  blas=25.46
+hess_benzene_svp_b3lyp         perf rep0    13.97s  core=Zen  xc_kernels=6.39  jk=4.73  numpy=1.08
+hess_benzene_svp_b3lyp         perf rep1    13.98s  core=Zen  xc_kernels=6.40  jk=4.73  numpy=1.08
+hess_benzene_svp_b3lyp         base rep1   100.56s  core=Zen  jk=31.84  xc_kernels=31.09  blas=25.87
+scf_caffeine_tzvp_b3lyp        base rep0   337.51s  core=Zen  jk=299.13  blas=17.59  ao_eval=12.14
+scf_caffeine_tzvp_b3lyp        perf rep0   190.39s  core=Zen  jk=168.69  xc_kernels=19.76  linalg=0.51
+scf_caffeine_tzvp_b3lyp        perf rep1   190.42s  core=Zen  jk=168.69  xc_kernels=19.82  linalg=0.52
+scf_caffeine_tzvp_b3lyp        base rep1   337.56s  core=Zen  jk=299.11  blas=17.71  ao_eval=12.16
+hess_caffeine_svp_b3lyp        base rep0  1254.74s  core=Zen  jk=556.39  blas=312.34  xc_kernels=294.02
+hess_caffeine_svp_b3lyp        perf rep0   189.45s  core=Zen  jk=88.83  xc_kernels=85.16  other=7.78
+hess_caffeine_svp_b3lyp        perf rep1   189.29s  core=Zen  jk=88.83  xc_kernels=85.04  other=7.74
+Traceback (most recent call last):
+  File "/home/danny/Chemistry/my-pyscf/bench/run_bench.py", line 60, in <module>
+    main()
+    ~~~~^^
+  File "/home/danny/Chemistry/my-pyscf/bench/run_bench.py", line 48, in main
+    rec = run_worker(name, cfg, args.threads)
+  File "/home/danny/Chemistry/my-pyscf/bench/common.py", line 73, in run_worker
+    p = run_script('worker.py', [case] + (['--tight'] if tight else []), cfg, threads, timeout)
+  File "/home/danny/Chemistry/my-pyscf/bench/common.py", line 68, in run_script
+    raise RuntimeError(f'{script} {args} [{cfg.label}] failed (rc={p.returncode}):\n{p.stderr[-4000:]}')
+RuntimeError: worker.py ['hess_caffeine_svp_b3lyp'] [base] failed (rc=-15):
+Traceback (most recent call last):
+  File "<string>", line 14, in <module>
+    print(read(range(0, 8)), read(range(8, 20)), flush=True)
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+Exception ignored while flushing sys.stdout:
+BrokenPipeError: [Errno 32] Broken pipe
+

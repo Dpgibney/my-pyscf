@@ -5800,6 +5800,80 @@ derivatives with respect to its four centers sum to zero, so one of them follows
   - The stage is about 23 s of the 146 s B3LYP Hessian, so even 1.7× on it would save about 8 s (5%).
 - **The generic (ff|ff) gradient kernel** is 0.7% of the def2-TZVP gradient: not worth it.
 
+## node2: the original against the modified PySCF on a second desktop, 2026-11-03
+Asked for by the user ("How does the modified PySCF compare to the original version and the new GPU4PySCF?").
+The last like-for-like run of `pyscf-base` against `pyscf` was before It6 (2026-10-27); every later timing compared
+one iteration with the previous one. The laptop was on battery and node1 busy, so the user offered node2.
+- **Machine:** `ssh node1` then `ssh node2` (`danny-node2`, 10.42.0.222 behind node1).
+  - Ryzen 5 4500: Zen 2, 6 cores / 12 threads, AVX2 without AVX-512, up to 3.6 GHz under `schedutil`.
+  - 15 GB RAM; Ubuntu 26.04.1, Python 3.14.4.
+  - Quadro M2000 (compute capability 5.2). GPU4PySCF needs 7.0 or newer, so it cannot run there.
+  - The user installed `build-essential gfortran cmake git python3-venv python3-dev`.
+- **Setup** (`~/Chemistry/my-pyscf` on node2; `scripts/node2_run.sh`, `scripts/node2_tzvp12.sh`):
+  - Sources are `git archive`s of the laptop's commits: `pyscf` perf 802f7e744, `pyscf-base` 44313dfb4, libcint
+    42ec76d, qcint a95651f, libxc f1eb21e8d, OpenBLAS e0166008b. They streamed through node1's SSH in 6 s.
+  - The venv has numpy 2.5.4, scipy 1.18.1, h5py 3.16.0, ninja and pytest; libxc's configure step needs pytest.
+  - The laptop's build scripts then build OpenBLAS (DYNAMIC_ARCH), libcint-stock, libxc-stock, and qcint with PGO
+    trained on node2 (its AVX2 kernels), and the two trees:
+    - `pyscf-base` with libcint-stock;
+    - `pyscf` with qcint-pgo and `NUMINT_X86_64_V3=ON`, as on the laptop.
+  - `bench/kernels.py`: all 72 fixed-input kernel tests pass against `pyscf-base` at rtol 1e−11.
+- **Benchmark:** `run_bench.py`, ABBA, 2 reps, 6 threads, `PYSCF_MAX_MEMORY=9000` in both trees.
+  - With that setting the original also keeps caffeine/def2-SVP's integrals in memory, so the def2-SVP rows
+    compare like with like.
+  - The harness flags the runs as not benchmark-ready (a desktop has no AC or platform-profile entries). The two
+    runs of each case agree within 1%.
+- **Data:** `bench/results/node2/`.
+
+| workload | original | modified | speedup |
+|---|---|---|---|
+| caffeine/SVP PBE SCF (16 cycles) | 26.3 s | 8.76 s | 3.0× |
+| caffeine/SVP B3LYP SCF (15) | 27.6 s | 8.58 s | 3.2× |
+| caffeine/SVP r2SCAN SCF (14) | 37.0 s | 13.1 s | 2.8× |
+| caffeine⁺/SVP UKS B3LYP SCF | 66.4 s | 17.1 s | 3.9× |
+| caffeine/TZVP DF-PBE SCF | 57.6 s | 26.2 s | 2.2× |
+| caffeine/TZVP B3LYP SCF (14) | 337.5 s | 190.4 s | 1.77× |
+| benzene/SVP B3LYP gradient | 3.84 s | 0.91 s | 4.2× |
+| caffeine/SVP B3LYP gradient | 25.9 s | 8.58 s | 3.0× |
+| benzene/SVP B3LYP TDA, 5 states | 22.0 s | 2.49 s | 8.8× |
+| benzene/SVP B3LYP TDDFT, 5 states | 58.2 s | 6.54 s | 8.9× |
+| caffeine/SVP B3LYP TDA, 5 states | 253.2 s | 36.1 s | 7.0× |
+| benzene/SVP B3LYP Hessian | 100.3 s | 14.0 s | 7.2× |
+| caffeine/SVP B3LYP Hessian | 1254.7 s (1 run) | 189.4 s | 6.6× |
+
+- **The same results:** energies within 3.0e−12 Eh, gradients 1.7e−12, excitation energies 5.6e−13 and Hessians
+  1.6e−11, with the same cycle counts.
+- The user stopped the second run of the original's caffeine Hessian; the first one is in the table.
+- **caffeine/TZVP B3LYP and the semi-direct cache (It9):** the 41 GB of Schwarz-significant integrals do not fit,
+  so the modified tree caches what fits and the original computes everything in every cycle.
+
+  | setting | peak RSS | modified SCF | against the original |
+  |---|---|---|---|
+  | 9000 MB | 6.5 GB (the original 1.6 GB) | 190.4 s (J/K 168.7 s) | 1.77× |
+  | 12000 MB | 8.4 GB | 177.9 s (J/K 156.3 s) | 1.90× |
+
+  - The 12000 MB rerun is its own 2 runs. The energy is −680.5697781455 Eh, as on the laptop.
+  - The extra ~2 GB of cache saved 6.5%. The cache keeps the quartets that are dearest to recompute first, so the
+    next gigabytes hold cheaper ones. On the laptop at 20000 MB, 14.7 GB of cache held about 60% of a cycle's
+    integral time.
+- **Against GPU4PySCF** (node1's GTX 1650 Super, part 31 overview and part 35; different machines):
+
+  | workload | original PySCF, node2 | modified PySCF, node2 | GPU4PySCF 1.9.0 | modified GPU4PySCF |
+  |---|---|---|---|---|
+  | caffeine/SVP PBE SCF | 26.3 s | 8.76 s | 25.2 s | 13.2 s |
+  | caffeine/SVP B3LYP SCF | 27.6 s | 8.58 s | 57.9 s | 24.4 s |
+  | caffeine/SVP r2SCAN SCF | 37.0 s | 13.1 s | 37.1 s | 23.6 s |
+  | caffeine/TZVP B3LYP SCF | 337.5 s | 177.9 s (12 GB) | 321.6 s | 185.5 s |
+  | caffeine/SVP B3LYP gradient | 25.9 s | 8.58 s | 7.1 s | 2.89 s |
+  | caffeine/SVP B3LYP Hessian | 1254.7 s | 189.4 s | 304.2 s | 146 s |
+
+  - The GPU SCFs ran to `conv_tol` 1e−10 (PBE 18 and r2SCAN 16 cycles against 16 and 14 here); B3LYP has 15
+    cycles in both.
+  - So the modified CPU tree on a 6-core desktop is 1.5–2.8× faster than the modified GPU4PySCF on the 1650 Super
+    for def2-SVP SCFs. The two are even at def2-TZVP, and the GPU leads for the gradient (3.0×) and the Hessian
+    (1.3×).
+  - The 1650 Super runs FP64 at 1/32 rate; an A100 or H100 would lead every row.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
