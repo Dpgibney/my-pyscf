@@ -1,0 +1,7 @@
+== wB97M-V gradients without the original tree's default grid (20:29); stopped worker 75431
+WARNING: machine is not benchmark-ready (see scripts/check_power.sh); timings are recorded but flagged.
+grad_caffeine_svp_wb97mv       perf rep0    68.01s  core=Zen  other=46.64  jk=14.86  xc_kernels=4.47
+grad_caffeine_svp_wb97mv     base_sg1 rep0    54.78s  core=Zen  jk=41.77  other=5.38  blas=3.01
+grad_caffeine_svp_wb97mv     perf_sg1 rep0    23.80s  core=Zen  jk=14.83  other=4.76  xc_kernels=2.92
+saved /home/danny/Chemistry/my-pyscf/bench/results/20261103-202939_node2-wb97mv-grad.json
+NODE2 WB97MV GRAD DONE

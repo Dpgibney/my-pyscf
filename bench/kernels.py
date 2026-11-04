@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-VERSION = 6  # bump when dump() changes, so that cached reference dumps are regenerated
+VERSION = 7  # bump when dump() changes, so that cached reference dumps are regenerated
 
 
 def dump(path):
@@ -104,6 +104,21 @@ def dump(path):
         out[f'sparse_vxc_rks_mo_{xc}'] = vmat
         out[f'sparse_exc_rks_mo_{xc}'] = np.array([nelec, exc])
         out[f'sparse_grad_vxc_{xc}'] = rks_grad.get_vxc(ni, mol, grids, xc, dm_mo)[1]
+    # VV10 (It24): wB97M-V's NLC term on caffeine with an NLC grid of level 1 (the SCF's call, outer grid =
+    # inner grid), its gradient term, and the gradient with grid response (outer grids that differ from the
+    # inner one, and the VV10 gradient kernel)
+    mol = gto.M(atom=CAFFEINE, basis='def2-svp', verbose=0)
+    nlcgrids = dft.gen_grid.Grids(mol)
+    nlcgrids.level = 1
+    nlcgrids.build()
+    dm = dft.RKS(mol).get_init_guess(key='minao')
+    nelec, exc, vmat = ni.nr_nlc_vxc(mol, nlcgrids, 'wB97M-V', dm)
+    out['nlc_vxc_wB97M-V'] = vmat
+    out['nlc_exc_wB97M-V'] = np.array([nelec, exc])
+    out['nlc_grad_vxc_wB97M-V'] = rks_grad.get_nlc_vxc(ni, mol, nlcgrids, 'wB97M-V', dm)[1]
+    exc, vmat = rks_grad.get_nlc_vxc_full_response(ni, mol, nlcgrids, 'wB97M-V', dm)
+    out['nlc_grad_response_exc_wB97M-V'] = exc
+    out['nlc_grad_response_vxc_wB97M-V'] = vmat
     np.savez(path, **out)
 
 

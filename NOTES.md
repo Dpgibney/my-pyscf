@@ -5874,6 +5874,88 @@ one iteration with the previous one. The laptop was on battery and node1 busy, s
     (1.3×).
   - The 1650 Super runs FP64 at 1/32 rate; an A100 or H100 would lead every row.
 
+## node2: wB97M-V, the reduced VV10 grid, and It24 (the VV10 kernels on the CPU), 2026-11-03
+Asked for by the user: a wB97M-V comparison with the reduced, pruned VV10 grid ("Could you add a wB97M-V
+comparison? and also include a comparison with the reduced grid size and pruning for the VV10 term"). The user then
+noticed I had said neither PySCF tree had VV10 changes ("I believe we worked on it specifically no?"). That was right
+for PySCF: all of the VV10 work (parts 26, 28–30, 33) was in GPU4PySCF, and the swarm review's CPU item ("the VV10
+pair kernel: ≈ −150 to −250 s per caffeine wB97M-V SCF") was never scheduled. The user asked to port it ("yes, port
+the VV10 kernel improvements to the CPU").
+- **Harness:** `bench/cases.py` gains `BENCH_NLC_GRID` (a level, or `sg1` for (50, 194) with SG-1 pruning, Q-Chem's
+  default NLC grid), `nlc_points` in the SCF records of VV10 functionals, and the cases `scf_caffeine_svp_wb97mv`
+  and `grad_caffeine_svp_wb97mv` (in no suite). Scripts: `scripts/node2_wb97mv.sh`, `node2_wb97mv_grad.sh`,
+  `node2_vv10.sh`. Data: `bench/results/node2/`.
+
+### It24: `pyscf` `perf` 8845fbde8, the VV10 kernels
+- **Before:** `VXC_vv10nlc` evaluated every ordered pair (i, j) with three divisions (`VXC_vv10nlc_grad`: four),
+  read the inner points with a stride of 3, and summed each outer point's terms into one variable. GCC does not
+  reorder a floating-point sum, so the loop stayed scalar even with the perf tree's `-march=x86-64-v3` for
+  `nr_numint.c`.
+- **One division per pair:** with D = 1/(g gp gt), T = RpW D, and 1/g + 1/gt = (g + gt) gp D. For the gradient
+  kernel, Q = RpW D² (W0_i gp gt + W0p_j g gt + (W0_i + W0p_j) g gp).
+- **Vector lanes:** the inner points are copied into padded arrays per coordinate. Padding points have RpW = 0,
+  W0 = 0 and K = 1, so they add exact zeros. Each sum runs in 8 partial sums, added in a fixed order. The compiled
+  loops use `vdivpd` on ymm.
+- **Each pair once** (`VXC_vv10nlc_sym`) where the outer grid is the inner one, as in the SCF's `nr_nlc_vxc` and the
+  gradient's `get_nlc_vxc`:
+  - T_ij and T_ji share D;
+  - blocks of 128 points, with the pairs of blocks visited in the rounds of a round-robin tournament (circle
+    method). The threads of a round update disjoint blocks, with a barrier between rounds;
+  - no locks or per-thread arrays, and the results are bitwise the same for 1, 3 and 10 threads.
+  - `numint._vv10nlc` takes this path when `vvrho is rho and vvcoords is coords`.
+- **Exactness:**
+  - Fixed inputs (`bench/diag/vv10_check.py`: caffeine/def2-SVP, minao density, level-1 NLC grid): within 6e−14
+    relative of the previous kernels, NLC energy within 8e−16.
+  - `bench/kernels.py` VERSION 7 adds 5 VV10 entries (NLC energy, potential, gradient term, grid-response energy
+    and potential). All 77 pass against `pyscf-base` at rtol 1e−11 on the laptop and on node2, the new ones within
+    1.7e−15.
+  - PySCF's VV10 unit tests pass: `test_numint` and `test_h2o` VV10/NLC, RKS/UKS finite-difference NLC gradients,
+    the response-function test, `test_tdrks_vv10`, `test_vv10_hessian`.
+  - The Hessian's VV10 kernels (`VXC_vv10nlc_hessian_eval_*`) are unchanged.
+- **Kernel times** (`vv10_check.py`, 97,000 points; laptop 10 threads at the 2 GHz battery cap, node2 6 threads):
+
+  | call | laptop: before → after | node2: before → after |
+  |---|---|---|
+  | outer grid = inner grid (the SCF's) | 2.04 → 0.63 s (3.3×) | 3.70 → 1.14 s (3.2×) |
+  | two grids | 2.03 → 0.95 s (2.1×) | 3.71 → 1.93 s (1.9×) |
+  | gradient kernel (20,000 outer points) | 0.49 → 0.24 s (2.1×) | 0.84 → 0.42 s (2.0×) |
+
+  - On node2 the old loop took about 8.5 cycles per ordered pair. The new pair-once loop takes about 2.6, near the
+    FP-pipe limit of its ~31 operations and one division per unordered pair.
+  - FMA contraction stays off: the whole file is compiled with `-ffp-contract=off`, so that the other kernels stay
+    bitwise equal to the default build.
+
+### wB97M-V caffeine/def2-SVP on node2 (6 threads, 9 GB), against GPU4PySCF on node1
+| run | VV10 grid points | original PySCF | modified, before It24 | modified, It24 | modified GPU4PySCF (part 33) |
+|---|---|---|---|---|---|
+| SCF, default NLC grid (level 3) | 294,800 | 816.7 s | 740.2 s | 192.1 s | 297.6 s |
+| SCF, SG-1 (50, 194), pruned | 102,384 | 146.3 s | 92.7 s | 46.5 s | 76.0 s |
+| gradient, default grid | | (skipped) | 68.0 s | 32.6 s | 25.5 s |
+| gradient, SG-1 | | 54.8 s | 23.8 s | 20.7 s | 10.6 s |
+
+- **Same results:**
+  - all SCFs converge in 13 cycles (GPU4PySCF 14, at `conv_tol` 1e−10);
+  - original and modified agree within 1.1e−12 Eh (gradients 1.6e−12);
+  - It24 against the previous modified build agrees within 3.9e−12 Eh (gradients 6e−13).
+  - A control rerun of the previous build (`pyscf-it23`) at SG-1 matched its earlier run (92.7 s, energy within
+    2.3e−13).
+- **The SG-1 grid:**
+  - +1.62e−6 Eh in every code, CPU and GPU, and the gradient moves by at most 5.3e−6 (largest component 0.167),
+    as on the GPU;
+  - CPU and GPU energies differ by 3e−8 Eh at either grid.
+  - An approximation, so the user's option (part 33), never a default.
+- **Before It24** the default-grid SCF spent about 705–723 s in VV10 in both PySCF trees; It24 takes that to about
+  157 s. Within the modified tree, It24 makes the SCF 3.85× faster at the default grid and 2.0× at SG-1. The
+  gradients gain less, as J/K derivatives are most of them.
+- **Against the 1650 Super:** the modified CPU tree is now faster for the wB97M-V SCF (192 against 298 s;
+  SG-1 46.5 against 76.0 s). The GPU still leads the gradients.
+- **Not done:**
+  - FMA contraction in the VV10 functions alone (pragma or `fma()`), perhaps 1.2–1.4× more;
+  - the Hessian's VV10 kernels;
+  - the NLC term's own pass over its grid (AO values, density, potential matrix). At the default level its points
+    are the main grid's, which `nr_rks` has already evaluated. By difference it is about 1.5 s of each SCF cycle
+    (157 s of "other" against about 10.5 s per kernel call).
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

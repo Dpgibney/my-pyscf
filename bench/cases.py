@@ -51,6 +51,14 @@ def make_ks(mol, xc, tight, density_fit=False, full_jk=False):
         mf.pre_scf_conv_tol = float(os.environ['BENCH_PRE_SCF_TOL'])
     if os.environ.get('BENCH_PRE_SCF_LEVEL'):
         mf.pre_scf_grids_level = int(os.environ['BENCH_PRE_SCF_LEVEL'])
+    # the VV10 (NLC) grid: a grid level, or sg1 for (50, 194) with SG-1 pruning (Q-Chem's default NLC grid)
+    if os.environ.get('BENCH_NLC_GRID'):
+        from pyscf.dft import gen_grid
+        if os.environ['BENCH_NLC_GRID'] == 'sg1':
+            mf.nlcgrids.atom_grid = (50, 194)
+            mf.nlcgrids.prune = gen_grid.sg1_prune
+        else:
+            mf.nlcgrids.level = int(os.environ['BENCH_NLC_GRID'])
     if tight:
         mf.conv_tol = 1e-12 if mol.natm <= LARGE_NATM else 1e-11
         mf.conv_tol_grad = 1e-8
@@ -70,7 +78,10 @@ def scf_case(atom, basis, xc, charge=0, spin=0, density_fit=False, full_jk=False
         def run():
             mf = make_ks(mol, xc, tight, density_fit, full_jk)
             mf.kernel()
-            return {'e_tot': mf.e_tot, 'cycles': mf.cycles, 'converged': bool(mf.converged)}
+            out = {'e_tot': mf.e_tot, 'cycles': mf.cycles, 'converged': bool(mf.converged)}
+            if mf.nlcgrids.weights is not None:  # VV10 functionals: the NLC grid after small-rho pruning
+                out['nlc_points'] = int(mf.nlcgrids.weights.size)
+            return out
         return run
     return setup
 
@@ -293,6 +304,9 @@ case('grad_water_svp_CAM-B3LYP', (HESS,))(grad_case(WATER, 'def2-svp', 'CAM-B3LY
 for _xc in ('PBE', 'B3LYP', 'wB97X'):
     case(f'grad_water+_svp_{_xc}_uks', (HESS,))(grad_case(WATER, 'def2-svp', _xc, charge=1, spin=1))
 case('tda_caffeine_svp_b3lyp', (FULL,))(td_case(CAFFEINE, 'def2-svp', 'B3LYP', 'TDA'))
+# wB97M-V: VV10 on the NLC grid, which BENCH_NLC_GRID sets (node2 comparison against GPU4PySCF's part 33)
+case('scf_caffeine_svp_wb97mv', ())(scf_case(CAFFEINE, 'def2-svp', 'wB97M-V'))
+case('grad_caffeine_svp_wb97mv', ())(grad_case(CAFFEINE, 'def2-svp', 'wB97M-V'))
 case('scf_c20h42_svp_b3lyp', (FULL, SPARSE))(scf_case(C20H42, 'def2-svp', 'B3LYP'))
 case('scf_c20h42_tzvp_pbe', (FULL, SPARSE))(scf_case(C20H42, 'def2-tzvp', 'PBE', full_jk=True))
 case('scf_c20h42_svp_r2scan', (SPARSE,))(scf_case(C20H42, 'def2-svp', 'r2SCAN'))

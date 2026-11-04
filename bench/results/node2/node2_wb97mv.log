@@ -1,0 +1,19 @@
+== wB97M-V, default and SG-1 NLC grids (19:59)
+WARNING: machine is not benchmark-ready (see scripts/check_power.sh); timings are recorded but flagged.
+scf_caffeine_svp_wb97mv        base rep0   816.74s  core=Zen  other=723.36  jk=40.09  blas=21.11
+scf_caffeine_svp_wb97mv        perf rep0   740.24s  core=Zen  other=705.10  xc_kernels=13.50  ao_eval=11.88
+scf_caffeine_svp_wb97mv      base_sg1 rep0   146.25s  core=Zen  other=64.52  jk=40.13  blas=16.28
+scf_caffeine_svp_wb97mv      perf_sg1 rep0    92.75s  core=Zen  other=66.14  xc_kernels=9.36  jk=8.66
+Traceback (most recent call last):
+  File "/home/danny/Chemistry/my-pyscf/bench/run_bench.py", line 60, in <module>
+    main()
+    ~~~~^^
+  File "/home/danny/Chemistry/my-pyscf/bench/run_bench.py", line 48, in main
+    rec = run_worker(name, cfg, args.threads)
+  File "/home/danny/Chemistry/my-pyscf/bench/common.py", line 73, in run_worker
+    p = run_script('worker.py', [case] + (['--tight'] if tight else []), cfg, threads, timeout)
+  File "/home/danny/Chemistry/my-pyscf/bench/common.py", line 68, in run_script
+    raise RuntimeError(f'{script} {args} [{cfg.label}] failed (rc={p.returncode}):\n{p.stderr[-4000:]}')
+RuntimeError: worker.py ['grad_caffeine_svp_wb97mv'] [base] failed (rc=-15):
+
+NODE2 WB97MV DONE
