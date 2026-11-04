@@ -1,0 +1,245 @@
+== start 09:48
+== qcint-sx-tr (09:48)
+  built
+== qcint-sx-opt (09:54)
+  built
+  qcint sources back to perf: 0ec86b07 4d46ea25 555c4013 
+== int1e_grids (gbench) 10:01
+caffeine qcint-sx-tr against qcint-sx-fin: 100.0000% bitwise equal, max |diff| 0.00e+00 (max |value| 7.66e+00), max |diff| / max |value| of its pair 0.00e+00
+caffeine qcint-sx-opt against qcint-sx-fin: 95.2266% bitwise equal, max |diff| 2.78e-16 (max |value| 7.66e+00), max |diff| / max |value| of its pair 1.46e-14
+caffeine qcint-pgo: 2.745e+08     2.324     8.47                1.347      58.0% (per-call cost 4.1% of the time)
+caffeine qcint-sx-fin: 2.745e+08     0.934     3.40                1.440     154.1% (per-call cost 10.1% of the time)
+caffeine qcint-sx-tr: 2.745e+08     0.853     3.11                1.434     168.0% (per-call cost 11.1% of the time)
+caffeine qcint-sx-opt: 2.745e+08     0.812     2.96                1.435     176.7% (per-call cost 7.4% of the time)
+caffeine qcint-pgo: 2.745e+08     2.329     8.48                1.352      58.1% (per-call cost 4.1% of the time)
+caffeine qcint-sx-fin: 2.745e+08     0.927     3.38                1.434     154.7% (per-call cost 10.2% of the time)
+caffeine qcint-sx-tr: 2.745e+08     0.852     3.10                1.434     168.3% (per-call cost 11.1% of the time)
+caffeine qcint-sx-opt: 2.745e+08     0.818     2.98                1.436     175.5% (per-call cost 7.3% of the time)
+caffeine-tz qcint-sx-tr against qcint-sx-fin: 100.0000% bitwise equal, max |diff| 0.00e+00 (max |value| 1.23e+01), max |diff| / max |value| of its pair 0.00e+00
+caffeine-tz qcint-sx-opt against qcint-sx-fin: 97.0729% bitwise equal, max |diff| 4.44e-16 (max |value| 1.23e+01), max |diff| / max |value| of its pair 2.87e-14
+caffeine-tz qcint-pgo: 1.102e+09     6.550     5.94                3.319      50.7% (per-call cost 4.0% of the time)
+caffeine-tz qcint-sx-fin: 1.102e+09     3.273     2.97                3.542     108.2% (per-call cost 8.1% of the time)
+caffeine-tz qcint-sx-tr: 1.102e+09     3.048     2.77                3.539     116.1% (per-call cost 8.7% of the time)
+caffeine-tz qcint-sx-opt: 1.102e+09     2.937     2.66                3.537     120.4% (per-call cost 5.8% of the time)
+caffeine-tz qcint-pgo: 1.102e+09     6.548     5.94                3.315      50.6% (per-call cost 4.1% of the time)
+caffeine-tz qcint-sx-fin: 1.102e+09     3.250     2.95                3.535     108.8% (per-call cost 8.1% of the time)
+caffeine-tz qcint-sx-tr: 1.102e+09     3.051     2.77                3.544     116.1% (per-call cost 8.7% of the time)
+caffeine-tz qcint-sx-opt: 1.102e+09     2.966     2.69                3.541     119.4% (per-call cost 5.7% of the time)
+c20 qcint-sx-tr against qcint-sx-fin: 100.0000% bitwise equal, max |diff| 0.00e+00 (max |value| 5.67e+00), max |diff| / max |value| of its pair 0.00e+00
+c20 qcint-sx-opt against qcint-sx-fin: 91.4443% bitwise equal, max |diff| 1.11e-16 (max |value| 5.67e+00), max |diff| / max |value| of its pair 2.16e-14
+c20 qcint-pgo: 1.082e+09     5.573     5.15                3.158      56.7% (per-call cost 5.9% of the time)
+c20 qcint-sx-fin: 1.082e+09     2.137     1.98                3.375     157.9% (per-call cost 15.0% of the time)
+c20 qcint-sx-tr: 1.082e+09     1.903     1.76                3.375     177.4% (per-call cost 16.9% of the time)
+c20 qcint-sx-opt: 1.082e+09     1.772     1.64                3.375     190.4% (per-call cost 10.7% of the time)
+c20 qcint-pgo: 1.082e+09     5.567     5.15                3.156      56.7% (per-call cost 5.8% of the time)
+c20 qcint-sx-fin: 1.082e+09     2.138     1.98                3.375     157.9% (per-call cost 15.0% of the time)
+c20 qcint-sx-tr: 1.082e+09     1.906     1.76                3.374     177.1% (per-call cost 17.0% of the time)
+c20 qcint-sx-opt: 1.082e+09     1.766     1.63                3.376     191.2% (per-call cost 10.7% of the time)
+== optcheck (qcint-sx-opt) 10:04
+install/qcint-sx-opt/lib/libcint.so.6: optimizer made
+  omega +0.0: 81333504 integrals, 64.9047% bitwise equal, max |diff| 3.96e-16 (max |value| 7.60e+00), 0 calls with different nonzero flags
+  omega -0.3: 81333504 integrals, 100.0000% bitwise equal, max |diff| 0.00e+00 (max |value| 7.26e+00), 0 calls with different nonzero flags
+  omega +0.3: 81333504 integrals, 100.0000% bitwise equal, max |diff| 0.00e+00 (max |value| 3.38e-01), 0 calls with different nonzero flags
+install/qcint-sx-opt/lib/libcint.so.6: optimizer made
+  omega +0.0: 322694400 integrals, 77.8059% bitwise equal, max |diff| 1.97e-15 (max |value| 1.12e+00), 0 calls with different nonzero flags
+  omega -0.3: 322694400 integrals, 100.0000% bitwise equal, max |diff| 0.00e+00 (max |value| 8.00e-01), 0 calls with different nonzero flags
+  omega +0.3: 322694400 integrals, 100.0000% bitwise equal, max |diff| 0.00e+00 (max |value| 3.29e-01), 0 calls with different nonzero flags
+== pyscf-sgx26 (pyscf-sgx with the AO values kept) on qcint-sx-opt 10:04
+  OK: all PySCF libs in pyscf-sgx26 resolve cint/xc/BLAS from deps (cint=qcint-sx-opt xc=libxc-stock blas=openblas )
+  OK: all PySCF libs in pyscf-sgxprof26 resolve cint/xc/BLAS from deps (cint=qcint-sx-opt xc=libxc-stock blas=openblas )
+caffeine def2-svp b3lyp pjs: nao 246, nbas 114, SGX grid 70928, 6 threads; SCF 33.5 s, 15 cycles, E -679.8129624756
+== first K build (sets up the screening data): 1.386 s
+   k_part (C driver)               1.220 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.091 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.061 s  (1 calls)
+   get_g_threshold                 0.011 s  (1 calls)
+   rest (Python)                   0.004 s
+   C driver: 1 calls, wall 1.219 s, thread-seconds 7.185 (98% of 6 threads x wall)
+      grid screening                0.024 thread-s    0.3%
+      shell-pair screening          0.149 thread-s    2.1%
+      integrals (int1e_grids)       5.919 thread-s   82.4%
+      contraction                   0.866 thread-s   12.1%
+      set0 and send                 0.227 thread-s    3.2%
+      317 batches of 224 points, 1799718 shell pairs (5677 per batch), 1.866e+09 integrals, 315.3 M integrals per thread-second
+== K build 1: 1.390 s
+   k_part (C driver)               1.224 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.091 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.061 s  (1 calls)
+   get_g_threshold                 0.011 s  (1 calls)
+   rest (Python)                   0.004 s
+   C driver: 1 calls, wall 1.223 s, thread-seconds 7.190 (98% of 6 threads x wall)
+      grid screening                0.024 thread-s    0.3%
+      shell-pair screening          0.150 thread-s    2.1%
+      integrals (int1e_grids)       5.916 thread-s   82.3%
+      contraction                   0.854 thread-s   11.9%
+      set0 and send                 0.246 thread-s    3.4%
+      317 batches of 224 points, 1799718 shell pairs (5677 per batch), 1.866e+09 integrals, 315.5 M integrals per thread-second
+== K build 2: 1.390 s
+   k_part (C driver)               1.223 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.092 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.061 s  (1 calls)
+   get_g_threshold                 0.011 s  (1 calls)
+   rest (Python)                   0.004 s
+   C driver: 1 calls, wall 1.223 s, thread-seconds 7.191 (98% of 6 threads x wall)
+      grid screening                0.025 thread-s    0.3%
+      shell-pair screening          0.149 thread-s    2.1%
+      integrals (int1e_grids)       5.919 thread-s   82.3%
+      contraction                   0.857 thread-s   11.9%
+      set0 and send                 0.241 thread-s    3.3%
+      317 batches of 224 points, 1799718 shell pairs (5677 per batch), 1.866e+09 integrals, 315.3 M integrals per thread-second
+max |vk| 9.787e+00
+caffeine def2-tzvp b3lyp pjs: nao 494, nbas 194, SGX grid 71208, 6 threads; SCF 117.6 s, 14 cycles, E -680.5700514685
+== first K build (sets up the screening data): 5.032 s
+   k_part (C driver)               4.587 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.231 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.181 s  (1 calls)
+   get_g_threshold                 0.021 s  (1 calls)
+   rest (Python)                   0.011 s
+   C driver: 1 calls, wall 4.587 s, thread-seconds 27.070 (98% of 6 threads x wall)
+      grid screening                0.073 thread-s    0.3%
+      shell-pair screening          0.475 thread-s    1.8%
+      integrals (int1e_grids)      21.339 thread-s   78.8%
+      contraction                   4.687 thread-s   17.3%
+      set0 and send                 0.495 thread-s    1.8%
+      318 batches of 224 points, 5045986 shell pairs (15868 per batch), 7.563e+09 integrals, 354.4 M integrals per thread-second
+== K build 1: 5.074 s
+   k_part (C driver)               4.629 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.233 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.181 s  (1 calls)
+   get_g_threshold                 0.021 s  (1 calls)
+   rest (Python)                   0.010 s
+   C driver: 1 calls, wall 4.628 s, thread-seconds 27.347 (98% of 6 threads x wall)
+      grid screening                0.076 thread-s    0.3%
+      shell-pair screening          0.478 thread-s    1.7%
+      integrals (int1e_grids)      21.387 thread-s   78.2%
+      contraction                   4.917 thread-s   18.0%
+      set0 and send                 0.489 thread-s    1.8%
+      318 batches of 224 points, 5045986 shell pairs (15868 per batch), 7.563e+09 integrals, 353.6 M integrals per thread-second
+== K build 2: 5.059 s
+   k_part (C driver)               4.610 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.231 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.186 s  (1 calls)
+   get_g_threshold                 0.021 s  (1 calls)
+   rest (Python)                   0.010 s
+   C driver: 1 calls, wall 4.610 s, thread-seconds 27.273 (99% of 6 threads x wall)
+      grid screening                0.073 thread-s    0.3%
+      shell-pair screening          0.477 thread-s    1.8%
+      integrals (int1e_grids)      21.371 thread-s   78.4%
+      contraction                   4.847 thread-s   17.8%
+      set0 and send                 0.503 thread-s    1.8%
+      318 batches of 224 points, 5045986 shell pairs (15868 per batch), 7.563e+09 integrals, 353.9 M integrals per thread-second
+max |vk| 1.062e+01
+c20h42 def2-svp b3lyp pjs: nao 490, nbas 246, SGX grid 176744, 6 threads; SCF 95.3 s, 9 cycles, E -786.8960893375
+== first K build (sets up the screening data): 6.558 s
+   k_part (C driver)               5.467 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.550 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.466 s  (1 calls)
+   get_g_threshold                 0.060 s  (1 calls)
+   rest (Python)                   0.016 s
+   C driver: 1 calls, wall 5.466 s, thread-seconds 32.072 (98% of 6 threads x wall)
+      grid screening                0.162 thread-s    0.5%
+      shell-pair screening          0.984 thread-s    3.1%
+      integrals (int1e_grids)      25.709 thread-s   80.2%
+      contraction                   3.970 thread-s   12.4%
+      set0 and send                 1.246 thread-s    3.9%
+      790 batches of 224 points, 10675683 shell pairs (13514 per batch), 8.857e+09 integrals, 344.5 M integrals per thread-second
+== K build 1: 6.528 s
+   k_part (C driver)               5.440 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.551 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.462 s  (1 calls)
+   get_g_threshold                 0.060 s  (1 calls)
+   rest (Python)                   0.014 s
+   C driver: 1 calls, wall 5.439 s, thread-seconds 31.912 (98% of 6 threads x wall)
+      grid screening                0.159 thread-s    0.5%
+      shell-pair screening          0.980 thread-s    3.1%
+      integrals (int1e_grids)      25.601 thread-s   80.2%
+      contraction                   3.911 thread-s   12.3%
+      set0 and send                 1.261 thread-s    4.0%
+      790 batches of 224 points, 10675683 shell pairs (13514 per batch), 8.857e+09 integrals, 346.0 M integrals per thread-second
+== K build 2: 6.529 s
+   k_part (C driver)               5.442 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.553 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.460 s  (1 calls)
+   get_g_threshold                 0.060 s  (1 calls)
+   rest (Python)                   0.015 s
+   C driver: 1 calls, wall 5.441 s, thread-seconds 31.972 (98% of 6 threads x wall)
+      grid screening                0.158 thread-s    0.5%
+      shell-pair screening          0.983 thread-s    3.1%
+      integrals (int1e_grids)      25.630 thread-s   80.2%
+      contraction                   3.945 thread-s   12.3%
+      set0 and send                 1.256 thread-s    3.9%
+      790 batches of 224 points, 10675683 shell pairs (13514 per batch), 8.857e+09 integrals, 345.6 M integrals per thread-second
+max |vk| 7.153e+00
+caffeine def2-svp b3lyp default: nao 246, nbas 114, SGX grid 70928, 6 threads; SCF 30.8 s, 15 cycles, E -679.8127761622
+== first K build (sets up the screening data): 1.310 s
+   jk_part (C driver)              1.153 s  (1 calls)
+   rest (Python)                   0.157 s
+== K build 1: 1.312 s
+   jk_part (C driver)              1.155 s  (1 calls)
+   rest (Python)                   0.157 s
+== K build 2: 1.314 s
+   jk_part (C driver)              1.157 s  (1 calls)
+   rest (Python)                   0.158 s
+max |vk| 9.787e+00
+== caffeine def2-SVP pjs with 12 threads (SMT) 10:10
+caffeine def2-svp b3lyp pjs: nao 246, nbas 114, SGX grid 70928, 12 threads; SCF 41.5 s, 15 cycles, E -679.8129624756
+== first K build (sets up the screening data): 1.556 s
+   k_part (C driver)               1.221 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.252 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.068 s  (1 calls)
+   get_g_threshold                 0.011 s  (1 calls)
+   rest (Python)                   0.004 s
+   C driver: 1 calls, wall 1.221 s, thread-seconds 14.351 (98% of 12 threads x wall)
+      grid screening                0.055 thread-s    0.4%
+      shell-pair screening          0.214 thread-s    1.5%
+      integrals (int1e_grids)      10.530 thread-s   73.4%
+      contraction                   2.140 thread-s   14.9%
+      set0 and send                 1.412 thread-s    9.8%
+      317 batches of 224 points, 1799718 shell pairs (5677 per batch), 1.866e+09 integrals, 177.2 M integrals per thread-second
+== K build 1: 1.557 s
+   k_part (C driver)               1.220 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.253 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.068 s  (1 calls)
+   get_g_threshold                 0.011 s  (1 calls)
+   rest (Python)                   0.004 s
+   C driver: 1 calls, wall 1.220 s, thread-seconds 14.346 (98% of 12 threads x wall)
+      grid screening                0.055 thread-s    0.4%
+      shell-pair screening          0.213 thread-s    1.5%
+      integrals (int1e_grids)      10.514 thread-s   73.3%
+      contraction                   2.168 thread-s   15.1%
+      set0 and send                 1.396 thread-s    9.7%
+      317 batches of 224 points, 1799718 shell pairs (5677 per batch), 1.866e+09 integrals, 177.5 M integrals per thread-second
+== K build 2: 1.551 s
+   k_part (C driver)               1.217 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.251 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.067 s  (1 calls)
+   get_g_threshold                 0.011 s  (1 calls)
+   rest (Python)                   0.005 s
+   C driver: 1 calls, wall 1.216 s, thread-seconds 14.330 (98% of 12 threads x wall)
+      grid screening                0.054 thread-s    0.4%
+      shell-pair screening          0.214 thread-s    1.5%
+      integrals (int1e_grids)      10.522 thread-s   73.4%
+      contraction                   2.174 thread-s   15.2%
+      set0 and send                 1.366 thread-s    9.5%
+      317 batches of 224 points, 1799718 shell pairs (5677 per batch), 1.866e+09 integrals, 177.4 M integrals per thread-second
+max |vk| 9.787e+00
+== SGX SCFs: pyscf-sgx (It25) against pyscf-sgx26 10:10
+scf_caffeine_svp_b3lyp          old rep0    36.42s  core=Zen  other=22.88  jk=5.97  xc_kernels=3.22
+scf_caffeine_svp_b3lyp          new rep0    32.80s  core=Zen  other=20.75  jk=5.63  xc_kernels=3.22
+scf_caffeine_svp_b3lyp          new rep1    32.82s  core=Zen  other=20.72  jk=5.62  xc_kernels=3.26
+scf_caffeine_svp_b3lyp          old rep1    36.39s  core=Zen  other=22.89  jk=5.94  xc_kernels=3.20
+scf_caffeine_tzvp_b3lyp         old rep0   124.35s  core=Zen  other=78.08  xc_kernels=19.94  jk=16.50
+scf_caffeine_tzvp_b3lyp         new rep0   115.93s  core=Zen  other=72.33  xc_kernels=19.95  jk=15.73
+scf_caffeine_tzvp_b3lyp         new rep1   115.90s  core=Zen  other=72.45  xc_kernels=19.88  jk=15.72
+scf_caffeine_tzvp_b3lyp         old rep1   124.20s  core=Zen  other=77.96  xc_kernels=19.94  jk=16.54
+scf_c20h42_svp_b3lyp            old rep0   105.82s  core=Zen  other=67.23  jk=14.60  blas=9.68
+scf_c20h42_svp_b3lyp            new rep0    94.11s  core=Zen  other=59.65  jk=13.74  blas=9.62
+scf_c20h42_svp_b3lyp            new rep1    94.06s  core=Zen  other=59.63  jk=13.75  blas=9.70
+scf_c20h42_svp_b3lyp            old rep1   106.01s  core=Zen  other=67.42  jk=14.59  blas=9.58
+saved /home/danny/Chemistry/my-pyscf/bench/results/20261104-101058_node2-sgx6.json
+scf_caffeine_svp_b3lyp          old rep0    34.32s  core=Zen  other=26.09  xc_kernels=3.72  blas=2.19
+scf_caffeine_svp_b3lyp          new rep0    30.82s  core=Zen  other=23.82  xc_kernels=3.66  blas=2.20
+scf_caffeine_svp_b3lyp          new rep1    30.82s  core=Zen  other=23.81  xc_kernels=3.66  blas=2.20
+scf_caffeine_svp_b3lyp          old rep1    34.29s  core=Zen  other=26.09  xc_kernels=3.70  blas=2.20
+saved /home/danny/Chemistry/my-pyscf/bench/results/20261104-102806_node2-sgx6-default.json
+NODE2 SGX6 DONE 10:30

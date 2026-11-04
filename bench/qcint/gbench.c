@@ -5,11 +5,12 @@
  * For the same calls it also times
  *   - CINTrys_roots alone, once per primitive pair (eij below the cutoff) and grid point: the scalar root step;
  *   - int1e_grids on batches of 8 points: the cost per call, (t8 - 8 (t224 - t8) / 216) per call.
- *     gbench LIB.so MOL.bin GRID.bin [--batches N] [--compare LIB2.so]
+ *     gbench LIB.so MOL.bin GRID.bin [--batches N] [--compare LIB2.so] [--pairs same|diff]
  * With --compare it instead compares the integrals of the two libraries on the same calls: the fraction that is
  * bitwise equal and the largest difference, overall and by class.
  * MOL.bin is written by dump_basis.py (the q_cond block is ignored), GRID.bin by dump_sgx_grid.py (int32 ngrids,
  * float64 coords[ngrids*3]). --batches N times every k-th batch so that N batches are used (default: all).
+ * --pairs same (diff) times only the shell pairs on one atom (on two atoms).
  */
 #define _GNU_SOURCE
 #include <dlfcn.h>
@@ -66,9 +67,11 @@ int main(int argc, char **argv)
                 return 1;
         }
         int want_batches = 0;
+        int pairs = 0;  /* --pairs same|diff: only shell pairs on one atom, or on two */
         const char *compare = NULL;
         for (int a = 4; a < argc - 1; a++) {
                 if (!strcmp(argv[a], "--batches")) want_batches = atoi(argv[a + 1]);
+                if (!strcmp(argv[a], "--pairs")) pairs = !strcmp(argv[a + 1], "same") ? 1 : 2;
                 if (!strcmp(argv[a], "--compare")) compare = argv[a + 1];
         }
         FILE *f = fopen(argv[2], "rb");
@@ -182,6 +185,8 @@ int main(int argc, char **argv)
                 int ig1 = ig0 + SGX_BLKSIZE < ngrids ? ig0 + SGX_BLKSIZE : ngrids;
                 for (int i = 0; i < nbas; i++) {
                 for (int j = 0; j <= i; j++) {
+                        int same = bas[i*BAS_SLOTS+ATOM_OF] == bas[j*BAS_SLOTS+ATOM_OF];
+                        if ((pairs == 1 && !same) || (pairs == 2 && same)) continue;
                         int li = bas[i*BAS_SLOTS+ANG_OF], lj = bas[j*BAS_SLOTS+ANG_OF];
                         int ka = li > lj ? li : lj, kb = li > lj ? lj : li;
                         int cls = ka * (lmax + 1) + kb;

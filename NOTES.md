@@ -6253,6 +6253,135 @@ the 2e code, which pjs's DF-J (`int3c2e`) uses; that part is not in these timing
 - **PGO:** the qcint PGO training (`train_qcint_pgo.sh`) has no int1e_grids, so these paths are built without a
   profile, as before.
 
+## It26: SGX re-explored for symmetries and repeated work (node2 and the laptop), 2026-11-04
+Asked for by the user after It25: "Sure let's keep that flag change for now, could you reexplore the sgx code to see
+if there are optimizations or symmetries that could be exploited for further speed improvements?" Exact only, as in
+It25.
+
+### Symmetries
+SGX's K is K_μν = Σ_g X_μg Σ_λ A_νλ(g) F_λg, with A_νλ(g) the potential of the AO pair at grid point g.
+- **Already used by PySCF:**
+  - A_νλ(g) = A_λν(g): s2 shell pairs, one integral feeding both contractions (`nrs2_ijg_gj_gi`);
+  - in default mode, J and K from the same integrals;
+  - in the SGX gradient, translational invariance: only the grid derivative of A is computed, and the AO-center
+    part is −∂A/∂g;
+  - density and AO screening per batch.
+- **One-center pairs** (both shells on one atom, so every primitive pair has the center P = A): far from the
+  atom, the pair's potential is a finite multipole expansion, and the sum over primitive pairs could collapse
+  into one evaluation per point.
+  - Measured (gbench `--pairs same|diff`, caffeine def2-SVP, unscreened): one-center pairs are 14% of int1e_grids
+    time. Their (ss) costs 21 ns per integral (5.8 primitive pairs, 91% at large x), two-center (ss) 6.8 ns.
+  - Not done: all primitive pairs are at large x only beyond ~2.4 bohr for carbon's 1s core and ~6.4 bohr for
+    2p×2p, and valence shells have one primitive. The upper bound is ~3–5% of int1e_grids.
+- **Point-group symmetry:** would need symmetry-adapted grids, and most molecules have none.
+- **Two-center primitive pairs** each have their own center P_p, so nothing collapses. One division and one
+  square root per primitive pair and SIMD chunk (for 1/|g − P_p|) set a floor of about 1.5 ns per primitive pair
+  and point on Zen 2. Two-center (ss) runs at 2.3.
+
+### Repeated work found and removed
+1. **qcint `sgx-exp` 1f1b739: the grid coordinates transposed by shuffles instead of gathers.**
+   - `CINT1e_grids_loop` copies the coordinates of each block of points into x, y, z rows on every call. With
+     three AVX2 gathers per SIMD chunk, that is about 170 gathers per 224-point call, and SGX makes one call per
+     shell pair and batch, all with the same points.
+   - Gathers are microcoded and slow on some CPUs, Zen 2 among them. Four points now take three loads, three
+     `vperm2f128` and three `vshufpd`.
+   - Bitwise the same integrals.
+2. **qcint 7bb9b92: `int1e_grids_optimizer`, the per-call setup precomputed.** It returned NULL, so every call
+   recomputed for its two shells:
+   - the coefficients' logs;
+   - the pair data (an exp per primitive pair);
+   - the nonzero-coefficient tables and the g indices.
+   That is about 200 ns per call (`bench/qcint/callcost.c`).
+   - The optimizer now holds them: `CINTall_1e_grids_optimizer`, plus pair data for every ordered pair of shells,
+     made by the same `CINTset_pairdata` call as the loop's.
+   - **Bitwise:** the integrals equal the per-call path's in AVX2 and SSE3 builds (`bench/qcint/optcheck.c`,
+     caffeine and C20H42, all ordered pairs). The AVX-512 and node2's PGO builds are within 1.4e−16: GCC compiles
+     the two copies of the squared distance differently under `-ffast-math`.
+   - **Layout:** the pair data are laid out as `CINTOpt_setij`'s, (i, j) next to (j, i). Row by row
+     (`sx-opt2`) was 1.5–3% slower on node2 with the same values.
+   - A first version took the pair data from `CINTOpt_setij`. Its (i < j) pairs are transposed copies whose
+     centers are formed from the other end, which differed by up to 2.0e−15 on C20H42.
+   - **The ω guard:** the pair data and g indices depend on `env[PTR_RANGE_OMEGA]` (the screening estimate; ω < 0
+     doubles the roots). The optimizer is made only for ω = 0 and used only when the call's ω is 0 and it has
+     pair data. With ω = ±0.3 set after it was made, the integrals are bitwise the per-call ones.
+   - PySCF's range-separated SGX builds its objects inside `with_range_coulomb`, so it gets none. The derivative
+     kernels' optimizers have no pair data, so they are never mistaken for this one.
+   - SGX gets it with no PySCF change, through `make_cintopt(..., 'int1e_grids')`.
+3. **PySCF `sgx-exp` 64b526734: the AO values on the grid kept across K builds.**
+   - With enough memory, `get_loop_data` makes the whole grid one block, and every K build evaluated the same AO
+     values on it.
+   - They are now kept in `_pjs_data` (pjs), which is remade when the grids or molecule change, and on the SGX
+     object for its grids (default mode).
+   - They are dropped as soon as the grid takes more than one block.
+   - Only read, so bitwise the same.
+   - Memory: nao × ngrids doubles, 0.14 GB (caffeine/SVP) to 1.2 GB (C20H42/TZVP).
+
+### node2 (6 threads; PGO builds of qcint)
+**int1e_grids** (gbench, single thread, ns per integral, two runs each):
+
+| qcint | caffeine def2-SVP | caffeine def2-TZVP | n-C20H42 def2-SVP |
+|---|---|---|---|
+| qcint-pgo (before It25) | 8.47 | 5.94 | 5.15 |
+| `sx-fin` (It25, 3659e67) | 3.39 | 2.96 | 1.98 |
+| + transpose (`sx-tr`, 1f1b739) | 3.10 | 2.77 | 1.76 |
+| + optimizer, pair data from `CINTOpt_setij` (`sx-opt`) | 2.96 | 2.67 | 1.63 |
+| + optimizer, pair data row by row (`sx-opt2`) | 3.04 | 2.71 | 1.68 |
+| **+ optimizer, final** (`sx-opt3`, 7bb9b92) | **2.96** | **2.67** | **1.65** |
+| total, against qcint-pgo | 2.86× | 2.22× | 3.12× |
+
+- `sx-tr` is bitwise `sx-fin`. `sx-opt3` is bitwise `sx-opt` on SGX's pairs (i ≥ j); the SCF A/B below ran
+  `sx-opt`.
+- The cost per call drops from 8–15% of the time to 6–11%.
+
+**The K build** (pjs, converged density; `pyscf-sgxprof26` on `sx-opt` with the AO cache, against It25's):
+
+| case | K build | C driver | int1e_grids (thread-s) | eval_gto |
+|---|---|---|---|---|
+| caffeine def2-SVP | 1.59 → 1.39 s | 1.35 → 1.22 s | 6.67 → 5.92 | 0.072 s → kept |
+| caffeine def2-TZVP | 5.51 → 5.06 s | 4.94 → 4.61 s | 23.5 → 21.4 | 0.125 s → kept |
+| n-C20H42 def2-SVP | 7.61 → 6.53 s | 6.18 → 5.44 s | 30.0 → 25.6 | 0.334 s → kept |
+
+- Default mode, caffeine/SVP: 1.31 s per J/K build (1.15 s C driver).
+
+**SGX SCFs** (12 GB, ABBA, two runs each; `pyscf-sgx` = It25 against `pyscf-sgx26` = changes 1–3 on `sx-opt`;
+`bench/results/node2/*node2-sgx6*`):
+
+| B3LYP SCF | It25 | It26 | | before It25 | original PySCF | exact, modified tree |
+|---|---|---|---|---|---|---|
+| pjs, caffeine def2-SVP | 36.4 s | 32.8 s | 1.11× | 66.5 s | 92.7 s | 8.7 s |
+| pjs, caffeine def2-TZVP | 124.3 s | 115.9 s | 1.07× | 193.6 s | 253.1 s | 176.2 s |
+| pjs, n-C20H42 def2-SVP | 105.9 s | 94.1 s | 1.13× | 202.6 s | 270.5 s | 31.1 s |
+| default mode, caffeine def2-SVP | 34.3 s | 30.8 s | 1.11× | 67.8 s | 94.2 s | 8.7 s |
+
+- **Energies:** pjs within 2.7e−12 Eh of It25's, inside its rep-to-rep spread; the same cycles.
+- **Default mode:** within 2.3e−12. It is not bitwise reproducible either: It25's tree gave −679.8127761621591
+  in the It25 runs and −…1589 now.
+- **Since before It25:** 2.0–2.2× (pjs 1.67× at caffeine/TZVP). Against the original PySCF, 2.2–3.1×.
+- **Against exact:** the exact SCF (It9's cached ERIs) stays 3.0–3.8× faster at def2-SVP. SGX is 1.52× faster at
+  caffeine/def2-TZVP.
+
+### Tried, no gain
+- **`_dot_ao_dm_l1` (fg = D χ) with the AOs j of a shell blocked, 8 at a time,** so that each AO row is read once
+  per block instead of once per j. Bitwise the same (the sums keep their order), but no faster on the laptop
+  (0.057–0.067 s against 0.060 s for caffeine def2-SVP's whole grid, `bench/diag/sgxdot_check.py`); reverted. The
+  56-point accumulator already amortizes the strided density loads, and the screening keeps the loops short.
+
+### Left
+- **A semi-direct SGX: reuse the integrals across cycles.** They do not depend on the density.
+  - Per integral, (ss) and (ps) blocks cost 4–10 ns to compute against about 2 ns to read back. That read cost is
+    an estimate: 8 bytes at ~25 GB/s shared by 6 threads.
+  - The other classes cost 1.6–3.3 ns, so a cache should hold the expensive blocks first.
+  - Caffeine/SVP's (ss)+(ps) blocks are 4.3 GB per K build and 45% of int1e_grids time, about −20% of a K build if
+    cached.
+  - TZVP and C20H42 need 10–27 GB for the same set; with 4 GB, about −10%.
+  - pjs's density screening changes the needed set from cycle to cycle, so the cache must allow misses.
+  - Memory against time, for the user to decide.
+- **The grid transpose once per batch instead of once per call** (an estimated ~120 ns per call now) would need
+  an int1e_grids interface that takes the transposed grids.
+- **The one-center collapse** above: ≤ 3–5% of int1e_grids.
+- **SMT:** 12 threads on node2's 6 cores do not help. The caffeine/SVP C driver takes the same 1.22 s with 2×
+  the thread-seconds, and the SCF is slower (41.5 s against 33.5 s).
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

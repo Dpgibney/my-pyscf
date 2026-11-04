@@ -1,0 +1,29 @@
+== start 10:42
+  built qcint-sx-opt3
+  qcint sources back to perf: 0ec86b07 4d46ea25 555c4013 
+install/qcint-sx-opt3/lib/libcint.so.6: optimizer made
+  omega +0.0: 81333504 integrals, 95.1997% bitwise equal, max |diff| 1.11e-16 (max |value| 7.60e+00), 0 calls with different nonzero flags
+install/qcint-sx-opt3/lib/libcint.so.6: optimizer made
+  omega +0.0: 322694400 integrals, 91.3083% bitwise equal, max |diff| 1.39e-16 (max |value| 1.12e+00), 0 calls with different nonzero flags
+caffeine qcint-sx-opt3 against qcint-sx-opt: 100.0000% bitwise equal, max |diff| 0.00e+00 (max |value| 7.66e+00), max |diff| / max |value| of its pair 0.00e+00
+caffeine qcint-sx-opt: 2.745e+08     0.811     2.95                1.434     176.8% (per-call cost 7.3% of the time)
+caffeine qcint-sx-opt2: 2.745e+08     0.834     3.04                1.433     171.8% (per-call cost 7.1% of the time)
+caffeine qcint-sx-opt3: 2.745e+08     0.813     2.96                1.432     176.2% (per-call cost 7.4% of the time)
+caffeine qcint-sx-opt: 2.745e+08     0.812     2.96                1.433     176.5% (per-call cost 7.3% of the time)
+caffeine qcint-sx-opt2: 2.745e+08     0.832     3.03                1.432     172.1% (per-call cost 7.1% of the time)
+caffeine qcint-sx-opt3: 2.745e+08     0.813     2.96                1.432     176.1% (per-call cost 7.4% of the time)
+caffeine-tz qcint-sx-opt3 against qcint-sx-opt: 100.0000% bitwise equal, max |diff| 0.00e+00 (max |value| 1.23e+01), max |diff| / max |value| of its pair 0.00e+00
+caffeine-tz qcint-sx-opt: 1.102e+09     2.940     2.67                3.536     120.2% (per-call cost 5.7% of the time)
+caffeine-tz qcint-sx-opt2: 1.102e+09     2.991     2.71                3.536     118.2% (per-call cost 5.6% of the time)
+caffeine-tz qcint-sx-opt3: 1.102e+09     2.944     2.67                3.539     120.2% (per-call cost 5.7% of the time)
+caffeine-tz qcint-sx-opt: 1.102e+09     2.937     2.66                3.538     120.5% (per-call cost 5.8% of the time)
+caffeine-tz qcint-sx-opt2: 1.102e+09     2.991     2.71                3.542     118.4% (per-call cost 5.5% of the time)
+caffeine-tz qcint-sx-opt3: 1.102e+09     2.940     2.67                3.554     120.9% (per-call cost 5.7% of the time)
+c20 qcint-sx-opt3 against qcint-sx-opt: 100.0000% bitwise equal, max |diff| 0.00e+00 (max |value| 5.67e+00), max |diff| / max |value| of its pair 0.00e+00
+c20 qcint-sx-opt: 1.082e+09     1.768     1.63                3.376     190.9% (per-call cost 10.8% of the time)
+c20 qcint-sx-opt2: 1.082e+09     1.829     1.69                3.378     184.7% (per-call cost 10.3% of the time)
+c20 qcint-sx-opt3: 1.082e+09     1.784     1.65                3.378     189.4% (per-call cost 10.7% of the time)
+c20 qcint-sx-opt: 1.082e+09     1.766     1.63                3.374     191.1% (per-call cost 10.7% of the time)
+c20 qcint-sx-opt2: 1.082e+09     1.819     1.68                3.395     186.6% (per-call cost 10.3% of the time)
+c20 qcint-sx-opt3: 1.082e+09     1.783     1.65                3.386     189.9% (per-call cost 10.6% of the time)
+NODE2 SGX8 DONE 10:50
