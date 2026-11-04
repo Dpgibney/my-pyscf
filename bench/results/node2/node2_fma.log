@@ -1,0 +1,22 @@
+== keep It24 as pyscf-it24, build the FMA version (21:35)
+  build ok
+  FMA instructions in libdft: 144
+== the kernels on fixed inputs (vv10_check.py, level-1 caffeine grid, 6 threads, best of 3)
+pyscf-it24: 97000 points, same_grid 1.142 s, two_grids 1.992 s, grad 0.405 s; E_nlc 0.378874207820 / 0.378874207820
+pyscf: 97000 points, same_grid 1.125 s, two_grids 1.906 s, grad 0.400 s; E_nlc 0.378874207820 / 0.378874207820
+pyscf-it24: 97000 points, same_grid 1.164 s, two_grids 1.929 s, grad 0.429 s; E_nlc 0.378874207820 / 0.378874207820
+pyscf: 97000 points, same_grid 1.125 s, two_grids 1.884 s, grad 0.418 s; E_nlc 0.378874207820 / 0.378874207820
+  same_exc  max |diff| 1.75e-16, relative to max |value| 3.61e-14
+  same_vxc  max |diff| 3.08e-11, relative to max |value| 2.29e-14
+  two_exc   max |diff| 1.72e-16, relative to max |value| 3.56e-14
+  two_vxc   max |diff| 2.95e-11, relative to max |value| 2.20e-14
+  grad      max |diff| 1.22e-16, relative to max |value| 5.64e-14
+  e_same    max |diff| 7.22e-16, relative to max |value| 1.90e-15
+  e_two     max |diff| 1.33e-15, relative to max |value| 3.52e-15
+== wB97M-V SCF, default NLC grid: It24 against It24 + FMA (ABBA, 2 reps)
+scf_caffeine_svp_wb97mv        it24 rep0   191.99s  core=Zen  other=157.00  xc_kernels=13.49  ao_eval=11.86
+scf_caffeine_svp_wb97mv         fma rep0   188.98s  core=Zen  other=153.96  xc_kernels=13.48  ao_eval=11.85
+scf_caffeine_svp_wb97mv         fma rep1   188.92s  core=Zen  other=153.98  xc_kernels=13.46  ao_eval=11.82
+scf_caffeine_svp_wb97mv        it24 rep1   192.17s  core=Zen  other=157.26  xc_kernels=13.46  ao_eval=11.84
+saved /home/danny/Chemistry/my-pyscf/bench/results/20261103-213644_node2-fma.json
+NODE2 FMA DONE

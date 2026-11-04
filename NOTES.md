@@ -5949,8 +5949,19 @@ the VV10 kernel improvements to the CPU").
   gradients gain less, as J/K derivatives are most of them.
 - **Against the 1650 Super:** the modified CPU tree is now faster for the wB97M-V SCF (192 against 298 s;
   SG-1 46.5 against 76.0 s). The GPU still leads the gradients.
+- **FMA contraction in the VV10 functions only** (`perf` ecc08b80b, asked for by the user: "Sure give it a try"):
+  - `#pragma GCC optimize ("fp-contract=fast")` around them. libdft now has 144 FMA instructions, all in the VV10
+    functions; the rest of `nr_numint.c` keeps `-ffp-contract=off`.
+  - Results move by 4e−16 relative against It24. The unit tests and `kernels.py` pass.
+  - node2: the wB97M-V SCF at the default grid takes 192.1 → 188.9 s (ABBA, 2 reps, energies within 3e−12 Eh), and
+    the kernels on the level-1 grid are 1–4% faster. The laptop's pair-once call did not change; its two-grid
+    call is 1.16× faster.
+  - I had estimated 1.2–1.4×, but FMA removes ~18% of the loop's FP operations for 2% of time. So operations are
+    not what bounds the loop; the likely bound is its one division per pair (`vdivpd` on ymm, slow and only
+    partly pipelined on Zen 2).
+  - The next idea is one division per two pairs (Montgomery's trick: 1/(p_a p_b) gives 1/p_a = p_b q and
+    1/p_b = p_a q), not tried yet.
 - **Not done:**
-  - FMA contraction in the VV10 functions alone (pragma or `fma()`), perhaps 1.2–1.4× more;
   - the Hessian's VV10 kernels;
   - the NLC term's own pass over its grid (AO values, density, potential matrix). At the default level its points
     are the main grid's, which `nr_rks` has already evaluated. By difference it is about 1.5 s of each SCF cycle
