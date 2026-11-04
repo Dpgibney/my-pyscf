@@ -1,0 +1,16 @@
+# bench/diag/pcm_blk_time.py on node2 (6 threads): n-C26H54/def2-TZVP, 9998 PCM surface points; PCM's _get_v and _get_vmat
+# with the block sizes their max_memory check gives (a 3 GB ballast array puts the RSS over max_memory).
+## modified tree (pyscf, qcint-pgo), 2026-11-04, two runs (the ballast case, then the other two)
+build 9.4 s, RSS 2517 MB
+RSS over max_memory (3 GB ballast, 4000 MB): RSS 5599 MB, block 8 points (1250 blocks); _get_v 75.7 s, _get_vmat 79.7 s
+build 9.5 s, RSS 2514 MB
+no ballast, max_memory 4000 MB (the original tree): RSS 2591 MB, block 126 points (80 blocks); _get_v 72.7 s, _get_vmat 71.2 s
+no ballast, max_memory 8000 MB: RSS 2601 MB, block 476 points (22 blocks); _get_v 72.5 s, _get_vmat 70.7 s
+## original tree (pyscf-base, stock libcint), scripts/node2_pcmblk.sh
+== pyscf-base 16:27
+build 9.4 s, RSS 2515 MB
+RSS over max_memory (3 GB ballast), max_memory 4000 MB: RSS 5598 MB, block 8 points (1250 blocks); _get_v 67.7 s, _get_vmat 71.6 s
+max_memory 4000 MB (the original tree): RSS 2598 MB, block 123 points (82 blocks); _get_v 64.8 s, _get_vmat 63.2 s
+max_memory 8000 MB: RSS 2599 MB, block 475 points (22 blocks); _get_v 64.7 s, _get_vmat 62.8 s
+   exit 0
+NODE2 PCMBLK DONE 16:34

@@ -6423,15 +6423,45 @@ the new and old code? I believe it may run out of memory and want to diagnose wh
     for ~15.7 GB and the kernel OOM-killed it, and only it.
   - `PYSCF_MAX_MEMORY=12000` (the SGX benchmarks' setting) with this SCF in the modified tree would likely do the
     same.
-- **The time is mostly PCM's:** `_get_v` + `_get_vmat` take ~144 s per call pair (8-point blocks: 155 s; 126 or 476
-  points: 142–144 s; `bench/diag/pcm_blk_time.py`).
-  - The SCF makes 11 such calls, ~60% of its 41–45 min in both trees, which is why the modified tree's faster J/K
-    and XC do not show.
-  - Both steps use `aosym='s1'` (all ordered AO pairs) and `numpy.einsum` contractions: not measured further.
+- **The time is mostly PCM's, and PCM's integrals are where the modified tree loses its 8%.** `_get_v` + `_get_vmat`
+  per SCF cycle, by block size (`bench/diag/pcm_blk_time.py`, `scripts/node2_pcmblk.sh`;
+  `bench/results/node2/node2_pcm_blk_time.log`):
+
+| block | original | modified |
+|---|---|---|
+| 8 points | 139 s | 155 s |
+| ~125 points | 128 s | 144 s |
+| ~475 points | 128 s | 143 s |
+
+  - The SCF makes 11 such calls.
+    - The original SCF runs them at ~100–120 points (from its RSS of ~2.8 GB between phases): ~1410 s, 57% of its
+      2494 s.
+    - The modified one runs them at the 8-point floor: ~1710 s, 63% of its 2704 s.
+  - That is ~300 s more, more than the whole 210 s difference. The rest of the SCF (J/K, XC, PCM build and solves) is
+    only ~90 s faster in the modified tree (~995 against ~1085 s), so its faster J/K and XC hardly show here. That
+    rest was not split further.
+  - The split of `_get_v` (`bench/diag/pcm_int3c_time.py`, `scripts/node2_pcmint3c.sh`;
+    `bench/results/node2/node2_pcm_int3c.log`; 20 blocks of 123 points, run twice, equal to 3 digits):
+    - the int3c2e integrals take 0.615 s a block with stock libcint and 0.712 s with qcint-pgo (+16%);
+    - the einsum takes 0.177 s in both.
+  - PCM's Python code and libcgto's 3-center driver are the same in both trees, so the integral library makes the
+    difference: qcint's int3c2e on (ij|g) triples, with g one primitive s function per surface point.
+    - qcint's PGO training has no 3-center integrals, and `-fprofile-partial-training` compiles them as without a
+      profile.
+    - Stock qcint was not measured.
+  - Both steps use `aosym='s1'` (all ordered AO pairs) and `numpy.einsum`.
 - **Not done:**
   - C-PCM keeps D (not needed for its energy) and R = −f·I as dense matrices: 1.6 GB of the 2.4 GB resident.
   - The PCM gradient's `get_dD_dS` has the same full-matrix pattern with (3, n, n) tensors and would not fit here.
-  - The ERI cache could be sized after PCM is built.
+  - The ERI cache could be sized after PCM is built. That would also keep PCM's blocks off their 8-point floor.
+  - PCM's integrals, in both trees: `aosym='s2ij'` with BLAS contractions would halve them, with differences at the
+    rounding level.
+  - Or GPU4PySCF's route: its PCM calls `int1e_grids(mol, grid_coords, dm=..., charge_exponents=charge_exp**2)`,
+    contracted directly.
+    - On the CPU, qcint's int1e_grids takes one omega per call, so the points would be grouped by exponent, each
+      group with omega = its exponent.
+    - PCM's exponents, XI/(R_vdw·√w), take one value per Lebedev weight class and atomic radius, a few dozen here.
+    - That is the SGX integral, made 2.0–2.6x faster in It25/It26 (at omega = 0).
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are

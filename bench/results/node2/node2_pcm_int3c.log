@@ -1,0 +1,10 @@
+# scripts/node2_pcmint3c.sh: bench/diag/pcm_int3c_time.py 20 123 on node2 (6 threads), PCM's _get_v split into int3c2e and einsum
+== pyscf-base (rep 1) 16:36:48
+20 blocks of 123 points: int3c2e 12.30 s, einsum 3.55 s (per block 0.615 + 0.178 s); /home/danny/Chemistry/my-pyscf/install/libcint-stock/lib/libcint.so.6.2.0
+== pyscf (rep 1) 16:37:14
+20 blocks of 123 points: int3c2e 14.24 s, einsum 3.53 s (per block 0.712 + 0.176 s); /home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0
+== pyscf-base (rep 2) 16:37:42
+20 blocks of 123 points: int3c2e 12.28 s, einsum 3.53 s (per block 0.614 + 0.176 s); /home/danny/Chemistry/my-pyscf/install/libcint-stock/lib/libcint.so.6.2.0
+== pyscf (rep 2) 16:38:08
+20 blocks of 123 points: int3c2e 14.24 s, einsum 3.53 s (per block 0.712 + 0.176 s); /home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0
+NODE2 PCMINT3C DONE 16:38
