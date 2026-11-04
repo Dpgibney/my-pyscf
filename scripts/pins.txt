@@ -1,0 +1,15 @@
+# The code each benchmark builds, one TREE URL REF per line: TREE is the directory in the workspace, REF a tag or
+# commit (not a branch), so that results stay tied to the code that produced them. scripts/gpu_setup.sh reads the
+# gpu4pyscf lines; the CPU trees are built as on node2 (scripts/node2_run.sh, with the build_*.sh scripts).
+#
+# GPU (GPU4PySCF): the modified tree and the unmodified v1.9.0 it is compared against
+gpu4pyscf       https://github.com/Dpgibney/gpu4pyscf.git   perf-2026-11-03
+gpu4pyscf-base  https://github.com/Dpgibney/gpu4pyscf.git   v1.9.0
+#
+# CPU (PySCF): the modified tree and the PySCF master commit it is based on
+pyscf           https://github.com/Dpgibney/pyscf.git       perf-2026-11-03
+pyscf-base      https://github.com/pyscf/pyscf.git          44313dfb457b93358918c391fc66285fa44153ef
+qcint           https://github.com/Dpgibney/qcint.git       perf-2026-11-03
+libcint         https://github.com/sunqm/libcint.git        42ec76d6b57d8f0de8e515109c809f67e52040eb
+libxc           https://gitlab.com/libxc/libxc.git          f1eb21e8d6743ed5ba519b8950c1ae02c3f5acd9
+OpenBLAS        https://github.com/OpenMathLib/OpenBLAS.git e0166008be8e466242aa76b2ff75ce3f0fbf574a
