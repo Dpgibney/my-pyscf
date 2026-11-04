@@ -6382,6 +6382,57 @@ SGX's K is K_μν = Σ_g X_μg Σ_λ A_νλ(g) F_λg, with A_νλ(g) the potenti
 - **SMT:** 12 threads on node2's 6 cores do not help. The caffeine/SVP C driver takes the same 1.22 s with 2×
   the thread-seconds, and the SCF is slower (41.5 s against 33.5 s).
 
+## node2: B3LYP/PCM memory at ~1140 basis functions, 2026-11-04
+Asked for by the user: "On Node2 could you create a molecule with ~1140 basis functions and run B3LYP with PCM using
+the new and old code? I believe it may run out of memory and want to diagnose where that may be coming from."
+- **Setup:**
+  - n-C26H54/def2-TZVP: 80 atoms, 1130 AOs, and 9,998 PCM surface points (C-PCM, water, Lebedev 302 per atom),
+    so one surface matrix is 0.80 GB.
+  - node2: 15 GB RAM, 6 threads, PySCF's default `max_memory` (4000 MB).
+  - `bench/diag/pcm_memory.py` samples the RSS every 0.2 s by phase, and its watchdog stops a run at 13 GB.
+  - Scripts `scripts/node2_pcm.sh` and `node2_pcmfix.sh`; logs `bench/results/node2/node2_pcm_*.log`.
+
+| tree | energy (Eh) | cycles | peak RSS (kernel) | where | SCF |
+|---|---|---|---|---|---|
+| original (`pyscf-base`) | −1023.7319952041 | 9 | 11.2 GB | PCM `get_D_S` | 2494 s |
+| modified (`pyscf`) | −1023.7319952041 | 9 | 13.4 GB | PCM `get_D_S`, on top of the 2.7 GB ERI cache | 2704 s |
+| modified + `pcm-mem` dfb50b018 | −1023.7319952040 | 9 | 6.5 GB | PCM `_get_vind` | 2688 s |
+
+- **The peak is PCM's `get_D_S` (`PCM.build`, the first SCF cycle).** It formed S and D from about 13 surface ×
+  surface temporaries at once:
+  - two `meshgrid` copies of the charge exponents;
+  - the distances and their products;
+  - two (n, n, 3) displacement arrays.
+  That is 10.4 GB above its start for 9,998 points (the laptop measures the same), and nothing
+  in it looks at `max_memory`. Every other phase stays under 4 GB in the original tree (XC 3.9, PCM's integral
+  steps 3.6, J/K 2.9).
+- **It scales with the square of the surface points, which grow with atoms, not basis functions.** n-C47H96/def2-SVP
+  (143 atoms, 1138 AOs) has 17,747 points: 2.5 GB a matrix, ~33 GB for stock `get_D_S`.
+- **The modified tree adds its ERI cache (It9):**
+  - It is sized from `max_memory` minus the RSS at the first J/K build, here "up to 2691 MB". That happens before
+    PCM exists, so PCM's memory comes on top.
+  - The RSS then stays at 5.4 GB, over the 4 GB `max_memory`. PCM's integral blocks, which are sized from what is
+    left, drop to their floor of 8 points.
+- **The fix (`pyscf` branch `pcm-mem`, dfb50b018):** `get_D_S` a block of rows (~128 MB of temporaries) at a time,
+  with the same expression for every element.
+  - Bitwise the same S and D (C26H54 surface); C6H14 B3LYP/C-PCM gives the same energy in every digit.
+  - `get_D_S` peaks 1.8 GB above its start instead of 10.4. The SCF's peak drops from 13.4 to 6.5 GB.
+- **PCM's integral steps trust `max_memory`:** `_get_v`/`_get_vmat` take (`max_memory` − RSS)·0.9/(8·nao²) points per
+  block.
+  - With `max_memory` near or above the RAM, one block can outgrow it. With 20000 MB on node2, a test of mine asked
+    for ~15.7 GB and the kernel OOM-killed it, and only it.
+  - `PYSCF_MAX_MEMORY=12000` (the SGX benchmarks' setting) with this SCF in the modified tree would likely do the
+    same.
+- **The time is mostly PCM's:** `_get_v` + `_get_vmat` take ~144 s per call pair (8-point blocks: 155 s; 126 or 476
+  points: 142–144 s; `bench/diag/pcm_blk_time.py`).
+  - The SCF makes 11 such calls, ~60% of its 41–45 min in both trees, which is why the modified tree's faster J/K
+    and XC do not show.
+  - Both steps use `aosym='s1'` (all ordered AO pairs) and `numpy.einsum` contractions: not measured further.
+- **Not done:**
+  - C-PCM keeps D (not needed for its energy) and R = −f·I as dense matrices: 1.6 GB of the 2.4 GB resident.
+  - The PCM gradient's `get_dD_dS` has the same full-matrix pattern with (3, n, n) tensors and would not fit here.
+  - The ERI cache could be sized after PCM is built.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
