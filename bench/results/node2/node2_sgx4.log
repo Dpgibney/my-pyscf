@@ -1,0 +1,67 @@
+== start 08:16
+  built qcint-sx-uni
+  built qcint-sx-uni104
+  qcint sources back to perf: 0ec86b07 555c4013 
+== int1e_grids (gbench) 08:29
+caffeine qcint-sx-uni against qcint-sx-vexp: 98.5994% bitwise equal, max |diff| 1.11e-16 (max |value| 7.66e+00), max |diff| / max |value| of its pair 5.58e-16 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 93.93% 1.1e-16 (pp) 100.00% 0.0e+00 (ds) 100.00% 0.0e+00 (dp) 100.00% 0.0e+00 (dd) 100.00% 0.0e+00 
+caffeine qcint-sx-uni against qcint-pgo: 77.1575% bitwise equal, max |diff| 1.78e-15 (max |value| 7.66e+00), max |diff| / max |value| of its pair 5.32e-13 bitwise equal, max |diff| by class: (ss) 99.40% 1.8e-15 (ps) 91.05% 2.2e-16 (pp) 73.03% 5.6e-16 (ds) 70.32% 2.2e-16 (dp) 69.19% 2.5e-16 (dd) 69.22% 1.4e-16 
+caffeine qcint-pgo: 2.325 s, 8.47 ns/integral
+caffeine qcint-sx-vexp: 0.926 s, 3.38 ns/integral
+caffeine qcint-sx-uni: 0.992 s, 3.61 ns/integral
+caffeine qcint-sx-uni104: 1.031 s, 3.76 ns/integral
+caffeine qcint-pgo: 2.326 s, 8.48 ns/integral
+caffeine qcint-sx-vexp: 0.928 s, 3.38 ns/integral
+caffeine qcint-sx-uni: 0.990 s, 3.61 ns/integral
+caffeine qcint-sx-uni104: 1.031 s, 3.76 ns/integral
+caffeine qcint-sx-uni: 0.991 s, 3.61 ns/integral
+caffeine qcint-sx-uni104: 1.032 s, 3.76 ns/integral
+caffeine-tz qcint-sx-uni against qcint-sx-vexp: 99.2939% bitwise equal, max |diff| 1.11e-16 (max |value| 1.23e+01), max |diff| / max |value| of its pair 5.85e-16 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 94.43% 1.1e-16 (pp) 100.00% 0.0e+00 (ds) 100.00% 0.0e+00 (dp) 100.00% 0.0e+00 (dd) 100.00% 0.0e+00 (fs) 100.00% 0.0e+00 (fp) 100.00% 0.0e+00 (fd) 100.00% 0.0e+00 (ff) 100.00% 0.0e+00 
+caffeine-tz qcint-sx-uni against qcint-pgo: 74.4435% bitwise equal, max |diff| 3.55e-15 (max |value| 1.23e+01), max |diff| / max |value| of its pair 2.32e-12 bitwise equal, max |diff| by class: (ss) 99.49% 3.6e-15 (ps) 90.37% 2.2e-16 (pp) 72.63% 5.6e-16 (ds) 71.35% 3.3e-16 (dp) 70.00% 3.1e-16 (dd) 72.40% 2.5e-16 (fs) 67.83% 2.2e-16 (fp) 72.75% 1.2e-16 (fd) 69.40% 2.1e-16 (ff) 68.32% 4.2e-16 
+caffeine-tz qcint-pgo: 6.543 s, 5.94 ns/integral
+caffeine-tz qcint-sx-vexp: 3.263 s, 2.96 ns/integral
+caffeine-tz qcint-sx-uni: 3.371 s, 3.06 ns/integral
+caffeine-tz qcint-sx-uni104: 3.462 s, 3.14 ns/integral
+caffeine-tz qcint-pgo: 6.542 s, 5.94 ns/integral
+caffeine-tz qcint-sx-vexp: 3.256 s, 2.95 ns/integral
+caffeine-tz qcint-sx-uni: 3.375 s, 3.06 ns/integral
+caffeine-tz qcint-sx-uni104: 3.456 s, 3.14 ns/integral
+caffeine-tz qcint-sx-uni: 3.379 s, 3.07 ns/integral
+caffeine-tz qcint-sx-uni104: 3.467 s, 3.15 ns/integral
+c20 qcint-sx-uni against qcint-sx-vexp: 99.4498% bitwise equal, max |diff| 1.11e-16 (max |value| 5.67e+00), max |diff| / max |value| of its pair 6.88e-16 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 98.12% 1.1e-16 (pp) 100.00% 0.0e+00 (ds) 100.00% 0.0e+00 (dp) 100.00% 0.0e+00 (dd) 100.00% 0.0e+00 
+c20 qcint-sx-uni against qcint-pgo: 85.5810% bitwise equal, max |diff| 1.78e-15 (max |value| 5.67e+00), max |diff| / max |value| of its pair 3.10e-12 bitwise equal, max |diff| by class: (ss) 99.72% 1.8e-15 (ps) 93.40% 2.2e-16 (pp) 80.06% 4.4e-16 (ds) 79.71% 2.2e-16 (dp) 80.03% 2.8e-16 (dd) 79.07% 1.1e-16 
+c20 qcint-pgo: 5.583 s, 5.16 ns/integral
+c20 qcint-sx-vexp: 2.141 s, 1.98 ns/integral
+c20 qcint-sx-uni: 2.276 s, 2.10 ns/integral
+c20 qcint-sx-uni104: 2.374 s, 2.19 ns/integral
+c20 qcint-pgo: 5.585 s, 5.16 ns/integral
+c20 qcint-sx-vexp: 2.139 s, 1.98 ns/integral
+c20 qcint-sx-uni: 2.275 s, 2.10 ns/integral
+c20 qcint-sx-uni104: 2.374 s, 2.19 ns/integral
+c20 qcint-sx-uni: 2.269 s, 2.10 ns/integral
+c20 qcint-sx-uni104: 2.372 s, 2.19 ns/integral
+== ERIs (qbench) 08:33
+caffeine int2e: int2e_sph 14553159 quartets, 314304127 integrals: max|d| 1.11e-16 (max|v| 4.78e+00) at (14 14|6 6), max|d|/max|quartet| 2.31e-13 (8.7e-19 of 3.8e-06 at (47 42|42 14)), nonzero flags 14553159 vs 14553159
+  qcint-pgo: 9.028 s per pass (best of 2, 1 thread), 28.7 ns/integral
+  qcint-sx-uni: 8.513 s per pass (best of 2, 1 thread), 27.1 ns/integral
+  qcint-pgo: 9.022 s per pass (best of 2, 1 thread), 28.7 ns/integral
+  qcint-sx-uni: 8.524 s per pass (best of 2, 1 thread), 27.1 ns/integral
+caffeine-tz int2e: int2e_sph 88595239 quartets, 4057820487 integrals: max|d| 1.67e-16 (max|v| 8.00e+00) at (90 50|88 88), max|d|/max|quartet| 1.80e-12 (2.2e-18 of 1.2e-06 at (118 111|110 103)), nonzero flags 88595239 vs 88595239
+  qcint-pgo: 70.609 s per pass (best of 2, 1 thread), 17.4 ns/integral
+  qcint-sx-uni: 68.945 s per pass (best of 2, 1 thread), 17.0 ns/integral
+  qcint-pgo: 70.564 s per pass (best of 2, 1 thread), 17.4 ns/integral
+  qcint-sx-uni: 68.665 s per pass (best of 2, 1 thread), 16.9 ns/integral
+benzene ip1: int2e_ip1_sph 4167926 quartets, 253246842 integrals: max|d| 1.11e-16 (max|v| 3.28e+00) at (6 9|13 13), max|d|/max|quartet| 7.76e-14 (8.7e-19 of 1.1e-05 at (37 0|5 0)), nonzero flags 4167926 vs 4167926
+  qcint-pgo: 4.675 s per pass (best of 2, 1 thread), 18.5 ns/integral
+  qcint-sx-uni: 4.452 s per pass (best of 2, 1 thread), 17.6 ns/integral
+  qcint-pgo: 4.673 s per pass (best of 2, 1 thread), 18.5 ns/integral
+  qcint-sx-uni: 4.451 s per pass (best of 2, 1 thread), 17.6 ns/integral
+caffeine ip1: int2e_ip1_sph 57552568 quartets, 3710481432 integrals: max|d| 2.22e-16 (max|v| 6.49e+00) at (15 12|46 13), max|d|/max|quartet| 1.24e-13 (8.7e-19 of 7.0e-06 at (56 48|53 48)), nonzero flags 57552568 vs 57552568
+  qcint-pgo: 57.686 s per pass (best of 2, 1 thread), 15.5 ns/integral
+  qcint-sx-uni: 55.553 s per pass (best of 2, 1 thread), 15.0 ns/integral
+  qcint-pgo: 57.717 s per pass (best of 2, 1 thread), 15.6 ns/integral
+  qcint-sx-uni: 55.579 s per pass (best of 2, 1 thread), 15.0 ns/integral
+== SGX pjs SCF, n-C20H42 def2-TZVP: modified tree (qcint-pgo) against pyscf-sgx (qcint-sx-vexp) 08:57
+scf_c20h42_tzvp_b3lyp           old rep0   552.80s  core=Zen  other=467.27  jk=37.04  xc_kernels=35.56
+scf_c20h42_tzvp_b3lyp           new rep0   321.46s  core=Zen  other=234.72  jk=38.52  xc_kernels=35.32
+saved /home/danny/Chemistry/my-pyscf/bench/results/20261104-085726_node2-sgx4-c20tz.json
+NODE2 SGX4 DONE 09:12

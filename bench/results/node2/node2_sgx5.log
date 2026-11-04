@@ -1,0 +1,31 @@
+== start 09:12
+  built qcint-sx-fin
+fatal: not a git repository (or any of the parent directories): .git
+  qcint sources back to perf: 0ec86b07 555c4013 , 0 changed files
+caffeine qcint-sx-fin against qcint-sx-vexp: 100.0000% bitwise equal, max |diff| 0.00e+00 (max |value| 7.66e+00), max |diff| / max |value| of its pair 0.00e+00
+caffeine qcint-pgo: 2.333 s, 8.50 ns/integral
+caffeine qcint-sx-vexp: 0.931 s, 3.39 ns/integral
+caffeine qcint-sx-fin: 0.928 s, 3.38 ns/integral
+caffeine qcint-pgo: 2.327 s, 8.48 ns/integral
+caffeine qcint-sx-vexp: 0.928 s, 3.38 ns/integral
+caffeine qcint-sx-fin: 0.926 s, 3.37 ns/integral
+caffeine-tz qcint-sx-fin against qcint-sx-vexp: 100.0000% bitwise equal, max |diff| 0.00e+00 (max |value| 1.23e+01), max |diff| / max |value| of its pair 0.00e+00
+caffeine-tz qcint-pgo: 6.539 s, 5.93 ns/integral
+caffeine-tz qcint-sx-vexp: 3.258 s, 2.96 ns/integral
+caffeine-tz qcint-sx-fin: 3.261 s, 2.96 ns/integral
+caffeine-tz qcint-pgo: 6.541 s, 5.94 ns/integral
+caffeine-tz qcint-sx-vexp: 3.258 s, 2.96 ns/integral
+caffeine-tz qcint-sx-fin: 3.250 s, 2.95 ns/integral
+c20 qcint-sx-fin against qcint-sx-vexp: 100.0000% bitwise equal, max |diff| 0.00e+00 (max |value| 5.67e+00), max |diff| / max |value| of its pair 0.00e+00
+c20 qcint-pgo: 5.567 s, 5.15 ns/integral
+c20 qcint-sx-vexp: 2.134 s, 1.97 ns/integral
+c20 qcint-sx-fin: 2.136 s, 1.97 ns/integral
+c20 qcint-pgo: 5.571 s, 5.15 ns/integral
+c20 qcint-sx-vexp: 2.135 s, 1.97 ns/integral
+c20 qcint-sx-fin: 2.136 s, 1.97 ns/integral
+caffeine int2e qcint-sx-fin against qcint-sx-uni: int2e_sph 14553159 quartets, 314304127 integrals: max|d| 0.00e+00 (max|v| 4.78e+00) at (0 0|0 0), max|d|/max|quartet| 0.00e+00 (0.0e+00 of 0.0e+00 at (0 0|0 0)), nonzero flags 14553159 vs 14553159
+  qcint-pgo: 9.029 s per pass (best of 2, 1 thread), 28.7 ns/integral
+  qcint-sx-fin: 8.508 s per pass (best of 2, 1 thread), 27.1 ns/integral
+  qcint-pgo: 9.017 s per pass (best of 2, 1 thread), 28.7 ns/integral
+  qcint-sx-fin: 8.517 s per pass (best of 2, 1 thread), 27.1 ns/integral
+NODE2 SGX5 DONE 09:22

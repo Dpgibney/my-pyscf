@@ -1,0 +1,149 @@
+== pyscf-sgx: the modified tree with the instrumented SGX driver (06:12)
+  build ok: OK: all PySCF libs in pyscf-sgx resolve cint/xc/BLAS from deps (cint=qcint-pgo xc=libxc-stock blas=openblas )
+caffeine def2-svp b3lyp pjs: nao 246, nbas 114, SGX grid 70928, 6 threads; SCF 67.3 s, 15 cycles, E -679.8129624756
+== first K build (sets up the screening data): 3.414 s
+   k_part (C driver)               3.174 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.092 s  (1 calls)
+   eval_gto                        0.072 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.061 s  (1 calls)
+   get_g_threshold                 0.011 s  (1 calls)
+   rest (Python)                   0.005 s
+   C driver: 1 calls, wall 3.173 s, thread-seconds 18.836 (99% of 6 threads x wall)
+      grid screening                0.026 thread-s    0.1%
+      shell-pair screening          0.139 thread-s    0.7%
+      integrals (int1e_grids)      16.735 thread-s   88.8%
+      contraction                   1.707 thread-s    9.1%
+      set0 and send                 0.228 thread-s    1.2%
+      317 batches of 224 points, 1799718 shell pairs (5677 per batch), 1.866e+09 integrals, 111.5 M integrals per thread-second
+== K build 1: 3.408 s
+   k_part (C driver)               3.167 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.093 s  (1 calls)
+   eval_gto                        0.072 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.061 s  (1 calls)
+   get_g_threshold                 0.011 s  (1 calls)
+   rest (Python)                   0.004 s
+   C driver: 1 calls, wall 3.167 s, thread-seconds 18.808 (99% of 6 threads x wall)
+      grid screening                0.027 thread-s    0.1%
+      shell-pair screening          0.139 thread-s    0.7%
+      integrals (int1e_grids)      16.725 thread-s   88.9%
+      contraction                   1.707 thread-s    9.1%
+      set0 and send                 0.209 thread-s    1.1%
+      317 batches of 224 points, 1799718 shell pairs (5677 per batch), 1.866e+09 integrals, 111.6 M integrals per thread-second
+== K build 2: 3.407 s
+   k_part (C driver)               3.168 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.090 s  (1 calls)
+   eval_gto                        0.073 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.061 s  (1 calls)
+   get_g_threshold                 0.011 s  (1 calls)
+   rest (Python)                   0.004 s
+   C driver: 1 calls, wall 3.167 s, thread-seconds 18.807 (99% of 6 threads x wall)
+      grid screening                0.027 thread-s    0.1%
+      shell-pair screening          0.139 thread-s    0.7%
+      integrals (int1e_grids)      16.719 thread-s   88.9%
+      contraction                   1.703 thread-s    9.1%
+      set0 and send                 0.219 thread-s    1.2%
+      317 batches of 224 points, 1799718 shell pairs (5677 per batch), 1.866e+09 integrals, 111.6 M integrals per thread-second
+max |vk| 9.787e+00
+caffeine def2-svp b3lyp default: nao 246, nbas 114, SGX grid 70928, 6 threads; SCF 67.7 s, 15 cycles, E -679.8127761622
+== first K build (sets up the screening data): 3.487 s
+   jk_part (C driver)              3.121 s  (1 calls)
+   eval_gto                        0.145 s  (2 calls)
+   rest (Python)                   0.221 s
+== K build 1: 3.490 s
+   jk_part (C driver)              3.127 s  (1 calls)
+   eval_gto                        0.145 s  (2 calls)
+   rest (Python)                   0.219 s
+== K build 2: 3.486 s
+   jk_part (C driver)              3.124 s  (1 calls)
+   eval_gto                        0.144 s  (2 calls)
+   rest (Python)                   0.219 s
+max |vk| 9.787e+00
+caffeine def2-tzvp b3lyp pjs: nao 494, nbas 194, SGX grid 71208, 6 threads; SCF 195.4 s, 14 cycles, E -680.5700514685
+== first K build (sets up the screening data): 9.965 s
+   k_part (C driver)               9.395 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.231 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.182 s  (1 calls)
+   eval_gto                        0.124 s  (1 calls)
+   get_g_threshold                 0.021 s  (1 calls)
+   rest (Python)                   0.013 s
+   C driver: 1 calls, wall 9.394 s, thread-seconds 55.922 (99% of 6 threads x wall)
+      grid screening                0.074 thread-s    0.1%
+      shell-pair screening          0.443 thread-s    0.8%
+      integrals (int1e_grids)      46.680 thread-s   83.5%
+      contraction                   8.284 thread-s   14.8%
+      set0 and send                 0.442 thread-s    0.8%
+      318 batches of 224 points, 5045986 shell pairs (15868 per batch), 7.563e+09 integrals, 162.0 M integrals per thread-second
+== K build 1: 10.008 s
+   k_part (C driver)               9.436 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.230 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.183 s  (1 calls)
+   eval_gto                        0.125 s  (1 calls)
+   get_g_threshold                 0.021 s  (1 calls)
+   rest (Python)                   0.012 s
+   C driver: 1 calls, wall 9.436 s, thread-seconds 56.053 (99% of 6 threads x wall)
+      grid screening                0.075 thread-s    0.1%
+      shell-pair screening          0.444 thread-s    0.8%
+      integrals (int1e_grids)      46.640 thread-s   83.2%
+      contraction                   8.460 thread-s   15.1%
+      set0 and send                 0.434 thread-s    0.8%
+      318 batches of 224 points, 5045986 shell pairs (15868 per batch), 7.563e+09 integrals, 162.2 M integrals per thread-second
+== K build 2: 10.007 s
+   k_part (C driver)               9.437 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.229 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.182 s  (1 calls)
+   eval_gto                        0.126 s  (1 calls)
+   get_g_threshold                 0.021 s  (1 calls)
+   rest (Python)                   0.012 s
+   C driver: 1 calls, wall 9.437 s, thread-seconds 55.968 (99% of 6 threads x wall)
+      grid screening                0.075 thread-s    0.1%
+      shell-pair screening          0.443 thread-s    0.8%
+      integrals (int1e_grids)      46.628 thread-s   83.3%
+      contraction                   8.384 thread-s   15.0%
+      set0 and send                 0.438 thread-s    0.8%
+      318 batches of 224 points, 5045986 shell pairs (15868 per batch), 7.563e+09 integrals, 162.2 M integrals per thread-second
+max |vk| 1.062e+01
+c20h42 def2-svp b3lyp pjs: nao 490, nbas 246, SGX grid 176744, 6 threads; SCF 204.9 s, 9 cycles, E -786.8960893375
+== first K build (sets up the screening data): 16.858 s
+   k_part (C driver)              15.434 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.545 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.467 s  (1 calls)
+   eval_gto                        0.333 s  (1 calls)
+   get_g_threshold                 0.060 s  (1 calls)
+   rest (Python)                   0.019 s
+   C driver: 1 calls, wall 15.434 s, thread-seconds 91.807 (99% of 6 threads x wall)
+      grid screening                0.173 thread-s    0.2%
+      shell-pair screening          0.917 thread-s    1.0%
+      integrals (int1e_grids)      81.162 thread-s   88.4%
+      contraction                   8.435 thread-s    9.2%
+      set0 and send                 1.120 thread-s    1.2%
+      790 batches of 224 points, 10675683 shell pairs (13514 per batch), 8.857e+09 integrals, 109.1 M integrals per thread-second
+== K build 1: 16.864 s
+   k_part (C driver)              15.436 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.552 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.464 s  (1 calls)
+   eval_gto                        0.332 s  (1 calls)
+   get_g_threshold                 0.060 s  (1 calls)
+   rest (Python)                   0.019 s
+   C driver: 1 calls, wall 15.436 s, thread-seconds 91.772 (99% of 6 threads x wall)
+      grid screening                0.173 thread-s    0.2%
+      shell-pair screening          0.915 thread-s    1.0%
+      integrals (int1e_grids)      81.142 thread-s   88.4%
+      contraction                   8.390 thread-s    9.1%
+      set0 and send                 1.152 thread-s    1.3%
+      790 batches of 224 points, 10675683 shell pairs (13514 per batch), 8.857e+09 integrals, 109.2 M integrals per thread-second
+== K build 2: 16.847 s
+   k_part (C driver)              15.425 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.547 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.464 s  (1 calls)
+   eval_gto                        0.331 s  (1 calls)
+   get_g_threshold                 0.060 s  (1 calls)
+   rest (Python)                   0.019 s
+   C driver: 1 calls, wall 15.425 s, thread-seconds 91.742 (99% of 6 threads x wall)
+      grid screening                0.172 thread-s    0.2%
+      shell-pair screening          0.916 thread-s    1.0%
+      integrals (int1e_grids)      81.088 thread-s   88.4%
+      contraction                   8.425 thread-s    9.2%
+      set0 and send                 1.141 thread-s    1.2%
+      790 batches of 224 points, 10675683 shell pairs (13514 per batch), 8.857e+09 integrals, 109.2 M integrals per thread-second
+max |vk| 7.153e+00
+NODE2 SGXPROF DONE

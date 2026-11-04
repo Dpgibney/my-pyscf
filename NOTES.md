@@ -6033,6 +6033,225 @@ GPU4PySCF has nothing like it.
 - **What follows for the RI-COSX discussion:** PySCF's SGX is no shortcut at these sizes on the CPU. A faster
   seminumerical K would have to be new code. The better place for one is GPU4PySCF, which already has the grid,
   AO and `int3c1e` pieces.
+  - It25 (next section) made SGX 1.6–2.0× faster without approximations. It then beats this exact tree at
+    def2-TZVP, but not at def2-SVP.
+
+## It25: PySCF's SGX on the CPU, a deep investigation (node2 and the laptop), 2026-11-04
+Asked for by the user after the SGX timings above: "Could you do a deep investigation into performance improvements
+possible for the CPU SGX?" Exact only, as always: the SGX results must stay within ~1e−9 Eh of the unmodified SGX,
+with the same cycles.
+- **Tools** (workspace):
+  - `bench/diag/sgx_profile.py`: an SGX SCF, then timed K builds, split into the Python steps and, with an
+    `SGX_PROFILE` build of libcvhf, the C driver's phases;
+  - `bench/qcint/gbench.c`: int1e_grids of a library on all shell pairs and the SGX batches of a grid
+    (`dump_sgx_grid.py`), by class: time, the scalar root step alone, the cost per call, the distribution of x, and
+    `--compare` (bitwise fraction and max |diff|, by class);
+  - `bench/qcint/kbench.c`: the SGX K contraction alone;
+  - `bench/qcint/rchunk_check.c`: `CINTrys_roots_chunk` against `CINTrys_roots`, by interval of x;
+  - `bench/qcint/callcost.c`: the per-call setup of `CINT1e_grids_loop`, piece by piece;
+  - `bench/qcint/root1_check.c`: an erf-form one-root prototype (not used: rys_root1's own fits vectorize as well,
+    with the same values).
+- **Scripts:** `scripts/node2_sgxprof.sh`, `node2_gbench.sh`, `node2_sgx2.sh` (step 1), `node2_sgx3.sh` (step 2),
+  `node2_sgx4.sh` (the shared chunk function, the block size alone, the ERIs, C20H42/TZVP), `node2_sgx5.sh` (the
+  committed qcint). Data: `bench/results/node2/`.
+
+### Where the K build's time goes (node2, 6 threads, pjs, converged density, before)
+| case | K build | int1e_grids | contraction | rest of the C driver | Python steps |
+|---|---|---|---|---|---|
+| caffeine def2-SVP (1.87e9 integrals) | 3.41 s | 88.8% | 9.1% | 2.0% | 7% of the wall |
+| caffeine def2-TZVP (7.56e9) | 10.0 s | 83.5% | 14.8% | 1.7% | 6% |
+| n-C20H42 def2-SVP (8.86e9) | 16.9 s | 88.4% | 9.2% | 2.4% | 8% |
+
+- The C driver keeps 99% of 6 threads busy. Shell-pair and grid screening are under 1.2% together.
+- **Inside int1e_grids** (gbench, caffeine def2-SVP, single thread, qcint-pgo): 8.5 ns per integral.
+  - The Rys roots took 53%. `CINTg0_1e_grids` called `CINTrys_roots` once per primitive pair and grid point.
+  - 68–85% of those calls (by class) are at x ≥ 35 + 5 nroots, where the roots are a closed form:
+    u = rt/(x − rt), w = ww sqrt(π/4x).
+  - (ss) and (ps) are 60% of the time; one root each.
+- **The contraction** (`nrs2_ijg_gj_gi`, 2 FMAs per integral) ran at 0.9–1.1 ns per integral. libcvhf is built
+  with PySCF's default `-O2 -msse3`, at which GCC leaves these loops scalar.
+
+### Changes
+1. **qcint `sgx-exp` 40cbc68: the Rys roots of a SIMD chunk at once** (`CINTrys_roots_chunk` in `rys_roots.c`;
+   AVX and AVX-512 builds, SSE builds unchanged).
+   - Large x (all lanes at x ≥ 35 + 5 nroots): the closed form, for any number of roots.
+   - One or two roots at any x > 3e−7: rys_root1's and rys_root2's own fits. The fit of each interval of x is
+     evaluated on the whole chunk when a lane is in it, and selected per lane by blends.
+   - exp(−x) of the lanes is one loop, which GCC vectorizes with glibc's libmvec under qcint's `-ffast-math`. The
+     stock build already does this for 9–12 other exp loops.
+   - Other chunks go point by point as before: three or more roots below the large-x limit, x ≤ 3e−7, and
+     partial chunks.
+   - The one-root case is a `static inline` function in the new `rys_roots_chunk.h`, so that int1e_grids inlines
+     it.
+   - `_CINTrys_roots_batch` calls it. That is the root step of qcint's ERIs, nuclear attraction, 3c1e and F12
+     integrals.
+2. **qcint 3659e67: `CINTg0_1e_grids` takes the roots a chunk of grid points at a time:**
+   - one root: `CINTrys_root1_chunk` inlined, forming t² = u/(u+1) directly (F1/w, 0.5/x);
+   - all lanes large: t² = rt/x = (4rt/π)·(π/4x) from the square of the weight's sqrt(π/4x), instead of u/(u+1)
+     of u = rt/(x − rt), two divisions fewer per root;
+   - two roots: `CINTrys_roots_chunk`.
+   - The first version called `CINTrys_roots_chunk` for one root too (`sx-uni`, the u form plus a division). It was
+     3–7% slower on node2; the inlined t² form is bitwise equal to the earlier `sx-vexp`.
+3. **qcint 99158a3: `GRID_BLKSIZE` 104 → 112**, so that a 224-point SGX batch is two blocks instead of three
+   (bitwise: the chunks are the same). On node2 it is 3–4% faster than 104 with the same code (`sx-uni` against
+   `sx-uni104`): 3.61 vs 3.76, 3.06 vs 3.14 and 2.10 vs 2.19 ns per integral.
+4. **PySCF `sgx-exp`: `nr_sgx_direct.c` with the `NUMINT_X86_64_V3` kernel flags** (`-O3 -march=x86-64-v3
+   -ffp-contract=off`, as `dft/nr_numint*.c` and the GTO grid files). The J/K contractions vectorize over the grid
+   points; each element's sums keep their order and nothing is contracted into FMA, so the results are bitwise
+   the same. kbench, single thread: 0.75–0.98 → 0.29 ns per integral (laptop).
+   - This is a per-file flag difference, which the user preferred to avoid for small gains (the FMA rollback).
+     It adds a file to the existing `NUMINT_X86_64_V3` set rather than a new kind of difference, and its results
+     are bitwise those of the default flags. For the user to keep or drop.
+5. **PySCF: the default SGX mode computes the overlap-fitting projection once per grid.** `get_jk_favorj`
+   evaluated the AOs on the whole grid a second time per J/K build and solved for a projection that depends on
+   the grids and the basis only. It is now kept in `sgx._overlap_correction_matrix`, which `build()` and `reset()`
+   already cleared but nothing used, for the grids it was computed on. Bitwise the same.
+
+### int1e_grids on node2, step by step (gbench, single thread, AVX2, PGO builds; ns per integral)
+| qcint | caffeine def2-SVP | caffeine def2-TZVP | n-C20H42 def2-SVP |
+|---|---|---|---|
+| qcint-pgo (before) | 8.48 | 5.94 | 5.16 |
+| + large-x chunks (`sgxpgo`) | 5.65 | 4.22 | 3.08 |
+| + one-root chunks, `GRID_BLKSIZE` 112 (`sx-sameops`) | 4.64 | 3.74 | 2.55 |
+| + t² without u (`sx-fewdiv`) | 4.29 | 3.55 | 2.32 |
+| + two-root chunks (`sx-root2`) | 3.84 | 3.21 | 2.23 |
+| + vector exp (`sx-vexp`) | 3.37 | 2.96 | 1.97 |
+| **the committed qcint 3659e67** (`sx-fin`) | **3.37** | **2.96** | **1.97** |
+| total | 2.5× | 2.0× | 2.6× |
+
+- Two runs each, interleaved; they agree to 0.5%.
+- `sx-fin` (`node2_sgx5.sh`) gives the integrals of `sx-vexp` bitwise on all three, and its ERIs are bitwise those
+  of `sx-uni` (the ERI rows below).
+- Against qcint-pgo, the largest difference grows from 1.1e−16 (step 1) to 5.6e−16 (two-root chunks) and
+  1.8–3.6e−15 with the vector exp: at most two ulps of each case's largest integral (7.7, 12.3, 5.7), in (ss),
+  where 99.5–99.7% stay bitwise equal.
+- After the changes (caffeine def2-SVP, `sx-vexp`): (ss) 9.7 ns per integral, (ps) 4.0, (pp) 3.2. The cost per call
+  is now 8–15% of the time (C20H42: 15%), the setup an optimizer would hold.
+- **The contraction alone** (kbench, node2, single thread): 0.91 → 0.38 ns per integral (2.4×) with the kernel
+  flags, bitwise equal. Tiling it over grid points is slower with both flag sets.
+
+### The K build on node2 after the changes (6 threads, pjs, converged density; `pyscf-sgxprof` on `sx-vexp`)
+| case | K build | int1e_grids (thread-s) | contraction (thread-s) | Python steps | integrals per thread-s |
+|---|---|---|---|---|---|
+| caffeine def2-SVP | 3.41 → 1.59 s (2.15×) | 16.7 → 6.7 | 1.71 → 0.86 | 0.24 s, 15% | 112 → 280 M |
+| caffeine def2-TZVP | 10.0 → 5.51 s (1.81×) | 46.6 → 23.5 | 8.46 → 4.68 | 0.57 s, 10% | 162 → 322 M |
+| n-C20H42 def2-SVP | 16.9 → 7.61 s (2.22×) | 81.1 → 30.0 | 8.39 → 4.00 | 1.44 s, 19% | 109 → 296 M |
+
+- In the C driver, int1e_grids is now 80–84% and the contraction 11–16%.
+- **The contraction gains 1.8–2.1× in the driver,** against 2.4× in kbench (one thread, caffeine-SVP shells).
+  The cause of the difference was not measured.
+- **The Python steps did not change:** `_sgxdot_ao_dm_sparse`, `_sgxdot_ao_gv_sparse` (in `nr_sgx_direct.c`, but
+  BLAS-bound), `eval_gto` and `get_g_threshold`. They are now a tenth to a fifth of the K build.
+- The profile runs' SCFs (one each): 67.3 → 37.2 s, 195.4 → 125.9 s, 204.9 → 107.4 s, with the same energies to
+  the 10 decimals printed and the same cycles. The A/B runs below are the reference.
+
+### SGX SCFs on node2: the modified tree (qcint-pgo) against `pyscf-sgx` (`sx-vexp`, changes 1–5)
+6 threads, `PYSCF_MAX_MEMORY=12000`, two runs each, interleaved (ABBA); `bench/results/node2/*node2-sgx3*`.
+`sx-vexp`'s int1e_grids are bitwise those of the final qcint. The final one also vectorizes the batch roots of
+the 2e code, which pjs's DF-J (`int3c2e`) uses; that part is not in these timings.
+
+| B3LYP SCF | before | after | speedup | energies (after − before) | cycles |
+|---|---|---|---|---|---|
+| pjs, caffeine def2-SVP | 66.5 s | 36.4 s | 1.83× | ≤ 1e−12 Eh | 15 |
+| pjs, caffeine def2-TZVP | 193.6 s | 124.1 s | 1.56× | ≤ 2e−12 | 14 |
+| pjs, n-C20H42 def2-SVP | 202.6 s | 105.9 s | 1.91× | ≤ 4e−12 | 9 |
+| default mode, caffeine def2-SVP | 67.8 s | 34.2 s | 1.98× | 0 | 15 |
+
+- Step 1 alone (large-x chunks, `sgxpgo`; `*node2-sgx2*`): 66.4 → 51.7 s, 193.8 → 160.0 s, 203.5 → 145.0 s.
+- The runs' cost categories put the saving in "other", where the C K driver is counted. jk (the DF-J) and XC
+  are unchanged.
+
+### Against exact J/K and the original PySCF (node2, 6 threads, 12 GB; exact and original from the SGX section above)
+| B3LYP SCF | exact, modified tree | SGX pjs, original PySCF | SGX pjs, modified tree | SGX pjs, now |
+|---|---|---|---|---|
+| caffeine def2-SVP | 8.7 s | 92.7 s | 66.5 s | 36.4 s |
+| caffeine def2-TZVP | 176.2 s | 253.1 s | 193.6 s | **124.1 s** |
+| n-C20H42 def2-SVP | 31.1 s | 270.5 s | 202.6 s | 105.9 s |
+| n-C20H42 def2-TZVP | 422.0 s | 699.7 s | 552.8 s | **321.5 s** |
+
+- SGX is now 2.0–2.6× faster than the original PySCF's.
+- **It now beats the modified tree's exact SCF at def2-TZVP:** 1.42× at caffeine, 1.31× at C20H42. Before it was
+  10% and 30% slower.
+- At def2-SVP the exact SCF stays 3.4–4.2× faster.
+- The C20H42/TZVP pair is one run each (`*node2-sgx4-c20tz*`): 1.72× faster, energies within 4.1e−12, 10 cycles
+  both.
+- The SGX energy errors against exact are unchanged (see the SGX section above): −2.1e−4 to −6.8e−4 Eh in pjs mode.
+
+### qcint's ERIs, a side effect (node2, PGO builds, single thread; qbench)
+`_CINTrys_roots_batch` now takes `CINTrys_roots_chunk` (change 1), so the 2e integrals' roots are vectorized too.
+
+| integrals | before | after | saving | max \|diff\| (largest value) |
+|---|---|---|---|---|
+| int2e, caffeine def2-SVP (14.6 M quartets) | 9.03 s | 8.52 s | 5.6% | 1.1e−16 (4.8) |
+| int2e, caffeine def2-TZVP (88.6 M) | 70.6 s | 68.8 s | 2.5% | 1.7e−16 (8.0) |
+| int2e_ip1, benzene def2-SVP | 4.67 s | 4.45 s | 4.8% | 1.1e−16 (3.3) |
+| int2e_ip1, caffeine def2-SVP | 57.7 s | 55.6 s | 3.7% | 2.2e−16 (6.5) |
+
+- The same nonzero flags everywhere.
+- The committed qcint (`sx-fin`) repeats the first row: int2e on caffeine 9.02 → 8.51 s, bitwise `sx-uni`'s.
+- Laptop (AVX2): int2e 5.45 → 5.02 s, benzene ip1 2.94 → 2.77 s.
+- End-to-end exact SCFs and gradients with this qcint were not timed.
+
+### Exactness
+- **int1e_grids** (gbench `--compare`, all shell pairs on the SGX batches):
+  - against the previous build, at most two ulps of the largest integral of a case;
+  - node2 (PGO): 1.8e−15 at 7.7 (caffeine def2-SVP), 3.6e−15 at 12.3 (def2-TZVP), 1.8e−15 at 5.7 (C20H42), in (ss),
+    where 99.5–99.7% stay bitwise equal;
+  - the laptop's AVX2 build: 8.9e−16 at 6.7, 68% bitwise equal.
+  - **For scale,** the previous code differs from itself by 8.9e−16 between its AVX2 and AVX-512 builds (82%
+    bitwise equal), and by 1.8e−15 between its `-msse3` and native builds.
+  - Under qcint's `-ffast-math`, any edit of `CINTg0_1e_grids` changes how GCC reassociates the recursion that
+    follows the roots. Moving the unchanged root loop into a function of its own changed the bits of every class
+    (max 8.9e−16), so bitwise equality for two or more roots is not available to any change of that function.
+  - The roots themselves (`bench/qcint/rchunk_check.c`: `CINTrys_roots_chunk` against `CINTrys_roots`, 400,000
+    chunks over x in [0, 60), AVX2 and AVX-512): all roots and weights within 8.2e−16 relative, about 4 ulps.
+    One root: x ≥ 15 bitwise, below that up to 6.7e−16 from the vector exp. Two roots: the roots bitwise except
+    (10, 15], the weights up to 8.2e−16 from the order in which their formula is evaluated; x > 33 bitwise.
+- **ERIs** with the vectorized batch roots (qbench `--compare`, against the previous build), with the same
+  nonzero flags:
+  - caffeine def2-SVP, 14.6 M quartets: max |diff| 1.1e−16 at |value| 4.8;
+  - def2-TZVP, 88.6 M quartets: 1.7e−16 at 8.0.
+- **PySCF's checks** on the laptop with the new qcint swapped in (`LD_LIBRARY_PATH`; the `uni` build, whose ERIs
+  are bitwise those of the final one):
+  - `kernels.py`: ALL PASS (rtol 1e−11);
+  - `validate.py`: ALL PASS against pyscf-base. SCF energies within 2.5e−12, the benzene gradient within 2.8e−14,
+    TDA excitations within 4.3e−15. Its one warning, r2SCAN in 24 cycles against pyscf-base's 25, is the
+  same with the tree's own qcint.
+- **PySCF's unit tests** on the laptop's `pyscf-sgx` (all of these changes, linked to the `uni` qcint):
+  `sgx/test`, `sgx/grad/test`, `qmmm/test` (int1e_grids on MM charges) and `lib/gto/test/test_gridao.py`: 42
+  passed, 2 failed. The two are `test_dm_screening`'s translational-invariance check, 7.08e−12 against 5e−12: qcint's
+  known one (It6's upstream tests), the same 7.08e−12 with the `perf` tree on qcint-stock or qcint-pgo, and
+  passing on pyscf-base.
+- **Changes 4 and 5 are bitwise:** the contraction gives the same bits with both flag sets (kbench), and the
+  default-mode SCFs with the cached projection give the same energies to the last digit printed
+  (benzene −232.084241761618, caffeine −679.812776162158, same cycles).
+- **The SGX SCFs** (node2, the A/B above): pjs energies within 3e−12 Eh of the old tree's, inside its own
+  rep-to-rep spread (up to 2e−12 from the order of OpenMP's accumulation); default mode identical in every digit
+  printed (−679.8127761621591 in all four runs); the same cycles everywhere.
+
+### Looked at, not done
+- **An optimizer for plain int1e_grids** (`int1e_grids_optimizer` returns NULL; the derivative kernels have one).
+  - Each call redoes the setup an optimizer could hold, about 200 ns on caffeine (timed with dlsym'd pieces): the
+    coefficients' logs 60 ns, the pair data (an exp per primitive pair) 105 ns, the nonzero-coefficient tables
+    45 ns. That is 3–5% of an improved K build.
+  - Not done: the pair data and the g-index tables depend on `env[PTR_RANGE_OMEGA]` (the screening estimate; ω < 0
+    doubles the roots). An optimizer built under one ω and used under another would give wrong integrals, and
+    PySCF's range-separated SGX path creates objects inside `with_range_coulomb`. The NULL optimizer cannot fail
+    that way.
+- **Three- and four-root fits on chunks:** at most 2% of int1e_grids on caffeine def2-TZVP. The bound: forcing
+  those chunks through the large-x form (wrong values) saved 0.033 of 1.75 s.
+- **Mixed chunks** (large-x lanes as a vector, only the others point by point): no measurable change.
+- **(ss) without the gx = gy = 1 arrays:** bitwise the same, 4% of (ss), about 1% overall.
+- **An erf form for one root** (`root1_check.c`): no better than vectorizing rys_root1's fits, which keep its
+  values.
+- **Tiling the contraction** over grid points (16–56 at a time): slower once the loop is vectorized.
+- **Caching the integrals across cycles,** as It9 does for ERIs. By an estimate (not measured), reading an
+  integral back costs about half of computing it now: about 1.6 ns per 8 bytes per thread at ~30 GB/s shared by 6
+  threads, against 3.6 ns to compute it (280 M per thread-second). A cache would gain at most about 2× on what it
+  holds. Caffeine/def2-SVP needs 15 GB
+  per K build (1.9e9 integrals), C20H42 71 GB, and pjs's density screening changes the set from cycle to cycle.
+- **PGO:** the qcint PGO training (`train_qcint_pgo.sh`) has no int1e_grids, so these paths are built without a
+  profile, as before.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are

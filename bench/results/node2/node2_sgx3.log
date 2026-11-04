@@ -1,0 +1,267 @@
+== start 07:10
+== qcint-sx-sameops (07:10)
+  built
+== qcint-sx-fewdiv (07:17)
+  built
+== qcint-sx-root2 (07:23)
+  built
+== qcint-sx-vexp (07:30)
+  built
+  qcint sources back to perf: 0ec86b07 555c4013 
+== int1e_grids (gbench, single thread) 07:36
+caffeine qcint-sgxpgo against qcint-pgo: 87.7948% bitwise equal, max |diff| 1.11e-16 (max |value| 7.66e+00), max |diff| / max |value| of its pair 5.32e-13 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 100.00% 0.0e+00 (pp) 84.72% 1.1e-16 (ds) 81.91% 5.6e-17 (dp) 82.10% 5.6e-17 (dd) 80.72% 1.1e-16 
+caffeine qcint-sx-sameops against qcint-pgo: 87.7392% bitwise equal, max |diff| 1.11e-16 (max |value| 7.66e+00), max |diff| / max |value| of its pair 5.32e-13 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 100.00% 0.0e+00 (pp) 84.72% 1.1e-16 (ds) 81.67% 5.6e-17 (dp) 82.03% 5.6e-17 (dd) 80.66% 1.1e-16 
+caffeine qcint-sx-fewdiv against qcint-pgo: 78.8012% bitwise equal, max |diff| 1.67e-16 (max |value| 7.66e+00), max |diff| / max |value| of its pair 5.32e-13 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 85.52% 1.7e-16 (pp) 78.84% 1.1e-16 (ds) 74.07% 5.6e-17 (dp) 73.36% 5.6e-17 (dd) 69.22% 1.4e-16 
+caffeine qcint-sx-root2 against qcint-pgo: 75.9198% bitwise equal, max |diff| 5.55e-16 (max |value| 7.66e+00), max |diff| / max |value| of its pair 5.32e-13 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 85.52% 1.7e-16 (pp) 73.03% 5.6e-16 (ds) 70.32% 2.2e-16 (dp) 69.19% 2.5e-16 (dd) 69.22% 1.4e-16 
+caffeine qcint-sx-vexp against qcint-pgo: 75.7975% bitwise equal, max |diff| 1.78e-15 (max |value| 7.66e+00), max |diff| / max |value| of its pair 5.32e-13 bitwise equal, max |diff| by class: (ss) 99.40% 1.8e-15 (ps) 85.15% 2.2e-16 (pp) 73.03% 5.6e-16 (ds) 70.32% 2.2e-16 (dp) 69.19% 2.5e-16 (dd) 69.22% 1.4e-16 
+caffeine qcint-pgo: 2.326 s, 8.47 ns/integral
+caffeine qcint-sgxpgo: 1.552 s, 5.66 ns/integral
+caffeine qcint-sx-sameops: 1.276 s, 4.65 ns/integral
+caffeine qcint-sx-fewdiv: 1.184 s, 4.31 ns/integral
+caffeine qcint-sx-root2: 1.056 s, 3.85 ns/integral
+caffeine qcint-sx-vexp: 0.926 s, 3.37 ns/integral
+caffeine qcint-pgo: 2.329 s, 8.48 ns/integral
+caffeine qcint-sgxpgo: 1.552 s, 5.65 ns/integral
+caffeine qcint-sx-sameops: 1.273 s, 4.64 ns/integral
+caffeine qcint-sx-fewdiv: 1.179 s, 4.29 ns/integral
+caffeine qcint-sx-root2: 1.055 s, 3.84 ns/integral
+caffeine qcint-sx-vexp: 0.926 s, 3.37 ns/integral
+install/qcint-sx-vexp/lib/libcint.so.6: 70928 grid points, 40 of 317 batches of 224, nbas 114 (single thread)
+class       calls  integrals    time s   ns/int  roots/int   roots s    roots %  call ns
+(ss)       78120  1.750e+07     0.169     9.68       3.17     0.457     269.9%      320
+(ps)       94240  6.333e+07     0.254     4.02       0.96     0.518     203.9%      360
+(pp)       29640  5.975e+07     0.193     3.24       0.29     0.205     106.2%      441
+(ds)       34720  3.889e+07     0.127     3.26       0.38     0.167     131.5%      358
+(dp)       21280  7.150e+07     0.137     1.92       0.11     0.093      67.6%      407
+(dd)        4200  2.352e+07     0.050     2.13       0.04     0.014      28.7%      403
+all                2.745e+08     0.931     3.39                1.455     156.3% (per-call cost 10.2% of the time)
+root evaluations by x: class, x < 1, 1 <= x < 35+5 nroots, asymptotic
+(ss)     0.5%   14.4%   85.1%
+(ps)     0.5%   17.2%   82.3%
+(pp)     0.5%   23.3%   76.2%
+(ds)     0.3%   18.6%   81.0%
+caffeine-tz qcint-sgxpgo against qcint-pgo: 85.3559% bitwise equal, max |diff| 1.67e-16 (max |value| 1.23e+01), max |diff| / max |value| of its pair 2.32e-12 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 100.00% 0.0e+00 (pp) 85.10% 1.1e-16 (ds) 82.69% 7.0e-17 (dp) 83.58% 5.6e-17 (dd) 82.61% 1.7e-16 (fs) 80.72% 4.9e-17 (fp) 81.98% 6.6e-17 (fd) 80.51% 3.1e-17 (ff) 79.18% 1.4e-16 
+caffeine-tz qcint-sx-sameops against qcint-pgo: 85.1577% bitwise equal, max |diff| 1.67e-16 (max |value| 1.23e+01), max |diff| / max |value| of its pair 2.32e-12 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 100.00% 0.0e+00 (pp) 85.10% 1.1e-16 (ds) 82.48% 1.1e-16 (dp) 83.51% 5.6e-17 (dd) 82.53% 1.7e-16 (fs) 80.15% 1.1e-16 (fp) 81.58% 1.2e-16 (fd) 80.16% 5.6e-17 (ff) 78.66% 1.4e-16 
+caffeine-tz qcint-sx-fewdiv against qcint-pgo: 76.1258% bitwise equal, max |diff| 4.16e-16 (max |value| 1.23e+01), max |diff| / max |value| of its pair 2.32e-12 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 85.35% 1.1e-16 (pp) 78.97% 1.1e-16 (ds) 75.25% 1.1e-16 (dp) 75.20% 6.9e-17 (dd) 72.40% 2.5e-16 (fs) 71.50% 1.1e-16 (fp) 72.75% 1.2e-16 (fd) 69.40% 2.1e-16 (ff) 68.32% 4.2e-16 
+caffeine-tz qcint-sx-root2 against qcint-pgo: 73.8274% bitwise equal, max |diff| 5.55e-16 (max |value| 1.23e+01), max |diff| / max |value| of its pair 2.32e-12 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 85.35% 1.1e-16 (pp) 72.63% 5.6e-16 (ds) 71.35% 3.3e-16 (dp) 70.00% 3.1e-16 (dd) 72.40% 2.5e-16 (fs) 67.83% 2.2e-16 (fp) 72.75% 1.2e-16 (fd) 69.40% 2.1e-16 (ff) 68.32% 4.2e-16 
+caffeine-tz qcint-sx-vexp against qcint-pgo: 73.7586% bitwise equal, max |diff| 3.55e-15 (max |value| 1.23e+01), max |diff| / max |value| of its pair 2.32e-12 bitwise equal, max |diff| by class: (ss) 99.49% 3.6e-15 (ps) 84.97% 2.2e-16 (pp) 72.63% 5.6e-16 (ds) 71.35% 3.3e-16 (dp) 70.00% 3.1e-16 (dd) 72.40% 2.5e-16 (fs) 67.83% 2.2e-16 (fp) 72.75% 1.2e-16 (fd) 69.40% 2.1e-16 (ff) 68.32% 4.2e-16 
+caffeine-tz qcint-pgo: 6.540 s, 5.93 ns/integral
+caffeine-tz qcint-sgxpgo: 4.642 s, 4.21 ns/integral
+caffeine-tz qcint-sx-sameops: 4.111 s, 3.73 ns/integral
+caffeine-tz qcint-sx-fewdiv: 3.903 s, 3.54 ns/integral
+caffeine-tz qcint-sx-root2: 3.535 s, 3.21 ns/integral
+caffeine-tz qcint-sx-vexp: 3.263 s, 2.96 ns/integral
+caffeine-tz qcint-pgo: 6.541 s, 5.94 ns/integral
+caffeine-tz qcint-sgxpgo: 4.645 s, 4.22 ns/integral
+caffeine-tz qcint-sx-sameops: 4.123 s, 3.74 ns/integral
+caffeine-tz qcint-sx-fewdiv: 3.919 s, 3.56 ns/integral
+caffeine-tz qcint-sx-root2: 3.535 s, 3.21 ns/integral
+caffeine-tz qcint-sx-vexp: 3.266 s, 2.96 ns/integral
+install/qcint-sx-vexp/lib/libcint.so.6: 71208 grid points, 40 of 318 batches of 224, nbas 194 (single thread)
+class       calls  integrals    time s   ns/int  roots/int   roots s    roots %  call ns
+(ss)      202000  4.525e+07     0.356     7.88       2.49     0.909     254.9%      286
+(ps)      208000  1.398e+08     0.508     3.63       0.86     1.010     199.1%      340
+(pp)       55120  1.111e+08     0.364     3.28       0.29     0.385     105.7%      436
+(ds)      112000  1.254e+08     0.381     3.04       0.35     0.502     131.8%      343
+(dp)       58240  1.957e+08     0.384     1.96       0.11     0.264      68.6%      399
+(dd)       16240  9.094e+07     0.198     2.17       0.04     0.059      29.8%      409
+(fs)       56000  8.781e+07     0.239     2.73       0.24     0.237      98.8%      361
+(fp)       29120  1.370e+08     0.418     3.05       0.08     0.154      36.8%      437
+(fd)       15680  1.229e+08     0.262     2.13       0.03     0.054      20.8%      493
+(ff)        4200  4.610e+07     0.146     3.17       0.02     0.014       9.2%      757
+all                1.102e+09     3.257     2.96                3.587     110.1% (per-call cost 8.1% of the time)
+root evaluations by x: class, x < 1, 1 <= x < 35+5 nroots, asymptotic
+c20 qcint-sgxpgo against qcint-pgo: 91.5426% bitwise equal, max |diff| 1.11e-16 (max |value| 5.67e+00), max |diff| / max |value| of its pair 3.10e-12 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 100.00% 0.0e+00 (pp) 86.00% 1.1e-16 (ds) 85.51% 4.5e-17 (dp) 86.93% 4.5e-17 (dd) 88.14% 1.1e-16 
+c20 qcint-sx-sameops against qcint-pgo: 91.5135% bitwise equal, max |diff| 1.11e-16 (max |value| 5.67e+00), max |diff| / max |value| of its pair 3.10e-12 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 100.00% 0.0e+00 (pp) 86.00% 1.1e-16 (ds) 85.35% 5.7e-17 (dp) 86.89% 4.5e-17 (dd) 88.10% 1.1e-16 
+c20 qcint-sx-fewdiv against qcint-pgo: 85.9312% bitwise equal, max |diff| 1.11e-16 (max |value| 5.67e+00), max |diff| / max |value| of its pair 3.10e-12 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 91.69% 1.1e-16 (pp) 81.64% 1.1e-16 (ds) 81.10% 5.7e-17 (dp) 81.30% 4.5e-17 (dd) 79.07% 1.1e-16 
+c20 qcint-sx-root2 against qcint-pgo: 85.1034% bitwise equal, max |diff| 4.44e-16 (max |value| 5.67e+00), max |diff| / max |value| of its pair 3.10e-12 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 91.69% 1.1e-16 (pp) 80.06% 4.4e-16 (ds) 79.71% 2.2e-16 (dp) 80.03% 2.8e-16 (dd) 79.07% 1.1e-16 
+c20 qcint-sx-vexp against qcint-pgo: 85.0427% bitwise equal, max |diff| 1.78e-15 (max |value| 5.67e+00), max |diff| / max |value| of its pair 3.10e-12 bitwise equal, max |diff| by class: (ss) 99.72% 1.8e-15 (ps) 91.56% 2.2e-16 (pp) 80.06% 4.4e-16 (ds) 79.71% 2.2e-16 (dp) 80.03% 2.8e-16 (dd) 79.07% 1.1e-16 
+c20 qcint-pgo: 5.567 s, 5.15 ns/integral
+c20 qcint-sgxpgo: 3.333 s, 3.08 ns/integral
+c20 qcint-sx-sameops: 2.747 s, 2.54 ns/integral
+c20 qcint-sx-fewdiv: 2.513 s, 2.32 ns/integral
+c20 qcint-sx-root2: 2.405 s, 2.22 ns/integral
+c20 qcint-sx-vexp: 2.135 s, 1.97 ns/integral
+c20 qcint-pgo: 5.577 s, 5.16 ns/integral
+c20 qcint-sgxpgo: 3.329 s, 3.08 ns/integral
+c20 qcint-sx-sameops: 2.769 s, 2.56 ns/integral
+c20 qcint-sx-fewdiv: 2.509 s, 2.32 ns/integral
+c20 qcint-sx-root2: 2.410 s, 2.23 ns/integral
+c20 qcint-sx-vexp: 2.136 s, 1.97 ns/integral
+install/qcint-sx-vexp/lib/libcint.so.6: 176744 grid points, 40 of 790 batches of 224, nbas 246 (single thread)
+class       calls  integrals    time s   ns/int  roots/int   roots s    roots %  call ns
+(ss)      417600  9.354e+07     0.584     6.24       2.02     1.458     249.8%      254
+(ps)      472320  3.174e+08     0.696     2.19       0.49     1.219     175.1%      262
+(pp)      136120  2.744e+08     0.381     1.39       0.12     0.348      91.4%      283
+(ds)      115200  1.290e+08     0.226     1.75       0.19     0.261     115.6%      270
+(dp)       65600  2.204e+08     0.202     0.91       0.04     0.105      52.3%      282
+(dd)        8400  4.704e+07     0.048     1.03       0.02     0.012      25.3%      290
+all                1.082e+09     2.136     1.97                3.404     159.3% (per-call cost 15.0% of the time)
+root evaluations by x: class, x < 1, 1 <= x < 35+5 nroots, asymptotic
+(ss)     0.3%   10.2%   89.5%
+(ps)     0.2%   11.4%   88.3%
+(pp)     0.2%   14.1%   85.7%
+(ds)     0.1%   12.9%   87.0%
+== the SGX K contraction (kbench, single thread)
+  -O2 -msse3:  nao 246, 114 shells, 40 batches: 2.677e+08 integrals; current 0.244 s (0.91 ns/int), tiled KT=32 0.271 s (1.01 ns/int, 0.90x); 100.0000% of the results bitwise equal
+  x86-64-v3:   nao 246, 114 shells, 40 batches: 2.677e+08 integrals; current 0.102 s (0.38 ns/int), tiled KT=32 0.134 s (0.50 ns/int, 0.76x); 100.0000% of the results bitwise equal
+  -O2 -msse3:  nao 246, 114 shells, 40 batches: 2.677e+08 integrals; current 0.244 s (0.91 ns/int), tiled KT=32 0.271 s (1.01 ns/int, 0.90x); 100.0000% of the results bitwise equal
+  x86-64-v3:   nao 246, 114 shells, 40 batches: 2.677e+08 integrals; current 0.102 s (0.38 ns/int), tiled KT=32 0.134 s (0.50 ns/int, 0.76x); 100.0000% of the results bitwise equal
+== pyscf-sgx (nr_sgx_direct.c with the kernel flags) on qcint-sx-vexp 07:42
+  OK: all PySCF libs in pyscf-sgx resolve cint/xc/BLAS from deps (cint=qcint-sx-vexp xc=libxc-stock blas=openblas )
+  nr_sgx_direct.c flags: 
+== pyscf-sgxprof (the same with SGX_PROFILE) 07:43
+  OK: all PySCF libs in pyscf-sgxprof resolve cint/xc/BLAS from deps (cint=qcint-sx-vexp xc=libxc-stock blas=openblas )
+caffeine def2-svp b3lyp pjs: nao 246, nbas 114, SGX grid 70928, 6 threads; SCF 37.2 s, 15 cycles, E -679.8129624756
+== first K build (sets up the screening data): 1.587 s
+   k_part (C driver)               1.348 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.090 s  (1 calls)
+   eval_gto                        0.072 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.062 s  (1 calls)
+   get_g_threshold                 0.011 s  (1 calls)
+   rest (Python)                   0.005 s
+   C driver: 1 calls, wall 1.347 s, thread-seconds 7.935 (98% of 6 threads x wall)
+      grid screening                0.024 thread-s    0.3%
+      shell-pair screening          0.150 thread-s    1.9%
+      integrals (int1e_grids)       6.671 thread-s   84.1%
+      contraction                   0.866 thread-s   10.9%
+      set0 and send                 0.223 thread-s    2.8%
+      317 batches of 224 points, 1799718 shell pairs (5677 per batch), 1.866e+09 integrals, 279.8 M integrals per thread-second
+== K build 1: 1.585 s
+   k_part (C driver)               1.346 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.091 s  (1 calls)
+   eval_gto                        0.071 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.061 s  (1 calls)
+   get_g_threshold                 0.011 s  (1 calls)
+   rest (Python)                   0.004 s
+   C driver: 1 calls, wall 1.346 s, thread-seconds 7.927 (98% of 6 threads x wall)
+      grid screening                0.024 thread-s    0.3%
+      shell-pair screening          0.150 thread-s    1.9%
+      integrals (int1e_grids)       6.669 thread-s   84.1%
+      contraction                   0.851 thread-s   10.7%
+      set0 and send                 0.234 thread-s    2.9%
+      317 batches of 224 points, 1799718 shell pairs (5677 per batch), 1.866e+09 integrals, 279.8 M integrals per thread-second
+== K build 2: 1.605 s
+   k_part (C driver)               1.364 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.093 s  (1 calls)
+   eval_gto                        0.072 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.061 s  (1 calls)
+   get_g_threshold                 0.011 s  (1 calls)
+   rest (Python)                   0.004 s
+   C driver: 1 calls, wall 1.363 s, thread-seconds 8.029 (98% of 6 threads x wall)
+      grid screening                0.025 thread-s    0.3%
+      shell-pair screening          0.151 thread-s    1.9%
+      integrals (int1e_grids)       6.729 thread-s   83.8%
+      contraction                   0.869 thread-s   10.8%
+      set0 and send                 0.255 thread-s    3.2%
+      317 batches of 224 points, 1799718 shell pairs (5677 per batch), 1.866e+09 integrals, 277.3 M integrals per thread-second
+max |vk| 9.787e+00
+caffeine def2-tzvp b3lyp pjs: nao 494, nbas 194, SGX grid 71208, 6 threads; SCF 125.9 s, 14 cycles, E -680.5700514685
+== first K build (sets up the screening data): 5.523 s
+   k_part (C driver)               4.954 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.230 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.180 s  (1 calls)
+   eval_gto                        0.125 s  (1 calls)
+   get_g_threshold                 0.021 s  (1 calls)
+   rest (Python)                   0.013 s
+   C driver: 1 calls, wall 4.953 s, thread-seconds 29.325 (99% of 6 threads x wall)
+      grid screening                0.071 thread-s    0.2%
+      shell-pair screening          0.477 thread-s    1.6%
+      integrals (int1e_grids)      23.528 thread-s   80.2%
+      contraction                   4.740 thread-s   16.2%
+      set0 and send                 0.510 thread-s    1.7%
+      318 batches of 224 points, 5045986 shell pairs (15868 per batch), 7.563e+09 integrals, 321.5 M integrals per thread-second
+== K build 1: 5.507 s
+   k_part (C driver)               4.939 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.230 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.179 s  (1 calls)
+   eval_gto                        0.126 s  (1 calls)
+   get_g_threshold                 0.021 s  (1 calls)
+   rest (Python)                   0.012 s
+   C driver: 1 calls, wall 4.938 s, thread-seconds 29.207 (99% of 6 threads x wall)
+      grid screening                0.071 thread-s    0.2%
+      shell-pair screening          0.476 thread-s    1.6%
+      integrals (int1e_grids)      23.499 thread-s   80.5%
+      contraction                   4.676 thread-s   16.0%
+      set0 and send                 0.486 thread-s    1.7%
+      318 batches of 224 points, 5045986 shell pairs (15868 per batch), 7.563e+09 integrals, 321.8 M integrals per thread-second
+== K build 2: 5.542 s
+   k_part (C driver)               4.972 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.229 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.183 s  (1 calls)
+   eval_gto                        0.126 s  (1 calls)
+   get_g_threshold                 0.021 s  (1 calls)
+   rest (Python)                   0.012 s
+   C driver: 1 calls, wall 4.971 s, thread-seconds 29.419 (99% of 6 threads x wall)
+      grid screening                0.071 thread-s    0.2%
+      shell-pair screening          0.477 thread-s    1.6%
+      integrals (int1e_grids)      23.567 thread-s   80.1%
+      contraction                   4.790 thread-s   16.3%
+      set0 and send                 0.514 thread-s    1.7%
+      318 batches of 224 points, 5045986 shell pairs (15868 per batch), 7.563e+09 integrals, 320.9 M integrals per thread-second
+max |vk| 1.062e+01
+c20h42 def2-svp b3lyp pjs: nao 490, nbas 246, SGX grid 176744, 6 threads; SCF 107.4 s, 9 cycles, E -786.8960893375
+== first K build (sets up the screening data): 7.601 s
+   k_part (C driver)               6.168 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.554 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.465 s  (1 calls)
+   eval_gto                        0.334 s  (1 calls)
+   get_g_threshold                 0.060 s  (1 calls)
+   rest (Python)                   0.020 s
+   C driver: 1 calls, wall 6.167 s, thread-seconds 36.300 (98% of 6 threads x wall)
+      grid screening                0.155 thread-s    0.4%
+      shell-pair screening          0.978 thread-s    2.7%
+      integrals (int1e_grids)      29.925 thread-s   82.4%
+      contraction                   3.999 thread-s   11.0%
+      set0 and send                 1.243 thread-s    3.4%
+      790 batches of 224 points, 10675683 shell pairs (13514 per batch), 8.857e+09 integrals, 296.0 M integrals per thread-second
+== K build 1: 7.627 s
+   k_part (C driver)               6.175 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.567 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.471 s  (1 calls)
+   eval_gto                        0.334 s  (1 calls)
+   get_g_threshold                 0.060 s  (1 calls)
+   rest (Python)                   0.019 s
+   C driver: 1 calls, wall 6.175 s, thread-seconds 36.350 (98% of 6 threads x wall)
+      grid screening                0.153 thread-s    0.4%
+      shell-pair screening          0.980 thread-s    2.7%
+      integrals (int1e_grids)      29.955 thread-s   82.4%
+      contraction                   4.007 thread-s   11.0%
+      set0 and send                 1.254 thread-s    3.5%
+      790 batches of 224 points, 10675683 shell pairs (13514 per batch), 8.857e+09 integrals, 295.7 M integrals per thread-second
+== K build 2: 7.614 s
+   k_part (C driver)               6.184 s  (1 calls)
+   _sgxdot_ao_dm_sparse            0.552 s  (1 calls)
+   _sgxdot_ao_gv_sparse            0.465 s  (1 calls)
+   eval_gto                        0.334 s  (1 calls)
+   get_g_threshold                 0.060 s  (1 calls)
+   rest (Python)                   0.019 s
+   C driver: 1 calls, wall 6.184 s, thread-seconds 36.372 (98% of 6 threads x wall)
+      grid screening                0.154 thread-s    0.4%
+      shell-pair screening          0.979 thread-s    2.7%
+      integrals (int1e_grids)      29.974 thread-s   82.4%
+      contraction                   3.985 thread-s   11.0%
+      set0 and send                 1.281 thread-s    3.5%
+      790 batches of 224 points, 10675683 shell pairs (13514 per batch), 8.857e+09 integrals, 295.5 M integrals per thread-second
+max |vk| 7.153e+00
+== SGX pjs SCFs: modified tree (qcint-pgo) against pyscf-sgx (qcint-sx-vexp) 07:48
+scf_caffeine_svp_b3lyp          old rep0    66.47s  core=Zen  other=53.19  jk=5.75  xc_kernels=3.18
+scf_caffeine_svp_b3lyp          new rep0    36.46s  core=Zen  other=22.92  jk=5.95  xc_kernels=3.23
+scf_caffeine_svp_b3lyp          new rep1    36.36s  core=Zen  other=22.91  jk=5.95  xc_kernels=3.15
+scf_caffeine_svp_b3lyp          old rep1    66.46s  core=Zen  other=53.14  jk=5.74  xc_kernels=3.18
+scf_caffeine_tzvp_b3lyp         old rep0   193.80s  core=Zen  other=147.89  xc_kernels=20.07  jk=15.98
+scf_caffeine_tzvp_b3lyp         new rep0   123.89s  core=Zen  other=77.71  xc_kernels=19.91  jk=16.49
+scf_caffeine_tzvp_b3lyp         new rep1   124.23s  core=Zen  other=77.99  xc_kernels=19.93  jk=16.53
+scf_caffeine_tzvp_b3lyp         old rep1   193.44s  core=Zen  other=147.73  xc_kernels=19.90  jk=15.99
+scf_c20h42_svp_b3lyp            old rep0   202.54s  core=Zen  other=164.51  jk=14.01  blas=9.69
+scf_c20h42_svp_b3lyp            new rep0   105.69s  core=Zen  other=67.27  jk=14.60  blas=9.58
+scf_c20h42_svp_b3lyp            new rep1   106.02s  core=Zen  other=67.42  jk=14.60  blas=9.65
+scf_c20h42_svp_b3lyp            old rep1   202.60s  core=Zen  other=164.62  jk=14.02  blas=9.66
+saved /home/danny/Chemistry/my-pyscf/bench/results/20261104-074842_node2-sgx3.json
+== SGX default-mode SCF 08:13
+scf_caffeine_svp_b3lyp          old rep0    67.79s  core=Zen  other=57.90  xc_kernels=3.66  blas=2.76
+scf_caffeine_svp_b3lyp          new rep0    34.17s  core=Zen  other=26.06  xc_kernels=3.62  blas=2.19
+scf_caffeine_svp_b3lyp          new rep1    34.28s  core=Zen  other=26.10  xc_kernels=3.67  blas=2.20
+scf_caffeine_svp_b3lyp          old rep1    67.84s  core=Zen  other=57.87  xc_kernels=3.68  blas=2.76
+saved /home/danny/Chemistry/my-pyscf/bench/results/20261104-081309_node2-sgx3-default.json
+NODE2 SGX3 DONE 08:16

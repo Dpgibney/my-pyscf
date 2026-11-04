@@ -1,0 +1,74 @@
+gbench built
+c20: natm 62 nbas 246 nao 490 -> scratch/qcint/c20.bin
+caffeine: 70928 SGX grid points -> scratch/qcint/caffeine_sgx.bin
+caffeine-tz: 71208 SGX grid points -> scratch/qcint/caffeine-tz_sgx.bin
+c20: 176744 SGX grid points -> scratch/qcint/c20_sgx.bin
+== caffeine libcint-stock
+install/libcint-stock/lib/libcint.so.6: 70928 grid points, 40 of 317 batches of 224, nbas 114 (single thread)
+class       calls  integrals    time s   ns/int  roots/int   roots s    roots %  call ns
+(ss)       78120  1.750e+07     0.611    34.92       3.17     0.402      65.8%      330
+(ps)       94240  6.333e+07     0.856    13.52       0.96     0.457      53.3%      421
+(pp)       29640  5.975e+07     0.531     8.88       0.29     0.176      33.1%      600
+(ds)       34720  3.889e+07     0.368     9.46       0.38     0.138      37.5%      444
+(dp)       21280  7.150e+07     0.349     4.88       0.11     0.079      22.7%      629
+(dd)        4200  2.352e+07     0.101     4.30       0.04     0.013      12.4%      723
+all                2.745e+08     2.816    10.26                1.264      44.9% (per-call cost 4.1% of the time)
+== caffeine qcint-pgo
+install/qcint-pgo/lib/libcint.so.6: 70928 grid points, 40 of 317 batches of 224, nbas 114 (single thread)
+class       calls  integrals    time s   ns/int  roots/int   roots s    roots %  call ns
+(ss)       78120  1.750e+07     0.623    35.63       3.17     0.391      62.8%      325
+(ps)       94240  6.333e+07     0.774    12.22       0.96     0.447      57.7%      360
+(pp)       29640  5.975e+07     0.372     6.22       0.29     0.168      45.3%      431
+(ds)       34720  3.889e+07     0.279     7.17       0.38     0.135      48.3%      355
+(dp)       21280  7.150e+07     0.219     3.06       0.11     0.076      34.9%      403
+(dd)        4200  2.352e+07     0.056     2.37       0.04     0.012      21.7%      417
+all                2.745e+08     2.323     8.46                1.230      52.9% (per-call cost 4.1% of the time)
+== caffeine-tz libcint-stock
+install/libcint-stock/lib/libcint.so.6: 71208 grid points, 40 of 318 batches of 224, nbas 194 (single thread)
+class       calls  integrals    time s   ns/int  roots/int   roots s    roots %  call ns
+(ss)      202000  4.525e+07     1.238    27.36       2.49     0.802      64.8%      294
+(ps)      208000  1.398e+08     1.693    12.11       0.86     0.894      52.8%      392
+(pp)       55120  1.111e+08     1.011     9.10       0.29     0.329      32.5%      595
+(ds)      112000  1.254e+08     1.107     8.82       0.35     0.421      38.1%      423
+(dp)       58240  1.957e+08     0.991     5.06       0.11     0.230      23.2%      618
+(dd)       16240  9.094e+07     0.398     4.38       0.04     0.053      13.3%      688
+(fs)       56000  8.781e+07     0.675     7.69       0.24     0.196      29.0%      512
+(fp)       29120  1.370e+08     0.897     6.55       0.08     0.133      14.9%      805
+(fd)       15680  1.229e+08     0.553     4.50       0.03     0.048       8.7%      883
+(ff)        4200  4.610e+07     0.272     5.91       0.02     0.016       5.8%     1474
+all                1.102e+09     8.835     8.02                3.121      35.3% (per-call cost 3.9% of the time)
+== caffeine-tz qcint-pgo
+install/qcint-pgo/lib/libcint.so.6: 71208 grid points, 40 of 318 batches of 224, nbas 194 (single thread)
+class       calls  integrals    time s   ns/int  roots/int   roots s    roots %  call ns
+(ss)      202000  4.525e+07     1.264    27.93       2.49     0.776      61.4%      289
+(ps)      208000  1.398e+08     1.528    10.93       0.86     0.870      56.9%      339
+(pp)       55120  1.111e+08     0.705     6.34       0.29     0.315      44.7%      430
+(ds)      112000  1.254e+08     0.839     6.69       0.35     0.408      48.6%      335
+(dp)       58240  1.957e+08     0.621     3.17       0.11     0.219      35.3%      392
+(dd)       16240  9.094e+07     0.220     2.42       0.04     0.050      22.8%      408
+(fs)       56000  8.781e+07     0.458     5.22       0.24     0.191      41.7%      359
+(fp)       29120  1.370e+08     0.497     3.63       0.08     0.129      25.9%      424
+(fd)       15680  1.229e+08     0.283     2.31       0.03     0.046      16.3%      534
+(ff)        4200  4.610e+07     0.133     2.89       0.02     0.012       8.7%      686
+all                1.102e+09     6.547     5.94                3.015      46.1% (per-call cost 4.0% of the time)
+== c20 libcint-stock
+install/libcint-stock/lib/libcint.so.6: 176744 grid points, 40 of 790 batches of 224, nbas 246 (single thread)
+class       calls  integrals    time s   ns/int  roots/int   roots s    roots %  call ns
+(ss)      417600  9.354e+07     2.023    21.63       2.02     1.281      63.3%      262
+(ps)      472320  3.174e+08     2.156     6.79       0.49     1.071      49.7%      297
+(pp)      136120  2.744e+08     1.000     3.64       0.12     0.281      28.1%      354
+(ds)      115200  1.290e+08     0.633     4.91       0.19     0.210      33.1%      317
+(dp)       65600  2.204e+08     0.498     2.26       0.04     0.086      17.2%      383
+(dd)        8400  4.704e+07     0.102     2.18       0.02     0.010       9.9%      449
+all                1.082e+09     6.413     5.93                2.939      45.8% (per-call cost 5.7% of the time)
+== c20 qcint-pgo
+install/qcint-pgo/lib/libcint.so.6: 176744 grid points, 40 of 790 batches of 224, nbas 246 (single thread)
+class       calls  integrals    time s   ns/int  roots/int   roots s    roots %  call ns
+(ss)      417600  9.354e+07     2.065    22.08       2.02     1.240      60.0%      259
+(ps)      472320  3.174e+08     1.947     6.13       0.49     1.040      53.4%      266
+(pp)      136120  2.744e+08     0.707     2.58       0.12     0.277      39.2%      280
+(ds)      115200  1.290e+08     0.481     3.73       0.19     0.207      43.1%      272
+(dp)       65600  2.204e+08     0.310     1.41       0.04     0.085      27.3%      281
+(dd)        8400  4.704e+07     0.056     1.20       0.02     0.010      17.8%      290
+all                1.082e+09     5.567     5.15                2.859      51.4% (per-call cost 5.8% of the time)
+NODE2 GBENCH DONE
