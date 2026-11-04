@@ -5989,6 +5989,51 @@ the VV10 kernel improvements to the CPU").
     are the main grid's, which `nr_rks` has already evaluated. By difference it is about 1.5 s of each SCF cycle
     (157 s of "other" against about 10.5 s per kernel call).
 
+## node2: PySCF's seminumerical exchange (SGX, COSX-like) against exact J/K, 2026-11-04
+Asked for by the user: "Could you do some CPU timings with it on node2 to see how it stacks up compared to our
+modifications?". This followed the discussion of RI-COSX, where I noted that PySCF already has `pyscf.sgx` and
+GPU4PySCF has nothing like it.
+- **The two modes of `sgx_fit`:**
+  - the default (`pjs=False`): SGX for J and K, no screening;
+  - `pjs=True`: density-fitted J and SGX K with P-junction screening, the RIJCOSX-like setup.
+  - Both use SGX's defaults: grid level 2, ORCA-like optimized grids, overlap fitting, and a full rebuild every 5
+    steps.
+- **Harness:** `bench/cases.py` gains `BENCH_SGX` (`sgx` or `pjs`), `sgx_points` in the SCF records, and the case
+  `scf_c20h42_tzvp_b3lyp`. Script `scripts/node2_sgx.sh`; data `bench/results/node2/*node2-sgx*`.
+- **Setup:** node2, 6 threads, `PYSCF_MAX_MEMORY=12000`, one run each. SGX was run in both trees; its code is the
+  same in both (the perf branch does not touch `pyscf/sgx`).
+
+| B3LYP SCF | exact, modified | exact, original | SGX pjs (modified / original) | SGX default (modified / original) |
+|---|---|---|---|---|
+| caffeine def2-SVP (246 AOs) | 8.7 s | 27.5 s | 66.4 / 92.7 s | 67.8 / 94.2 s |
+| caffeine def2-TZVP (494 AOs) | 176.2 s | 337.6 s | 194.0 / 253.1 s | 200.6 / 260.8 s |
+| n-C20H42 def2-SVP (490 AOs) | 31.1 s | 131.2 s | 202.7 / 270.5 s | 246.3 / 324.2 s |
+| n-C20H42 def2-TZVP (872 AOs) | 422.0 s | 629.2 s | 550.7 / 699.7 s | 630.0 / 792.4 s |
+
+- **SGX energy errors** against exact, identical in both trees:
+
+  | B3LYP | pjs | default |
+  |---|---|---|
+  | caffeine def2-SVP | −2.1e−4 Eh | −2.8e−5 Eh |
+  | caffeine def2-TZVP | −2.7e−4 Eh | −4.7e−5 Eh |
+  | n-C20H42 def2-SVP | −4.6e−4 Eh | −1.0e−3 Eh (10 cycles against 9) |
+  | n-C20H42 def2-TZVP | −6.8e−4 Eh | +2.6e−4 Eh |
+
+  The SGX grids have 71,000 points for caffeine and 177,000 for the alkane.
+- **The modified exact tree is the fastest everywhere,** from 7.6× faster than the best SGX at caffeine/SVP to
+  1.3× at C20H42/TZVP.
+  - The original exact code beats SGX in three of the four cases; at caffeine/TZVP, SGX pjs is 1.3× faster than
+    it.
+  - The gap shrinks with basis and size, so SGX would win only beyond these systems.
+- **Where SGX's time goes:** 75–85% is in `sgx_jk.py:k_part`, which recomputes the integrals of every AO pair at
+  every grid point each cycle (C20H42/TZVP: 419 of 551 s, about 35 s per K build). The exact tree screens its
+  integrals, and the modified tree caches them across cycles (It9).
+- **The modified tree makes SGX itself 1.26–1.4× faster,** through its XC, AO-evaluation and DF-J changes. `k_part`
+  takes about the same time in both trees.
+- **What follows for the RI-COSX discussion:** PySCF's SGX is no shortcut at these sizes on the CPU. A faster
+  seminumerical K would have to be new code. The better place for one is GPU4PySCF, which already has the grid,
+  AO and `int3c1e` pieces.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

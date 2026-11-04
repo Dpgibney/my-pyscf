@@ -1,0 +1,29 @@
+== caffeine def2-SVP, def2-TZVP and n-C20H42 def2-SVP B3LYP (23:13)
+scf_caffeine_svp_b3lyp         perf rep0     8.71s  core=Zen  jk=4.38  xc_kernels=3.26  other=0.30
+scf_caffeine_svp_b3lyp       perf_pjs rep0    66.35s  core=Zen  other=53.10  jk=5.74  xc_kernels=3.15
+scf_caffeine_svp_b3lyp       perf_sgx rep0    67.80s  core=Zen  other=57.90  xc_kernels=3.66  blas=2.78
+scf_caffeine_svp_b3lyp       base_pjs rep0    92.70s  core=Zen  other=63.04  blas=10.83  ao_eval=8.04
+scf_caffeine_svp_b3lyp       base_sgx rep0    94.24s  core=Zen  other=68.03  blas=11.52  ao_eval=9.15
+scf_caffeine_svp_b3lyp         base rep0    27.53s  core=Zen  blas=8.59  jk=7.09  ao_eval=6.63
+scf_caffeine_tzvp_b3lyp        perf rep0   176.21s  core=Zen  jk=154.49  xc_kernels=19.78  linalg=0.53
+scf_caffeine_tzvp_b3lyp      perf_pjs rep0   194.01s  core=Zen  other=148.34  xc_kernels=19.93  jk=15.96
+scf_caffeine_tzvp_b3lyp      perf_sgx rep0   200.63s  core=Zen  other=165.93  xc_kernels=20.66  blas=8.17
+scf_caffeine_tzvp_b3lyp      base_pjs rep0   253.10s  core=Zen  other=189.96  blas=23.81  jk=16.35
+scf_caffeine_tzvp_b3lyp      base_sgx rep0   260.75s  core=Zen  other=209.20  blas=25.85  ao_eval=16.36
+scf_caffeine_tzvp_b3lyp        base rep0   337.63s  core=Zen  jk=299.12  blas=17.72  ao_eval=12.15
+scf_c20h42_svp_b3lyp           perf rep0    31.06s  core=Zen  jk=21.21  xc_kernels=7.16  grids=0.68
+scf_c20h42_svp_b3lyp         perf_pjs rep0   202.73s  core=Zen  other=164.84  jk=14.01  blas=9.62
+scf_c20h42_svp_b3lyp         perf_sgx rep0   246.33s  core=Zen  other=211.16  blas=14.26  xc_kernels=9.37
+scf_c20h42_svp_b3lyp         base_pjs rep0   270.50s  core=Zen  other=187.52  xc_kernels=37.18  ao_eval=19.78
+scf_c20h42_svp_b3lyp         base_sgx rep0   324.23s  core=Zen  other=239.15  xc_kernels=42.05  ao_eval=24.80
+scf_c20h42_svp_b3lyp           base rep0   131.24s  core=Zen  jk=76.13  xc_kernels=37.10  ao_eval=14.90
+saved /home/danny/Chemistry/my-pyscf/bench/results/20261103-231349_node2-sgx.json
+== n-C20H42 def2-TZVP B3LYP (00:03)
+scf_c20h42_tzvp_b3lyp          perf rep0   422.00s  core=Zen  jk=382.29  xc_kernels=34.87  linalg=1.23
+scf_c20h42_tzvp_b3lyp        perf_pjs rep0   550.65s  core=Zen  other=465.71  jk=37.04  xc_kernels=35.02
+scf_c20h42_tzvp_b3lyp        perf_sgx rep0   629.96s  core=Zen  other=562.62  xc_kernels=37.29  ao_eval=14.29
+scf_c20h42_tzvp_b3lyp        base_pjs rep0   699.65s  core=Zen  other=557.94  xc_kernels=65.12  ao_eval=36.64
+scf_c20h42_tzvp_b3lyp        base_sgx rep0   792.38s  core=Zen  other=666.41  xc_kernels=67.54  ao_eval=41.97
+scf_c20h42_tzvp_b3lyp          base rep0   629.23s  core=Zen  jk=531.28  xc_kernels=64.58  ao_eval=28.22
+saved /home/danny/Chemistry/my-pyscf/bench/results/20261104-000349_node2-sgx-tzvp.json
+NODE2 SGX DONE

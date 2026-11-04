@@ -67,6 +67,11 @@ def make_ks(mol, xc, tight, density_fit=False, full_jk=False):
             _full_jk_rebuild(mf)
     if density_fit:
         mf = mf.density_fit()
+    elif os.environ.get('BENCH_SGX'):
+        # seminumerical exchange (pyscf.sgx, COSX-like): sgx = SGX for J and K, no screening (sgx_fit's default);
+        # pjs = density-fitted J and SGX K with P-junction screening
+        from pyscf import sgx
+        mf = sgx.sgx_fit(mf, pjs=os.environ['BENCH_SGX'] == 'pjs')
     return mf
 
 
@@ -81,6 +86,9 @@ def scf_case(atom, basis, xc, charge=0, spin=0, density_fit=False, full_jk=False
             out = {'e_tot': mf.e_tot, 'cycles': mf.cycles, 'converged': bool(mf.converged)}
             if mf.nlcgrids.weights is not None:  # VV10 functionals: the NLC grid after small-rho pruning
                 out['nlc_points'] = int(mf.nlcgrids.weights.size)
+            sgx_grids = getattr(getattr(mf, 'with_df', None), 'grids', None)
+            if getattr(sgx_grids, 'weights', None) is not None:  # BENCH_SGX: the SGX grid of the last cycle
+                out['sgx_points'] = int(sgx_grids.weights.size)
             return out
         return run
     return setup
@@ -309,6 +317,7 @@ case('scf_caffeine_svp_wb97mv', ())(scf_case(CAFFEINE, 'def2-svp', 'wB97M-V'))
 case('grad_caffeine_svp_wb97mv', ())(grad_case(CAFFEINE, 'def2-svp', 'wB97M-V'))
 case('scf_c20h42_svp_b3lyp', (FULL, SPARSE))(scf_case(C20H42, 'def2-svp', 'B3LYP'))
 case('scf_c20h42_tzvp_pbe', (FULL, SPARSE))(scf_case(C20H42, 'def2-tzvp', 'PBE', full_jk=True))
+case('scf_c20h42_tzvp_b3lyp', ())(scf_case(C20H42, 'def2-tzvp', 'B3LYP', full_jk=True))
 case('scf_c20h42_svp_r2scan', (SPARSE,))(scf_case(C20H42, 'def2-svp', 'r2SCAN'))
 case('grad_c20h42_svp_b3lyp', (SPARSE,))(grad_case(C20H42, 'def2-svp', 'B3LYP'))
 case('tda_c20h42_svp_pbe', (SPARSE,))(td_case(C20H42, 'def2-svp', 'PBE', 'TDA'))
