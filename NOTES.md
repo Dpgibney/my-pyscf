@@ -5949,7 +5949,10 @@ the VV10 kernel improvements to the CPU").
   gradients gain less, as J/K derivatives are most of them.
 - **Against the 1650 Super:** the modified CPU tree is now faster for the wB97M-V SCF (192 against 298 s;
   SG-1 46.5 against 76.0 s). The GPU still leads the gradients.
-- **FMA contraction in the VV10 functions only** (`perf` ecc08b80b, asked for by the user: "Sure give it a try"):
+- **FMA contraction in the VV10 functions only: tried, then reverted** (`perf` ecc08b80b, reverted by c7ed53964).
+  The user asked for it ("Sure give it a try"), then asked for the rollback: "it adds a notable difference from the
+  rest of the code for minimal improvement". The branch's VV10 kernels are 8845fbde8's again, with no FMA anywhere
+  in libdft, and node2's rebuild is byte-identical to the It24 build. The measurements:
   - `#pragma GCC optimize ("fp-contract=fast")` around them. libdft now has 144 FMA instructions, all in the VV10
     functions; the rest of `nr_numint.c` keeps `-ffp-contract=off`.
   - Results move by 4e−16 relative against It24. The unit tests and `kernels.py` pass.
@@ -5979,7 +5982,7 @@ the VV10 kernel improvements to the CPU").
   - So the division was not the bound either; or, if it was, the pair-once tile's register spills cost more than
     the saved division. That tile spilled to 120 stack accesses: AVX2 has 16 ymm registers for its ~26 live
     vectors.
-  - The file is back at ecc08b80b. node2's rebuild matches the saved FMA build byte for byte.
+  - The file went back to ecc08b80b, which was itself reverted afterwards (above).
 - **Not done:**
   - the Hessian's VV10 kernels;
   - the NLC term's own pass over its grid (AO values, density, potential matrix). At the default level its points
