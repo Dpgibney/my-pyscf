@@ -37,8 +37,10 @@ for f in avx avx2 bmi1 bmi2 f16c fma abm movbe xsave; do    # x86-64-v3
     [[ $flags == *" $f "* ]] || V3=""
 done
 read -r CORES MEM_MB < <(python3 -I "$WS/scripts/resources.py")
+TOOLCHAIN="gcc $(gcc -dumpfullversion -dumpversion)"
 echo "== $(lscpu | sed -n 's/^Model name: *//p' | head -n 1); this process may use $CORES cores ($NPROC CPUs)" \
-     "and $((MEM_MB / 1000)) GB; x86-64-v3 kernels $([ -n "$V3" ] && echo on || echo off); $JOBS build jobs"
+     "and $((MEM_MB / 1000)) GB; $TOOLCHAIN; x86-64-v3 kernels $([ -n "$V3" ] && echo on || echo off);" \
+     "$JOBS build jobs"
 LOG="$WS/build/cpu_setup"
 mkdir -p "$LOG"
 
@@ -100,8 +102,8 @@ for tree in $TREES; do
 done
 
 step() {  # NAME KEY OUTPUT COMMAND...: run COMMAND (log: build/cpu_setup/NAME.log), unless OUTPUT exists and the
-          # last run of NAME finished with the same KEY
-    local name=$1 key=$2 out=$3 t0=$SECONDS
+          # last run of NAME finished with the same KEY and compiler
+    local name=$1 key="$2 $TOOLCHAIN" out=$3 t0=$SECONDS
     shift 3
     if [ -e "$out" ] && [ "$(cat "$LOG/$name.ok" 2> /dev/null)" = "$key" ]; then
         echo "   $name: up to date"
@@ -112,8 +114,11 @@ step() {  # NAME KEY OUTPUT COMMAND...: run COMMAND (log: build/cpu_setup/NAME.l
         echo "$key" > "$LOG/$name.ok"
         echo "   $name: built ($((SECONDS - t0)) s)"
     else
-        echo "   $name FAILED after $((SECONDS - t0)) s; the end of build/cpu_setup/$name.log:" >&2
-        tail -n 25 "$LOG/$name.log" >&2
+        # in a parallel build the log ends with other files' output, so show its errors first
+        echo "   $name FAILED after $((SECONDS - t0)) s. The errors in build/cpu_setup/$name.log:" >&2
+        grep -n -m 20 -E "^FAILED:|error:|Error[: ]|Killed|No space left|quota exceeded" "$LOG/$name.log" >&2 || true
+        echo "   and its last lines:" >&2
+        tail -n 8 "$LOG/$name.log" >&2
         exit 1
     fi
 }
