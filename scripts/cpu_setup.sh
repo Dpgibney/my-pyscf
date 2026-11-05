@@ -5,7 +5,7 @@
 # CPU has AVX2 and FMA). Then a water B3LYP energy checks the build.
 #     git clone https://github.com/Dpgibney/my-pyscf && cd my-pyscf && bash scripts/cpu_setup.sh
 # Needs gcc, g++, gfortran, make, git, and python3 with venv (3.12 or newer gets the pinned numpy 2.5.4, scipy
-# 1.18.1 and h5py 3.16.0, older ones the latest); cmake 3.22 or newer comes from pip if missing. 22 min on node2's
+# 1.18.1 and h5py 3.16.0, older ones the latest); cmake 3.22 or newer comes from pip if missing. 20 min on node2's
 # 6 cores. qcint is built for this CPU: on a cluster, build on a node of the type that will run it.
 # Options:
 #   --jobs N      parallel build jobs (default: nproc)

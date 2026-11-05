@@ -13,6 +13,24 @@ The modified code lives in forks; the tags pin what was measured (`scripts/pins.
 | PySCF | [Dpgibney/pyscf](https://github.com/Dpgibney/pyscf) | `perf` | `perf-2026-11-05` | master 44313dfb4 |
 | qcint | [Dpgibney/qcint](https://github.com/Dpgibney/qcint) | `perf` | `perf-2026-11-05` | cdda2892f |
 
+## Setting up the CPU PySCF on another computer
+
+Needs Linux on x86-64 with gcc, g++, gfortran, make, git and Python 3 with venv (3.12 or newer gets the pinned
+numpy 2.5.4, scipy 1.18.1 and h5py 3.16.0); cmake 3.22 or newer is installed into the venv if missing.
+
+```bash
+git clone https://github.com/Dpgibney/my-pyscf && cd my-pyscf && bash scripts/cpu_setup.sh
+source scripts/pyscf-env.sh && python my_script.py   # the venv, the tree on PYTHONPATH, one thread per core
+```
+
+`cpu_setup.sh` clones the trees of `scripts/pins.txt` and builds them as measured: OpenBLAS, libxc, qcint
+(profile-guided and `-march=native`, so build on the type of machine that will run it) and PySCF against them,
+then checks a water B3LYP energy (20 min on node2's 6 cores). `--with-base` also builds the unmodified PySCF and
+compares the XC, J and K kernels of both trees (`bench/kernels.py`); `--jobs N` sets the build parallelism.
+Rerunning it after a `git pull` rebuilds only what the new pins change. `pyscf-env.sh` sets one OpenMP thread per
+physical core and `PYSCF_MAX_MEMORY` to 2/3 of the RAM, at most 20000 MB (export your own values before sourcing
+it to change them).
+
 ## Testing GPU4PySCF on another GPU
 
 Needs an NVIDIA GPU of compute capability 7.0 or newer, a CUDA 12 toolkit (`nvcc`), cmake, gcc, git and Python

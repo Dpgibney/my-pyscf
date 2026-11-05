@@ -6839,6 +6839,32 @@ for the exchange only, which is `pjs`. The default mode takes J on the grid too.
   - PCM is ahead (48 against ~70 s).
 - **pyscf `sgx-exp`'s SGX changes** (7–13% on K builds) are still not in `perf`.
 
+## The CPU setup in one command (`scripts/cpu_setup.sh`), 2026-11-05
+The user asked for the CPU setup as a one-line command, like the GPU's:
+`git clone https://github.com/Dpgibney/my-pyscf && cd my-pyscf && bash scripts/cpu_setup.sh`.
+- **What it does:**
+  - It clones the trees of `scripts/pins.txt` with depth 1 (tags and commits, from GitHub and GitLab) and makes
+    the venv with the pinned numpy/scipy/h5py.
+  - It builds in this order: OpenBLAS, libxc, a plain qcint, PySCF against it, qbench, then qcint with PGO in
+    place. The PGO training needs a built PySCF tree for its molecule dumps, so the plain qcint comes first.
+  - It ends with a water/def2-SVP B3LYP energy and the libraries loaded. `--with-base` adds pyscf-base with the
+    stock libcint, and `bench/kernels.py` against it.
+  - Each step is stamped with its trees' commits (`build/cpu_setup/`), so a rerun after new pins rebuilds only
+    what changed; a new qcint rebuilds the plain qcint, PySCF and the PGO.
+- **Fixes it needed:**
+  - `dump_basis.py` had the laptop's path, and `train_qcint_pgo.sh` did not create `scratch/qcint`.
+  - The dumps are now written before the instrumented build (`train_qcint_pgo.sh --dumps`), so the profile is
+    the training alone, as on the laptop.
+  - `pyscf-env.sh` defaults to the physical cores and 2/3 of the RAM, at most 20000 MB: 10 and 20000 on the
+    laptop, as before, and 6 and 10738 on node2.
+- **Tested on node2 from a fresh clone at another path (`~/cpu_setup_test`, `--with-base`): 20 min.**
+  - With 12 jobs: OpenBLAS 299 s, libxc 131 s, qcint 24 s, PySCF 14 s, PGO 382 s, libcint 17 s, pyscf-base 10 s.
+  - Water B3LYP: −76.3581418310 Eh in 7 cycles, −5.7e-14 from the laptop. `kernels.py`: all 77 arrays agree with
+    pyscf-base.
+  - A rerun: every step up to date, 1.8 s.
+  - `fetch()` alone moved a clone to a new tag, an older tag, a bare SHA and back, each a depth-1 fetch. A tree
+    with uncommitted changes stops it.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
