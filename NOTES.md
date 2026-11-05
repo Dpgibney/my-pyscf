@@ -6765,6 +6765,44 @@ The user had said "...then we can do the GPU style kernel".
 - **What is left of PCM:** ~3.6% of the SCF (31 s of 857 s). A templated or generated kernel could at most take a
   fraction of that.
 
+## ORCA's RIJCOSX against PySCF's SGX, with PCM, on the large system (node2), 2026-11-05
+Asked for by the user: "How does the large system orca RIJCOSX PCM compare to PySCF SGX PCM?" The system is
+n-C26H54/def2-TZVP, B3LYP, C-PCM (water), as in the ORCA comparison above.
+- **PySCF:** the `pyscf` tree (`perf` with the new PCM code, qcint `perf` with It25 and It26) and `sgx.sgx_fit(mf,
+  pjs=True)`, the RIJCOSX-like setup:
+  - density-fitted J with 2,922 auxiliary functions (on disk: `PYSCF_TMPDIR`, since node2's /tmp is tmpfs);
+  - SGX K with P-junction screening, on SGX's default grid (227,904 points in the last cycle);
+  - C-PCM as in the exact runs; 6 threads; `max_memory` 4000 MB.
+  - `bench/diag/pcm_memory.py --sgx pjs`, `scripts/node2_pcmsgx.sh`; `bench/results/node2/node2_pcm_pyscf-sgx-pjs.log`.
+
+| run | time | cycles | J and K | XC | PCM | peak memory | energy (Eh) | error against own exact |
+|---|---|---|---|---|---|---|---|---|
+| ORCA RIJCOSX, the matched CPCM | 236 s | 12 | 122 s (RI-J 16, COSX 106) | 20 s | 61 s (+ 8.7 setup) | 3.0 GB | −1023.7333863 | −1.33 mEh |
+| ORCA RIJCOSX, its CPCM(Water) | 199 s | 12 | 122 s | 20 s | 33 s | 1.9 GB | −1023.7333747 | |
+| PySCF SGX pjs | 560 s | 9 | 461 s | 51 s | 41 s | 3.5 GB | −1023.7328749 | −0.88 mEh |
+| PySCF exact (`perf`) | 858 s | 9 | 761 s | 51 s | 41 s | 3.1 GB | −1023.7319952 | |
+| ORCA exact | 1023 s | 12 | 915 s | 19 s | 61 s | 2.5 GB | −1023.7320596 | |
+
+- **ORCA's RIJCOSX is 2.4x faster than PySCF's SGX, and all of that is the approximate J/K: 122 against 461 s.**
+  - PySCF's SGX takes ~42 s a build on one grid of 228k points.
+  - ORCA's COSX takes ~9 s a cycle on three grids (41,658, 85,740 and 185,684 points), the small ones in the early
+    cycles. RI-J adds ~1.4 s a cycle.
+  - XC (51 against 20 s; PySCF's grid has 2.75x the points) and PCM (41 against ~70 s) are as in the exact runs.
+- **The errors are alike:** −0.88 mEh for PySCF's SGX against its exact energy, −1.33 mEh for ORCA's RIJCOSX against
+  its own.
+- **Approximate against exact in each code:** PySCF's SGX is 1.5x faster than PySCF's exact run, ORCA's RIJCOSX 4.3x
+  faster than ORCA's exact run. The exact codes are within 1.2x of each other (858 against 1023 s); their
+  approximations are not.
+- **What is not in it:** pyscf `sgx-exp`'s SGX changes (It25 and It26, PySCF side; their K builds were 7–13% faster).
+- **The default SGX mode (`pjs=False`: SGX J and K) crashes:** `assert i0 % BLKSIZE == 0` in `sgx_jk.get_jk_favorj`.
+  - Outside debug mode, `get_jk_favorj` and `get_jk_favork` take a block of the grid from the memory left
+    (`max(SGX_BLKSIZE, max_memory*1e6/8/((2+2*nset)*nao))`), not rounded to a multiple of `BLKSIZE` (56).
+  - A grid that takes more than one block then starts its second block off the AO blocks. Here that is ~30,400 of the
+    228k points at 4000 MB.
+  - It is upstream's code (pyscf-base has it too). The earlier SGX runs had `max_memory` 12000, where one block took
+    the whole grid.
+  - The fix: round the block down to a multiple of `SGX_BLKSIZE`, as the debug branch does. Not done.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

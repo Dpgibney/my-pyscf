@@ -5,7 +5,7 @@ each phase, and the SCF result. A watchdog stops the run (exit 3, with the Pytho
 --limit-gb, so that the machine never swaps or meets the OOM killer. Run with PYTHONPATH set to the tree;
 PYSCF_MAX_MEMORY as usual.
 Usage: pcm_memory.py [--n 26] [--basis def2-tzvp] [--xc b3lyp] [--method C-PCM] [--limit-gb 13] [--cycles N]
-       [--sd-min-fraction F]"""
+       [--sd-min-fraction F] [--sgx pjs|sgx]"""
 import argparse
 import faulthandler
 import functools
@@ -29,6 +29,9 @@ ap.add_argument('--limit-gb', type=float, default=13.0)
 ap.add_argument('--cycles', type=int, default=None, help='max SCF cycles (default: PySCF\'s)')
 ap.add_argument('--sd-min-fraction', type=float, default=None,
                 help='the share of the ERIs below which the semi-direct cache stores none (It9: 0.01)')
+ap.add_argument('--sgx', choices=['pjs', 'sgx'], default=None,
+                help="PySCF's seminumerical exchange (sgx.sgx_fit): pjs = density-fitted J and SGX K with "
+                     "P-junction screening (RIJCOSX-like), sgx = SGX for J and K")
 args = ap.parse_args()
 
 T0 = time.perf_counter()
@@ -128,12 +131,18 @@ pcm.PCM._get_vmat = phase('pcm _get_vmat (Fock term)')(pcm.PCM._get_vmat)
 pcm.PCM._get_vind = phase('pcm _get_vind (solves)')(pcm.PCM._get_vind)
 numint.NumInt.nr_rks = phase('xc nr_rks')(numint.NumInt.nr_rks)
 dft.rks.RKS.get_jk = phase('scf get_jk')(dft.rks.RKS.get_jk)
+if args.sgx:
+    from pyscf.sgx import sgx as sgx_mod
+    sgx_mod._SGXHF.get_jk = phase('sgx get_jk')(sgx_mod._SGXHF.get_jk)
 
 mol = gto.M(atom=n_alkane(args.n), basis=args.basis, verbose=0)
 mol.verbose = 4
 print(f'C{args.n}H{2 * args.n + 2} {args.basis}: {mol.natm} atoms, nao {mol.nao}; {args.xc}, {args.method}; '
       f'{lib.num_threads()} threads, max_memory {mol.max_memory} MB; RSS {rss_gb():.2f} GB', flush=True)
-mf = dft.RKS(mol, xc=args.xc).PCM()
+mf = dft.RKS(mol, xc=args.xc)
+if args.sgx:
+    mf = sgx_mod.sgx_fit(mf, pjs=args.sgx == 'pjs')
+mf = mf.PCM()
 mf.with_solvent.method = args.method
 mf.verbose = 4
 if args.cycles:
@@ -144,6 +153,11 @@ e = mf.kernel()
 stack.pop()
 print(f'\nE {e:.10f}, converged {mf.converged}, {mf.cycles} cycles, SCF {time.perf_counter() - t0:.1f} s; '
       f'surface points {mf.with_solvent.surface["grid_coords"].shape[0]}', flush=True)
+if args.sgx:
+    sgx_df = mf.with_df
+    naux = sgx_df.auxmol.nao if getattr(sgx_df, 'auxmol', None) is not None else 0
+    print(f'SGX ({args.sgx}): {sgx_df.grids.weights.size} grid points in the last cycle, dfj {sgx_df.dfj}, '
+          f'{naux} auxiliary functions', flush=True)
 print('peak RSS by phase (GB; calls):')
 for ph, r in sorted(peaks.items(), key=lambda kv: -kv[1]):
     print(f'  {r:6.2f}  {ph}  ({counts.get(ph, 0)})')

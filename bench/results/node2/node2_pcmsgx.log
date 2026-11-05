@@ -1,0 +1,28 @@
+== pjs 06:40
+   exit 0
+E -1023.7328748974, converged True, 9 cycles, SCF 560.0 s; surface points 9998
+SGX (pjs): 227904 grid points in the last cycle, dfj True, 2922 auxiliary functions
+    3.37  sgx get_jk  (11)
+    2.61  pcm _get_vind (solves)  (11)
+    2.32  xc nr_rks  (11)
+    2.26  pcm _get_vmat (Fock term)  (11)
+    2.26  scf  (0)
+    2.26  pcm _get_v (potential on the surface)  (11)
+    1.10  pcm get_D_S (surface matrices)  (1)
+    0.26  pcm gen_surface  (1)
+    0.11  setup  (0)
+     460.8  sgx get_jk  (11)
+      51.3  xc nr_rks  (11)
+      39.3  pcm _get_vind (solves)  (11)
+      15.7  pcm _get_vmat (Fock term)  (11)
+      15.2  pcm _get_v (potential on the surface)  (11)
+       2.1  pcm build  (1)
+       2.1  pcm get_D_S (surface matrices)  (1)
+       0.0  pcm gen_surface  (1)
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 9:20.49
+	Maximum resident set size (kbytes): 3531904
+== sgx 06:50
+   exit 1
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:18.27
+	Maximum resident set size (kbytes): 2961696
+NODE2 PCMSGX DONE 06:50

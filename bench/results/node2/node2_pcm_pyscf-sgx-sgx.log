@@ -1,0 +1,113 @@
+C26H54 def2-tzvp: 80 atoms, nao 1130; b3lyp, C-PCM; 6 threads, max_memory 4000 MB; RSS 0.10 GB
+
+
+******** <class 'pyscf.solvent._attach_solvent.PCMSGXRKS'> ********
+method = PCMSGXRKS
+initial guess = minao
+damping factor = 0
+level_shift factor = 0
+DIIS = <class 'pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 8
+diis_damp = 0
+SCF conv_tol = 1e-09
+SCF conv_tol_grad = None
+SCF max_cycles = 50
+direct_scf = True
+direct_scf_tol = 1e-13
+semi_direct = True
+chkfile to save SCF result = /home/danny/Chemistry/my-pyscf/scratch/tmp/tmpbs0enrz6
+max_memory 4000 MB (current use 112 MB)
+XC library pyscf.dft.libxc version 7.1.2
+    S. Lehtola, C. Steigemann, M. J. T. Oliveira, and M. A. L. Marques,  SoftwareX 7, 1–5 (2018)
+XC functionals = b3lyp
+    P. J. Stephens, F. J. Devlin, C. F. Chabalowski, and M. J. Frisch,  J. Phys. Chem. 98, 11623 (1994)
+radial grids: 
+Treutler-Ahlrichs [JCP 102, 346 (1995); DOI:10.1063/1.469408] (M4) radial grids
+
+becke partition: Becke, JCP 88, 2547 (1988); DOI:10.1063/1.454033
+pruning grids: <function nwchem_prune at 0x7092675e6350>
+grids dens level: 3
+symmetrized grids: False
+atomic radii adjust function: <function treutler_atomic_radii_adjust at 0x7092675e62a0>
+small_rho_cutoff = 0
+******** <class 'pyscf.solvent.pcm.PCM'> (In testing) ********
+
+WARN: PCM is an experimental feature. It is still in testing.
+Features and APIs may be changed in the future.
+
+lebedev_order = 29 (302 grids per sphere)
+eps = 78.3553
+eps_optical = None
+frozen = False
+tot grids = 261840
+  [     0.8 s] RSS   0.31 GB  in scf
+Set gradient conv threshold to 3.16228e-05
+Initial guess from minao.
+  [     3.7 s] RSS   0.63 GB  in pcm get_D_S (surface matrices)
+  [     4.5 s] RSS   0.91 GB  in pcm get_D_S (surface matrices)
+  [     7.9 s] RSS   1.77 GB  in pcm _get_vind (solves)
+  [     8.1 s] RSS   2.09 GB  in pcm _get_vind (solves)
+PCM E_diel = -0.00136727765741019
+tot grids = 896704
+  [    17.3 s] RSS   2.83 GB  in sgx get_jk
+Traceback (most recent call last):
+  File "/home/danny/Chemistry/my-pyscf/bench/diag/pcm_memory.py", line 152, in <module>
+    e = mf.kernel()
+  File "<string>", line 2, in kernel
+  File "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/scf/hf.py", line 2156, in scf
+    kernel(self, self.conv_tol, self.conv_tol_grad,
+    ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+           dm0=dm0, callback=self.callback,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+           conv_check=self.conv_check, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/scf/hf.py", line 132, in kernel
+    vhf = mf.get_veff(mol, dm)
+  File "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/solvent/_attach_solvent.py", line 94, in get_veff
+    vhf = super().get_veff(mol, dm, *args, **kwargs)
+  File "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/sgx/sgx.py", line 193, in get_veff
+    veff = super().get_veff(
+        mol=mol, dm=dm, dm_last=dm_last, vhf_last=vhf_last, hermi=hermi
+    )
+  File "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/dft/rks.py", line 112, in get_veff
+    vj, vk = ks.get_jk(mol, _dm, hermi)
+             ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/danny/Chemistry/my-pyscf/bench/diag/pcm_memory.py", line 67, in wrapper
+    return fn(*a, **k)
+  File "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/sgx/sgx.py", line 180, in get_jk
+    vj, vk = with_df.get_jk(dm, hermi, vhfopt, with_j, with_k,
+             ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                            self.direct_scf_tol, omega)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/sgx/sgx.py", line 542, in get_jk
+    vj, vk = sgx_jk.get_jk(self, dm, hermi, with_j, with_k, direct_scf_tol)
+             ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/danny/Chemistry/my-pyscf/pyscf/pyscf/sgx/sgx_jk.py", line 1176, in get_jk_favorj
+    assert i0 % BLKSIZE == 0
+           ^^^^^^^^^^^^^^^^^
+AssertionError
+Command exited with non-zero status 1
+	Command being timed: "timeout 10800 python -W ignore bench/diag/pcm_memory.py --n 26 --basis def2-tzvp --limit-gb 13 --sgx sgx"
+	User time (seconds): 77.83
+	System time (seconds): 9.13
+	Percent of CPU this job got: 475%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:18.27
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2961696
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 757657
+	Voluntary context switches: 1235
+	Involuntary context switches: 314
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 8
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 1
