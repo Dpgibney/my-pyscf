@@ -6722,6 +6722,49 @@ can do the GPU style kernel" to doing this first.
   - The SCF: 918.6 -> 857.6 s, −1023.7319952041 in 9 cycles, 3.1 GB.
   - PCM 99 -> 39 s in all. ORCA's CPCM terms take ~70 s; its exact run 1023 s.
 
+## The GPU-style PCM kernel, an experiment that loses on node2, 2026-11-04
+The user had said "...then we can do the GPU style kernel".
+- **What it is** (qcint branch `pcm-kernel` 08cc5d9, pyscf branch `pcm-kernel` bbf8aecad; neither merged):
+  - `int1e_grids_dm_contract_cart` and `int1e_grids_charge_contract_cart` (`src/cint1e_grids_contract.c`) take one
+    shell pair over all the batches. The pair is ordered so that A is the larger shell.
+  - `CINTg0_1e_grids` runs with lj set to 0, so it does only the vertical recursion, to li+lj on A.
+  - The density goes once to A's monomials t, li <= |t| <= li+lj, through (x−B)^j = Σ_k C(j,k) (A−B)^(j−k) (x−A)^k.
+    Each point then takes Σ_t D_t gx gy gz, factored over z, y and x. General contractions are folded in per
+    primitive pair.
+  - For charges, the sums over the points are taken on the monomials, and the HRR is applied to them at the end.
+  - `SGXnr_grids_contract_drv` runs the shell pairs, a fixed cyclic set per thread; the potential is reduced in thread
+    order.
+  - `pcm._int1e_grids_contract` works on Cartesian functions, with c2s on the matrices, and is taken when the library
+    has the kernels.
+- **Exact:**
+  - Against int1e_grids_cart for every ordered shell pair of formaldehyde: def2-TZVP within 4.7e-15 relative a pair,
+    cc-pVTZ (general contractions) 1.7e-14.
+  - Against the SGX path: C6H14 and C12H26, spherical and Cartesian, |dv| <= 4.7e-13, |dV| <= 4e-16
+    (`bench/diag/pcm_kernel_check.py`, `pcm_contract_vs_sgx.py`).
+- **Speed against the SGX path:**
+
+| | `_get_v` | `_get_vmat` |
+|---|---|---|
+| laptop (Zen 5, AVX-512, non-PGO), C12H26, 1 thread | 0.99 -> 0.81 s | 1.01 -> 0.86 s |
+| node2 (Zen 2, AVX2, PGO), C26H54, 1 thread | 7.75 -> 9.45 s | 8.04 -> 9.44 s |
+| node2, C26H54, 6 threads | 1.36 -> 1.65 s | 1.42 -> 1.65 s |
+
+  (`scripts/node2_pcmkernel.sh`; `bench/results/node2/node2_pcmkernel.log`)
+- **Why:**
+  - py-spy (laptop, one thread): `CINTg0_1e_grids` 35% + roots 7%, and the dot products 53%.
+  - The dot products over the monomials cost about as many FMAs as libcint's per-point products they replace: 31
+    against 36 for (dd), 74 against 100 for (ff). So the HRR, the c2s and the contraction pass are all that is saved.
+  - Each FMA needs two loads (the density's broadcast and a strided gz). With AVX2's four lanes that halves the FMA
+    rate.
+  - Keeping a y/z row per root or the tz run's sums in local arrays was slower: GCC keeps them in memory, since their
+    sizes are run time.
+  - GPU4PySCF gets its gain from kernels templated on L, which keep everything in registers. On the CPU that would
+    need generated code for each (li, lj).
+- **The laptop and node2 are back on `perf`:** builds, sources and node2's pyscf tree; node2 keeps
+  `install/qcint-sx-contract`.
+- **What is left of PCM:** ~3.6% of the SCF (31 s of 857 s). A templated or generated kernel could at most take a
+  fraction of that.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

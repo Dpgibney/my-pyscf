@@ -1,0 +1,8 @@
+== start 22:56
+1
+  built qcint-sx-contract
+2
+  pyscf rebuilt
+C26H54/def2-tzvp: 1130 AOs, 9998 points, 6 threads: _get_v 1.364 -> 1.645 s, _get_vmat 1.422 -> 1.651 s; max |dv| 1.2e-12 (max |v| 2.0e+01), max |dV| 7.4e-16 (max |V| 8.9e-02)
+C26H54/def2-tzvp: 1130 AOs, 9998 points, 1 threads: _get_v 7.747 -> 9.452 s, _get_vmat 8.042 -> 9.435 s; max |dv| 1.2e-12 (max |v| 2.0e+01), max |dV| 9.6e-16 (max |V| 8.9e-02)
+NODE2 PCMKERNEL DONE 23:05
