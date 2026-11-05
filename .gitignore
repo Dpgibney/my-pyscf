@@ -24,3 +24,5 @@ __pycache__/
 bench/qcint/qbench
 bench/qcint/qcost
 bench/diag/*.so
+# raw ORCA outputs: not shared publicly (ORCA EULA 3c/3d: data generated with ORCA only for academic purposes, databases with a notice)
+bench/results/node2/orca-raw/

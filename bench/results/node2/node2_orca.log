@@ -1,0 +1,34 @@
+== exact 17:49:46
+   exit 0, wall 1023.3 s
+peak PSS 2.46 GB, peak RSS sum 5.02 GB, up to 8 processes, 1023 s
+Total number of grid points                  ...   326210
+Cavity surface points                             ...        10546
+               *           SCF CONVERGED AFTER  12 CYCLES          *
+Total SCF time: 0 days 0 hours 16 min 54 sec 
+FINAL SINGLE POINT ENERGY     -1023.732059618736
+TOTAL RUN TIME: 0 days 0 hours 17 minutes 2 seconds 295 msec
+== rijcosx 18:06:50
+   exit 0, wall 235.5 s
+peak PSS 3.00 GB, peak RSS sum 5.02 GB, up to 8 processes, 235 s
+Total number of grid points                  ...   326210
+Total number of grid points                  ...    41658
+Total number of grid points                  ...    85740
+Total number of grid points                  ...   185684
+Cavity surface points                             ...        10546
+               *           SCF CONVERGED AFTER  12 CYCLES          *
+Total SCF time: 0 days 0 hours 3 min 43 sec 
+FINAL SINGLE POINT ENERGY     -1023.733386317255
+TOTAL RUN TIME: 0 days 0 hours 3 minutes 54 seconds 39 msec
+== default 18:10:45
+   exit 0, wall 199.4 s
+peak PSS 1.89 GB, peak RSS sum 2.49 GB, up to 8 processes, 199 s
+Total number of grid points                  ...   326210
+Total number of grid points                  ...    41658
+Total number of grid points                  ...    85740
+Total number of grid points                  ...   185684
+Cavity surface points                             ...         6610
+               *           SCF CONVERGED AFTER  12 CYCLES          *
+Total SCF time: 0 days 0 hours 3 min 8 sec 
+FINAL SINGLE POINT ENERGY     -1023.733374739593
+TOTAL RUN TIME: 0 days 0 hours 3 minutes 18 seconds 481 msec
+NODE2 ORCA DONE 18:14

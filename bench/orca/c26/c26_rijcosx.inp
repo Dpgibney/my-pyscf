@@ -1,0 +1,10 @@
+# n-C26H54/def2-TZVP, B3LYP (VWN-RPA = B3LYP/G), C-PCM water: the system of scripts/node2_pcm.sh in ORCA 6.1.1.
+# ORCA's default RIJCOSX (def2/J), the same PCM as the exact run. ORCA's default grid (DefGrid2); its CPCM radii are 1.2 x Bondi, as PySCF's.
+! B3LYP/G def2-TZVP TightSCF CPCM(Water)
+%pal nprocs 6 end
+%maxcore 1800
+%cpcm
+  epsilon 78.3553
+  num_leb 302
+end
+* xyzfile 0 1 c26h54.xyz

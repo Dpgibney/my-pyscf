@@ -6463,6 +6463,58 @@ the new and old code? I believe it may run out of memory and want to diagnose wh
     - PCM's exponents, XI/(R_vdw·√w), take one value per Lebedev weight class and atomic radius, a few dozen here.
     - That is the SGX integral, made 2.0–2.6x faster in It25/It26 (at omega = 0).
 
+## node2: ORCA 6.1.1 on the B3LYP/PCM system, 2026-11-04
+Asked for by the user: "Could you run an orca timing comparison on this system?" The system is the one of the
+section above: n-C26H54/def2-TZVP, B3LYP, C-PCM (water).
+- **Setup:**
+  - ORCA 6.1.1, the user's install on node2. It runs 6 MPI ranks (`OMP_NUM_THREADS=1`, `%maxcore 1800`); PySCF ran 6
+    OpenMP threads.
+  - OpenMPI 4.1.8 for it, built in user space by `scripts/node2_openmpi.sh` (`~/Chemistry/openmpi-4.1.8`). It needs
+    the Fortran bindings: with a C-only build, `orca_startup_mpi` fails in `MPI_Type_match_size` (`MPI_ERR_ARG`).
+  - Inputs in `bench/orca/c26/`, run by `scripts/node2_orca.sh`. `bench/diag/rss_watch.py` sums the PSS of all ORCA
+    and OpenMPI processes, so memory shared between the ranks counts once.
+  - Raw outputs in `bench/results/node2/orca-raw/`, which is not in git: ORCA's EULA (3c, 3d) limits sharing data
+    generated with ORCA to academic purposes. Summary: `bench/results/node2/node2_orca.log`.
+- **Matched to PySCF:**
+  - B3LYP/G, whose VWN-3 equals for a closed shell the VWN-RPA of libxc's B3LYP (PySCF's);
+  - def2-TZVP;
+  - C-PCM with ε 78.3553 and 302 Lebedev points on every sphere. ORCA's default radii are PySCF's (1.2 × Bondi:
+    C 2.04, H 1.32 Å).
+- **Not matched:**
+  - the grid: ORCA's DefGrid2 has 326,210 points, PySCF's level 3 896,704;
+  - convergence and guess: TightSCF against `conv_tol` 1e-9, PModel against minao;
+  - the pruning of the surface: 10,546 points against 9,998.
+
+| ORCA run | time | cycles | Coulomb + exchange | XC | PCM | peak memory | energy (Eh) |
+|---|---|---|---|---|---|---|---|
+| exact J/K | 1023 s | 12 | 915 s | 19 s | 61 s | 2.5 GB | −1023.7320596187 |
+| RIJCOSX | 236 s | 12 | 122 s (RI-J 16, COSX 106) | 20 s | 61 s | 3.0 GB | −1023.7333863173 |
+| out of the box (RIJCOSX, ORCA's CPCM(Water)) | 199 s | 12 | 122 s | 20 s | 33 s | 1.9 GB | −1023.7333747396 |
+
+| PySCF run | time | cycles | PCM integral steps | the rest | peak memory | energy (Eh) |
+|---|---|---|---|---|---|---|
+| original | 2494 s | 9 | ~1410 s | ~1085 s | 11.2 GB | −1023.7319952041 |
+| modified | 2704 s | 9 | ~1710 s | ~995 s | 13.4 GB | −1023.7319952041 |
+| modified + `pcm-mem` | 2688 s | 9 | ~1710 s | ~980 s | 6.5 GB | −1023.7319952040 |
+
+- ORCA's time is its whole run; PySCF's is the SCF (its whole run is about 1 s longer).
+- ORCA's out-of-the-box CPCM(Water): ε 80.151, "constant charge density", 6,610 points.
+- PySCF's PCM integral steps are 11 × the per-cycle times of the section above. "The rest" is J/K, XC, the PCM build
+  and solves, and DIIS, by difference.
+- **ORCA's exact run is 2.4x faster than the original PySCF and 2.6x faster than the modified one. PCM makes the
+  difference.**
+  - ORCA's CPCM terms take 61 s for the whole SCF, ~5 s a cycle, plus 8.7 s of setup with a Cholesky factorization of
+    the PCM matrix. PySCF's two PCM integral steps take 128–155 s a cycle.
+  - The rest: PySCF ~1085 s (original) and ~995 s (modified) against ORCA's ~960 s without its CPCM terms. PySCF's grid
+    has 2.75x the points; ORCA makes 12 cycles, PySCF 9 (11 Fock builds).
+  - So the modified PySCF with PCM integrals as fast as ORCA's would be about as fast as ORCA's exact run. PySCF's J/K
+    and XC were not timed separately.
+- **Energies:** ORCA's exact energy is 64 µEh below PySCF's.
+  - 20 µEh of it is the dielectric energy (−4.5028 against −4.4827 mEh), from the different surfaces. The rest is
+    mostly the grids.
+  - RIJCOSX is 4.3x faster than ORCA's exact run and 1.33 mEh below it.
+- **Memory:** ORCA peaks at 2.5 GB in all (3.0 GB with RIJCOSX), against PySCF's 6.5–13.4 GB.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

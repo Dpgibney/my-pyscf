@@ -1,0 +1,10 @@
+[       0 s] PSS   0.07 GB, RSS   0.07 GB in 1 processes
+[       2 s] PSS   0.96 GB, RSS   1.11 GB in 8 processes
+[      10 s] PSS   1.82 GB, RSS   4.53 GB in 8 processes
+[      13 s] PSS   2.31 GB, RSS   5.02 GB in 8 processes
+[      50 s] PSS   2.45 GB, RSS   2.83 GB in 8 processes
+[      64 s] PSS   2.61 GB, RSS   2.99 GB in 8 processes
+[      91 s] PSS   2.73 GB, RSS   3.11 GB in 8 processes
+[     157 s] PSS   2.92 GB, RSS   3.30 GB in 8 processes
+[     203 s] PSS   3.00 GB, RSS   3.38 GB in 8 processes
+peak PSS 3.00 GB, peak RSS sum 5.02 GB, up to 8 processes, 235 s
