@@ -27,9 +27,20 @@ source scripts/pyscf-env.sh && python my_script.py   # the venv, the tree on PYT
 (profile-guided and `-march=native`, so build on the type of machine that will run it) and PySCF against them,
 then checks a water B3LYP energy (20 min on node2's 6 cores). `--with-base` also builds the unmodified PySCF and
 compares the XC, J and K kernels of both trees (`bench/kernels.py`); `--jobs N` sets the build parallelism.
-Rerunning it after a `git pull` rebuilds only what the new pins change. `pyscf-env.sh` sets one OpenMP thread per
-physical core and `PYSCF_MAX_MEMORY` to 2/3 of the RAM, at most 20000 MB (export your own values before sourcing
-it to change them).
+Rerunning it after a `git pull` rebuilds only what the new pins change.
+
+`pyscf-env.sh` works out its defaults each time it is sourced, from what the process may use: one OpenMP thread
+per physical core of its CPUs, and `PYSCF_MAX_MEMORY` at 2/3 of its memory. In a Slurm job these are the job's
+`-c` and `--mem` (read from its CPU binding, its memory cgroup and Slurm's variables); elsewhere they are the
+machine's, with at most 20000 MB. Values you export before sourcing it win. A job script needs nothing else:
+
+```bash
+#!/bin/bash
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=64G
+source ~/my-pyscf/scripts/pyscf-env.sh   # 16 threads (8 if those are 8 hyperthreaded cores), ~45800 MB
+python job.py                            # run it directly, or with srun -c $SLURM_CPUS_PER_TASK
+```
 
 ## Testing GPU4PySCF on another GPU
 

@@ -6,9 +6,10 @@
 #     git clone https://github.com/Dpgibney/my-pyscf && cd my-pyscf && bash scripts/cpu_setup.sh
 # Needs gcc, g++, gfortran, make, git, and python3 with venv (3.12 or newer gets the pinned numpy 2.5.4, scipy
 # 1.18.1 and h5py 3.16.0, older ones the latest); cmake 3.22 or newer comes from pip if missing. 20 min on node2's
-# 6 cores. qcint is built for this CPU: on a cluster, build on a node of the type that will run it.
+# 6 cores. qcint is built for this CPU: on a cluster, build on a node of the type that will run it. In a Slurm job
+# (or under taskset), the build and the checks use the job's CPUs.
 # Options:
-#   --jobs N      parallel build jobs (default: nproc)
+#   --jobs N      parallel build jobs (default: the CPUs this process may use)
 #   --with-base   also build the unmodified PySCF (pyscf-base: master 44313dfb4 with the stock libcint) and compare
 #                 the XC, J and K kernels of both trees on caffeine (bench/kernels.py)
 # Rerunning is incremental: a step is skipped while its trees stay at the same commits. The clones are moved to the
@@ -16,7 +17,8 @@
 #   source scripts/pyscf-env.sh && python my_script.py
 set -euo pipefail
 WS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-JOBS=$(nproc)
+NPROC=$(env -u OMP_NUM_THREADS -u OMP_THREAD_LIMIT nproc)   # the CPUs of this process's affinity mask
+JOBS=$NPROC
 BASE=0
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -34,11 +36,9 @@ V3=-DNUMINT_X86_64_V3=ON
 for f in avx avx2 bmi1 bmi2 f16c fma abm movbe xsave; do    # x86-64-v3
     [[ $flags == *" $f "* ]] || V3=""
 done
-CORES=$(lscpu -p=Core,Socket | grep -v '^#' | sort -u | wc -l)
-[ "$CORES" -gt 0 ] || CORES=$(nproc)
-echo "== $(lscpu | sed -n 's/^Model name: *//p' | head -n 1): $CORES cores, $(nproc) threads," \
-     "$(awk '/^MemTotal:/ {printf "%.0f GB", $2 * 1.024e-6}' /proc/meminfo); x86-64-v3 kernels" \
-     "$([ -n "$V3" ] && echo on || echo off); $JOBS build jobs"
+read -r CORES MEM_MB < <(python3 -I "$WS/scripts/resources.py")
+echo "== $(lscpu | sed -n 's/^Model name: *//p' | head -n 1); this process may use $CORES cores ($NPROC CPUs)" \
+     "and $((MEM_MB / 1000)) GB; x86-64-v3 kernels $([ -n "$V3" ] && echo on || echo off); $JOBS build jobs"
 LOG="$WS/build/cpu_setup"
 mkdir -p "$LOG"
 
@@ -176,5 +176,6 @@ if [ $BASE = 1 ]; then
 fi
 echo "== ready ($((SECONDS / 60)) min). To run your scripts with it:"
 echo "   source $WS/scripts/pyscf-env.sh && python my_script.py"
-echo "   ($(WS="$WS" bash -c 'source "$WS/scripts/pyscf-env.sh" && echo "OMP_NUM_THREADS=$OMP_NUM_THREADS" \
-    "PYSCF_MAX_MEMORY=$PYSCF_MAX_MEMORY"'); export your own values before sourcing to change them)"
+echo "   (here: $(WS="$WS" bash -c 'source "$WS/scripts/pyscf-env.sh" && echo "OMP_NUM_THREADS=$OMP_NUM_THREADS" \
+    "PYSCF_MAX_MEMORY=$PYSCF_MAX_MEMORY"'). In a Slurm job they follow the job's -c and --mem; export your own"
+echo "   values before sourcing to override them)"
