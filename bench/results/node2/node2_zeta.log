@@ -1,0 +1,27 @@
+== start 20:32
+  built qcint-sx-zeta
+  qcint sources back to perf: 0ec86b07 4d46ea25 555c4013 
+caffeine qcint-sx-zeta against qcint-sx-opt3: install/qcint-sx-zeta/lib/libcint.so.6 against install/qcint-sx-opt3/lib/libcint.so.6: 274489600 integrals, 100.0000% bitwise equal, max |diff| 0.00e+00 (max |value| 7.66e+00), max |diff| / max |value| of its pair 0.00e+00 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 100.00% 0.0e+00 (pp) 100.00% 0.0e+00 (ds) 100.00% 0.0e+00 (dp) 100.00% 0.0e+00 (dd) 100.00% 0.0e+00 
+caffeine qcint-sx-opt3: 2.745e+08     0.818     2.98                1.434     175.4% (per-call cost 7.3% of the time)
+caffeine qcint-sx-zeta: 2.745e+08     0.817     2.98                1.435     175.6% (per-call cost 7.4% of the time)
+caffeine qcint-sx-opt3: 2.745e+08     0.814     2.97                1.435     176.3% (per-call cost 7.4% of the time)
+caffeine qcint-sx-zeta: 2.745e+08     0.817     2.98                1.434     175.4% (per-call cost 7.3% of the time)
+c20 qcint-sx-zeta against qcint-sx-opt3: install/qcint-sx-zeta/lib/libcint.so.6 against install/qcint-sx-opt3/lib/libcint.so.6: 1081839360 integrals, 100.0000% bitwise equal, max |diff| 0.00e+00 (max |value| 5.67e+00), max |diff| / max |value| of its pair 0.00e+00 bitwise equal, max |diff| by class: (ss) 100.00% 0.0e+00 (ps) 100.00% 0.0e+00 (pp) 100.00% 0.0e+00 (ds) 100.00% 0.0e+00 (dp) 100.00% 0.0e+00 (dd) 100.00% 0.0e+00 
+c20 qcint-sx-opt3: 1.082e+09     1.777     1.64                3.377     190.0% (per-call cost 10.6% of the time)
+c20 qcint-sx-zeta: 1.082e+09     1.784     1.65                3.379     189.5% (per-call cost 10.6% of the time)
+c20 qcint-sx-opt3: 1.082e+09     1.783     1.65                3.375     189.3% (per-call cost 10.7% of the time)
+c20 qcint-sx-zeta: 1.082e+09     1.786     1.65                3.377     189.1% (per-call cost 10.5% of the time)
+-- qcint-pgo (perf)
+C26H54/def2-tzvp: 1130 AOs, 9998 surface points, 6 threads; /home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0
+_get_v 8.76 s, _get_vmat 9.03 s (best of 2)
+against int3c2e: max |dv| 1.55e-12, max |dV| 1.91e-17
+-- qcint-sx-opt3 (sgx-exp before the change)
+C26H54/def2-tzvp: 1130 AOs, 9998 surface points, 6 threads; /home/danny/Chemistry/my-pyscf/install/qcint-sx-opt3/lib/libcint.so.6.2.0
+_get_v 8.37 s, _get_vmat 8.67 s (best of 2)
+against scratch/pcmzeta/c26_pgo.npz: max |dv| 7.11e-15 (max |v| 1.99e+01), max |dV| 3.47e-18
+-- qcint-sx-zeta
+C26H54/def2-tzvp: 1130 AOs, 9998 surface points, 6 threads; /home/danny/Chemistry/my-pyscf/install/qcint-sx-zeta/lib/libcint.so.6.2.0
+_get_v 3.93 s, _get_vmat 4.18 s (best of 2)
+against scratch/pcmzeta/c26_pgo.npz: max |dv| 7.11e-15 (max |v| 1.99e+01), max |dV| 3.47e-18
+against int3c2e: max |dv| 1.55e-12, max |dV| 1.91e-17
+NODE2 ZETA DONE 20:44

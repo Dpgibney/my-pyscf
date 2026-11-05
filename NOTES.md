@@ -6618,6 +6618,55 @@ the `pcm-mem` branch, then a full SCF on node2.
   - The XC is 10x slower: the grid has 2.75x the points, at ~4x the cost per point.
   - PCM still takes 205 against ~70 s.
 
+## PCM merged, the solvent first in get_veff, SIMD roots for Gaussian charges, 2026-11-04
+The user said "All those sound good" to three steps: merge `pcm-mem` into `perf`; size the ERI cache after the PCM
+build; SIMD Rys roots for qcint's Gaussian-charge branch of int1e_grids.
+- **`pcm-mem` merged:** `perf` fast-forwarded to bd44b24c9. The PCM tests pass, and node2's `pyscf` tree has the
+  branch's solvent files.
+- **The solvent part first** (pyscf `perf` f1a9356c8, branch `pcm-cache`):
+  - Before, `SCFWithSolvent.get_veff` made the J/K and XC first. Their caches were sized at their first calls, before
+    the solvent model existed.
+  - Now the solvent part comes first; it depends on dm only. `dm=None` becomes the density matrix, as in the base
+    get_veff.
+  - Laptop: `pcm_check.py` as before; `pyscf/solvent/test` 129 passed (ddCOSMO and ddPCM share the mixin).
+- **qcint SIMD roots for Gaussian charges** (qcint `sgx-exp` 54bef5c):
+  - The last branch of `CINTg0_1e_grids` covers Gaussian charges, the long-range operator and both. It now takes the
+    roots a SIMD chunk at a time, as the bare Coulomb branch does: one root inlined, all-large-x chunks, two roots by
+    `CINTrys_roots_chunk`.
+  - It uses x = a0·|r_ij − r_g|² and t² times θ; the bare Coulomb branch is not touched.
+  - Laptop, int1e_grids of n-C6H14/def2-TZVP on 600 points: long range, Gaussian charge and both agree with stock
+    libcint within 2.7e-16, as `sgx-exp` did before; the bare operator is bitwise the same.
+  - node2 (`scripts/node2_zeta.sh`, PGO build `qcint-sx-zeta`; `bench/results/node2/node2_zeta.log`): SGX's
+    integrals of caffeine and C20 (1.36e9) are bitwise those of `qcint-sx-opt3`, in the same time.
+  - PCM's integrals of n-C26H54/def2-TZVP (`bench/diag/pcm_int_time.py`, 6 threads):
+
+| qcint | `_get_v` | `_get_vmat` |
+|---|---|---|
+| `perf` (qcint-pgo) | 8.76 s | 9.03 s |
+| `sgx-exp` before (qcint-sx-opt3) | 8.37 s | 8.67 s |
+| `sgx-exp` 54bef5c (qcint-sx-zeta) | 3.93 s | 4.18 s |
+
+  - Against int3c2e: max |dv| 1.6e-12 and max |dV| 1.9e-17 with each build.
+- **The full SCF on node2** (modified tree, B3LYP/C-PCM, max_memory 4000 MB; `node2_pcm_pyscf-pcmcache.log`,
+  `node2_pcm_pyscf-sxzeta.log`; `scripts/node2_pcmcache.sh`, `node2_pcmzeta_scf.sh`):
+
+| modified tree | SCF | J/K | XC | PCM | peak RSS |
+|---|---|---|---|---|---|
+| old PCM code | 2704 s | | | ~1770 s | 13.4 GB |
+| new PCM code (bd44b24c9) | 1122 s | 719 s | 191 s | 205 s | 5.7 GB |
+| + the solvent first (f1a9356c8) | 1045 s | 783 s | 51 s | 205 s | 3.1 GB |
+| + qcint `sgx-exp` 54bef5c (`LD_LIBRARY_PATH`) | 920 s | 763 s | 51 s | 99 s | 3.1 GB |
+| ORCA, exact J/K | 1023 s | 915 s | 19 s | ~70 s | 2.5 GB |
+
+- **All runs give −1023.7319952041 in 9 cycles;** the cycle energies agree within 1e-11.
+- **With the solvent first, 1508 MB are left for the ERI cache, under 1% of the ERIs, so `semi_direct_eri` stores
+  none.** It9's rule is None below 1%. The 2.7 GB cache before held about 1%: it saved 64 s of J/K, but it pushed the
+  RSS over `max_memory`, which cost the XC 140 s.
+- **The XC at its floor (224-point blocks) took 3.7x the time it takes with room (191 against 51 s);** a small
+  `max_memory` margin is costly for the fused XC.
+- **The last line needs qcint `sgx-exp` (6 commits on `perf` a95651f) in the modified tree's build.** It is not merged.
+  Its J/K is 2.5% faster from It25's roots in the ERIs.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
