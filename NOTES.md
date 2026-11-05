@@ -6803,6 +6803,42 @@ n-C26H54/def2-TZVP, B3LYP, C-PCM (water), as in the ORCA comparison above.
     the whole grid.
   - The fix: round the block down to a multiple of `SGX_BLKSIZE`, as the debug branch does. Not done.
 
+### PySCF's SGX set up as ORCA's RIJCOSX (node2), 2026-11-05
+The user asked whether the default SGX mode is closer to what ORCA does: no. RIJCOSX takes RI-J (def2/J) and COSX
+for the exchange only, which is `pjs`. The default mode takes J on the grid too. Then: "Yes please do that" to a
+`pjs` run set up as ORCA's.
+- **What differed from ORCA:**
+  - **The J fitting basis.** For a hybrid, PySCF's `predefined_auxbasis` takes the JK-fitting `def2-tzvp-jkfit`
+    (2,922 functions), though `pjs` fits only J. `def2-universal-jfit` has 1,868 functions, as many as ORCA's def2/J.
+  - **The grids.** SGX's levels 0, 1 and 2 take Lebedev 50, 110 and 194 at most (`SGX_ANG_MAPPING`), like ORCA's
+    GRIDX1, 2 and 3.
+    - SGX's default is level 2 throughout (`grids_level_i = grids_level_f = 2`).
+    - ORCA iterates on GRIDX1 and GRIDX2, then recomputes the exchange energy once on GRIDX3 (26.5 s).
+- **`bench/diag/pcm_memory.py`** gains `--auxbasis`, `--sgx-levels I F` and `--sgx-final-level L`. The last
+  evaluates the converged density's energy once more on level L, as ORCA does on GRIDX3.
+  - Runs: `scripts/node2_pcmsgx2.sh`; `bench/results/node2/node2_pcm_pyscf-sgx-{orca,jfit,stage}.log`.
+
+| PySCF SGX pjs | time | cycles | SGX J/K | XC | PCM | energy (Eh) | against PySCF's exact |
+|---|---|---|---|---|---|---|---|
+| defaults (jkfit, level 2) | 560 s | 9 | 461 s | 51 s | 41 s | −1023.7328749 | −0.88 mEh |
+| jfit, level 2 | 544 s | 9 | 445 s | 51 s | 41 s | −1023.7333211 | −1.33 mEh |
+| jfit, levels 0 -> 2 | 455 s | 10 | 350 s | 56 s | 45 s | −1023.7333211 | −1.33 mEh |
+| jfit, levels 0 -> 1, then level 2 once (ORCA's way) | 374 s (318 + 56) | 10 | 258 s | 60 s | 48 s | −1023.7333210 | −1.33 mEh |
+| ORCA RIJCOSX, the matched CPCM | 236 s | 12 | 122 s | 20 s | 61 s | −1023.7333863 | −1.33 mEh against ORCA's exact |
+
+- **Set up as ORCA's, PySCF's SGX takes 374 against 236 s: 1.6x, from 2.4x.**
+  - The grids gave most of it. The J basis saved only 16 s, since DF-J is small next to the exchange.
+  - The last step's energy differs from the self-consistent level 2 by 4e-8 Eh. On level 1 alone the energy is
+    −1.45 mEh off.
+- **The errors are now the same:** −1.326 mEh against PySCF's exact, −1.327 mEh for ORCA against its own. That error
+  is the J fitting basis's: with the JK-fitting basis it is −0.88 mEh.
+- **What is left of the 1.6x:**
+  - the exchange: 258 against 122 s, about 2x per grid point. ORCA's exchange takes ~9 s a cycle on 42k–86k points;
+    PySCF's levels 0/1 take ~18 s a call on about as many;
+  - the XC: 60 against 20 s, on a grid of 2.75x the points;
+  - PCM is ahead (48 against ~70 s).
+- **pyscf `sgx-exp`'s SGX changes** (7–13% on K builds) are still not in `perf`.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

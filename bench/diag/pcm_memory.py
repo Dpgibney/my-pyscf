@@ -5,7 +5,7 @@ each phase, and the SCF result. A watchdog stops the run (exit 3, with the Pytho
 --limit-gb, so that the machine never swaps or meets the OOM killer. Run with PYTHONPATH set to the tree;
 PYSCF_MAX_MEMORY as usual.
 Usage: pcm_memory.py [--n 26] [--basis def2-tzvp] [--xc b3lyp] [--method C-PCM] [--limit-gb 13] [--cycles N]
-       [--sd-min-fraction F] [--sgx pjs|sgx]"""
+       [--sd-min-fraction F] [--sgx pjs|sgx [--auxbasis B] [--sgx-levels I F] [--sgx-final-level L]]"""
 import argparse
 import faulthandler
 import functools
@@ -32,6 +32,11 @@ ap.add_argument('--sd-min-fraction', type=float, default=None,
 ap.add_argument('--sgx', choices=['pjs', 'sgx'], default=None,
                 help="PySCF's seminumerical exchange (sgx.sgx_fit): pjs = density-fitted J and SGX K with "
                      "P-junction screening (RIJCOSX-like), sgx = SGX for J and K")
+ap.add_argument('--auxbasis', default=None, help="sgx_fit's auxiliary basis (default: PySCF's predefined one)")
+ap.add_argument('--sgx-levels', type=int, nargs=2, default=None, metavar=('I', 'F'),
+                help='SGX grid levels during the SCF: I until the density settles, then F')
+ap.add_argument('--sgx-final-level', type=int, default=None,
+                help='after the SCF, the energy once more with the SGX grid of this level (as ORCA does on GRIDX3)')
 args = ap.parse_args()
 
 T0 = time.perf_counter()
@@ -141,7 +146,9 @@ print(f'C{args.n}H{2 * args.n + 2} {args.basis}: {mol.natm} atoms, nao {mol.nao}
       f'{lib.num_threads()} threads, max_memory {mol.max_memory} MB; RSS {rss_gb():.2f} GB', flush=True)
 mf = dft.RKS(mol, xc=args.xc)
 if args.sgx:
-    mf = sgx_mod.sgx_fit(mf, pjs=args.sgx == 'pjs')
+    mf = sgx_mod.sgx_fit(mf, auxbasis=args.auxbasis, pjs=args.sgx == 'pjs')
+    if args.sgx_levels:
+        mf.with_df.grids_level_i, mf.with_df.grids_level_f = args.sgx_levels
 mf = mf.PCM()
 mf.with_solvent.method = args.method
 mf.verbose = 4
@@ -156,8 +163,17 @@ print(f'\nE {e:.10f}, converged {mf.converged}, {mf.cycles} cycles, SCF {time.pe
 if args.sgx:
     sgx_df = mf.with_df
     naux = sgx_df.auxmol.nao if getattr(sgx_df, 'auxmol', None) is not None else 0
-    print(f'SGX ({args.sgx}): {sgx_df.grids.weights.size} grid points in the last cycle, dfj {sgx_df.dfj}, '
-          f'{naux} auxiliary functions', flush=True)
+    print(f'SGX ({args.sgx}): {sgx_df.grids.weights.size} grid points in the last cycle (levels '
+          f'{sgx_df.grids_level_i} -> {sgx_df.grids_level_f}), dfj {sgx_df.dfj}, {naux} auxiliary functions', flush=True)
+    if args.sgx_final_level is not None:
+        # the energy of the converged density with exchange on a larger grid, not iterated
+        t1 = time.perf_counter()
+        dm = mf.make_rdm1()
+        sgx_df.build(level=args.sgx_final_level)
+        e_final = mf.energy_tot(dm, vhf=mf.get_veff(mf.mol, dm))
+        print(f'final energy on SGX level {args.sgx_final_level} ({sgx_df.grids.weights.size} points): '
+              f'{e_final:.10f} ({time.perf_counter() - t1:.1f} s; SCF and this {time.perf_counter() - t0:.1f} s)',
+              flush=True)
 print('peak RSS by phase (GB; calls):')
 for ph, r in sorted(peaks.items(), key=lambda kv: -kv[1]):
     print(f'  {r:6.2f}  {ph}  ({counts.get(ph, 0)})')

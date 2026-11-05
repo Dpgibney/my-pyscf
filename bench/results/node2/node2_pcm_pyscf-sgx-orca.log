@@ -1,0 +1,153 @@
+C26H54 def2-tzvp: 80 atoms, nao 1130; b3lyp, C-PCM; 6 threads, max_memory 4000 MB; RSS 0.10 GB
+
+
+******** <class 'pyscf.solvent._attach_solvent.PCMSGXRKS'> ********
+method = PCMSGXRKS
+initial guess = minao
+damping factor = 0
+level_shift factor = 0
+DIIS = <class 'pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 8
+diis_damp = 0
+SCF conv_tol = 1e-09
+SCF conv_tol_grad = None
+SCF max_cycles = 50
+direct_scf = True
+direct_scf_tol = 1e-13
+semi_direct = True
+chkfile to save SCF result = /home/danny/Chemistry/my-pyscf/scratch/tmp/tmph_a6kx3m
+max_memory 4000 MB (current use 112 MB)
+XC library pyscf.dft.libxc version 7.1.2
+    S. Lehtola, C. Steigemann, M. J. T. Oliveira, and M. A. L. Marques,  SoftwareX 7, 1–5 (2018)
+XC functionals = b3lyp
+    P. J. Stephens, F. J. Devlin, C. F. Chabalowski, and M. J. Frisch,  J. Phys. Chem. 98, 11623 (1994)
+radial grids: 
+Treutler-Ahlrichs [JCP 102, 346 (1995); DOI:10.1063/1.469408] (M4) radial grids
+
+becke partition: Becke, JCP 88, 2547 (1988); DOI:10.1063/1.454033
+pruning grids: <function nwchem_prune at 0x7f917e692350>
+grids dens level: 3
+symmetrized grids: False
+atomic radii adjust function: <function treutler_atomic_radii_adjust at 0x7f917e6922a0>
+small_rho_cutoff = 0
+******** <class 'pyscf.solvent.pcm.PCM'> (In testing) ********
+
+WARN: PCM is an experimental feature. It is still in testing.
+Features and APIs may be changed in the future.
+
+lebedev_order = 29 (302 grids per sphere)
+eps = 78.3553
+eps_optical = None
+frozen = False
+tot grids = 60016
+  [     0.4 s] RSS   0.29 GB  in scf
+Set gradient conv threshold to 3.16228e-05
+Initial guess from minao.
+  [     1.9 s] RSS   0.63 GB  in pcm get_D_S (surface matrices)
+  [     2.7 s] RSS   0.89 GB  in pcm get_D_S (surface matrices)
+  [     6.1 s] RSS   1.75 GB  in pcm _get_vind (solves)
+  [     6.3 s] RSS   2.07 GB  in pcm _get_vind (solves)
+PCM E_diel = -0.00136727765741019
+tot grids = 896704
+  [    20.1 s] RSS   2.47 GB  in sgx get_jk
+  [    20.9 s] RSS   2.85 GB  in sgx get_jk
+  [    22.1 s] RSS   3.29 GB  in sgx get_jk
+Solvent Energy = -0.00136727765741019
+init E= -1025.3471483021
+  HOMO = -0.33757030130888  LUMO = -0.0033956193978572  gap/eV = 9.09336
+PCM E_diel = -0.00996988635919989
+Solvent Energy = -0.00996988635919989
+cycle= 1 E= -1023.4363019395  delta_E= 1.91  |g|= 1.03  |ddm|=  6.2
+  HOMO = -0.171565166013431  LUMO = 0.0539237706686403  gap/eV = 6.13587
+PCM E_diel = -0.00759102850978905
+Solvent Energy = -0.00759102850978905
+cycle= 2 E= -1023.35503891785  delta_E= 0.0813  |g|= 1.19  |ddm|= 2.22
+  HOMO = -0.271092952393918  LUMO = 0.0346152922258991  gap/eV = 8.31875
+PCM E_diel = -0.00437902656849579
+Solvent Energy = -0.00437902656849579
+cycle= 3 E= -1023.73286620703  delta_E= -0.378  |g|= 0.0366  |ddm|= 1.36
+  HOMO = -0.270961333822327  LUMO = 0.0340358541050435  gap/eV = 8.29940
+PCM E_diel = -0.00453509954320837
+Solvent Energy = -0.00453509954320837
+cycle= 4 E= -1023.7330764364  delta_E= -0.00021  |g|= 0.0206  |ddm|= 0.0448
+  HOMO = -0.270418267083354  LUMO = 0.0342145048322534  gap/eV = 8.28948
+PCM E_diel = -0.00448739563187977
+tot grids = 114544
+Solvent Energy = -0.00448739563187977
+cycle= 5 E= -1023.73342503426  delta_E= -0.000349  |g|= 0.00887  |ddm|= 0.0204
+  HOMO = -0.270682584815837  LUMO = 0.0342160384772979  gap/eV = 8.29671
+PCM E_diel = -0.00448146198176198
+Solvent Energy = -0.00448146198176198
+cycle= 6 E= -1023.73344336485  delta_E= -1.83e-05  |g|= 0.00165  |ddm|= 0.0228
+  HOMO = -0.270712289637429  LUMO = 0.0342234416898008  gap/eV = 8.29772
+PCM E_diel = -0.00448307311365082
+Solvent Energy = -0.00448307311365082
+cycle= 7 E= -1023.73344380327  delta_E= -4.38e-07  |g|= 0.000697  |ddm|= 0.0158
+  HOMO = -0.270694502953586  LUMO = 0.0342288328530136  gap/eV = 8.29739
+PCM E_diel = -0.00448311224225952
+Solvent Energy = -0.00448311224225952
+cycle= 8 E= -1023.73344387928  delta_E= -7.6e-08  |g|= 0.000427  |ddm|= 0.00286
+  HOMO = -0.27070477628836  LUMO = 0.0342259981368348  gap/eV = 8.29759
+PCM E_diel = -0.00448286918191631
+Solvent Energy = -0.00448286918191631
+cycle= 9 E= -1023.73344392283  delta_E= -4.36e-08  |g|= 3.17e-05  |ddm|= 0.00172
+  HOMO = -0.270705479720784  LUMO = 0.034225798054262  gap/eV = 8.29760
+PCM E_diel = -0.00448284929625175
+Solvent Energy = -0.00448284929625175
+cycle= 10 E= -1023.73344392307  delta_E= -2.39e-10  |g|= 9.81e-06  |ddm|= 0.000184
+  HOMO = -0.270705224540038  LUMO = 0.0342258302686549  gap/eV = 8.29760
+PCM E_diel = -0.00448285944759948
+Solvent Energy = -0.00448285944759948
+Extra cycle  E= -1023.73344392304  delta_E= 2.82e-11  |g|= 1.26e-05  |ddm|= 1.83e-05
+converged SCF energy = -1023.73344392304
+
+E -1023.7334439230, converged True, 10 cycles, SCF 317.6 s; surface points 9998
+SGX (pjs): 102192 grid points in the last cycle (levels 0 -> 1), dfj True, 1868 auxiliary functions
+tot grids = 261840
+PCM E_diel = -0.00448285944759948
+Solvent Energy = -0.00448285944759948
+final energy on SGX level 2 (227904 points): -1023.7333210175 (55.9 s; SCF and this 373.5 s)
+peak RSS by phase (GB; calls):
+    3.36  sgx get_jk  (13)
+    2.80  pcm _get_vind (solves)  (13)
+    2.29  setup  (0)
+    2.27  xc nr_rks  (13)
+    2.21  scf  (0)
+    2.21  pcm _get_v (potential on the surface)  (13)
+    2.21  pcm _get_vmat (Fock term)  (13)
+    1.01  pcm get_D_S (surface matrices)  (1)
+    0.20  pcm gen_surface  (1)
+RSS at the end 2.08 GB
+wall time by phase (s; calls; a phase includes those it calls: _get_vind calls _get_v and _get_vmat, build calls get_D_S and gen_surface):
+     258.2  sgx get_jk  (13)
+      59.9  xc nr_rks  (13)
+      46.0  pcm _get_vind (solves)  (13)
+      18.7  pcm _get_vmat (Fock term)  (13)
+      18.0  pcm _get_v (potential on the surface)  (13)
+       2.2  pcm build  (1)
+       2.1  pcm get_D_S (surface matrices)  (1)
+       0.0  pcm gen_surface  (1)
+	Command being timed: "timeout 10800 python -W ignore bench/diag/pcm_memory.py --n 26 --basis def2-tzvp --limit-gb 13 --sgx pjs --auxbasis def2-universal-jfit --sgx-levels 0 1 --sgx-final-level 2"
+	User time (seconds): 2072.51
+	System time (seconds): 78.82
+	Percent of CPU this job got: 575%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 6:14.06
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 3523180
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 8362324
+	Voluntary context switches: 8337
+	Involuntary context switches: 6838
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 140256
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

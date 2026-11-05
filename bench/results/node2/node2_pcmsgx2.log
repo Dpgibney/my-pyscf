@@ -1,0 +1,70 @@
+== orca (--sgx-levels 0 1 --sgx-final-level 2) 07:01
+   exit 0
+E -1023.7334439230, converged True, 10 cycles, SCF 317.6 s; surface points 9998
+SGX (pjs): 102192 grid points in the last cycle (levels 0 -> 1), dfj True, 1868 auxiliary functions
+final energy on SGX level 2 (227904 points): -1023.7333210175 (55.9 s; SCF and this 373.5 s)
+    3.36  sgx get_jk  (13)
+    2.80  pcm _get_vind (solves)  (13)
+    2.29  setup  (0)
+    2.27  xc nr_rks  (13)
+    2.21  scf  (0)
+    2.21  pcm _get_v (potential on the surface)  (13)
+    2.21  pcm _get_vmat (Fock term)  (13)
+    1.01  pcm get_D_S (surface matrices)  (1)
+    0.20  pcm gen_surface  (1)
+     258.2  sgx get_jk  (13)
+      59.9  xc nr_rks  (13)
+      46.0  pcm _get_vind (solves)  (13)
+      18.7  pcm _get_vmat (Fock term)  (13)
+      18.0  pcm _get_v (potential on the surface)  (13)
+       2.2  pcm build  (1)
+       2.1  pcm get_D_S (surface matrices)  (1)
+       0.0  pcm gen_surface  (1)
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 6:14.06
+	Maximum resident set size (kbytes): 3523180
+== jfit () 07:08
+   exit 0
+E -1023.7333210589, converged True, 9 cycles, SCF 543.9 s; surface points 9998
+SGX (pjs): 227904 grid points in the last cycle (levels 2 -> 2), dfj True, 1868 auxiliary functions
+    3.36  sgx get_jk  (11)
+    2.55  pcm _get_vind (solves)  (11)
+    2.28  xc nr_rks  (11)
+    2.22  pcm _get_vmat (Fock term)  (11)
+    2.22  pcm _get_v (potential on the surface)  (11)
+    2.22  scf  (0)
+    1.08  pcm get_D_S (surface matrices)  (1)
+    0.10  setup  (0)
+     445.2  sgx get_jk  (11)
+      50.8  xc nr_rks  (11)
+      39.4  pcm _get_vind (solves)  (11)
+      15.8  pcm _get_vmat (Fock term)  (11)
+      15.2  pcm _get_v (potential on the surface)  (11)
+       2.2  pcm build  (1)
+       2.1  pcm get_D_S (surface matrices)  (1)
+       0.0  pcm gen_surface  (1)
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 9:04.38
+	Maximum resident set size (kbytes): 3516764
+== stage (--sgx-levels 0 2) 07:17
+   exit 0
+E -1023.7333210589, converged True, 10 cycles, SCF 454.9 s; surface points 9998
+SGX (pjs): 227904 grid points in the last cycle (levels 0 -> 2), dfj True, 1868 auxiliary functions
+    3.36  sgx get_jk  (12)
+    2.84  pcm _get_vind (solves)  (12)
+    2.28  xc nr_rks  (12)
+    2.22  pcm _get_vmat (Fock term)  (12)
+    2.22  pcm _get_v (potential on the surface)  (12)
+    2.22  scf  (0)
+    1.00  pcm get_D_S (surface matrices)  (1)
+    0.20  pcm gen_surface  (1)
+    0.10  setup  (0)
+     349.5  sgx get_jk  (12)
+      55.7  xc nr_rks  (12)
+      42.7  pcm _get_vind (solves)  (12)
+      17.2  pcm _get_vmat (Fock term)  (12)
+      16.6  pcm _get_v (potential on the surface)  (12)
+       2.2  pcm build  (1)
+       2.1  pcm get_D_S (surface matrices)  (1)
+       0.0  pcm gen_surface  (1)
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 7:35.39
+	Maximum resident set size (kbytes): 3522820
+NODE2 PCMSGX2 DONE 07:24
