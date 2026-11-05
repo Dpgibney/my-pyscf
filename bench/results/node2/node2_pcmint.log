@@ -1,0 +1,46 @@
+== pyscf-pcmint 18:55
+   exit 0
+C26H54 def2-tzvp: 80 atoms, nao 1130; b3lyp, C-PCM; 6 threads, max_memory 4000 MB; RSS 0.11 GB
+semi-direct: up to 2691 MB for the ERIs of 118836895 shell quartets (part of those that pass the Schwarz test)
+E -1023.7319952041, converged True, 9 cycles, SCF 1121.5 s; surface points 9998
+    5.31  pcm _get_vind (solves)  (11)
+    4.74  scf get_jk  (11)
+    4.72  scf  (0)
+    4.72  xc nr_rks  (11)
+    4.72  pcm _get_v (potential on the surface)  (11)
+    4.72  pcm _get_vmat (Fock term)  (11)
+    3.74  pcm get_D_S (surface matrices)  (1)
+    0.11  setup  (0)
+     719.0  scf get_jk  (11)
+     205.0  pcm _get_vind (solves)  (11)
+     191.3  xc nr_rks  (11)
+      99.7  pcm _get_vmat (Fock term)  (11)
+      96.9  pcm _get_v (potential on the surface)  (11)
+       2.2  pcm build  (1)
+       2.1  pcm get_D_S (surface matrices)  (1)
+       0.0  pcm gen_surface  (1)
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 18:42.07
+	Maximum resident set size (kbytes): 5732564
+== pyscf-base-pcmint 19:14
+   exit 0
+C26H54 def2-tzvp: 80 atoms, nao 1130; b3lyp, C-PCM; 6 threads, max_memory 4000 MB; RSS 0.11 GB
+E -1023.7319952041, converged True, 9 cycles, SCF 1272.0 s; surface points 9998
+    3.99  xc nr_rks  (11)
+    2.70  pcm _get_vind (solves)  (11)
+    2.17  scf get_jk  (11)
+    2.11  pcm _get_vmat (Fock term)  (11)
+    2.11  pcm _get_v (potential on the surface)  (11)
+    2.11  scf  (0)
+    1.11  pcm get_D_S (surface matrices)  (1)
+    0.10  setup  (0)
+     868.4  scf get_jk  (11)
+     250.9  pcm _get_vind (solves)  (11)
+     145.5  xc nr_rks  (11)
+     122.5  pcm _get_vmat (Fock term)  (11)
+     119.9  pcm _get_v (potential on the surface)  (11)
+       2.2  pcm build  (1)
+       2.1  pcm get_D_S (surface matrices)  (1)
+       0.0  pcm gen_surface  (1)
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 21:12.56
+	Maximum resident set size (kbytes): 4184984
+NODE2 PCMINT DONE 19:35

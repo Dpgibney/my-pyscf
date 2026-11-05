@@ -6565,6 +6565,59 @@ Does the GPU4PySCF show a more efficient alternative?"
   - Not exact, so opt-in only: fewer surface points (ORCA's default discretization gave 6,610 here) and a multipole
     far field.
 
+## The new PCM code (pyscf `pcm-mem` bd44b24c9) on the B3LYP/PCM system, 2026-11-04
+The user said "Yes please do that" to: int1e_grids for the integrals, K factorized once, no D or dense R for C-PCM, on
+the `pcm-mem` branch, then a full SCF on node2.
+- **The change** (`pcm.py`, `grad/pcm.py`, `hessian/pcm.py`, `test/test_pcm.py`):
+  - `_int1e_grids_dot` is the prototype's path: int1e_grids under `mol.with_rinv_zeta(ξ²)` for each group of equal
+    exponents, through `sgx_jk._gen_jk_direct(mol, 's2', ...)`, with an overlap cutoff of 1e-15. `_get_v` and
+    `_get_vmat` call it.
+    - On n-C12H26/def2-TZVP the cutoff left the results as with none (max |dv| 6.3e-13 against int3c2e either way),
+      and was 15% faster. At 1e-13 a difference showed (|dV| 9.7e-16).
+  - `_K_solve` factorizes K at its first solve and keeps the factor in `_intermediates`: `K_cho` (Cholesky) for C-PCM
+    and COSMO, where K = S; `K_lu` otherwise.
+    - It serves `_get_q` (in `_get_vind` and `_B_dot_x`) and the gradient's and Hessian's solves of v.
+    - SMD's own `build()` needs no change.
+  - C-PCM and COSMO make no D and keep `R = None`; `_R_dot` applies R = −f, or the dense R of the other models, to
+    the last axis.
+    - Their two solves give the same charges, so `_get_q` makes one.
+    - The Hessian's C-PCM `@ R` and `get_dqsym_dx_fix_K_R` use `_R_dot`.
+  - `test_memory_blocking` (gh-3266) instrumented `df.incore.aux_e2`, which is no longer called. It now checks that the
+    results do not depend on `max_memory`, and checks them against the int3c2e integrals of fakemol's charges.
+- **Laptop checks against the code before:**
+  - `bench/diag/pcm_check.py` (formaldehyde/def2-SVP): SCF energies within 1.7e-13 for C-PCM, COSMO, IEF-PCM,
+    SS(V)PE, UKS and Cartesian, with the same cycles.
+  - Also: gradients 2.7e-14, RHF Hessians (C-PCM, IEF-PCM) 2.3e-13, TDA with equilibrium solvation 2.8e-13, SMD's
+    electrostatics 6e-17.
+  - `pyscf/solvent/test`: PCM, PCM gradient, Hessian and TDSCF, SMD and COSMO-RS: 74 passed, 47 skipped. The skips
+    are SMD's Fortran library, not built here, and PCM-TDDFT gradients, not available.
+- **node2, the full SCF** (`scripts/node2_pcmint.sh`; `bench/results/node2/node2_pcm_pyscf-pcmint.log`,
+  `node2_pcm_pyscf-base-pcmint.log`):
+  - The branch's solvent files went into copies of both trees (`pyscf/solvent` is the same in both before the branch).
+  - `bench/diag/pcm_memory.py` now also gives each phase's wall time.
+
+| run | SCF | J/K | XC | PCM integrals + solves | peak RSS | energy (Eh) |
+|---|---|---|---|---|---|---|
+| original tree, old PCM code | 2494 s | | | ~1410 + ~62 s | 11.2 GB | −1023.7319952041 |
+| original tree, new PCM code | 1272 s | 868 s | 146 s | 242 + 9 s | 4.2 GB | −1023.7319952041 |
+| modified tree, old PCM code | 2704 s | | | ~1710 + ~59 s | 13.4 GB | −1023.7319952041 |
+| modified tree, new PCM code | 1122 s | 719 s | 191 s | 197 + 8 s | 5.7 GB | −1023.7319952041 |
+| ORCA, exact J/K | 1023 s | 915 s | 19 s | 61 s (+ 8.7 s setup) | 2.5 GB | −1023.7320596187 |
+
+- **The SCF is 2.4x faster in the modified tree and 2.0x faster in the original one**, with the same 9 cycles. The
+  cycle energies agree within 1e-11 Eh (the printed digits). The PCM build takes 2.2 s; the projection was ~1140 s.
+- **The modified tree's XC is slower than the original's: 191 against 146 s.**
+  - Its RSS stays above `max_memory` (4.7 GB against 4000 MB): the ERI cache (2.7 GB, sized at the first J/K build,
+    before PCM) plus PCM's S and its Cholesky factor (1.6 GB).
+  - So the XC blocks run at their floor and the fused XC has no room for its radial cache. Not measured further.
+  - Sizing the cache after PCM is built, or leaving room for the later phases, is the open option.
+- **The modified tree's J/K is 1.21x faster than the original's (719 against 868 s);** the 2.7 GB cache holds only a
+  part of the ERIs at this size.
+- **Against ORCA's exact run** (1023 s): PySCF's J/K is faster (719 against 915 s, with 11 Fock builds against
+  ORCA's ~12).
+  - The XC is 10x slower: the grid has 2.75x the points, at ~4x the cost per point.
+  - PCM still takes 205 against ~70 s.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
