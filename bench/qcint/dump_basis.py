@@ -4,9 +4,10 @@ Layout: int32 natm, nbas, nenv; int32 atm[natm*6]; int32 bas[nbas*8]; float64 en
 float64 q_cond[nbas*nbas].
 Usage: dump_basis.py SYSTEM OUT.bin   (SYSTEM: water, benzene, caffeine, caffeine-tz, c20, c20-tz,
 benzene-ccpvdz with generally contracted shells)"""
+import os
 import sys
 
-sys.path.insert(0, '/home/danny/Chemistry/my-pyscf/bench')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 from molecules import BENZENE, CAFFEINE, WATER, n_alkane
 from pyscf import gto, scf

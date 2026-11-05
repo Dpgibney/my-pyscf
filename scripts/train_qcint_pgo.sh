@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
-# Usage: train_qcint_pgo.sh <qcint-variant>
+# Usage: train_qcint_pgo.sh <qcint-variant>      (or --dumps: only write the molecule dumps that are missing)
 # PGO training workload for an instrumented qcint build (install/<qcint-variant>): bench/qcint/qbench over the
 # integrals PySCF uses most (SCF ERIs, gradient and hessian derivative integrals, Cartesian and
-# range-separated ERIs) on def2-SVP/TZVP molecules. The molecule dumps come from bench/qcint/dump_basis.py.
+# range-separated ERIs) on def2-SVP/TZVP molecules. The molecule dumps (scratch/qcint) come from
+# bench/qcint/dump_basis.py run with the workspace's pyscf tree, which must be built.
 set -euo pipefail
 . "$(dirname "$0")/env.sh"
-lib="$INSTALL/$1/lib/libcint.so.6"
 mols="$WS/scratch/qcint"
+mkdir -p "$mols"
 for m in water benzene caffeine caffeine-tz; do
     [[ -f $mols/$m.bin ]] || "$WS/.venv/bin/python" "$WS/bench/diag/run_in.py" X=pyscf 4 \
         "$WS/bench/qcint/dump_basis.py" "$m" "$mols/$m.bin"
 done
+[[ $1 == --dumps ]] && exit 0
+lib="$INSTALL/$1/lib/libcint.so.6"
 q() { "$WS/bench/qcint/qbench" "$lib" "$@" --reps 1 > /dev/null; }
 q "$mols/caffeine.bin" int2e
 q "$mols/caffeine-tz.bin" int2e --thr 1e-9

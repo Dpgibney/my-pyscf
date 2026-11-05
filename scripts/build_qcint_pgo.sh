@@ -7,6 +7,8 @@
 set -euo pipefail
 . "$(dirname "$0")/env.sh"
 variant=${1:-pgo}
+# the molecule dumps first, so that the instrumented library sees the training alone
+"$WS/scripts/train_qcint_pgo.sh" --dumps
 rm -rf "$BUILD/qcint-$variant"
 "$WS/scripts/build_cint.sh" qcint "$variant" "-DCMAKE_C_FLAGS=-fprofile-generate -fprofile-update=prefer-atomic"
 "$WS/scripts/train_qcint_pgo.sh" "qcint-$variant"
