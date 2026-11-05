@@ -4,7 +4,8 @@ AOs), with a sampler thread reading the process RSS every 0.2 s and labelling ea
 each phase, and the SCF result. A watchdog stops the run (exit 3, with the Python stacks) when the RSS passes
 --limit-gb, so that the machine never swaps or meets the OOM killer. Run with PYTHONPATH set to the tree;
 PYSCF_MAX_MEMORY as usual.
-Usage: pcm_memory.py [--n 26] [--basis def2-tzvp] [--xc b3lyp] [--method C-PCM] [--limit-gb 13] [--cycles N]"""
+Usage: pcm_memory.py [--n 26] [--basis def2-tzvp] [--xc b3lyp] [--method C-PCM] [--limit-gb 13] [--cycles N]
+       [--sd-min-fraction F]"""
 import argparse
 import faulthandler
 import functools
@@ -26,6 +27,8 @@ ap.add_argument('--xc', default='b3lyp')
 ap.add_argument('--method', default='C-PCM')
 ap.add_argument('--limit-gb', type=float, default=13.0)
 ap.add_argument('--cycles', type=int, default=None, help='max SCF cycles (default: PySCF\'s)')
+ap.add_argument('--sd-min-fraction', type=float, default=None,
+                help='the share of the ERIs below which the semi-direct cache stores none (It9: 0.01)')
 args = ap.parse_args()
 
 T0 = time.perf_counter()
@@ -85,6 +88,36 @@ def sampler():
 
 
 threading.Thread(target=sampler, daemon=True).start()
+
+if args.sd_min_fraction is not None:
+    import ctypes
+    from pyscf.scf import _vhf
+
+    def semi_direct_eri(vhfopt, atm, bas, env, max_memory):
+        '''_vhf.semi_direct_eri with --sd-min-fraction in place of its 1%'''
+        if (not isinstance(vhfopt, _vhf._VHFOpt) or vhfopt.q_cond is None or
+                vhfopt._intor not in ('int2e_sph', 'int2e_cart') or len(bas) >= 1 << 15):
+            return None
+        c_bas = numpy.asarray(bas, dtype=numpy.int32, order='C')
+        nbas = c_bas.shape[0]
+        q_cond = numpy.asarray(vhfopt.q_cond, order='C')
+        ao_loc = _vhf.make_loc(c_bas, vhfopt._intor)
+        budget = max_memory * 1e6
+        cutoff = vhfopt.direct_scf_tol
+        if _vhf._semi_direct_size(q_cond, ao_loc, cutoff) <= budget:
+            return _vhf.SemiDirectERI(vhfopt, atm, bas, env)
+        hist = numpy.empty((_vhf._SD_BINS, 2))
+        _vhf.libcvhf.CVHFsd_histogram(hist.ctypes, q_cond.ctypes, ctypes.c_double(cutoff),
+                                      ao_loc.ctypes, c_bas.ctypes, ctypes.c_int(nbas))
+        size = numpy.cumsum((8 * hist[:,0] + 5 * hist[:,1])[::-1])[::-1]
+        size += 16 * (nbas * (nbas + 1) // 2 + 1)
+        fits = numpy.nonzero(size <= budget)[0]
+        if len(fits) == 0 or hist[fits[0]:,0].sum() < args.sd_min_fraction * hist[:,0].sum():
+            return None
+        print(f'semi-direct ({args.sd_min_fraction:g} rule): {100 * hist[fits[0]:,0].sum() / hist[:,0].sum():.2f}% '
+              f'of the ERIs in {size[fits[0]] / 1e6:.0f} MB', flush=True)
+        return _vhf.SemiDirectERI(vhfopt, atm, bas, env, max(int(fits[0]), 1))
+    _vhf.semi_direct_eri = semi_direct_eri
 
 # phase labels: the PCM steps, the J/K and the XC
 pcm.gen_surface = phase('pcm gen_surface')(pcm.gen_surface)

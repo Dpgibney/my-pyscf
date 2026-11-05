@@ -6667,6 +6667,33 @@ build; SIMD Rys roots for qcint's Gaussian-charge branch of int1e_grids.
 - **The last line needs qcint `sgx-exp` (6 commits on `perf` a95651f) in the modified tree's build.** It is not merged.
   Its J/K is 2.5% faster from It25's roots in the ERIs.
 
+## qcint `sgx-exp` merged into `perf`; the semi-direct 1% rule, 2026-11-04
+The user said "Let's merge" and asked: "For lowering the cache threshold is there any downside?"
+- **The merge:** qcint `perf` fast-forwarded to `sgx-exp` 54bef5c (It25, It26, the Gaussian-charge roots).
+  - qcint-pgo rebuilt in place on the laptop and node2; the trees' `deps` link it, and the installed `cint.h` and
+    `cint_funcs.h` are unchanged. The old builds are kept as `install/qcint-pgo-a95651f`.
+  - node2's `qcint/src` has the merged sources (`scripts/node2_qcintmerge.sh`; `bench/results/node2/node2_qcintmerge.log`).
+- **ERIs, new against old** (qbench; laptop water and caffeine, node2 caffeine SVP and TZVP): within 1.1-1.7e-16, with
+  the same nonzero quartets; water's int2e_ip1 too.
+  - node2, one thread: caffeine/SVP int2e 9.03 -> 8.53 s, caffeine/TZVP 70.5 -> 68.7 s.
+- **PySCF tests on the laptop** (gto/test_moleintor, scf/test_vhf, sgx, solvent, dft/test_numint): 197 passed. The 2
+  failures are `test_dm_screening`'s 7.08e-12 against 5e-12, qcint's known one (It6), the same with the old build.
+- **The PCM SCF with the merged build, no `LD_LIBRARY_PATH`:** 918.6 s, −1023.7319952041 in 9 cycles, 3.1 GB, as the
+  qcint-sx-zeta run (`node2_pcm_pyscf-merged.log`).
+- **The 1% rule, measured** (`bench/diag/pcm_memory.py --sd-min-fraction 0.001`, a copy of `_vhf.semi_direct_eri` with
+  that share; `node2_pcm_pyscf-merged-sd0.001.log`):
+
+| semi-direct rule | ERIs stored | SCF | J/K | XC | peak RSS |
+|---|---|---|---|---|---|
+| none below 1% (It9) | none (1505 MB available) | 918.6 s | 762.7 s | 50.9 s | 3.1 GB |
+| none below 0.1% | 0.60%, 1480 MB | 919.1 s | 729.0 s | 85.2 s | 4.6 GB |
+
+  - The cache saved 34 s of J/K, and the XC lost 34 s: its blocks are sized from the memory the cache took.
+  - The energies agree within 1e-11 cycle by cycle.
+  - The threshold binds only when memory is short, which is when the cache and the XC compete for it. So lowering it
+    trades XC time for J/K time there, and with room it does not apply.
+  - A better rule would size the cache after a reserve for the XC's blocks. Not done.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

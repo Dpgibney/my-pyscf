@@ -1,0 +1,59 @@
+== start 21:10
+  qcint/src: e34311ad 620ae835 da280172 
+  rebuilt qcint-pgo
+caffeine int2e, new against old: int2e_sph 14553159 quartets, 314304127 integrals: max|d| 1.11e-16 (max|v| 4.78e+00) at (14 14|6 6), max|d|/max|quartet| 2.31e-13 (8.7e-19 of 3.8e-06 at (47 42|42 14)), nonzero flags 14553159 vs 14553159 
+caffeine qcint-pgo-a95651f: int2e_sph: 14553159 quartets, 314304127 integrals, 9.014 s per pass (best of 2, 1 thread), 28.7 ns/integral
+caffeine qcint-pgo: int2e_sph: 14553159 quartets, 314304127 integrals, 8.561 s per pass (best of 2, 1 thread), 27.2 ns/integral
+caffeine qcint-pgo-a95651f: int2e_sph: 14553159 quartets, 314304127 integrals, 9.047 s per pass (best of 2, 1 thread), 28.8 ns/integral
+caffeine qcint-pgo: int2e_sph: 14553159 quartets, 314304127 integrals, 8.507 s per pass (best of 2, 1 thread), 27.1 ns/integral
+caffeine-tz int2e, new against old: int2e_sph 88595239 quartets, 4057820487 integrals: max|d| 1.67e-16 (max|v| 8.00e+00) at (90 50|88 88), max|d|/max|quartet| 1.80e-12 (2.2e-18 of 1.2e-06 at (118 111|110 103)), nonzero flags 88595239 vs 88595239 
+caffeine-tz qcint-pgo-a95651f: int2e_sph: 88595239 quartets, 4057820487 integrals, 70.486 s per pass (best of 2, 1 thread), 17.4 ns/integral
+caffeine-tz qcint-pgo: int2e_sph: 88595239 quartets, 4057820487 integrals, 68.670 s per pass (best of 2, 1 thread), 16.9 ns/integral
+caffeine-tz qcint-pgo-a95651f: int2e_sph: 88595239 quartets, 4057820487 integrals, 70.535 s per pass (best of 2, 1 thread), 17.4 ns/integral
+caffeine-tz qcint-pgo: int2e_sph: 88595239 quartets, 4057820487 integrals, 68.808 s per pass (best of 2, 1 thread), 17.0 ns/integral
+== pyscf merged 21:30
+   exit 0
+semi-direct: no ERIs stored (1505 MB available)
+E -1023.7319952041, converged True, 9 cycles, SCF 918.6 s; surface points 9998
+    2.85  pcm _get_vind (solves)  (11)
+    2.26  xc nr_rks  (11)
+    2.21  scf get_jk  (11)
+    2.19  pcm _get_vmat (Fock term)  (11)
+    2.19  pcm _get_v (potential on the surface)  (11)
+    2.19  scf  (0)
+    0.97  pcm get_D_S (surface matrices)  (1)
+    0.10  setup  (0)
+     762.7  scf get_jk  (11)
+      99.0  pcm _get_vind (solves)  (11)
+      50.9  xc nr_rks  (11)
+      46.6  pcm _get_vmat (Fock term)  (11)
+      43.9  pcm _get_v (potential on the surface)  (11)
+       2.2  pcm build  (1)
+       2.2  pcm get_D_S (surface matrices)  (1)
+       0.0  pcm gen_surface  (1)
+	Maximum resident set size (kbytes): 3076424
+== pyscf merged-sd0.001 21:45
+   exit 0
+semi-direct (0.001 rule): 0.60% of the ERIs in 1480 MB
+semi-direct: up to 1479 MB for the ERIs of 84132095 shell quartets (part of those that pass the Schwarz test)
+E -1023.7319952041, converged True, 9 cycles, SCF 919.1 s; surface points 9998
+    4.24  pcm _get_vind (solves)  (11)
+    3.64  scf get_jk  (11)
+    3.63  xc nr_rks  (11)
+    3.60  pcm _get_v (potential on the surface)  (11)
+    3.60  pcm _get_vmat (Fock term)  (11)
+    3.60  scf  (0)
+    0.99  pcm get_D_S (surface matrices)  (1)
+    0.94  pcm build  (1)
+    0.18  pcm gen_surface  (1)
+    0.10  setup  (0)
+     729.0  scf get_jk  (11)
+      99.0  pcm _get_vind (solves)  (11)
+      85.2  xc nr_rks  (11)
+      46.6  pcm _get_vmat (Fock term)  (11)
+      43.8  pcm _get_v (potential on the surface)  (11)
+       2.2  pcm build  (1)
+       2.2  pcm get_D_S (surface matrices)  (1)
+       0.0  pcm gen_surface  (1)
+	Maximum resident set size (kbytes): 4554672
+NODE2 QCINTMERGE DONE 22:00
