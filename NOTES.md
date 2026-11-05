@@ -6865,6 +6865,47 @@ The user asked for the CPU setup as a one-line command, like the GPU's:
   - `fetch()` alone moved a clone to a new tag, an older tag, a bare SHA and back, each a depth-1 fetch. A tree
     with uncommitted changes stops it.
 
+## Thread and memory defaults that follow a Slurm job's allocation, 2026-11-05
+The user asked whether the setup works on a Slurm node where a job uses less than the node, then whether the
+values could be dynamic or user-settable, since each job's request will vary. They chose defaults that follow each
+job and stay overridable, with no 20000 MB cap inside jobs.
+- **What was wrong:** `pyscf-env.sh` read the whole node (lscpu's cores, MemTotal). Under `taskset -c 0-3` (2 of the
+  laptop's cores) it still set 10 threads; in a 6 GiB memory cgroup, still 20000 MB. A job given part of a node
+  would oversubscribe its CPUs, or be OOM-killed once the semi-direct cache filled.
+- **Now (`e082fa1`):** `scripts/resources.py` measures what the process may use.
+  - Cores: the physical cores (`thread_siblings_list`) of its CPU affinity mask, which Slurm's binding or cpuset
+    sets. At most `$SLURM_CPUS_PER_TASK` (else `$SLURM_CPUS_ON_NODE`), for clusters that don't bind jobs.
+  - Memory: the least of MemTotal, the cgroup v1/v2 limits from the process's cgroup up, and `$SLURM_MEM_PER_NODE`
+    (or `$SLURM_MEM_PER_CPU` x `$SLURM_CPUS_ON_NODE`; `--mem=0` counts as the whole node).
+  - `pyscf-env.sh` sets `OMP_NUM_THREADS` to those cores and `PYSCF_MAX_MEMORY` to 2/3 of that memory, with the
+    20000 MB cap only outside Slurm jobs. Exported values still win. `cpu_setup.sh` builds with the mask's CPUs
+    and runs its checks on its cores.
+- **Laptop** (CPUs 2k and 2k+1 share a core; scopes from `systemd-run --user --scope -p MemoryMax=...`):
+
+| case | OMP_NUM_THREADS | PYSCF_MAX_MEMORY |
+|---|---|---|
+| nothing set (10 cores, 32 GB) | 10 | 20000 |
+| `taskset -c 0-3` (2 cores x 2 threads) | 2 | 20000 |
+| `taskset -c 0,2,4,6` (4 cores) | 4 | 20000 |
+| 6 GiB memory cgroup | 10 | 4294 |
+| Slurm `-c 3 --mem=8000` (variables only) | 3 | 5592 |
+| Slurm `-n 4 --mem-per-cpu=2000` (variables only) | 4 | 5592 |
+| Slurm `--mem=0` (whole node): no cap | 10 | 21586 |
+| Slurm `-c 8 --mem=16G`, CPUs 0-7, 16 GiB cgroup | 4 | 11452 |
+| Slurm `-c 8 --mem=64G` (more than the RAM) | 4 | 21586 |
+| exported 7 and 1234 | 7 | 1234 |
+
+  PySCF picks them up: `lib.num_threads()` 4 and `mol.max_memory` 11452 in the `-c 8 --mem=16G` case.
+- **node2: `cpu_setup.sh --with-base` from a fresh clone as a `-c 6 --mem=8G` job** (`taskset -c 0-2,6-8`, an 8 GiB
+  scope and Slurm's variables): 3 cores, 6 CPUs and 8 GB detected, 6 build jobs, all builds within the 8 GiB, 26
+  min. Water B3LYP −1.4e-14 Eh from the laptop; `kernels.py` on 3 threads: all 77 arrays agree; then
+  `OMP_NUM_THREADS=3 PYSCF_MAX_MEMORY=5726`.
+- **A build on the user's cluster failed in PySCF's step**, and the script showed only the log's last 25 lines,
+  other files' warnings from the parallel build. A failed step now prints the log's errors first (ninja's
+  `FAILED:` lines, compiler and assembler errors, OOM kills, full disks), and the stamps include the GCC version,
+  so a new compiler module rebuilds everything (`c463b11`). The cause is not known yet. Our changed C files compile
+  cleanly with GCC 13 in gnu99 mode with `-Wpedantic`; their collapsed loops are rectangular.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
