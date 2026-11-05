@@ -6515,6 +6515,56 @@ section above: n-C26H54/def2-TZVP, B3LYP, C-PCM (water).
   - RIJCOSX is 4.3x faster than ORCA's exact run and 1.33 mEh below it.
 - **Memory:** ORCA peaks at 2.5 GB in all (3.0 GB with RIJCOSX), against PySCF's 6.5–13.4 GB.
 
+## node2: PCM's surface integrals through int1e_grids, a prototype, 2026-11-04
+Asked for by the user: "Do you have ideas about how the PCM integrals could be done differently to speed them up?
+Does the GPU4PySCF show a more efficient alternative?"
+- **What GPU4PySCF does** (`gpu4pyscf/solvent/pcm.py`, `gto/int3c1e.py`, `lib/gint/g3c1e.cu`):
+  - Its `int1e_grids(mol, grid_coords, dm=... | charges=..., charge_exponents=...)` computes the two contractions
+    directly. The (ij|g) tensor is never formed.
+    - The density side applies the HRR to the density: D becomes (L+1)(L+2)(L+3)/6 components per shell pair, at
+      the combined angular momentum L = l_i + l_j. Each surface point then takes only the vertical recursion and one
+      dot product.
+    - On the charge side, one thread per shell pair loops over all points and accumulates in registers.
+    - Each point has its own exponent: a factor q/(p+q) on the roots and its square root on the prefactor.
+  - `build()` makes one `lu_factor` of K; every cycle uses `lu_solve`.
+  - For C-PCM and COSMO it makes S only (`with_D=False`) and applies R = −f as a scalar.
+- **The same on the CPU, with what PySCF has:**
+  - int1e_grids takes Gaussian charges through `env[PTR_RINV_ZETA]`, one exponent per call. PCM's exponents
+    XI/(R_vdw·√w) take 24 values here, one per Lebedev weight class (12) and element, so the points go in 24 groups.
+  - SGX's C driver has both contractions, with s2 symmetry: `SGXnrs2_ijg_ji_g` (Σ_ij D_ij (ij|g), the potential)
+    and `SGXnrs2_ijg_g_ij` (Σ_g q_g (ij|g), the Fock term, lower triangle then `lib.hermi_triu`).
+    `sgx_jk._gen_jk_direct(mol, 's2', True, False, tol)` gives them, with an overlap prescreen (here at 1e-15).
+  - `bench/diag/pcm_int1e_proto.py` (`scripts/node2_pcmproto.sh`; `bench/results/node2/node2_pcm_int1e_proto.log`)
+    compares the two paths at the initial guess density. It also times one Cholesky factorization of K against
+    `_get_vind`'s two `numpy.linalg.solve`.
+
+| n-C26H54/def2-TZVP, 6 threads | original tree (libcint) | modified tree (qcint) |
+|---|---|---|
+| potential: int3c2e → int1e_grids | 64.6 → 10.9 s (5.9x) | 72.7 → 8.8 s (8.2x) |
+| Fock term | 63.8 → 11.1 s (5.7x) | 72.0 → 9.1 s (8.0x) |
+| solves: two `solve` → one Cholesky, then a solve | 5.6 → 1.9 s, then 0.43 s | 5.4 → 1.9 s, then 0.43 s |
+
+- **Exact to rounding:** max |dv| 1.7e-12 (|v| up to 19.9), max |dV| 2.1e-17, E_diel within 1.9e-14 Eh,
+  tr(D dV) 6e-16. q from the Cholesky factorization is within 5.5e-18. For C-PCM the two solves give the same q, since
+  K = S is symmetric and R = −f·I.
+- **qcint's int1e_grids is faster than libcint's (8.8 against 10.9 s), while its int3c2e is slower.**
+- **Projection for the SCF of the sections above, not measured:**
+  - modified tree: 2704 s → ~1140 s. The rest stays ~936 s; PCM integrals 11 × 17.9 s; one Cholesky plus 11 solves.
+  - original tree: 2494 s → ~1270 s.
+  - ORCA's exact run took 1023 s; its CPCM terms are still ~3.5x faster per cycle (~5 s against 17.9 s).
+- **The new path needs no (nao, nao, block) buffer.** The integral steps no longer depend on `max_memory`, so the
+  8-point floor and the out-of-memory risk go away.
+- **Further steps (not done):**
+  - qcint's Gaussian-charge branch of int1e_grids (`zeta > 0`) still takes the Rys roots point by point. It25's
+    chunked roots cover only the point-charge branch, but this branch has the same x, scaled by ζ/(ζ + a_ij).
+  - A per-point exponent in qcint would make the grouping unnecessary.
+  - A GPU4PySCF-like kernel: the HRR on the density for the potential, and for the Fock term the transpose
+    (accumulate the combined-L components over the points, then one HRR per pair). That saves the per-point HRR,
+    the c2s and the written (ij|g) block.
+  - PCM gradients use the same int3c2e/fakemol pattern; int1e_grids_ip, as in the SGX gradients, would apply.
+  - Not exact, so opt-in only: fewer surface points (ORCA's default discretization gave 6,610 here) and a multipole
+    far field.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

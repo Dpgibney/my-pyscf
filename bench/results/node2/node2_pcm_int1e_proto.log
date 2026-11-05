@@ -1,0 +1,18 @@
+# scripts/node2_pcmproto.sh: bench/diag/pcm_int1e_proto.py --n 26 --basis def2-tzvp on node2 (6 threads)
+== pyscf-base 18:30:07
+C26H54/def2-tzvp: 1130 AOs, 9998 surface points, 24 distinct charge exponents; 6 threads
+potential on the surface: int3c2e 64.6 s, int1e_grids 10.9 s (5.9x); max |dv| 1.74e-12 (max |v| 1.99e+01)
+solves: two numpy.linalg.solve 5.6 s; one Cholesky factorization 1.9 s, then 0.43 s a solve; max |dq| 4.55e-18 (max |q| 4.61e-04)
+Fock term: int3c2e 63.8 s, int1e_grids 11.1 s (5.7x); max |dV| 2.08e-17 (max |V| 9.95e-03), asymmetry 0.00e+00
+E_diel at this density: -0.001367277657 (int3c2e), -0.001367277657 (int1e_grids), diff 1.8e-14; tr(D V) diff 5.9e-16
+   exit 0
+== pyscf 18:32:55
+C26H54/def2-tzvp: 1130 AOs, 9998 surface points, 24 distinct charge exponents; 6 threads
+potential on the surface: int3c2e 72.7 s, int1e_grids 8.8 s (8.2x); max |dv| 1.55e-12 (max |v| 1.99e+01)
+solves: two numpy.linalg.solve 5.4 s; one Cholesky factorization 1.9 s, then 0.43 s a solve; max |dq| 5.53e-18 (max |q| 4.61e-04)
+Fock term: int3c2e 72.0 s, int1e_grids 9.1 s (8.0x); max |dV| 2.08e-17 (max |V| 9.95e-03), asymmetry 0.00e+00
+E_diel at this density: -0.001367277657 (int3c2e), -0.001367277657 (int1e_grids), diff 1.9e-14; tr(D V) diff 5.6e-16
+   exit 0
+NODE2 PCMPROTO DONE 18:35
+
+[exited with code 0]
