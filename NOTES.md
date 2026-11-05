@@ -6694,6 +6694,34 @@ The user said "Let's merge" and asked: "For lowering the cache threshold is ther
     trades XC time for J/K time there, and with room it does not apply.
   - A better rule would size the cache after a reserve for the XC's blocks. Not done.
 
+## PCM's surface integrals in one call over the threads (pyscf `perf` 6acd867c1), 2026-11-04
+The user said "This is quite competitive with orca although the PCM is still notably slower", then "Sure and then we
+can do the GPU style kernel" to doing this first.
+- **Where the time went:**
+  - py-spy (`--native`), laptop, n-C12H26/def2-TZVP, one thread:
+    - int1e_grids 76%: `CINTg0_1e_grids` 44% (the roots in it 5%), `CINTgout1e_grids` 19%, c2s 7%;
+    - the contractions 21% (potential 13%, Fock term 8%);
+    - the per-call setup (`_gen_jk_direct`) 0.013 s.
+  - 1, 2, 4 and 8 threads took 1.00, 0.83, 0.79 and 0.84 s. SGX's driver splits its work by 224-point batch, and each
+    group of equal exponents (one driver call) held one or two.
+- **The change:**
+  - `SGXnr_direct_drv_batches` takes a table of batches with an exponent for each, set in each thread's copy of env.
+    `SGXnr_direct_drv` is the same loop with fixed batches.
+  - `_int1e_grids_dot` sorts the points by exponent (stable), cuts each group into batches of up to 224 points and
+    makes one call.
+- **Exactness:**
+  - Each point's sum is as before, and the potential is bitwise the same from run to run. The Fock term's per-thread
+    sums are added in the threads' order, as in SGX's J (1.7e-17 from run to run).
+  - `pcm_check.py` against the code before the PCM work: energies 1.7e-13, gradients 2.0e-14, TDA 1.6e-13, Hessians
+    4.7e-13.
+  - `pyscf/solvent/test` and `pyscf/sgx/test`: 137 passed, and the 2 known qcint `test_dm_screening` failures.
+- **Speed:**
+  - Laptop (C12H26): 1.01, 0.55, 0.33 and 0.25 s at 1, 2, 4 and 8 threads.
+  - node2 (`scripts/node2_pcmpar.sh`; `bench/results/node2/node2_pcmpar.log`, `node2_pcm_pyscf-pcmpar.log`):
+    `_get_v` 3.93 -> 1.37 s, `_get_vmat` 4.18 -> 1.42 s.
+  - The SCF: 918.6 -> 857.6 s, −1023.7319952041 in 9 cycles, 3.1 GB.
+  - PCM 99 -> 39 s in all. ORCA's CPCM terms take ~70 s; its exact run 1023 s.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

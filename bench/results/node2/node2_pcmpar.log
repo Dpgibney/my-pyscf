@@ -1,0 +1,30 @@
+== start 22:22
+  rebuilt
+1
+C26H54/def2-tzvp: 1130 AOs, 9998 surface points, 6 threads; /home/danny/Chemistry/my-pyscf/install/qcint-pgo/lib/libcint.so.6.2.0
+_get_v 1.37 s, _get_vmat 1.42 s (best of 2)
+against scratch/pcmzeta/c26_pgo.npz: max |dv| 7.11e-15 (max |v| 1.99e+01), max |dV| 3.12e-17
+against int3c2e: max |dv| 1.55e-12, max |dV| 3.64e-17
+== pyscf SCF 22:24
+   exit 0
+semi-direct: no ERIs stored (1508 MB available)
+E -1023.7319952041, converged True, 9 cycles, SCF 857.6 s; surface points 9998
+    2.52  pcm _get_vind (solves)  (11)
+    2.26  xc nr_rks  (11)
+    2.23  pcm _get_vmat (Fock term)  (11)
+    2.23  pcm _get_v (potential on the surface)  (11)
+    2.23  scf  (0)
+    2.22  scf get_jk  (11)
+    0.97  pcm get_D_S (surface matrices)  (1)
+    0.18  pcm gen_surface  (1)
+    0.10  setup  (0)
+     761.0  scf get_jk  (11)
+      51.1  xc nr_rks  (11)
+      39.4  pcm _get_vind (solves)  (11)
+      15.7  pcm _get_vmat (Fock term)  (11)
+      15.2  pcm _get_v (potential on the surface)  (11)
+       2.2  pcm build  (1)
+       2.2  pcm get_D_S (surface matrices)  (1)
+       0.0  pcm gen_surface  (1)
+	Maximum resident set size (kbytes): 3117124
+NODE2 PCMPAR DONE 22:38
