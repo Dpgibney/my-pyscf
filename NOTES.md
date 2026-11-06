@@ -7049,6 +7049,63 @@ After the prototype (above), the user said "Yes go ahead".
   primitives, cartesian bases, short range, and the semi-direct cache's first call. SSE builds (SIMDD 2)
   batch 2 quartets.
 
+## Gradients: qcint's int2e_ip1_sph_batch in the gradient J/K, 2026-11-06
+The first of the items above, after the user's "Yes and then we can work on what wasn't covered yet".
+- **qcint `int2e_ip1_sph_batch`** (`perf` a55f70d).
+  - The batched kernels' template takes a derivative order. With 1 it computes int2e_ip1_sph the way
+    libcint's nabla1i does, d/dx f_i = i f_{i-1} - 2 a_i f_{i+1}. The recurrences go one higher on i,
+    the base centre is chosen from li+1 as int2e_ip1 does, and the 3 components come out as
+    int2e_ip1_sph's (component slowest).
+  - Instantiated for every (li,lj,lk,ll) with l <= 3 in `src/cint2e_batch_ip1_l{0..3}.c`.
+  - `int2e_ip1_sph_batch` and `int2e_ip1_sph_batch_ok` take the same quartets as int2e_sph_batch;
+    `int2e_sph_batch_cache_size` covers both.
+- **PySCF** (`perf` 328ed43b7), `grad_jk_energy.c`.
+  - CVHFgrad_jk_energy evaluated each orbit's int2e_ip1 quartets one at a time. An orbit is now planned
+    first: which centres it evaluates, and how their sums go to the atoms by translational invariance.
+  - Orbits that int2e_ip1_sph_batch_ok takes are queued by the types (l, nprim) of their 4 shells and
+    the set of centres they evaluate, so a queue's orbits need the same integral classes. A full queue
+    is evaluated centre by centre with int2e_ip1_sph_batch for all its orbits, each orbit's Gamma
+    computed once. Fewer than half the lanes go orbit by orbit.
+  - The queues sit in a small hash table per thread, flushed in table order at each chunk's end (and
+    when the table fills), so the sums still do not depend on the thread count.
+  - `CVHFgrad_jk_energy_mode` takes the switch (`_vhf.INT2E_BATCH`, from grad.rhf);
+    `CVHFgrad_jk_energy` keeps its arguments and batches. New test:
+    `test_rhf.py test_jk_energy_per_atom_int2e_batch`.
+- **Harness** (workspace 1a90c27, 3b233ae): `bbench --ip1` compares and times int2e_ip1_sph_batch
+  against int2e_ip1_sph (each ordered bra pair, ket k >= l). `train_qcint_pgo.sh` adds it to the
+  training when the library has it.
+- **Exactness.**
+  - Against int2e_ip1_sph, PGO build, laptop: water/def2-SVP within 2.7e-15 and benzene/def2-SVP
+    4.7e-15 (every quartet), long range 5.7e-16; caffeine/def2-TZVP sampled (7.3M quartets) within
+    1.5e-13, values up to 9.6.
+  - int2e_sph_batch on caffeine/def2-TZVP: within 1.9e-14 of int2e_sph (all 113M quartets).
+  - qcint's own int2e_sph (113M quartets) and int2e_ip1_sph (57.6M quartets) are bitwise identical to
+    the previous PGO build.
+  - `kernels.py`: 77/77. `validate.py` full suite: all pass, gradients within 1.6e-12, Hessians
+    2.4e-11. Its tight SCFs' cycle warnings (r2SCAN 33 vs 25, CAM-B3LYP 30 vs 24) are tight-convergence
+    scatter; at normal convergence (below) the cycles are identical.
+  - PySCF's tests: 1050 passed, the same 7 known failures.
+- **Speed.**
+  - Projected one pass, one core, caffeine/def2-TZVP: 661.7 -> 326.9 s (2.02x). s and p with one
+    primitive combination 4.7x, d 2.6-2.8x, f 2.1-2.3x, 8 or more combinations 1.07-1.21x.
+  - `bench/results/20261106-145704_int2e-batch-grad.json`, laptop, 10 threads, ABBA x 2, the same tree
+    with the batching off and on. The grad cases time the gradient only. Gradients within 7e-13 of the
+    batching off (off against off: up to 3.4e-13).
+
+| case | off (s) | on (s) | total | J/K |
+|---|---|---|---|---|
+| grad_c20h42_svp_b3lyp | 20.7 | 12.3 | 1.68x | 18.9 -> 10.6 (1.78x) |
+| grad_caffeine_svp_b3lyp | 4.6 | 3.0 | 1.54x | 4.1 -> 2.5 (1.66x) |
+| grad_caffeine+_svp_b3lyp_uks | 5.9 | 4.1 | 1.44x | 4.9 -> 3.1 (1.60x) |
+| grad_benzene_svp_b3lyp | 0.5 | 0.4 | 1.27x | 0.4 -> 0.3 (1.38x) |
+| grad_caffeine_svp_wb97mv | 22.5 | 18.7 | 1.21x (VV10's gradient) | 9.8 -> 6.4 (1.52x) |
+
+  - The same file has caffeine/def2-SVP SCFs at normal convergence: cycles identical (r2SCAN 14, B3LYP
+    15, PBE 16, CAM-B3LYP 13), energies within 3.0e-12 Eh. B3LYP, PBE and r2SCAN 0.95-1.06x, within the
+    noise: under the bench's max_memory of 4000 MB the semi-direct cache holds most of their quartets
+    (all of them are 2.6 GB), and its first call is not batched yet. CAM-B3LYP 1.25x: its long-range K
+    is evaluated directly.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
