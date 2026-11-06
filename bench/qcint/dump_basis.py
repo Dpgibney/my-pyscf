@@ -2,7 +2,7 @@
 (q_cond of init_direct_scf) to a binary file for qbench.c.
 Layout: int32 natm, nbas, nenv; int32 atm[natm*6]; int32 bas[nbas*8]; float64 env[nenv];
 float64 q_cond[nbas*nbas].
-Usage: dump_basis.py SYSTEM OUT.bin   (SYSTEM: water, benzene, caffeine, caffeine-tz, c20, c20-tz,
+Usage: dump_basis.py SYSTEM OUT.bin   (SYSTEM: water, benzene, caffeine, caffeine-tz, caffeine-tzvpd, c20, c20-tz,
 benzene-ccpvdz with generally contracted shells)"""
 import os
 import sys
@@ -15,6 +15,7 @@ from pyscf import gto, scf
 which, out = sys.argv[1], sys.argv[2]
 atom, basis = {'water': (WATER, 'def2-svp'), 'benzene': (BENZENE, 'def2-svp'),
                'caffeine': (CAFFEINE, 'def2-svp'), 'caffeine-tz': (CAFFEINE, 'def2-tzvp'),
+               'caffeine-tzvpd': (CAFFEINE, 'def2-tzvpd'),
                'c20': (n_alkane(20), 'def2-svp'), 'c20-tz': (n_alkane(20), 'def2-tzvp'),
                'benzene-ccpvdz': (BENZENE, 'cc-pvdz')}[which]
 mol = gto.M(atom=atom, basis=basis, verbose=0)
