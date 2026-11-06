@@ -6984,6 +6984,71 @@ they chose both: prototype quartets in the SIMD lanes, and measure a short-range
     quartets by class, qbench --compare over all classes, kernels.py and the tight validation, PGO training.
     Several days; derivative integrals (gradients, Hessians) would need their own kernels.
 
+## Quartets in the SIMD lanes: qcint's int2e_sph_batch in the direct J/K, 2026-11-06
+After the prototype (above), the user said "Yes go ahead".
+- **qcint `int2e_sph_batch`** (`perf` 11295ba, 34ec26d, 9781f05).
+  - It computes up to SIMDD quartets of one class together, one quartet per lane, each summing its own
+    primitive combinations in turn. A class has the same l and number of primitives on each shell, with
+    l <= 3, one contracted function and at most 7 primitives per shell, and the full or long-range
+    Coulomb operator.
+  - The kernels are an always-inlined template with compile-time l, instantiated for every
+    (li,lj,lk,ll) in `src/cint2e_batch_l{0..3}.c` (compiled in parallel, about 45 s). They use
+    int2e_sph's scalar-path roots, coefficients and recurrences on the same base centres (i if
+    li > lj, else j; k if lk > ll, else l). Starting from the other centre had cost accuracy: up to
+    1.4e-12 against 2.5e-14. The roots of all lanes come from `_CINTrys_roots_batch`, as in int2e_sph's
+    SIMD path (node2, 4 lanes: 1.63x -> 1.67x full range, 1.58x -> 1.66x long range).
+  - API: `int2e_sph_batch`, `int2e_sph_batch_ok`, `int2e_sph_batch_lanes`,
+    `int2e_sph_batch_cache_size`.
+  - Quartets of 8 or more primitive combinations are batched too. They fill int2e_sph's lanes, but
+    are still 1.1-1.2x faster with 8 lanes and 1.3-1.5x with 4, except s and p only with 8 lanes (0.97x).
+- **PySCF** (`perf` 9924bd26f).
+  - `CVHFnr_direct_jk_batch` queues the screened quartets that `int2e_sph_batch_ok` takes, per row, by
+    the (l, nprim) types of their ket shells. It evaluates a queue when it holds a SIMD width of
+    quartets, and at the row's end; fewer than half the lanes go quartet by quartet. The contraction
+    kernels are unchanged.
+  - The qcint functions are weak symbols, so with libcint nothing changes. `_vhf.INT2E_BATCH`
+    (config `scf_vhf_int2e_batch`, bench knob `BENCH_INT2E_BATCH`) switches the batching off.
+  - The semi-direct cache's stored quartets are still evaluated one at a time on their first call.
+  - New test: `test_vhf.py test_direct_int2e_batch`.
+- **Harness:** `bench/qcint/bbench.c` compares and times int2e_sph_batch against int2e_sph (every quartet,
+  or sampled per type with a projected pass). `train_qcint_pgo.sh` runs it on caffeine when the library
+  has the batch functions; `cpu_setup.sh` builds it.
+- **Exactness.**
+  - Every quartet against int2e_sph, PGO build:
+    - laptop (AVX-512, 8 lanes): caffeine/def2-TZVP within 3.6e-14 (all 113M quartets);
+    - node2 (AVX2, 4 lanes): within 2.5e-14 (all 113M quartets); caffeine/def2-SVP within 1.8e-15;
+    - long range: within 6e-15.
+  - qcint's own int2e_sph is bitwise identical to the previous PGO build on all 113M caffeine/def2-TZVP
+    quartets, although the training now includes bbench.
+  - `kernels.py`: 77/77. `validate.py` full suite: all pass, energies within 3.4e-12 Eh, gradients
+    1.7e-12, Hessians 2.0e-11, excitations 8e-14. The tight SCFs' cycle warnings (e.g. 20 vs 19) are
+    the scatter earlier gates show too.
+  - PySCF's tests (scf dft df grad hessian tdscf solvent sgx): 1049 passed. 7 failed, all known: 4 xcfun
+    (not built), 2 SGX `test_dm_screening` (any qcint), `test_smd_grad` (unmodified PySCF too).
+- **Speed.**
+  - Projected one pass, one core, against int2e_sph, PGO builds:
+    - caffeine/def2-TZVPD: full range 2.09x (186 -> 89 s), long range 1.90x;
+    - the lenalidomide + HPO3(2-) / def2-TZVPD stand-in: 2.24x;
+    - node2 (4 lanes): caffeine/def2-TZVPD 1.86x, the stand-in 1.93x.
+  - The stand-in, one call, 6 threads, max_memory 8589: J+K 147.6 -> 90.2 s (1.64x), long-range K
+    139.6 -> 67.1 s (2.08x), J/K within 9e-13. Its wB97M-V cycle would go from about 374 to about 215 s.
+  - `bench/results/20261106-112331_int2e-batch.json`, laptop, 10 threads, ABBA x 2, the same tree with
+    the batching off and on. SCF cycles identical in every pair, energies within 3.6e-12 Eh.
+
+| case | off (s) | on (s) | total | J/K |
+|---|---|---|---|---|
+| scf_caffeine_tzvp_b3lyp | 139.3 | 89.8 | 1.55x | 131.0 -> 81.5 (1.61x) |
+| scf_c20h42_tzvp_pbe | 245.4 | 142.8 | 1.72x | 221.6 -> 118.6 (1.87x) |
+| scf_c20h42_tzvp_b3lyp | 300.0 | 186.5 | 1.61x | 275.3 -> 161.9 (1.70x) |
+| scf_c20h42_svp_b3lyp | 29.0 | 21.6 | 1.34x | 23.2 -> 15.7 (1.48x) |
+| scf_caffeine_svp_camb3lyp | 12.7 | 10.8 | 1.17x | 9.8 -> 7.8 (1.26x) |
+| tda_c20h42_svp_pbe | 47.6 | 43.5 | 1.09x | 22.7 -> 18.2 (1.24x) |
+| scf_caffeine_svp_wb97mv | 142.8 | 145.1 | 0.98x (VV10: 125 s of it) | 9.5 -> 7.4 (1.30x) |
+
+- **Not batched yet:** derivative integrals (gradients, Hessians), g functions, shells of more than 7
+  primitives, cartesian bases, short range, and the semi-direct cache's first call. SSE builds (SIMDD 2)
+  batch 2 quartets.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
