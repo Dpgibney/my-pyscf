@@ -123,24 +123,28 @@ step() {  # NAME KEY OUTPUT COMMAND...: run COMMAND (log: build/cpu_setup/NAME.l
     fi
 }
 rev() { git -C "$WS/$1" rev-parse HEAD; }
+recipe() { (cd "$WS/scripts" && cat env.sh "$@" | sha1sum | cut -c1-12); }    # the build scripts of a step
 qcint_plain() {  # a first, plain qcint in install/qcint-pgo: PySCF builds against it, and the PGO training
                  # needs a PySCF tree for its molecule dumps
     rm -f "$LOG/qcint-pgo.ok" && rm -rf "$WS/build/qcint-pgo" && bash "$WS/scripts/build_cint.sh" qcint pgo
 }
 echo "== builds (logs in build/cpu_setup/)"
 S="$WS/scripts"
-step openblas "$(rev OpenBLAS)" "$WS/install/openblas/lib/libopenblas.so" bash "$S/build_openblas.sh"
-step libxc "$(rev libxc)" "$WS/install/libxc-stock/lib/libxc.so" bash "$S/build_libxc.sh" stock
-step qcint "$(rev qcint)" "$WS/install/qcint-pgo/lib/libcint.so.6" qcint_plain
-step pyscf "$(rev pyscf) $(rev qcint) $(rev libxc) $(rev OpenBLAS) $V3" "$WS/pyscf/pyscf/lib/libcvhf.so" \
-    bash "$S/build_pyscf.sh" pyscf qcint-pgo libxc-stock $V3
+step openblas "$(rev OpenBLAS) $(recipe build_openblas.sh)" "$WS/install/openblas/lib/libopenblas.so" \
+    bash "$S/build_openblas.sh"
+step libxc "$(rev libxc) $(recipe build_libxc.sh)" "$WS/install/libxc-stock/lib/libxc.so" bash "$S/build_libxc.sh" stock
+step qcint "$(rev qcint) $(recipe build_cint.sh)" "$WS/install/qcint-pgo/lib/libcint.so.6" qcint_plain
+step pyscf "$(rev pyscf) $(rev qcint) $(rev libxc) $(rev OpenBLAS) $V3 $(recipe build_pyscf.sh link_deps.sh)" \
+    "$WS/pyscf/pyscf/lib/libsolvent.so" bash "$S/build_pyscf.sh" pyscf qcint-pgo libxc-stock $V3
 step qbench "$(sha1sum < "$WS/bench/qcint/qbench.c")" "$WS/bench/qcint/qbench" \
     gcc -O2 -o "$WS/bench/qcint/qbench" "$WS/bench/qcint/qbench.c" -ldl -lm
-step qcint-pgo "$(rev qcint)" "$WS/install/qcint-pgo/lib/libcint.so.6" bash "$S/build_qcint_pgo.sh"
+step qcint-pgo "$(rev qcint) $(recipe build_qcint_pgo.sh train_qcint_pgo.sh build_cint.sh)" \
+    "$WS/install/qcint-pgo/lib/libcint.so.6" bash "$S/build_qcint_pgo.sh"
 if [ $BASE = 1 ]; then
-    step libcint "$(rev libcint)" "$WS/install/libcint-stock/lib/libcint.so.6" bash "$S/build_cint.sh" libcint stock
-    step pyscf-base "$(rev pyscf-base) $(rev libcint) $(rev libxc) $(rev OpenBLAS)" \
-        "$WS/pyscf-base/pyscf/lib/libcvhf.so" bash "$S/build_pyscf.sh" pyscf-base libcint-stock libxc-stock
+    step libcint "$(rev libcint) $(recipe build_cint.sh)" "$WS/install/libcint-stock/lib/libcint.so.6" \
+        bash "$S/build_cint.sh" libcint stock
+    step pyscf-base "$(rev pyscf-base) $(rev libcint) $(rev libxc) $(rev OpenBLAS) $(recipe build_pyscf.sh link_deps.sh)" \
+        "$WS/pyscf-base/pyscf/lib/libsolvent.so" bash "$S/build_pyscf.sh" pyscf-base libcint-stock libxc-stock
 fi
 
 echo "== check: water/def2-SVP B3LYP with the new tree"
