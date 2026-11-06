@@ -2,7 +2,8 @@
 # Usage: train_qcint_pgo.sh <qcint-variant>      (or --dumps: only write the molecule dumps that are missing)
 # PGO training workload for an instrumented qcint build (install/<qcint-variant>): bench/qcint/qbench over the
 # integrals PySCF uses most (SCF ERIs, gradient and hessian derivative integrals, Cartesian and
-# range-separated ERIs) on def2-SVP/TZVP molecules, and the batched int2e_sph through bench/qcint/bbench.
+# range-separated ERIs) on def2-SVP/TZVP molecules, and the batched int2e_sph and derivatives through
+# bench/qcint/bbench.
 # The molecule dumps (scratch/qcint) come from
 # bench/qcint/dump_basis.py run with the workspace's pyscf tree, which must be built.
 set -euo pipefail
@@ -32,5 +33,12 @@ if nm -D "$lib" | grep -q " int2e_sph_batch$"; then
         # the gradients' int2e_ip1
         b "$mols/caffeine.bin" --sample 1000 --ip1
         b "$mols/caffeine-tz.bin" --sample 200 --ip1
+    fi
+    if nm -D "$lib" | grep -q " int2e_ipip1_sph_batch$"; then
+        # the Hessians' int2e_ipip1, ipvip1 and ip1ip2
+        for h in ipip1 ipvip1 ip1ip2; do
+            b "$mols/benzene.bin" --sample 500 --int $h
+            b "$mols/caffeine-tz.bin" --sample 50 --int $h
+        done
     fi
 fi

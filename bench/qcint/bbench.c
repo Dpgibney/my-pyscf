@@ -4,10 +4,11 @@
  * molecule. Quartets are grouped by type (l and number of primitives of each shell, in quartet order);
  * int2e_sph_batch_ok says which types the batched code takes.
  *
- *   bbench LIB.so MOL.bin [--lr] [--ip1] [--sample N] [--reps N]
+ *   bbench LIB.so MOL.bin [--lr] [--int NAME] [--sample N] [--reps N]
  *
- * --ip1: int2e_ip1_sph_batch against int2e_ip1_sph (3 components), on every ordered (i, j) with k >= l, as
- * the gradients take them (qbench's ip1).
+ * --int NAME: int2e (the default), or the derivatives ip1 (int2e_ip1_sph_batch against int2e_ip1_sph,
+ * 3 components; --ip1 for short), ipip1, ipvip1 or ip1ip2 (Hessians, 9 components), on every ordered
+ * (i, j) with k >= l, as the gradients take them (qbench's ip1).
  *
  * --sample N: up to N quartets of each type, evenly spaced, timed (best of --reps) and scaled by the
  * type's count to project one pass (default). --sample 0: every quartet, compared but not timed.
@@ -93,29 +94,41 @@ typedef struct {
 int main(int argc, char **argv)
 {
         if (argc < 3) {
-                fprintf(stderr, "usage: bbench LIB.so MOL.bin [--lr] [--ip1] [--sample N] [--reps N]\n");
+                fprintf(stderr, "usage: bbench LIB.so MOL.bin [--lr] [--int NAME] [--sample N] [--reps N]\n");
                 return 1;
         }
         Mol m = load(argv[2]);
-        int reps = 2, nsample = 4000, ip1 = 0;
+        int reps = 2, nsample = 4000;
+        const char *name = "int2e";
         for (int a = 3; a < argc; a++) {
                 if (!strcmp(argv[a], "--reps")) reps = atoi(argv[++a]);
                 else if (!strcmp(argv[a], "--sample")) nsample = atoi(argv[++a]);
                 else if (!strcmp(argv[a], "--lr")) m.env[PTR_RANGE_OMEGA] = 0.3;
-                else if (!strcmp(argv[a], "--ip1")) ip1 = 1;
+                else if (!strcmp(argv[a], "--ip1")) name = "ip1";
+                else if (!strcmp(argv[a], "--int")) name = argv[++a];
         }
-        const int ncomp = ip1 ? 3 : 1;
+        // ip1: the gradients' integrals; ipip1, ipvip1, ip1ip2: the Hessians'
+        const int ip1 = strcmp(name, "int2e") != 0;
+        const int hess = ip1 && strcmp(name, "ip1") != 0;
+        const int ncomp = hess ? 9 : ip1 ? 3 : 1;
         void *lib = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
         if (lib == NULL) {
                 fprintf(stderr, "%s\n", dlerror());
                 return 1;
         }
-        FINT fint = (FINT)sym(lib, ip1 ? "int2e_ip1_sph" : "int2e_sph");
-        FOPT fopt = (FOPT)sym(lib, ip1 ? "int2e_ip1_optimizer" : "int2e_optimizer");
-        FBATCH fbatch = (FBATCH)sym(lib, ip1 ? "int2e_ip1_sph_batch" : "int2e_sph_batch");
-        int (*fok)(int *, int *, double *) = sym(lib, ip1 ? "int2e_ip1_sph_batch_ok" : "int2e_sph_batch_ok");
+        char fname[64];
+        const char *pre = ip1 ? "int2e_" : "";
+        snprintf(fname, sizeof(fname), "%s%s_sph", pre, name);
+        FINT fint = (FINT)sym(lib, fname);
+        snprintf(fname, sizeof(fname), "%s%s_optimizer", pre, name);
+        FOPT fopt = (FOPT)sym(lib, fname);
+        snprintf(fname, sizeof(fname), "%s%s_sph_batch", pre, name);
+        FBATCH fbatch = (FBATCH)sym(lib, fname);
+        snprintf(fname, sizeof(fname), "%s%s_sph_batch_ok", pre, name);
+        int (*fok)(int *, int *, double *) = sym(lib, fname);
         int lanes = ((int (*)())sym(lib, "int2e_sph_batch_lanes"))();
-        size_t bcache = ((size_t (*)())sym(lib, "int2e_sph_batch_cache_size"))();
+        size_t bcache = ((size_t (*)())sym(lib, hess ? "int2e_hess_sph_batch_cache_size"
+                                               : "int2e_sph_batch_cache_size"))();
         void *opt = NULL;
         fopt(&opt, m.atm, m.natm, m.bas, m.nbas, m.env);
 
@@ -157,7 +170,7 @@ int main(int argc, char **argv)
                         }
                 }
         }
-        printf("%s%s: %ld quartets, %d shell types, %d lanes; %s\n", ip1 ? "int2e_ip1, " : "",
+        printf("%s%s%s%s: %ld quartets, %d shell types, %d lanes; %s\n", pre, ip1 ? name : "", ip1 ? ", " : "",
                m.env[PTR_RANGE_OMEGA] > 0 ? "long range (omega 0.3)" : "full range", nq, ntype, lanes,
                nsample > 0 ? "sampled per quartet type and timed" : "every quartet compared, not timed");
 
