@@ -7106,6 +7106,40 @@ The first of the items above, after the user's "Yes and then we can work on what
     (all of them are 2.6 GB), and its first call is not batched yet. CAM-B3LYP 1.25x: its long-range K
     is evaluated directly.
 
+## The semi-direct cache's first call through int2e_sph_batch, 2026-11-06
+- **PySCF** (`perf` a485a3ce5).
+  - The cache's stored quartets were still evaluated one at a time on their first call. They are now
+    queued by the types of their ket shells, as the direct quartets are. A full queue is evaluated with
+    int2e_sph_batch, copied to the quartets' slots, marked stored and contracted from the slots.
+  - A row's queues are flushed after its stored quartets, before its direct ones. Fewer than half the
+    lanes go one at a time.
+  - New test: `test_vhf.py test_semi_direct_int2e_batch`. It compares the stored integrals with and
+    without the batching, for all and part of the quartets, full and long range.
+- **Exactness.**
+  - Semi-direct J/K against direct J/K, benzene/def2-SVP: within 8e-14, with a full and a half-size
+    cache, one and two dms, hermi 0 and 1, the batching off and on.
+  - caffeine/def2-TZVP, the batching off against on: within 3.2e-13.
+  - `validate.py` full: all pass (gradients 1.55e-12, Hessians 7.0e-11). The tight SCFs' cycle warnings
+    are the usual scatter.
+  - Tests: 1051 passed, the same 7 known failures.
+- **Speed.**
+  - caffeine/def2-TZVP, 10 threads, an 8.8 GB partial cache (max_memory 12000):
+    - the first call 9.1 -> 6.0 s, of which the stored quartets 3.7 -> 2.6 s;
+    - the second call 5.4 -> 3.4 s (its direct part, batched before).
+  - caffeine/def2-SVP, all 2.6 GB stored: the first call 0.80-1.01 -> 0.58 s; later calls 0.14 s
+    (contraction only).
+  - `bench/results/20261106-154547_int2e-batch-semidirect.json`: laptop, 10 threads, ABBA x 2, the bench's
+    max_memory of 4000 MB. Cycles identical, energies within 4.3e-12 Eh. The caffeine cases' J/K was
+    0.96-1.04x in the gradient benchmark above, before this change.
+
+| case | off (s) | on (s) | total | J/K |
+|---|---|---|---|---|
+| scf_caffeine_svp_b3lyp | 5.8 | 5.4 | 1.07x | 3.3 -> 3.0 (1.09x) |
+| scf_caffeine_svp_pbe | 4.6 | 4.2 | 1.09x | 1.8 -> 1.6 (1.14x) |
+| scf_caffeine_svp_r2scan | 6.5 | 6.2 | 1.05x | 1.8 -> 1.6 (1.14x) |
+| scf_caffeine_svp_camb3lyp | 10.7 | 8.4 | 1.27x | 8.2 -> 6.0 (1.37x) |
+| scf_c20h42_svp_b3lyp | 27.1 | 19.6 | 1.38x | 21.6 -> 14.0 (1.54x) |
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
