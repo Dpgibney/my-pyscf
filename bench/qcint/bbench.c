@@ -4,7 +4,10 @@
  * molecule. Quartets are grouped by type (l and number of primitives of each shell, in quartet order);
  * int2e_sph_batch_ok says which types the batched code takes.
  *
- *   bbench LIB.so MOL.bin [--lr] [--sample N] [--reps N]
+ *   bbench LIB.so MOL.bin [--lr] [--ip1] [--sample N] [--reps N]
+ *
+ * --ip1: int2e_ip1_sph_batch against int2e_ip1_sph (3 components), on every ordered (i, j) with k >= l, as
+ * the gradients take them (qbench's ip1).
  *
  * --sample N: up to N quartets of each type, evenly spaced, timed (best of --reps) and scaled by the
  * type's count to project one pass (default). --sample 0: every quartet, compared but not timed.
@@ -90,25 +93,27 @@ typedef struct {
 int main(int argc, char **argv)
 {
         if (argc < 3) {
-                fprintf(stderr, "usage: bbench LIB.so MOL.bin [--lr] [--sample N] [--reps N]\n");
+                fprintf(stderr, "usage: bbench LIB.so MOL.bin [--lr] [--ip1] [--sample N] [--reps N]\n");
                 return 1;
         }
         Mol m = load(argv[2]);
-        int reps = 2, nsample = 4000;
+        int reps = 2, nsample = 4000, ip1 = 0;
         for (int a = 3; a < argc; a++) {
                 if (!strcmp(argv[a], "--reps")) reps = atoi(argv[++a]);
                 else if (!strcmp(argv[a], "--sample")) nsample = atoi(argv[++a]);
                 else if (!strcmp(argv[a], "--lr")) m.env[PTR_RANGE_OMEGA] = 0.3;
+                else if (!strcmp(argv[a], "--ip1")) ip1 = 1;
         }
+        const int ncomp = ip1 ? 3 : 1;
         void *lib = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
         if (lib == NULL) {
                 fprintf(stderr, "%s\n", dlerror());
                 return 1;
         }
-        FINT fint = (FINT)sym(lib, "int2e_sph");
-        FOPT fopt = (FOPT)sym(lib, "int2e_optimizer");
-        FBATCH fbatch = (FBATCH)sym(lib, "int2e_sph_batch");
-        int (*fok)(int *, int *, double *) = sym(lib, "int2e_sph_batch_ok");
+        FINT fint = (FINT)sym(lib, ip1 ? "int2e_ip1_sph" : "int2e_sph");
+        FOPT fopt = (FOPT)sym(lib, ip1 ? "int2e_ip1_optimizer" : "int2e_optimizer");
+        FBATCH fbatch = (FBATCH)sym(lib, ip1 ? "int2e_ip1_sph_batch" : "int2e_sph_batch");
+        int (*fok)(int *, int *, double *) = sym(lib, ip1 ? "int2e_ip1_sph_batch_ok" : "int2e_sph_batch_ok");
         int lanes = ((int (*)())sym(lib, "int2e_sph_batch_lanes"))();
         size_t bcache = ((size_t (*)())sym(lib, "int2e_sph_batch_cache_size"))();
         void *opt = NULL;
@@ -132,10 +137,10 @@ int main(int argc, char **argv)
         long nq = 0;
         for (int pass = 0; pass < 2; pass++) {
                 for (int i = 0; i < nbas; i++)
-                for (int j = 0; j <= i; j++)
-                for (int k = 0; k <= i; k++)
+                for (int j = 0; j < (ip1 ? nbas : i + 1); j++)
+                for (int k = 0; k < (ip1 ? nbas : i + 1); k++)
                 for (int l = 0; l <= k; l++) {
-                        if (k == i && l > j) break;
+                        if (!ip1 && k == i && l > j) break;
                         if (m.q[i * nbas + j] * m.q[k * nbas + l] <= 1e-13) continue;
                         Type *t = qt + ((stype[i] * ntype + stype[j]) * ntype + stype[k]) * ntype + stype[l];
                         if (pass == 0) {
@@ -152,7 +157,7 @@ int main(int argc, char **argv)
                         }
                 }
         }
-        printf("%s: %ld quartets, %d shell types, %d lanes; %s\n",
+        printf("%s%s: %ld quartets, %d shell types, %d lanes; %s\n", ip1 ? "int2e_ip1, " : "",
                m.env[PTR_RANGE_OMEGA] > 0 ? "long range (omega 0.3)" : "full range", nq, ntype, lanes,
                nsample > 0 ? "sampled per quartet type and timed" : "every quartet compared, not timed");
 
@@ -160,7 +165,7 @@ int main(int argc, char **argv)
         size_t maxblk = 0;
         for (int t = 0; t < nqt; t++) {
                 if (qt[t].n == 0) continue;
-                size_t nf = qt[t].n;
+                size_t nf = (size_t)qt[t].n * ncomp;
                 for (int x = 0; x < 4; x++) nf *= 2 * BAS(ANG_OF, qt[t].sh[0][x]) + 1;
                 maxblk = nf > maxblk ? nf : maxblk;
         }
@@ -179,7 +184,7 @@ int main(int argc, char **argv)
                 Type *T = qt + t;
                 if (T->n == 0) continue;
                 int *s0 = T->sh[0], lmax = 0;
-                long ncomb = 1, nf = 1;
+                long ncomb = 1, nf = ncomp;
                 for (int x = 0; x < 4; x++) {
                         int l = BAS(ANG_OF, s0[x]);
                         lmax = l > lmax ? l : lmax;
