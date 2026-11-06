@@ -6906,6 +6906,41 @@ job and stay overridable, with no 20000 MB cap inside jobs.
   so a new compiler module rebuilds everything (`c463b11`). The cause is not known yet. Our changed C files compile
   cleanly with GCC 13 in gnu99 mode with `-Wpedantic`; their collapsed loops are rectangular.
 
+## A segfault in qcint's int1e_grids under SMD, and SMD's missing module, 2026-11-05
+The user's lenalidomide + HPO3(2-) / def2-TZVPD wB97M-V/SMD(water) job (grids (99,590), nlcgrids (50,194), 4
+cores and 12 GB on their cluster) died in the first SCF cycle. Their diagnosis: only that geometry, in
+`_int1e_grids_dot` (pcm.py:333), inside qcint's int1e_grids.
+- **SMD's CDS module was never built.** Upstream compiles libsolvent (the Minnesota Fortran code of SMD's
+  cavity-dispersion-solvent structure term) only with `-DENABLE_SMD=ON`, which is off by default. Every SMD
+  calculation with our build stopped at its first energy with `RuntimeError: SMD module is not available`; a
+  stand-in of the same composition (1001 functions) did on the laptop, confined to 4 cores and 12 GiB.
+  - `build_pyscf.sh` now passes the option (`72f8bea`).
+  - caffeine/def2-SVP SMD(water), modified against unmodified: B3LYP 2e-12 Eh apart, wB97M-V identical, 13
+    cycles each.
+- **The segfault: qcint read past the grid coordinates.**
+  - CINT1e_grids_loop rounds the point count up to SIMDD and copied the padding lanes' coordinates from past
+    the caller's last point: up to 7 points, 168 bytes, with AVX-512. Upstream qcint's gathers read the same.
+  - Callers append the grids at the end of env, and the PCM driver gives each thread a copy of env that ends
+    exactly there. So the read ran past the copy, and faulted when that crossed into an unmapped page, which
+    depends on the number of surface points: only some geometries crashed.
+  - AddressSanitizer showed it: a 32-byte read 16 bytes past a thread's 15,792-byte env copy, for water's SMD
+    surface.
+  - Fixed in qcint (`d7be30d`, tag `perf-2026-11-06`): the padding lanes repeat the block's last point.
+    AddressSanitizer is clean for SMD and SGX SCFs and `mol.intor('int1e_grids')`, in AVX-512 and SSE builds.
+    SGX and `mol.intor('int1e_grids')` had the same over-read, where the grids end a numpy array.
+  - caffeine/def2-SVP B3LYP with C-PCM, IEF-PCM and SMD(water): within 2e-12 Eh of the previous build, same
+    cycles. `kernels.py`: all 77 arrays agree with pyscf-base.
+  - PySCF's solvent and SGX tests: 188 passed, 3 failed. `test_dm_screening` (RHF, UHF) fails with any qcint
+    build, as before. `test_smd_grad::test_grad_solvent` misses Q-Chem's reference by 1.17e-4 against a 1e-4
+    tolerance, and unmodified PySCF fails it too.
+- **SMD's cost on this system** (8833 surface points, 2 threads): setup 34 s (D and S 7 s, the rest dense
+  algebra, mostly D·A·S), CDS 0 s, K's factorization 9.5 s once, the potential and Fock term 18.4 s per cycle.
+  A cycle takes 8-9 min on 4 cores (two exchange builds, XC on 1.18M points, VV10 on 242k), so SMD is about 2%
+  of it. Its setup is upstream code that holds about six 8833 x 8833 matrices (0.62 GB each) at once: a 7.7 GB
+  peak in the 12 GB job.
+- `cpu_setup.sh`'s stamps include each step's build scripts (`72f8bea`), so these changes rebuild what they
+  touch.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
