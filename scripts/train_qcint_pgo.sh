@@ -28,4 +28,9 @@ if nm -D "$lib" | grep -q " int2e_sph_batch$"; then
     b "$mols/caffeine.bin" --sample 2000
     b "$mols/caffeine.bin" --sample 2000 --lr
     b "$mols/caffeine-tz.bin" --sample 500
+    if nm -D "$lib" | grep -q " int2e_ip1_sph_batch$"; then
+        # the gradients' int2e_ip1
+        b "$mols/caffeine.bin" --sample 1000 --ip1
+        b "$mols/caffeine-tz.bin" --sample 200 --ip1
+    fi
 fi
