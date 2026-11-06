@@ -156,12 +156,22 @@ int main(int argc, char **argv)
                m.env[PTR_RANGE_OMEGA] > 0 ? "long range (omega 0.3)" : "full range", nq, ntype, lanes,
                nsample > 0 ? "sampled per quartet type and timed" : "every quartet compared, not timed");
 
-        long maxs = 0;
-        for (int t = 0; t < nqt; t++) maxs = qt[t].n > maxs ? qt[t].n : maxs;
-        double *ref = malloc(sizeof(double) * 2401 * (size_t)maxs);
-        double *bout = malloc(sizeof(double) * 2401 * (size_t)maxs);
+        // the largest block of integrals of a type's quartets
+        size_t maxblk = 0;
+        for (int t = 0; t < nqt; t++) {
+                if (qt[t].n == 0) continue;
+                size_t nf = qt[t].n;
+                for (int x = 0; x < 4; x++) nf *= 2 * BAS(ANG_OF, qt[t].sh[0][x]) + 1;
+                maxblk = nf > maxblk ? nf : maxblk;
+        }
+        double *ref = malloc(sizeof(double) * maxblk);
+        double *bout = malloc(sizeof(double) * maxblk);
         double *cache = malloc(sizeof(double) * (1 << 22));
         double *bc = malloc(sizeof(double) * bcache);
+        if (ref == NULL || bout == NULL || cache == NULL || bc == NULL) {
+                fprintf(stderr, "malloc of %zu doubles failed\n", maxblk);
+                return 1;
+        }
         double tq_all = 0, tb_all = 0, dmax = 0, vmax = 0, rmax = 0;
         long nbatch = 0;
         double cat_q[3][3] = {{0}}, cat_b[3][3] = {{0}};  // [max l: <=1, 2, >=3][combinations: 1, 2-7, >=8]
