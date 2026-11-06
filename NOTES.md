@@ -7140,6 +7140,91 @@ The first of the items above, after the user's "Yes and then we can work on what
 | scf_caffeine_svp_camb3lyp | 10.7 | 8.4 | 1.27x | 8.2 -> 6.0 (1.37x) |
 | scf_c20h42_svp_b3lyp | 27.1 | 19.6 | 1.38x | 21.6 -> 14.0 (1.54x) |
 
+## The Hessians' integrals batched (qcint int2e_ipip1/ipvip1/ip1ip2_sph_batch), and direct_mapdm/direct_bindm, 2026-11-06
+- **qcint** (`perf` 4c59d1e): `int2e_ipip1_sph_batch`, `int2e_ipvip1_sph_batch`, `int2e_ip1ip2_sph_batch`.
+  - They have a template of their own (`cint2e_batch_hess.h`), so int2e's and int2e_ip1's validated
+    kernels are untouched.
+  - They follow int2e_sph's scalar path (autocode/hess.c, g2e_simd1.c):
+    - the 2D integrals go one higher on each differentiated centre (two on i for ipip1), from the base
+      centres of the raised l;
+    - then g1 = nabla_J g0 (nabla_K for ip1ip2, nabla_I for ipip1), g2 = nabla_I g0 and g3 = nabla_I g1,
+      at the output's powers;
+    - the 9 products come in hess.c's order. Each primitive combination's root sum is added to the
+      cartesian integrals, which go to spherical one component at a time.
+  - Instantiated for every (li,lj,lk,ll) with l <= 3 in 12 files. The whole library builds in 2m17s on
+    16 jobs (16 CPU-minutes).
+  - `_ok` is int2e_sph_batch's. `int2e_hess_sph_batch_cache_size` gives their cache: 8.7 MB with 8 lanes,
+    sized for (ff|ff).
+- **PySCF** (`perf` 46ebf7c53): batching in `CVHFnr_direct_drv` and `CVHFnr_direct_ex_drv`.
+  - These are the drivers of `direct_mapdm` and `direct_bindm`. Their users include the Hessian's
+    `_partial_hess_2e` (ip1ip2, ipvip1; ipip1 when atmlst is not every atom), `make_h1` (int2e_ip1), and
+    `grad.rhf.get_jk` (int2e_ip1: TDDFT and other gradients that build the J/K matrices).
+  - Quartets that the batched intor takes are queued per thread, by the types of their 4 shells, in a hash
+    table. A full queue is evaluated at once and contracted by the scripts quartet by quartet.
+  - The contractions write to the JKArray of the quartet's block, so a queued quartet keeps its block, and
+    the JKArrays are pointed at it for the contraction.
+  - The queues outlive the blocks, and are flushed at each thread's end, when every output fits in its
+    JKArray's stack and keys cache. Each block pair is then stored once and never written back early.
+    Otherwise they are flushed at the end of each block.
+  - The first version flushed at every block. With the 16-AO blocks that 10 threads bring for benzene,
+    most queues stayed short: py-spy showed 48% of the time in the scalar `int2e_ip1ip2_sph` and
+    `int2e_ipvip1_sph`. On benzene/def2-SVP, `_partial_hess_2e` at 10 threads was 1.20x that way and is
+    1.83x with the queues kept (1 thread: 1.67x -> 1.77x).
+  - The kernels of `nr_direct_dot.c` write up to 2*di*dj doubles of scratch after a quartet's
+    integrals, so a batch is contracted last quartet first, with room after the last.
+  - `CVHFnr_direct_drv_mode` and `CVHFnr_direct_ex_drv_mode` take the switch (`_vhf.INT2E_BATCH`); the old
+    entry points batch.
+  - New tests: `test_vhf.py test_direct_bindm_int2e_batch` (each batched intor, slices and an excluded
+    block, full and long range) and `hessian/test/test_rhf.py test_hess_2e_int2e_batch`.
+  - Memory: per thread and call, up to 8.7 MB of the Hessian kernels' cache, 1.4 MB of output and 1 MB of
+    queues, touched as used. On 64 threads that is about 0.7 GB during the Hessian's 2e part.
+- **Harness** (workspace b1aba50): `bbench --int NAME` (ip1, ipip1, ipvip1, ip1ip2).
+  `train_qcint_pgo.sh` trains the three Hessian kernels on benzene and caffeine/def2-TZVP.
+- **Exactness.**
+  - Against int2e_ipip1_sph, int2e_ipvip1_sph and int2e_ip1ip2_sph, each ordered bra pair with k >= l:
+    - laptop (AVX-512, 8 lanes), PGO build, every benzene/def2-SVP quartet: ipip1 within 3.9e-14
+      (values up to 53), ipvip1 1.8e-14, ip1ip2 6.0e-15;
+    - laptop, every water quartet: within 4.3e-14 (values up to 131), long range 1.1e-14;
+    - laptop, caffeine/def2-TZVP sampled (755K quartets): within 8.5e-13 on values up to 540;
+    - node2 (AVX2, 4 lanes), plain build, every water and benzene quartet: within 1.1e-13 (water ipip1,
+      values up to 131), int2e and int2e_ip1 unchanged (6.7e-16, 4.7e-15).
+  - qcint's own functions are bitwise identical to the previous PGO build (a55f70d): int2e_sph on all
+    113M caffeine/def2-TZVP quartets, int2e_ip1_sph on all 450M, and the three Hessian integrals on every
+    benzene quartet.
+  - `kernels.py`: 77/77. `validate.py` full: all pass, Hessians within 6.8e-11, gradients 1.55e-12.
+  - The tight caffeine/def2-SVP r2SCAN SCF took 65 cycles once (reference 25). Reruns with the batching
+    took 34, 33 and 24; without it, 25, 24 and 33. It is the run-to-run scatter of tight convergence. At
+    normal convergence the cycles are identical in every A/B so far.
+  - PySCF's tests: 1053 passed, the same 7 known failures.
+- **Speed.**
+  - Projected one pass, one core, caffeine/def2-TZVP: 2.11-2.13x (PGO, 8 lanes), 1.78-1.80x (node2, 4
+    lanes, plain build). s and p with one primitive combination 5.5x, d 3x, f 1.9-2.4x, 8 or more
+    combinations 1.15-1.34x.
+  - benzene/def2-TZVP B3LYP, 10 threads, plain build: `_partial_hess_2e` 21.4 -> 12.9 s, `make_h1` 7.7 ->
+    5.0 s, the Hessian 43.7 -> 34.4 s, within 1.6e-13.
+  - caffeine/def2-SVP B3LYP, 10 threads, PGO: `_partial_hess_2e` 35.3 -> 24.6 s, `make_h1` 11.8 -> 9.8 s.
+    These are about half of the Hessian's J/K. The other half is the CPHF response J/K: one integral
+    pass per iteration for all 72 perturbations, bound by the contractions.
+  - `bench/results/20261106-163624_int2e-batch-hess.json`: laptop, PGO, 10 threads, ABBA x 2. Hessians
+    within 1.7e-10 of the batching off (off against off: up to 2.6e-11).
+
+| case | off (s) | on (s) | total | J/K |
+|---|---|---|---|---|
+| hess_benzene_svp_b3lyp | 8.2 | 7.5 | 1.10x | 3.1 -> 2.3 (1.38x) |
+| hess_benzene_svp_pbe | 7.5 | 6.8 | 1.11x | 2.6 -> 1.8 (1.45x) |
+| hess_benzene+_svp_b3lyp_uks | 15.7 | 14.7 | 1.07x | 4.1 -> 3.2 (1.30x) |
+| hess_caffeine_svp_b3lyp | 141.7 | 134.8 | 1.05x | 91.2 -> 80.8 (1.13x) |
+| hess_caffeine+_svp_b3lyp_uks | 242.2 | 228.2 | 1.06x | 135.2 -> 120.9 (1.12x) |
+
+- **Not batched yet:**
+  - g functions; shells of more than 7 primitives or more than one contracted function; cartesian bases;
+    short range.
+  - None of these occur in the def2 bases of the workloads: caffeine/def2-TZVP(D) and the
+    lenalidomide + HPO3(2-)/def2-TZVPD stand-in are fully batched.
+  - cc-pVXZ would be the gap: PySCF keeps their s shells generally contracted (carbon cc-pVDZ: 8
+    primitives, 2 functions), so no quartet with them is batched.
+- **Next for Hessians:** the CPHF response J/K, whose contractions over many dms dominate it.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
