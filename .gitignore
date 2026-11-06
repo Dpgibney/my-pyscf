@@ -22,6 +22,7 @@ __pycache__/
 # regenerable reference caches (validate.py / kernels.py)
 /bench/results/ref/
 bench/qcint/qbench
+bench/qcint/bbench
 bench/qcint/qcost
 bench/diag/*.so
 # raw ORCA outputs: not shared publicly (ORCA EULA 3c/3d: data generated with ORCA only for academic purposes, databases with a notice)

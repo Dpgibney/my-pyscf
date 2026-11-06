@@ -136,8 +136,12 @@ step libxc "$(rev libxc) $(recipe build_libxc.sh)" "$WS/install/libxc-stock/lib/
 step qcint "$(rev qcint) $(recipe build_cint.sh)" "$WS/install/qcint-pgo/lib/libcint.so.6" qcint_plain
 step pyscf "$(rev pyscf) $(rev qcint) $(rev libxc) $(rev OpenBLAS) $V3 $(recipe build_pyscf.sh link_deps.sh)" \
     "$WS/pyscf/pyscf/lib/libsolvent.so" bash "$S/build_pyscf.sh" pyscf qcint-pgo libxc-stock $V3
-step qbench "$(sha1sum < "$WS/bench/qcint/qbench.c")" "$WS/bench/qcint/qbench" \
-    gcc -O2 -o "$WS/bench/qcint/qbench" "$WS/bench/qcint/qbench.c" -ldl -lm
+build_benches() {  # the PGO training's drivers of qcint
+    gcc -O2 -o "$WS/bench/qcint/qbench" "$WS/bench/qcint/qbench.c" -ldl -lm &&
+        gcc -O2 -o "$WS/bench/qcint/bbench" "$WS/bench/qcint/bbench.c" -ldl -lm
+}
+step qbench "$(cat "$WS/bench/qcint/qbench.c" "$WS/bench/qcint/bbench.c" | sha1sum)" "$WS/bench/qcint/bbench" \
+    build_benches
 step qcint-pgo "$(rev qcint) $(recipe build_qcint_pgo.sh train_qcint_pgo.sh build_cint.sh)" \
     "$WS/install/qcint-pgo/lib/libcint.so.6" bash "$S/build_qcint_pgo.sh"
 if [ $BASE = 1 ]; then
