@@ -6941,6 +6941,49 @@ cores and 12 GB on their cluster) died in the first SCF cycle. Their diagnosis: 
 - `cpu_setup.sh`'s stamps include each step's build scripts (`72f8bea`), so these changes rebuild what they
   touch.
 
+## J/K for range-separated hybrids on def2-TZVPD: quartets in the SIMD lanes (prototype), and the short-range split, 2026-11-06
+The user asked whether the J/K integral algorithm could be made significantly faster; of the options offered
+they chose both: prototype quartets in the SIMD lanes, and measure a short-range + long-range split.
+- **Where a cycle goes** (lenalidomide + HPO3(2-) stand-in, def2-TZVPD, 1001 AOs, wB97M-V, 6 threads, minao
+  density): J + full-range K 173 s, long-range K (omega 0.3) 143 s, XC on 1.18M points 44 s, VV10 14 s (7.5 s
+  with SG-1 pruning). J/K is 84%.
+- **Where the integrals go** (`qbench`, caffeine/def2-TZVPD, 234 shells, 283M quartets, one core): 178 s per
+  full-range pass, 218 s long range. Quartets with d or f shells take 87% of it; the fixed per-quartet cost
+  (~80 ns) about 13%. The d and f shells (and the diffuse ones) have one primitive: qcint puts the primitive
+  combinations of a quartet in its lanes, so 39% of the time runs on its scalar path (one combination) and 47%
+  with the 8 AVX-512 lanes about half full (about 4 combinations).
+- **The short-range split: no.** wB97M-V's J and full K could come from a long-range pass plus a short-range
+  one (J = J_SR + J_LR, K = K_SR + K_LR exactly), if the short-range integrals screen by distance.
+  - On the stand-in (6 threads): full-range J+K 180.4 s, long range 152.9 s, short range through PySCF's SR
+    driver (`CVHFnr_sr_direct_drv`) 156.6 s: 310 against 333 s, 7%.
+  - The SR driver's screening is heuristic (each shell's most diffuse exponent, (ii|kk)-type overlaps,
+    float32 logs): K_SR + K_LR differs from K by up to 2e-3, the K energy term by 3.5e-4 Eh (caffeine/SVP:
+    1.2e-5).
+  - With the regular driver's Schwarz screening the split is exact (6e-12), but the short-range pass is
+    slower than the full one (caffeine/SVP 2.2 against 1.4 s): it needs more Rys roots and gains nothing
+    from Schwarz bounds.
+  - Upstream's `test_direct_sr_vhf` builds its optimizer but never passes it, so it does not exercise the SR
+    driver.
+- **Quartets in the lanes: about 1.75x on the integrals in a prototype.**
+  - `bench/qcint/xq_proto.c`: single-primitive (dd|dd), 8 quartets per vector (GCC vector types, qcint's own
+    roots per lane, libcint's recurrences, HRR, cartesian products, cart -> sph). 364,471 quartets: qcint 5524
+    ns per quartet, the prototype 1627 (3.4x); integrals within 2.6e-14 of qcint's.
+  - `bench/qcint/xq_generic.c`: any l <= 3, segmented contractions summed per lane, full or long range;
+    projects a pass from up to 4000 sampled quartets per type, both codes timed on the same samples.
+    - Generic (runtime l): 0.97x. Specialized per class (compile-time l through an always-inlined template
+      and a 256-way switch): 1.65x full range, 1.62x long range. Single-primitive quartets 2.1-2.7x, 2-7
+      combinations 1.6-1.9x, >= 8 combinations 0.6-0.9x (qcint's lanes are already full there).
+    - Keeping qcint for >= 8 combinations: 173.5 -> 97.9 s full range (1.77x), 178.2 -> 101.6 s long range
+      (1.75x). Sampled integrals within 1.0e-12 (full range, values up to 8; the prototype goes u -> t^2 -> u)
+      and 1.0e-13 (long range).
+    - Untuned: roots point by point, the cart -> sph coefficients filled at run time, HRR per primitive
+      combination.
+  - For the stand-in's cycle (J/K 84%, most of it integrals) that would be about 1.4-1.6x.
+  - A real implementation: a batched int2e in qcint (up to 8 quartets of one class; kernels generated per
+    class; full, long and short range; vectorized roots), the batched direct J/K driver queueing screened
+    quartets by class, qbench --compare over all classes, kernels.py and the tight validation, PGO training.
+    Several days; derivative integrals (gradients, Hessians) would need their own kernels.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
