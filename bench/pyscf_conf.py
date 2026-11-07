@@ -10,6 +10,7 @@
 #                           unscreened, as upstream)
 #   BENCH_HESS_JK_DOT=0|1   hessian.rhf.JK_ENERGY_DOT of the perf tree: hess_jk_energy's integrals contracted in
 #                           qcint's _dot kernels, or in PySCF
+#   BENCH_GRAD_JK_DOT=0|1   grad.rhf.JK_ENERGY_DOT of the perf tree: the same for the gradients' jk_energy_per_atom
 import os
 
 if 'BENCH_SEMI_DIRECT' in os.environ:
@@ -26,3 +27,5 @@ if 'BENCH_HESS_H1_SCREEN' in os.environ:
     hessian_rhf_make_h1_tol = 1e-14 if os.environ['BENCH_HESS_H1_SCREEN'] == '1' else 0
 if 'BENCH_HESS_JK_DOT' in os.environ:
     hessian_rhf_jk_energy_dot = os.environ['BENCH_HESS_JK_DOT'] == '1'
+if 'BENCH_GRAD_JK_DOT' in os.environ:
+    grad_rhf_jk_energy_dot = os.environ['BENCH_GRAD_JK_DOT'] == '1'

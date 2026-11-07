@@ -304,6 +304,8 @@ case('hess_caffeine+_svp_b3lyp_uks', ())(hess_case(CAFFEINE, 'def2-svp', 'B3LYP'
                                                    full_jk=True))
 case('scf_benzene+_svp_r2scan_uks', (FULL,))(scf_case(BENZENE, 'def2-svp', 'r2SCAN', charge=1, spin=1))
 case('grad_caffeine_svp_b3lyp', (FULL,))(grad_case(CAFFEINE, 'def2-svp', 'B3LYP'))
+# timings only (by --cases; no suite): the gradient J/K at TZVP, where qcint's _dot kernels matter
+case('grad_caffeine_tzvp_b3lyp', ())(grad_case(CAFFEINE, 'def2-tzvp', 'B3LYP'))
 # UKS gradient (the UHF branch of the J/K energy gradient), and the gradient code paths of range-separated
 # hybrids and UKS on water in the 'hessian' suite
 case('grad_caffeine+_svp_b3lyp_uks', (FULL,))(grad_case(CAFFEINE, 'def2-svp', 'B3LYP', charge=1, spin=1,

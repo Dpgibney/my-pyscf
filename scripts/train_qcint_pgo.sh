@@ -40,10 +40,14 @@ if nm -D "$lib" | grep -q " int2e_sph_batch$"; then
             b "$mols/caffeine-tz.bin" --sample 50 --int $h
         done
         if nm -D "$lib" | grep -q " int2e_ipip1_sph_batch_dot$"; then
-            # their _dot kernels (hessian.rhf.hess_jk_energy)
+            # their _dot kernels (hessian.rhf.hess_jk_energy), and int2e_ip1's (grad.rhf.jk_energy_per_atom)
             for h in ipip1 ipvip1 ip1ip2; do
                 b "$mols/caffeine-tz.bin" --sample 50 --int $h --dot
             done
+            if nm -D "$lib" | grep -q " int2e_ip1_sph_batch_dot$"; then
+                b "$mols/caffeine.bin" --sample 1000 --int ip1 --dot
+                b "$mols/caffeine-tz.bin" --sample 200 --int ip1 --dot
+            fi
         fi
     fi
 fi

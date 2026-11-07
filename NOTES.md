@@ -7490,6 +7490,63 @@ this and run the fresh clone check."
   tests (`run_tests.sh`, after pytest-xdist and pytest-timeout in that venv: cpu_setup.sh installs pytest
   alone) 1056 passed, the same 7 known failures as the laptop. The clone was removed afterwards.
 
+## The refactor: one template for qcint's derivative integrals, one loop for the energy drivers, 2026-11-07
+The user asked whether to refactor the J/K integral code given the bespoke drivers; my answer: not the
+matrix-building J/K (SCF, CPHF, in-core; upstream interfaces, no speed to gain), but the two energy drivers
+and qcint's two templates, together with their next uses. The user: "Please start it".
+- **qcint** (`perf` e25a81f): `int2e_ip1_sph_batch` now comes from the Hessians' template
+  (`cint2e_batch_hess.h`, a fourth kind HESS_IP1: g0 and g2 = nabla_I g0, 3 components), so one template
+  gives every batched derivative integral, as blocks or `_dot`. New `int2e_ip1_sph_batch_dot`
+  (out[(q*ng+n)*3+c]); its cache is `int2e_sph_batch_cache_size()`, which the template's ip1 layout fits
+  (70124 of 72420 bvec at (ff|ff)).
+  - `cint2e_batch.h`'s template keeps its (no longer instantiated) ip1 branch: removing it made GCC contract
+    other multiply-adds into FMAs, and 501 of benzene/def2-SVP's 969 int2e classes changed in their last
+    bits (found with a new ctypes check that runs two builds' batched kernels side by side). With the branch
+    in place `int2e_sph_batch` is bitwise identical on every class.
+  - Exactness: `int2e_ip1_sph_batch` against `int2e_ip1_sph`, every quartet: water 3.6e-15, benzene 4.7e-15
+    (as before); its `_dot` 3.6e-15 and 4.3e-15, long range 1.6e-15; the Hessian kinds unchanged.
+  - Speed (one core, caffeine/def2-TZVP sampled, plain builds): `int2e_ip1_sph_batch` 224.9 s (the old
+    kernel 223.9 s); `_dot` 216.1 s.
+  - bbench `--dot` takes ip1 too (its result arrays sized by quartets x components: nf < 3 for (ss|ss));
+    the PGO training runs the ip1 `_dot` kernels.
+- **PySCF** (`perf` c9bfd2ea5): `lib/vhf/orbit_engine.c` (`CVHFoe_run`), the loop both energy drivers had
+  copied: the pair list sorted by a bound with the break at the first failing partner, the fixed chunk
+  partition summed in order, the shell types and the per-thread hash tables of queues for the batched
+  integrals. A client gives its pair bounds, thresholds and callbacks (plan an orbit: screening, its
+  integrals, its queue key; evaluate one orbit or a full queue) and keeps its own arithmetic. Shared:
+  `CVHFoe_permute` (the shell orders of an orbit's integrals). grad_jk_energy.c 717 -> 616 lines,
+  hess_jk_energy.c 1069 -> 937, the engine 373 with its header.
+  - Both drivers give bitwise the same results as before (jk_energy_per_atom: caffeine/def2-SVP RHF, spin
+    densities, long and short range; hess_jk_energy: benzene/def2-SVP RHF, spin densities, J alone, long-
+    and short-range K; water + He cartesian with a general contraction).
+- **PySCF** (`perf` 28d60a20e): `jk_energy_per_atom` through `int2e_ip1_sph_batch_dot`
+  (`grad_rhf_jk_energy_dot`, default on): each centre's Gamma permuted into its integral's order and
+  contracted in qcint. caffeine/def2-TZVP, 10 threads: 27.9 -> 25.8 s (1.08x); def2-SVP unchanged (2.1 s);
+  within 1.8e-15. `test_jk_energy_per_atom_int2e_batch` covers both paths.
+- **Stage 3 skipped** (the user: "Let's skip it"): make_h1 with translational invariance, re-estimated at
+  about 11 s of the 538 s TZVP Hessian (its J/K 73 s, integrals about half, cut about 1.4x), needing a new
+  accumulation for natm x 3 x nao^2 outputs shared by the threads.
+- **The PGO build** (qcint e25a81f, the training with the ip1 _dot kernels too) is not bitwise identical to
+  the previous PGO build (cd07a5d), although the plain builds are for int2e: every function moved at the
+  rounding level, the unbatched ones included, whose source did not change (int2e_sph within 1.2e-15 on all
+  113M caffeine/def2-TZVP quartets, values up to 8; ipip1 1.1e-14 on benzene, values up to 53; the batched
+  int2e 3.3e-16). Probably GCC's profile-based hotness thresholds, which follow the whole training: the
+  previous two PGO builds (cd07a5d, 4c59d1e) were bitwise identical on int2e.
+- **Exactness.** `kernels.py` 77/77. `validate.py` full and hessian suites: all pass, gradients within
+  3.6e-14 (benzene) and 1.5e-12 (caffeine), Hessians 7.1e-12 to 6.4e-11; the tight SCFs' cycle counts
+  scatter as before. PySCF's tests: 1056 passed, the same 7 known failures. AddressSanitizer on a 4-lane
+  qcint (grad, hessian and scf J/K tests): 104 passed, no report.
+- **Bench** (`bench/results/20261107-100854_grad-jk-dot.json`: laptop, PGO, 10 threads, ABBA x 2; new
+  timing-only case `grad_caffeine_tzvp_b3lyp`), the gradient step with the _dot kernels off and on; gradients
+  within 2.3e-12 (off against off: up to 1.8e-12):
+
+| case | off (s) | on (s) | speedup |
+|---|---|---|---|
+| grad_benzene_svp_b3lyp | 0.44 | 0.46 | 0.95x (noise; ran at lower clocks) |
+| grad_caffeine_svp_b3lyp | 3.18 | 3.06 | 1.04x |
+| grad_caffeine+_svp_b3lyp_uks | 3.61 | 3.48 | 1.04x |
+| grad_caffeine_tzvp_b3lyp | 37.56 | 33.47 | 1.12x |
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

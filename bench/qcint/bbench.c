@@ -10,9 +10,9 @@
  * 3 components; --ip1 for short), ipip1, ipvip1 or ip1ip2 (Hessians, 9 components), on every ordered
  * (i, j) with k >= l, as the gradients take them (qbench's ip1).
  *
- * --dot (with ipip1, ipvip1 or ip1ip2): int2e_*_sph_batch_dot, the integrals contracted with 2 arrays
- * of each quartet inside the kernels, against int2e_*_sph contracted here (both timed, the batched
- * integrals contracted here too); the arrays are random in [-1, 1).
+ * --dot (with ip1, ipip1, ipvip1 or ip1ip2): int2e_*_sph_batch_dot, the integrals contracted with 2
+ * arrays of each quartet inside the kernels, against int2e_*_sph contracted here (both timed, the
+ * batched integrals contracted here too); the arrays are random in [-1, 1).
  *
  * --sample N: up to N quartets of each type, evenly spaced, timed (best of --reps) and scaled by the
  * type's count to project one pass (default). --sample 0: every quartet, compared but not timed.
@@ -39,16 +39,17 @@ typedef void (*FOPT)(void **opt, int *atm, int natm, int *bas, int nbas, double 
 typedef int (*FDOT)(double *out, int nq, int *shls, int *atm, int natm, int *bas, int nbas,
                     double *env, const double *gam, int ng, double *cache);
 
-// out[(q*ng+n)*9+c] = sum_f buf[(q*9+c)*nf+f] gam[(q*ng+n)*nf+f]
-static void contract9(double *out, const double *buf, const double *gam, int nq, int ng, long nf)
+// out[(q*ng+n)*ncomp+c] = sum_f buf[(q*ncomp+c)*nf+f] gam[(q*ng+n)*nf+f]
+static void contract_n(double *out, const double *buf, const double *gam, int nq, int ng, int ncomp,
+                       long nf)
 {
         for (int q = 0; q < nq; q++)
         for (int n = 0; n < ng; n++)
-        for (int c = 0; c < 9; c++) {
-                const double *b = buf + ((long)q * 9 + c) * nf, *g = gam + ((long)q * ng + n) * nf;
+        for (int c = 0; c < ncomp; c++) {
+                const double *b = buf + ((long)q * ncomp + c) * nf, *g = gam + ((long)q * ng + n) * nf;
                 double sum = 0;
                 for (long f = 0; f < nf; f++) sum += b[f] * g[f];
-                out[((long)q * ng + n) * 9 + c] = sum;
+                out[((long)q * ng + n) * ncomp + c] = sum;
         }
 }
 
@@ -132,8 +133,8 @@ int main(int argc, char **argv)
         const int hess = ip1 && strcmp(name, "ip1") != 0;
         const int ncomp = hess ? 9 : ip1 ? 3 : 1;
         const int ng = 2;
-        if (dot && !hess) {
-                fprintf(stderr, "--dot needs --int ipip1, ipvip1 or ip1ip2\n");
+        if (dot && !ip1) {
+                fprintf(stderr, "--dot needs --int ip1, ipip1, ipvip1 or ip1ip2\n");
                 return 1;
         }
         void *lib = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
@@ -205,20 +206,22 @@ int main(int argc, char **argv)
                nsample > 0 ? "sampled per quartet type and timed" : "every quartet compared, not timed");
 
         // the largest block of integrals of a type's quartets
-        size_t maxblk = 0;
+        size_t maxblk = 0, maxn = 0;
         for (int t = 0; t < nqt; t++) {
                 if (qt[t].n == 0) continue;
                 size_t nf = (size_t)qt[t].n * ncomp;
                 for (int x = 0; x < 4; x++) nf *= 2 * BAS(ANG_OF, qt[t].sh[0][x]) + 1;
                 maxblk = nf > maxblk ? nf : maxblk;
+                maxn = (size_t)qt[t].n > maxn ? (size_t)qt[t].n : maxn;
         }
         double *ref = malloc(sizeof(double) * maxblk);
         double *bout = malloc(sizeof(double) * maxblk);
-        // --dot: the arrays [quartet][ng][nf], and the contractions [quartet][ng][9]
-        double *gam = malloc(sizeof(double) * (dot ? maxblk / 9 * ng : 1));
-        double *rdot = malloc(sizeof(double) * (dot ? maxblk / 9 * ng : 1));
-        double *bdot = malloc(sizeof(double) * (dot ? maxblk / 9 * ng : 1));
-        double *ddot = malloc(sizeof(double) * (dot ? maxblk / 9 * ng : 1));
+        // --dot: the arrays [quartet][ng][nf], and the contractions [quartet][ng][ncomp] (more than
+        // the arrays when nf < ncomp)
+        double *gam = malloc(sizeof(double) * (dot ? maxblk / ncomp * ng : 1));
+        double *rdot = malloc(sizeof(double) * (dot ? maxn * ng * ncomp : 1));
+        double *bdot = malloc(sizeof(double) * (dot ? maxn * ng * ncomp : 1));
+        double *ddot = malloc(sizeof(double) * (dot ? maxn * ng * ncomp : 1));
         unsigned long long rng = 88172645463325252ull;
         double *cache = malloc(sizeof(double) * (1 << 22));
         double *bc = malloc(sizeof(double) * bcache);
@@ -254,11 +257,11 @@ int main(int argc, char **argv)
                         double t0 = now();
                         for (int n = 0; n < T->n; n++)
                                 fint(ref + nf * n, NULL, T->sh[n], m.atm, m.natm, m.bas, m.nbas, m.env, opt, cache);
-                        if (dot) contract9(rdot, ref, gam, T->n, ng, nfs);
+                        if (dot) contract_n(rdot, ref, gam, T->n, ng, ncomp, nfs);
                         double t1 = now();
                         if (ok) {
                                 fbatch(bout, T->n, &T->sh[0][0], m.atm, m.natm, m.bas, m.nbas, m.env, NULL, bc);
-                                if (dot) contract9(bdot, bout, gam, T->n, ng, nfs);
+                                if (dot) contract_n(bdot, bout, gam, T->n, ng, ncomp, nfs);
                         }
                         double t2 = now();
                         if (ok && dot) {
@@ -270,7 +273,7 @@ int main(int argc, char **argv)
                         td = t3 - t2 < td ? t3 - t2 : td;
                 }
                 if (ok && dot) {
-                        for (long n = 0; n < (long)T->n * ng * 9; n++) {
+                        for (long n = 0; n < (long)T->n * ng * ncomp; n++) {
                                 double v = rdot[n], d = fabs(v - ddot[n]);
                                 ddmax = fmax(ddmax, d);
                                 dvmax = fmax(dvmax, fabs(v));
