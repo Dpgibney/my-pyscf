@@ -35,9 +35,8 @@ if nm -D "$lib" | grep -q " int2e_sph_batch$"; then
         b "$mols/caffeine-tz.bin" --sample 200 --ip1
     fi
     if nm -D "$lib" | grep -q " int2e_ipip1_sph_batch$"; then
-        # the Hessians' int2e_ipip1, ipvip1 and ip1ip2
+        # the Hessians' int2e_ipip1, ipvip1 and ip1ip2 (caffeine/def2-TZVP has every class up to f)
         for h in ipip1 ipvip1 ip1ip2; do
-            b "$mols/benzene.bin" --sample 500 --int $h
             b "$mols/caffeine-tz.bin" --sample 50 --int $h
         done
     fi

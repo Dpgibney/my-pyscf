@@ -3,6 +3,7 @@
 #   BENCH_SEMI_DIRECT=0|1   SCF.semi_direct of the perf tree (unknown to other trees)
 #   BENCH_FUSED_XC=0|1      numint.FUSED_XC of the perf tree (unknown to other trees)
 #   BENCH_INT2E_BATCH=0|1   _vhf.INT2E_BATCH of the perf tree: qcint's int2e_sph_batch in the direct J/K
+#   BENCH_JK_GEMM=0|1       _vhf.JK_GEMM of the perf tree: J/K of many dms (CPHF, TDDFT) by dense products
 import os
 
 if 'BENCH_SEMI_DIRECT' in os.environ:
@@ -11,3 +12,5 @@ if 'BENCH_FUSED_XC' in os.environ:
     dft_numint_fused_xc = os.environ['BENCH_FUSED_XC'] == '1'
 if 'BENCH_INT2E_BATCH' in os.environ:
     scf_vhf_int2e_batch = os.environ['BENCH_INT2E_BATCH'] == '1'
+if 'BENCH_JK_GEMM' in os.environ:
+    scf_vhf_jk_gemm = os.environ['BENCH_JK_GEMM'] == '1'
