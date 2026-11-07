@@ -7667,7 +7667,20 @@ The `rijcosx` branch as a `git archive` built there as `pyscf-rx`; `bench/result
 - **Memory against ORCA's:** the SGX AO cache (nao x grid) and the final level-2 step.
 - The final step recomputes J and XC too (generic get_veff); K alone would do.
 - The J-engine for Cartesian auxiliary functions (mol.cart) and for the DF-J gradient (int3c2e_ip1/ip2 now).
-- Merge `rijcosx` into `perf` and push: the user's decision.
+
+### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
+The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
+- **PySCF `perf` fast-forwarded to `rijcosx` 0e7843bfd** (with it the unpushed refactor commits c9bfd2ea5 and
+  28d60a20e); qcint `perf` stays at e25a81f (the refactor's template). Both tagged perf-2026-11-07c; pins and README
+  updated.
+- **Checks on the merged tree (laptop):**
+  - `kernels.py`: ALL PASS.
+  - AddressSanitizer (`pyscf-rx` with `-fsanitize=address -fno-omit-frame-pointer -g`, `LD_PRELOAD` libasan,
+    pytest `-s`): df_jk, sgx and sgx/grad tests 31 passed, `rij_engine_check.py` within 1.5e-13, no report.
+  - `validate.py` full and hessian suites: all pass (21 + 21 cases), energies within 5.5e-12, gradients 1.5e-12,
+    Hessians 6.4e-11; the tight SCFs' cycle counts scatter by 1-2 as before.
+  - PySCF's tests (dft scf df grad hessian tdscf solvent sgx): 1061 passed, the same 7 known failures.
+- **Pushed:** PySCF `perf` 43838f635..0e7843bfd and qcint `perf` cd07a5d..e25a81f with their tags.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
