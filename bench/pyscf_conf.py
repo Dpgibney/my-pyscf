@@ -4,6 +4,8 @@
 #   BENCH_FUSED_XC=0|1      numint.FUSED_XC of the perf tree (unknown to other trees)
 #   BENCH_INT2E_BATCH=0|1   _vhf.INT2E_BATCH of the perf tree: qcint's int2e_sph_batch in the direct J/K
 #   BENCH_JK_GEMM=0|1       _vhf.JK_GEMM of the perf tree: J/K of many dms (CPHF, TDDFT) by dense products
+#   BENCH_HESS_JK_ENERGY=0|1  hessian.rhf.JK_ENERGY of the perf tree: the Hessian's two-electron blocks as
+#                           energies contracted in the integral loop (hess_jk_energy)
 import os
 
 if 'BENCH_SEMI_DIRECT' in os.environ:
@@ -14,3 +16,5 @@ if 'BENCH_INT2E_BATCH' in os.environ:
     scf_vhf_int2e_batch = os.environ['BENCH_INT2E_BATCH'] == '1'
 if 'BENCH_JK_GEMM' in os.environ:
     scf_vhf_jk_gemm = os.environ['BENCH_JK_GEMM'] == '1'
+if 'BENCH_HESS_JK_ENERGY' in os.environ:
+    hessian_rhf_jk_energy = os.environ['BENCH_HESS_JK_ENERGY'] == '1'

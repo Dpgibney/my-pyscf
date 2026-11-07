@@ -7313,6 +7313,85 @@ of the time; the J/K of many dms is where the headroom is. The user: "Go for it"
 - **The rest of the caffeine/def2-TZVP Hessian** (598 of 816 s): `_partial_hess_2e` and `make_h1`
   (batched above), the XC Hessian parts and the CPHF XC response.
 
+## The Hessian's two-electron blocks as energies (lib/vhf/hess_jk_energy.c), 2026-11-06
+The user: "let's focus on the other areas for speeding up the hessian calculation". `_partial_hess_2e` was
+the largest remaining part of the caffeine/def2-TZVP B3LYP Hessian (355 of 831 s under py-spy).
+- **What it computed.** For each atom A, int2e_ip1ip2 over (A, all, atoms before A, all) in s1 and
+  int2e_ipvip1 over (A, atoms before A, all, all) in s2kl, contracted into J/K-like matrices that are then
+  dotted with the densities. Each cross-atom centre pair of each s8 orbit is evaluated once; the diagonal
+  blocks come from translational invariance.
+- **No screening upstream.** `_make_vhfopt` checks `hasattr(libcvhf, 'int2e_ip1ip2')`, but libcint's
+  functions are `int2e_ip1ip2_sph` etc., so it always returns None and `direct_bindm` runs
+  `CVHFnoscreen`: every quartet of the Hessian's 2e part is computed, in upstream PySCF too. The screening
+  it sets up could not work anyway:
+  - `direct_bindm`'s `set_dm` would get the scripts' sliced dms (`dm[:,p0:p1]` next to `dm`), which
+    numpy cannot stack;
+  - `CVHFnr_int2e_pppp_q_cond` read the (ab|ab) components of `int2e_ipip1ipip2`/`int2e_ipvip1ipvip2` at
+    17*b of a 16x16 layout. Those integrals have 81 components, (ab|ab) at 10*b: it read past the
+    integrals into uninitialised memory, and gave run-to-run different, sometimes NaN, bounds. Fixed
+    (81 components, offsets 10*b); checked on benzene/def2-TZVP: deterministic, finite, and
+    |integral| / bound <= 0.98-0.996 over 600 random quartets of each kind.
+- **The driver** (PySCF `perf` 388dfe257): `hessian.rhf.hess_jk_energy`, taken by `_partial_hess_2e` when
+  atmlst holds every atom (`hessian_rhf_jk_energy`, default on).
+  - E = 1/2 (pq|rs) Gamma_pqrs with Gamma_J = Dj Dj and Gamma_K = kfac/4 sum_n (Dk_pr Dk_qs + Dk_ps Dk_qr):
+    d2E/dR_A dR_B = sum over s8 orbits of deg/2 sum_{c on A, d on B} M_cd, M_cd the 3x3 contraction of the
+    second-derivative integral of centres c, d with Gamma. Both Gammas share the integrals; no J/K
+    matrices.
+  - M_cd is int2e_ipvip1 (c, d of one pair) or int2e_ip1ip2 (of different pairs), M_cc int2e_ipip1, of
+    the shells permuted to put c first.
+  - Translational invariance per orbit (sum_d M_cd = 0): the atom with the most centres needs no
+    integrals of its own. 3+1 centres on two atoms take 1 evaluation (int2e_ipip1) instead of 3, 2+2 3
+    instead of 4, 2+1+1 3 instead of 5, four atoms 6 either way, one atom none. The three integrals cost
+    the same per quartet (bbench, caffeine/def2-TZVP: 638, 646, 647 s projected one core).
+  - Screening: an orbit is computed when max(qd qd, qv q) > tol and that times the largest density
+    factor > tol, which every test of `CVHFip1ip2_prescreen` and `CVHFipvip1_prescreen` of its integrals
+    implies; a computed orbit takes all its integrals. tol = 1e-14 (`hessian_rhf_jk_energy_tol`, the
+    `_VHFOpt` default of `_make_vhfopt`); 0 computes every orbit whose Gammas are not zero.
+  - qcint's batched Hessian integrals, orbits queued by their 4 shell types and the pattern of their
+    atoms: 97% of the orbits on caffeine/def2-SVP.
+  - Chunks of the sorted pair list, each summed into its own buffer (the A > B blocks), the buffers in
+    order: independent of the thread count and the schedule. The buffers take at most 128 MB.
+  - Per orbit, the accumulation goes through a list of centre pairs per pattern (at most 16 block
+    additions and the invariance's row sums): the first version's generic loops were 20% of the time.
+  - Chunks: 256 (at most); 1024 left more part-filled batches at the chunk ends (caffeine/def2-TZVP,
+    10 threads: 157.5 -> 149.8 s).
+- **Exactness.**
+  - Against the loops of `_partial_hess_2e` (JK_ENERGY off), caffeine/def2-TZVP B3LYP density: ej within
+    1.7e-13 (|ej| up to 57), ek within 6.5e-14 (|ek| 2.1); the screening (1e-14 against 0) moves them by
+    4.3e-14 and 6.4e-14.
+  - benzene/def2-SVP: RHF, UHF-like spin densities, J alone, K alone (long and short range), with and
+    without the screening: within 1.3e-13 (|ej| 22.5); the screening moves ek by up to 1.5e-13 (spin
+    densities with a large random part).
+  - New test `hessian/test/test_rhf.py test_hess_jk_energy`: water + He (cc-pVDZ, general contraction:
+    the unbatched path), spherical and cartesian, all the cases above, atoms out of order, screening on
+    and off, batching on and off, against the loops to 1e-11.
+- **Speed** (caffeine/def2-TZVP, B3LYP density, 10 threads, PGO):
+  - the loops: 351 s, 1019M integral evaluations;
+  - the energy driver without screening: 328 s, 922M (translational invariance alone: 1.10x fewer);
+  - with the screening: 150 s (2.34x), 588M evaluations (65% of the orbits computed); py-spy: the
+    integrals 81%, the 9-component dot products with the Gammas 7%, Gamma and its permutations 4%, the
+    unbatched quartets (2% of the orbits) 5%.
+  - benzene/def2-SVP: 1.33 -> 0.76 s.
+  - `bench/results/20261106-235743_hess-jk-energy.json`: laptop, PGO, 10 threads, ABBA x 2. Hessians within
+    7.7e-12 of the loops (the loops against themselves: up to 3.0e-12). `validate.py` full and hessian
+    suites: all pass, Hessians within 1.0e-11 (6.4e-11 for density fitting, which does not use this code).
+    PySCF's tests: 1055 passed, the same 7 known failures.
+
+| case | loops (s) | energy driver (s) | total | J/K |
+|---|---|---|---|---|
+| hess_benzene_svp_b3lyp | 6.38 | 5.77 | 1.11x | 1.94 -> 0.78 |
+| hess_benzene_svp_pbe | 5.84 | 5.65 | 1.03x | 1.50 -> 0.58 |
+| hess_benzene+_svp_b3lyp_uks | 12.30 | 11.82 | 1.04x | 2.56 -> 1.27 |
+| hess_caffeine_svp_b3lyp | 97.58 | 84.90 | 1.15x | 50.2 -> 25.7 |
+| hess_caffeine+_svp_b3lyp_uks | 174.93 | 157.12 | 1.11x | 69.8 -> 39.4 |
+| hess_caffeine_svp_r2scan | 129.92 | 119.18 | 1.09x | 39.5 -> 17.3 |
+
+  The J/K column is the bench's category, which counts qcint's kernels; the driver's own loops land in
+  "other" (about 11 s of the caffeine cases' growth there).
+- **Left in this part:** the integrals are 81% of it. Contracting with Gamma inside qcint's kernels would
+  skip their cart -> sph step, the output transpose and the dot products here (about 17%). `make_h1`'s
+  int2e_ip1 J/K are not screened either (no vhfopt).
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
