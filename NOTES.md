@@ -7485,6 +7485,10 @@ this and run the fresh clone check."
     last changed upstream in e231f46): the SIMD remainder loads 4 doubles where fewer are left, up to 24 bytes
     past the array (through `mole.py` `cart2sph`). The extra values are discarded; a fault would need the
     array to end at a page boundary. Not fixed here.
+- **node2 with perf-2026-11-07b** (the clone updated, `cpu_setup.sh` rebuilt PySCF alone in 1 min): water and
+  `kernels.py` as above; hessian test_rhf/uhf/rks/uks 29 passed; caffeine/def2-SVP timings as above; PySCF's
+  tests (`run_tests.sh`, after pytest-xdist and pytest-timeout in that venv: cpu_setup.sh installs pytest
+  alone) 1056 passed, the same 7 known failures as the laptop. The clone was removed afterwards.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
