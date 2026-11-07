@@ -1,0 +1,49 @@
+== clone 16:25:23
+eba7254 pins: PySCF and qcint perf-2026-11-07c (RIJCOSX: the J-engine, SGX's per-pair screening, mf.RIJCOSX()); README, NOTES
+== cpu_setup.sh --with-base 16:25:26
+   exit 0, 2499 s
+   libcint: built (17 s)
+   pyscf-base: built (11 s)
+== check: water/def2-SVP B3LYP with the new tree
+   E = -76.3581418310 Eh, 7 cycles, 0.2 s (-2.8e-14 from the laptop)
+   pyscf 2.14.0: pyscf/pyscf
+   install/libxc-stock/lib/libxc.so.15
+   install/openblas/lib/libopenblasp-r0.3.34.so
+   install/qcint-pgo/lib/libcint.so.6.2.0
+   ok
+== check: the XC, J and K kernels of the new tree against the unmodified one (bench/kernels.py)
+   77 arrays agree (build/cpu_setup/kernels.log)
+== ready (41 min). To run your scripts with it:
+   source /home/danny/fresh-rx/my-pyscf/scripts/pyscf-env.sh && python my_script.py
+   (here: OMP_NUM_THREADS=6 PYSCF_MAX_MEMORY=10738. In a Slurm job they follow the job's -c and --mem; export your own
+   values before sourcing to override them)
+0e7843b sgx: the step on the larger grid keeps the SCF's grid and P-junction data
+e25a81f int2e_ip1_sph_batch from the template of the Hessians' integrals; int2e_ip1_sph_batch_dot
+== tests 17:07:06
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_custom_rsh
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tda_b3lyp_xcfun
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tda_lda_xcfun
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tddft_b3lyp_xcfun
+FAILED ../../pyscf/pyscf/solvent/test/test_smd_grad.py::KnownValues::test_grad_solvent
+FAILED ../../pyscf/pyscf/sgx/test/test_dm_screening.py::KnownValues::test_rhf_dm_screening
+FAILED ../../pyscf/pyscf/sgx/test/test_dm_screening.py::KnownValues::test_uhf_dm_screening
+7 failed, 1061 passed, 66 skipped, 278 warnings, 134 subtests passed in 555.65s (0:09:15)
+== rij_engine_check 17:16:22
+water      cc-pvdz    cc-pvdz-jkfit        nao   24 naux   116: max |dvj| SCF dm 9.86e-14, random dm 1.39e-13 (|vj| 17.4); int3c2e 0.001 s, J-engine 0.002 s (0.89x)
+water cart cc-pvdz    cc-pvdz-jkfit        nao   25 naux   131: max |dvj| SCF dm 1.42e-14, random dm 9.99e-16 (|vj| 19.0); int3c2e 0.001 s, J-engine 0.001 s (1.00x)
+water      def2-qzvp  def2-universal-jfit  nao  117 naux    71: max |dvj| SCF dm 2.57e-13, random dm 2.72e-13 (|vj| 19.3); int3c2e 0.005 s, J-engine 0.005 s (1.17x)
+benzene    def2-svp   def2-universal-jfit  nao  114 naux   360: max |dvj| SCF dm 4.78e-13, random dm 1.13e-13 (|vj| 20.0); int3c2e 0.036 s, J-engine 0.019 s (1.93x)
+CH3Br      def2-tzvp  def2-universal-jfit  nao   97 naux   140: max |dvj| SCF dm 3.96e-12, random dm 1.93e-13 (|vj| 148.2); int3c2e 0.010 s, J-engine 0.007 s (1.37x)
+caffeine   def2-tzvp  def2-universal-jfit  nao  494 naux   796: max |dvj| SCF dm 5.56e-12, random dm 1.73e-12 (|vj| 35.5); int3c2e 0.829 s, J-engine 0.368 s (2.25x)
+worst relative difference 1.56e-13
+== RIJCOSX caffeine/def2-TZVP 17:16:36
+caffeine/def2-tzvp/b3lyp nao 494 6 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 
+  SCF 47.3 s, 15 cycles, converged True, E -680.5703325429; final level 2: -680.5703416852 (+5.0 s)
+  J 2.9 s, K 21.0 s, XC 21.9 s, rest of get_veff 0.3 s, outside get_veff 1.1 s
+    J builds: 0.20 0.18 0.18 0.18 0.18 0.18 0.18 0.17 0.18 0.17 0.17 0.16 0.16 0.18 0.15 0.15 0.15
+    final step (level-2 grid and K): 4.98 s
+  memory: peak RSS 1.98 GB (kernel); sampled peaks by phase: setup RSS 0.12 GB disk 0.00 GB, scf RSS 1.36 GB disk 0.00 GB, final RSS 1.98 GB disk 0.00 GB (max_memory 4000 MB)
+== end 17:17:29
+FRESH RX DONE
+
+[exited with code 0]

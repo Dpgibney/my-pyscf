@@ -7680,7 +7680,13 @@ The user: "Yes let's merge it, this sounds very much like what I have been looki
   - `validate.py` full and hessian suites: all pass (21 + 21 cases), energies within 5.5e-12, gradients 1.5e-12,
     Hessians 6.4e-11; the tight SCFs' cycle counts scatter by 1-2 as before.
   - PySCF's tests (dft scf df grad hessian tdscf solvent sgx): 1061 passed, the same 7 known failures.
-- **Pushed:** PySCF `perf` 43838f635..0e7843bfd and qcint `perf` cd07a5d..e25a81f with their tags.
+- **Pushed:** PySCF `perf` 43838f635..0e7843bfd and qcint `perf` cd07a5d..e25a81f with their tags; workspace main
+  eba7254 (pins and README).
+- **node2, a fresh clone of eba7254** (`bench/results/node2/node2_fresh_clone_2026-11-07c.log`):
+  `cpu_setup.sh --with-base` 41 min; water B3LYP -2.8e-14 Eh from the laptop; `kernels.py` 77 arrays agree; PySCF's
+  tests 1061 passed, the same 7 known failures; `rij_engine_check.py` within 1.6e-13 (AVX2); caffeine/def2-TZVP
+  RIJCOSX 47.3 + 5.0 s, the energy of the earlier node2 run to the last digit, peak RSS 2.0 GB, no disk. The clone
+  was removed afterwards.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
