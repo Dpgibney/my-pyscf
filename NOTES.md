@@ -7225,6 +7225,88 @@ The first of the items above, after the user's "Yes and then we can work on what
     primitives, 2 functions), so no quartet with them is batched.
 - **Next for Hessians:** the CPHF response J/K, whose contractions over many dms dominate it.
 
+## The CPHF step: J/K of many dms through dense matrix products, 2026-11-06
+After the push, the user said "let's do the CPHF step". After the first attempts gained little, they asked:
+"Would it be worth it to just refactor the entire CPHF equation code? Seemed like it was a struggle to get
+better performance from it although there should have been headroom". My answer: not the solver, about 1%
+of the time; the J/K of many dms is where the headroom is. The user: "Go for it".
+- **Where the time went** (caffeine/def2-SVP B3LYP Hessian, PGO, 10 threads, max_memory 4000, py-spy):
+  - the CPHF solve, 57%:
+    - its response J/K 31%, of which the contraction kernels 25%;
+    - the XC response 26% (It13's factored path);
+    - the Krylov solver itself about 1%;
+  - `_partial_hess_2e` 18%, `make_h1` 15%.
+  - The CPHF made 8 J/K calls of up to 72 dms: 34 s of 111 s.
+  - caffeine/def2-TZVP (494 AOs, an 8.2 GB partial cache), one J/K call: 1 dm 4.0 s, 8 dms 7.8 s,
+    72 dms 79 s, mostly contraction.
+- **Why.**
+  - The one-pass kernels add a few products per dm and quartet to rows of D and VK spread over the
+    arrays: each thread's private sums are 2 nao^2 npad doubles, 281 MB per thread at TZVP with 72 dms.
+  - That runs at about 8 GFLOP/s per core.
+  - J and K each cost about 0.27 s per dm up to 8 dms and 0.6 s from 24 (TZVP, 10 threads).
+- **Tried, dropped:**
+  - Each thread its own share of the dms, the integrals shared through a buffer:
+    - TZVP 82.7 -> 74.3 s, SVP 4.56 -> 4.05 s;
+    - a thread's private copy of its dms loses the L3 sharing of the dms that one pass has.
+  - Output-stationary kernels, each output element's sum in registers and added once per quartet:
+    - exact, but 0.75-1.14x with compile-time shell sizes, 0.4-0.9x without;
+    - the kernels are bound by their accesses to D and VK, not by chains of dependent additions.
+  - Groups of 8 dms over integrals computed once:
+    - 1.35x in isolation (TZVP 82 -> 61 s), 1.00-1.10x on the Hessians' J/K
+      (`results/20261106-193122_dm-partition.json`);
+    - partly because its larger memory estimate split the 72 dms into two batches;
+    - superseded by the products below and removed.
+- **Kept: `_direct_jk_gemm`** (PySCF `perf` 0bc4500ff; `_vhf.JK_GEMM`, bench knob `BENCH_JK_GEMM`), for
+  13 dms or more.
+  - Blocks: the shells are cut into blocks of contiguous shells of about 16 AOs.
+  - Each s8-unique quartet of blocks (IJ|KL) is evaluated whole into a dense E[(i,j),(k,l)]:
+    - its shell quartets are those of the one-pass loop, each once, with the same screening, batched
+      through int2e_sph_batch;
+    - the copies that I == J, K == L or (IJ) == (KL) bring are filled in, the rest stays 0.
+  - J and K are dgemm products with all dms at once:
+    - VJ[I,J] += cJ E Ds[K,L], VJ[K,L] += cJ E^T Ds[I,J];
+    - the four exchange terms from E in two orders, X1[(i,l),(j,k)] and X2[(i,k),(j,l)];
+    - with non-symmetric dms (TDA, UHF TDDFT), the other four with D^T into sums of VK^T.
+  - The weights are the quartet kernels', at the block level.
+  - The dms and the sums are kept by block pairs, shared by all threads, one lock per block:
+    - no thread holds sums of its own, which matters for many-core nodes;
+    - `_direct_s8_batch` sizes its batches by the engine's footprint: 4 nao^2 npad doubles, 6 for
+      non-symmetric K.
+  - Blocks of 8, 12, 24 and 32 AOs were slower than 16 on SVP and TZVP.
+  - The products are about 58% of its time, the integrals 17%.
+  - About 42-47% of the products' work multiplies integrals; the rest is the zeros of screened quartets
+    inside blocks.
+- **Exactness.**
+  - Against one pass, caffeine with 72 dms: J within 1e-14 and K within 4e-15, relative to the largest
+    element.
+  - New test: `test_vhf.py test_direct_jk_gemm`. It compares against one pass with the semi-direct cache
+    holding all, part and none of the quartets, hermi 0 and 1, J and K alone.
+  - `validate.py` full: all pass, Hessians within 7.7e-11, excitations 8.1e-14.
+  - PySCF's tests: 1054 passed, the same 7 known failures.
+- **Speed.**
+  - One call, 72 dms, 10 threads, no cache: caffeine/def2-SVP 5.8 -> 2.2 s, def2-TZVP 85.5 -> 28.6 s.
+  - caffeine/def2-TZVP B3LYP Hessian, 10 threads, max_memory 20000: 1178 -> 816 s (1.44x); its CPHF J/K
+    577.5 -> 218.4 s (2.64x); Hessian within 2.1e-13. benzene/def2-TZVP keeps its ERIs in memory, so it
+    does not use the direct J/K (32 s either way).
+  - `bench/results/20261106-203002_jk-gemm.json`: laptop, 10 threads, ABBA x 2, max_memory 4000. Hessians
+    within 1.0e-10 of one pass (one pass against itself: up to 3.0e-11), excitations within 7.1e-14.
+
+| case | one pass (s) | engine (s) | total | J/K |
+|---|---|---|---|---|
+| hess_caffeine_svp_b3lyp | 118.5 | 99.7 | 1.19x | 69.9 -> 52.1 (1.34x) |
+| hess_caffeine+_svp_b3lyp_uks | 225.3 | 176.1 | 1.28x | 119.2 -> 70.5 (1.69x) |
+| tda_caffeine+_svp_b3lyp_uks | 46.9 | 39.2 | 1.20x | 25.1 -> 17.2 (1.46x) |
+| tda_caffeine_svp_b3lyp | 26.0 | 25.8 | 1.01x | under 13 dms a call: one pass |
+| hess_benzene_svp_b3lyp | 6.3 | 6.2 | 1.02x | 1.9 -> 1.8 |
+| hess_benzene+_svp_b3lyp_uks | 12.3 | 12.7 | 0.97x | 2.5 -> 2.5 |
+
+- **Left in the engine:**
+  - It does not read the semi-direct cache: the CPHF calls compute again what the SCF stored (about
+    0.6 s a call on caffeine/def2-SVP).
+  - Products on the zeros of screened quartets inside blocks: up to about 2x on its products.
+- **The rest of the caffeine/def2-TZVP Hessian** (598 of 816 s): `_partial_hess_2e` and `make_h1`
+  (batched above), the XC Hessian parts and the CPHF XC response.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
