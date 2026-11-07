@@ -7300,6 +7300,12 @@ of the time; the J/K of many dms is where the headroom is. The user: "Go for it"
 | hess_benzene_svp_b3lyp | 6.3 | 6.2 | 1.02x | 1.9 -> 1.8 |
 | hess_benzene+_svp_b3lyp_uks | 12.3 | 12.7 | 0.97x | 2.5 -> 2.5 |
 
+- **node2** (AVX2, 12 threads), a fresh clone of workspace 0988591 (pins PySCF perf-2026-11-06c, qcint
+  perf-2026-11-06c):
+  - `cpu_setup.sh --with-base` took 32 min, of which qcint 19 min; water B3LYP -8.5e-14 Eh from the
+    laptop; `kernels.py` 77/77.
+  - `test_vhf.py`: 17 passed.
+  - caffeine/def2-SVP, 72 dms: 14.0 -> 4.25 s (3.3x), J within 5.4e-15, K 2.4e-15.
 - **Left in the engine:**
   - It does not read the semi-direct cache: the CPHF calls compute again what the SCF stored (about
     0.6 s a call on caffeine/def2-SVP).
