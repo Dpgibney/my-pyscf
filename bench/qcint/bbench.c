@@ -10,6 +10,10 @@
  * 3 components; --ip1 for short), ipip1, ipvip1 or ip1ip2 (Hessians, 9 components), on every ordered
  * (i, j) with k >= l, as the gradients take them (qbench's ip1).
  *
+ * --dot (with ipip1, ipvip1 or ip1ip2): int2e_*_sph_batch_dot, the integrals contracted with 2 arrays
+ * of each quartet inside the kernels, against int2e_*_sph contracted here (both timed, the batched
+ * integrals contracted here too); the arrays are random in [-1, 1).
+ *
  * --sample N: up to N quartets of each type, evenly spaced, timed (best of --reps) and scaled by the
  * type's count to project one pass (default). --sample 0: every quartet, compared but not timed.
  * Every computed integral is compared.
@@ -32,6 +36,21 @@ typedef int (*FINT)(double *out, int *dims, int *shls, int *atm, int natm, int *
 typedef int (*FBATCH)(double *out, int nq, int *shls, int *atm, int natm, int *bas, int nbas,
                       double *env, void *opt, double *cache);
 typedef void (*FOPT)(void **opt, int *atm, int natm, int *bas, int nbas, double *env);
+typedef int (*FDOT)(double *out, int nq, int *shls, int *atm, int natm, int *bas, int nbas,
+                    double *env, const double *gam, int ng, double *cache);
+
+// out[(q*ng+n)*9+c] = sum_f buf[(q*9+c)*nf+f] gam[(q*ng+n)*nf+f]
+static void contract9(double *out, const double *buf, const double *gam, int nq, int ng, long nf)
+{
+        for (int q = 0; q < nq; q++)
+        for (int n = 0; n < ng; n++)
+        for (int c = 0; c < 9; c++) {
+                const double *b = buf + ((long)q * 9 + c) * nf, *g = gam + ((long)q * ng + n) * nf;
+                double sum = 0;
+                for (long f = 0; f < nf; f++) sum += b[f] * g[f];
+                out[((long)q * ng + n) * 9 + c] = sum;
+        }
+}
 
 typedef struct {
         int natm, nbas, nenv;
@@ -98,10 +117,11 @@ int main(int argc, char **argv)
                 return 1;
         }
         Mol m = load(argv[2]);
-        int reps = 2, nsample = 4000;
+        int reps = 2, nsample = 4000, dot = 0;
         const char *name = "int2e";
         for (int a = 3; a < argc; a++) {
                 if (!strcmp(argv[a], "--reps")) reps = atoi(argv[++a]);
+                else if (!strcmp(argv[a], "--dot")) dot = 1;
                 else if (!strcmp(argv[a], "--sample")) nsample = atoi(argv[++a]);
                 else if (!strcmp(argv[a], "--lr")) m.env[PTR_RANGE_OMEGA] = 0.3;
                 else if (!strcmp(argv[a], "--ip1")) name = "ip1";
@@ -111,6 +131,11 @@ int main(int argc, char **argv)
         const int ip1 = strcmp(name, "int2e") != 0;
         const int hess = ip1 && strcmp(name, "ip1") != 0;
         const int ncomp = hess ? 9 : ip1 ? 3 : 1;
+        const int ng = 2;
+        if (dot && !hess) {
+                fprintf(stderr, "--dot needs --int ipip1, ipvip1 or ip1ip2\n");
+                return 1;
+        }
         void *lib = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
         if (lib == NULL) {
                 fprintf(stderr, "%s\n", dlerror());
@@ -126,6 +151,11 @@ int main(int argc, char **argv)
         FBATCH fbatch = (FBATCH)sym(lib, fname);
         snprintf(fname, sizeof(fname), "%s%s_sph_batch_ok", pre, name);
         int (*fok)(int *, int *, double *) = sym(lib, fname);
+        FDOT fdot = NULL;
+        if (dot) {
+                snprintf(fname, sizeof(fname), "%s%s_sph_batch_dot", pre, name);
+                fdot = (FDOT)sym(lib, fname);
+        }
         int lanes = ((int (*)())sym(lib, "int2e_sph_batch_lanes"))();
         size_t bcache = ((size_t (*)())sym(lib, hess ? "int2e_hess_sph_batch_cache_size"
                                                : "int2e_sph_batch_cache_size"))();
@@ -184,6 +214,12 @@ int main(int argc, char **argv)
         }
         double *ref = malloc(sizeof(double) * maxblk);
         double *bout = malloc(sizeof(double) * maxblk);
+        // --dot: the arrays [quartet][ng][nf], and the contractions [quartet][ng][9]
+        double *gam = malloc(sizeof(double) * (dot ? maxblk / 9 * ng : 1));
+        double *rdot = malloc(sizeof(double) * (dot ? maxblk / 9 * ng : 1));
+        double *bdot = malloc(sizeof(double) * (dot ? maxblk / 9 * ng : 1));
+        double *ddot = malloc(sizeof(double) * (dot ? maxblk / 9 * ng : 1));
+        unsigned long long rng = 88172645463325252ull;
         double *cache = malloc(sizeof(double) * (1 << 22));
         double *bc = malloc(sizeof(double) * bcache);
         if (ref == NULL || bout == NULL || cache == NULL || bc == NULL) {
@@ -191,6 +227,7 @@ int main(int argc, char **argv)
                 return 1;
         }
         double tq_all = 0, tb_all = 0, dmax = 0, vmax = 0, rmax = 0;
+        double td_all = 0, ddmax = 0, dvmax = 0;
         long nbatch = 0;
         double cat_q[3][3] = {{0}}, cat_b[3][3] = {{0}};  // [max l: <=1, 2, >=3][combinations: 1, 2-7, >=8]
         for (int t = 0; t < nqt; t++) {
@@ -205,18 +242,42 @@ int main(int argc, char **argv)
                         nf *= 2 * l + 1;
                 }
                 int ok = fok(s0, m.bas, m.env);
-                double tq = 1e300, tb = 1e300;
+                const long nfs = nf / ncomp;
+                if (dot) {
+                        for (long n = 0; n < (long)T->n * ng * nfs; n++) {
+                                rng ^= rng << 13; rng ^= rng >> 7; rng ^= rng << 17;
+                                gam[n] = (double)(rng >> 11) / (double)(1ull << 52) - 1;
+                        }
+                }
+                double tq = 1e300, tb = 1e300, td = 1e300;
                 for (int rep = 0; rep < (nsample > 0 ? reps : 1); rep++) {
                         double t0 = now();
                         for (int n = 0; n < T->n; n++)
                                 fint(ref + nf * n, NULL, T->sh[n], m.atm, m.natm, m.bas, m.nbas, m.env, opt, cache);
+                        if (dot) contract9(rdot, ref, gam, T->n, ng, nfs);
                         double t1 = now();
                         if (ok) {
                                 fbatch(bout, T->n, &T->sh[0][0], m.atm, m.natm, m.bas, m.nbas, m.env, NULL, bc);
+                                if (dot) contract9(bdot, bout, gam, T->n, ng, nfs);
                         }
                         double t2 = now();
+                        if (ok && dot) {
+                                fdot(ddot, T->n, &T->sh[0][0], m.atm, m.natm, m.bas, m.nbas, m.env, gam, ng, bc);
+                        }
+                        double t3 = now();
                         tq = t1 - t0 < tq ? t1 - t0 : tq;
                         tb = t2 - t1 < tb ? t2 - t1 : tb;
+                        td = t3 - t2 < td ? t3 - t2 : td;
+                }
+                if (ok && dot) {
+                        for (long n = 0; n < (long)T->n * ng * 9; n++) {
+                                double v = rdot[n], d = fabs(v - ddot[n]);
+                                ddmax = fmax(ddmax, d);
+                                dvmax = fmax(dvmax, fabs(v));
+                        }
+                        td_all += td * (double)T->count / T->n;
+                } else if (dot) {
+                        td_all += tq * (double)T->count / T->n;
                 }
                 if (ok) {
                         nbatch += T->n;
@@ -238,6 +299,12 @@ int main(int argc, char **argv)
         }
         printf("batched: %ld of the %s quartets; max|d| %.2e (max|v| %.2e), max|d|/max(|v|,1e-6) %.2e\n",
                nbatch, nsample > 0 ? "sampled" : "", dmax, vmax, rmax);
+        if (dot) {
+                printf("_dot against int2e_%s_sph contracted here: max|d| %.2e (max|v| %.2e)\n", name, ddmax, dvmax);
+                if (nsample > 0)
+                        printf("with the contractions: int2e_sph %.1f s, batched %.1f s, _dot %.1f s (%.2fx the batched; "
+                               "projected one pass, 1 thread)\n", tq_all, tb_all, td_all, tb_all / td_all);
+        }
         if (nsample > 0) {
                 const char *lname[3] = {"max l <= 1", "max l = 2", "max l >= 3"};
                 const char *pname[3] = {"1 prim. comb.", "2-7", ">= 8"};

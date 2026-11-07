@@ -7392,6 +7392,70 @@ the largest remaining part of the caffeine/def2-TZVP B3LYP Hessian (355 of 831 s
   skip their cart -> sph step, the output transpose and the dot products here (about 17%). `make_h1`'s
   int2e_ip1 J/K are not screened either (no vhfopt).
 
+## make_h1's J/K screened; the Hessian integrals contracted inside qcint's kernels, 2026-11-07
+- **make_h1** (PySCF `perf` b648b82bf). The derivative Fock matrices' int2e_ip1 J/K went through
+  `_get_jk` without a vhfopt in all four make_h1 (rhf, rks, uhf, uks): every quartet was computed, upstream
+  too.
+  - `_make_h1_vhfopt`: `CVHFip1_h1_{jk,j,k}_prescreen` at 1e-14 (`hessian_rhf_make_h1_tol`, 0 for none;
+    the `_VHFOpt` default), with the gradients' pair bounds (`grad.rhf._calc_q_cond`: int2e_ip1ip2, int2e).
+  - dm_cond from the full densities, set on the vhfopt directly (no dmcondname, so `direct_bindm`'s
+    `set_dm` leaves it): the scripts take slices (`dm0[:,p0:p1]`), which `set_dm` cannot stack.
+  - The prescreens test every density element the four scripts read through s2kl: dm[j,i] and 2 dm[l,k]
+    (J), dm[l,i], dm[k,i], dm[j,k], dm[j,l] (K). Range-separated K: bounds of its own, made within
+    `with_range_coulomb`.
+  - caffeine/def2-TZVP, RHF make_h1, 10 threads: 105.5 -> 67.9 s (1.55x); h1 within 6.6e-13 of the
+    unscreened (|h1| 3.2; benzene/def2-SVP: 1.65e-13 against a run-to-run 2.0e-14).
+  - New test `test_rhf.py test_make_h1_screening` (RHF, B3LYP, PBE, wB97X, UHF, UKS B3LYP and CAM-B3LYP
+    against the unscreened, 1e-11).
+- **qcint** (`perf` cd07a5d): `int2e_ipip1/ipvip1/ip1ip2_sph_batch_dot`, the batched Hessian integrals
+  contracted with 1 or 2 arrays of each quartet: out[q][n][9] = sum_f int[q][c][f] gam[q][n][f].
+  - After the primitive loop, gam goes to the cartesian functions by the transpose of the cart -> sph
+    step (once per quartet and array, in the then free space of the 2D integrals: at most 0.6 of it, for
+    ipip1 (ff|ff)), and is contracted with the cartesian integrals in one pass with the 9 x ng sums in
+    registers. No component goes to spherical and no block is written.
+  - Tried first: adding each root sum to the 9 x ng sums inside the primitive loop. Slower for s and p:
+    the sums left the registers (py-spy on caffeine/def2-TZVP: the l0 and l1 kernels 13-60% slower, the l2
+    and l3 ones 13-26% faster; 158.7 -> 143.0 s overall). Then the contraction after the loop over each
+    array in turn re-read the (ff|ff) block (5.8 MB with 8 lanes) per array: 128.8 s; one pass: 124.7 s.
+  - bbench `--dot` (new): against int2e_*_sph contracted in bbench, with random arrays; also in the PGO
+    training.
+  - Exactness: within 1.1e-13 on every benzene quartet (values up to 48), 1.8e-12 on sampled
+    caffeine/def2-TZVP (values up to 455), long range 1.7e-15 (water). qcint's own functions bitwise
+    identical to the previous PGO build (4c59d1e): int2e_sph on all 113M caffeine/def2-TZVP quartets,
+    int2e_ip1 and the three Hessian integrals on every benzene quartet. `kernels.py` 77/77.
+  - One core, PGO, caffeine/def2-TZVP sampled: the batched kernels alone 553-563 s projected, the _dot
+    kernels 478-483 s (1.16x), and they spare the contraction in PySCF as well.
+- **PySCF** (`perf` a3ef1e042): `hess_jk_energy` contracts through the _dot kernels when qcint has them
+  (`hessian_rhf_jk_energy_dot`, default on); off, the batched integrals are contracted in PySCF as before.
+  - caffeine/def2-TZVP, `hess_jk_energy` at 10 threads, plain qcint build, py-spy at 25 Hz: 158.7 s with
+    the contraction in PySCF, 124.7 s through the _dot kernels; unprofiled in one process 167.8 -> 134.1 s
+    (the laptop's timings drift by 5-15% between runs). Within 2.1e-14 of each other, 1.85e-13 of the
+    loops.
+- **Exactness.** `validate.py` full and hessian suites with the new PGO build: all pass, Hessians within
+  4.3e-12 to 6.4e-11. PySCF's tests: 1056 passed, the same 7 known failures.
+- **Bench** (`bench/results/20261107-020326_hess-h1-dot.json`: laptop, PGO, 10 threads, ABC CBA): base =
+  make_h1 unscreened and the contraction in PySCF, h1 = make_h1 screened, dot = both. Hessians within
+  8.1e-11 of base (base against itself: up to 6.4e-11). At def2-SVP the XC kernels are about half of these
+  Hessians, and the two-electron parts left are small:
+
+| case | base (s) | h1 (s) | dot (s) | total |
+|---|---|---|---|---|
+| hess_benzene_svp_b3lyp | 6.09 | 5.90 | 5.81 | 1.05x |
+| hess_benzene_svp_pbe | 5.66 | 5.63 | 5.58 | 1.02x |
+| hess_benzene+_svp_b3lyp_uks | 12.40 | 12.42 | 12.31 | 1.01x |
+| hess_caffeine_svp_b3lyp | 86.82 | 82.40 | 80.99 | 1.07x |
+| hess_caffeine+_svp_b3lyp_uks | 159.04 | 154.59 | 153.41 | 1.04x |
+| hess_caffeine_svp_r2scan | 120.01 | 116.30 | 115.17 | 1.04x |
+
+- **caffeine/def2-TZVP B3LYP Hessian** (10 threads, max_memory 20000, one process): 817.5 s with
+  hess_jk_energy, the make_h1 screening and the _dot kernels off, 538.4 s with them (1.52x; 1178 s before
+  the CPHF engine). Hessian within 5.3e-13 (max|h| 0.93).
+  - RKS partial hessian 374.9 -> 145.6 s (its two-electron part about 115 s);
+  - CPHF 250.4 -> 252.4 s, of which J/K 216.8 -> 218.4 s;
+  - make_h1 and the rest 192.2 -> 140.4 s.
+- **Left:** the CPHF J/K (40% now; the engine's products on the zeros of screened quartets inside blocks),
+  the Hessian integrals (about 21%), make_h1's J/K (about 13%; no translational invariance or s8 there).
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
