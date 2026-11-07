@@ -7668,6 +7668,32 @@ The `rijcosx` branch as a `git archive` built there as `pyscf-rx`; `bench/result
 - The final step recomputes J and XC too (generic get_veff); K alone would do.
 - The J-engine for Cartesian auxiliary functions (mol.cart) and for the DF-J gradient (int3c2e_ip1/ip2 now).
 
+### What is left on the speed side, measured (2026-11-07)
+The user asked for the remaining speed items in detail. `bench/results/rijcosx/laptop_left_xc_grad.log`.
+- **The split now** (node2, n-C20H42/def2-TZVP, 116 s; ORCA 110 s): K in the SCF 50.3 s (ORCA's COSX 72.5), XC 37.9
+  (14.8), the final level-2 step 16.3 (17.4), J 7.2 (9.7), the rest ~4.7.
+- **XC:** per point PySCF is ORCA's speed (node2, caffeine: 4.6 against 5.6 us per point and cycle); the gap is the
+  grid. E_xc of the converged RIJCOSX density by PySCF grid level against level 8 (laptop, 10 threads):
+
+| level | caffeine points | E_xc error | s per call | C20H42 points | E_xc error | s per call |
+|---|---|---|---|---|---|---|
+| 0 | 21,312 | -1.5e-2 | 0.06 | 47,760 | -2.8e-2 | 0.11 |
+| 1 | 97,000 | +1.5e-5 | 0.21 | 207,424 | +5.3e-4 | 0.40 |
+| 2 | 209,768 | +1.2e-5 | 0.41 | 449,784 | -1.3e-4 | 0.94 |
+| 3 (default) | 294,800 | +1.2e-5 | 0.56 | 694,296 | -1.2e-4 | 1.50 (1.29 with the radial cache) |
+| 4 | 553,968 | -1.3e-7 | 1.17 | 1,231,896 | +6.2e-6 | 2.77 (2.48) |
+
+  - Levels 2 and 3 make the same error here; level 2 takes 30-35% fewer points and 37% less XC time. ORCA's DefGrid2
+    has 116,136 and 252,602 points (between PySCF's levels 1 and 2).
+  - The fused XC's radial cache (built when it fits 25% of the memory left) is worth 10-14% of the XC, not more.
+- **K per build** (node2, C20H42): the level-0 phase 16.2 s (its incremental builds 64-81% of a full one: dD is still
+  large), level 1 34.2 s; full builds (the first on each grid, the rebuild every 5 cycles) 34% of K; late
+  incremental builds 33-46% of a full one, as the |dE|-scaled threshold tightens. The dense steps of every build
+  (F = D X, K += X G) took 23% of K in the laptop profile, whatever dD.
+- **The RIJCOSX gradient** (caffeine, laptop, 11.7 s under cProfile): K 7.5 s (64%), J 2.2 s (19%, int3c2e_ip1/ip2
+  in df/grad), XC 1.8 s (15%). The gradient's K takes the pair screening with whatever threshold the SCF's last K
+  build left in the C struct (a tightened one): accurate, but not set on purpose.
+
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
 - **PySCF `perf` fast-forwarded to `rijcosx` 0e7843bfd** (with it the unpushed refactor commits c9bfd2ea5 and
