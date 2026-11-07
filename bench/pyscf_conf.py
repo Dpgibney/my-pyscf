@@ -11,6 +11,8 @@
 #   BENCH_HESS_JK_DOT=0|1   hessian.rhf.JK_ENERGY_DOT of the perf tree: hess_jk_energy's integrals contracted in
 #                           qcint's _dot kernels, or in PySCF
 #   BENCH_GRAD_JK_DOT=0|1   grad.rhf.JK_ENERGY_DOT of the perf tree: the same for the gradients' jk_energy_per_atom
+#   BENCH_RIJ_ENGINE=0|1    df.df_jk.RIJ_ENGINE of the rijcosx branch: df_jk.get_j by the J-engine (rij_engine.c)
+#                           or through int3c2e
 import os
 
 if 'BENCH_SEMI_DIRECT' in os.environ:
@@ -29,3 +31,5 @@ if 'BENCH_HESS_JK_DOT' in os.environ:
     hessian_rhf_jk_energy_dot = os.environ['BENCH_HESS_JK_DOT'] == '1'
 if 'BENCH_GRAD_JK_DOT' in os.environ:
     grad_rhf_jk_energy_dot = os.environ['BENCH_GRAD_JK_DOT'] == '1'
+if 'BENCH_RIJ_ENGINE' in os.environ:
+    df_df_jk_rij_engine = os.environ['BENCH_RIJ_ENGINE'] == '1'

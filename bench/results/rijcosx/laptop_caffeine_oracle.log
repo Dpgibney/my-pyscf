@@ -1,0 +1,29 @@
+caffeine/def2-tzvp nao 494 nbas 194, level 1: 32256 points, 144 batches; E_SCF -680.5699152977
+exchange energy (or its change) -87.9773807639; 2723760 pair-batches, 2579472 nonzero
+  sum of dropped |e| <= 1e-04: keep 1093931 of 2723760 pair-batches (40.2%)
+  sum of dropped |e| <= 1e-05: keep 1335955 of 2723760 pair-batches (49.0%)
+  sum of dropped |e| <= 1e-06: keep 1532663 of 2723760 pair-batches (56.3%)
+  sum of dropped |e| <= 1e-07: keep 1690261 of 2723760 pair-batches (62.1%)
+  sum of dropped |e| <= 1e-08: keep 1817889 of 2723760 pair-batches (66.7%)
+  sum of dropped |e| <= 1e-09: keep 1921441 of 2723760 pair-batches (70.5%)
+  sum of dropped |e| <= 1e-10: keep 2006027 of 2723760 pair-batches (73.6%)
+  |e| > 1e-08: keep 782051 (28.7%); dropped sum 1.28e-03, dropped signed sum -3.50e-05
+  |e| > 1e-09: keep 1077214 (39.5%); dropped sum 1.16e-04, dropped signed sum -2.52e-06
+  |e| > 1e-10: keep 1340916 (49.2%); dropped sum 9.49e-06, dropped signed sum -1.79e-07
+  |e| > 1e-11: keep 1555198 (57.1%); dropped sum 7.41e-07, dropped signed sum -1.59e-08
+  |e| > 1e-12: keep 1722330 (63.2%); dropped sum 5.86e-08, dropped signed sum -1.07e-09
+caffeine/def2-tzvp nao 494 nbas 194, level 1: 32256 points, 144 batches; E_SCF -680.5699152977
+incremental: D - D_10, |ddm| 3.96e-04
+exchange energy (or its change) -0.0000156571; 2723760 pair-batches, 2579472 nonzero
+  sum of dropped |e| <= 1e-04: keep 74254 of 2723760 pair-batches (2.7%)
+  sum of dropped |e| <= 1e-05: keep 254478 of 2723760 pair-batches (9.3%)
+  sum of dropped |e| <= 1e-06: keep 519666 of 2723760 pair-batches (19.1%)
+  sum of dropped |e| <= 1e-07: keep 818692 of 2723760 pair-batches (30.1%)
+  sum of dropped |e| <= 1e-08: keep 1101796 of 2723760 pair-batches (40.5%)
+  sum of dropped |e| <= 1e-09: keep 1342677 of 2723760 pair-batches (49.3%)
+  sum of dropped |e| <= 1e-10: keep 1537004 of 2723760 pair-batches (56.4%)
+  |e| > 1e-08: keep 26734 (1.0%); dropped sum 3.06e-04, dropped signed sum -1.76e-06
+  |e| > 1e-09: keep 100622 (3.7%); dropped sum 6.41e-05, dropped signed sum -4.83e-07
+  |e| > 1e-10: keep 254470 (9.3%); dropped sum 1.00e-05, dropped signed sum -7.51e-08
+  |e| > 1e-11: keep 491176 (18.0%); dropped sum 1.25e-06, dropped signed sum -2.10e-09
+  |e| > 1e-12: keep 784518 (28.8%); dropped sum 1.30e-07, dropped signed sum -7.78e-10

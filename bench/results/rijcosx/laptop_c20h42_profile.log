@@ -1,0 +1,36 @@
+c20h42 def2-tzvp b3lyp pjs: nao 872, nbas 388, SGX grid 79312, 10 threads; SCF 155.0 s, 10 cycles, E -787.7628156731
+K builds on 79312 points (level 1), etol auto, vtol auto; 388 shells, 75466 shell pairs, 380628 AO pairs
+incremental: the converged density minus that of cycle 7 (|ddm| 9.67e-05)
+== first K build (sets up the screening data): 5.622 s
+   k_part (C driver)               4.315 s  (1 calls)
+   reduce_mask_ni2sgx              0.004 s  (1 calls)
+   rest (Python)                   0.404 s
+   C driver: 1 calls, wall 4.315 s, thread-seconds 41.699 (97% of 10 threads x wall)
+      grid screening                0.088 thread-s    0.2%
+      shell-pair screening          1.490 thread-s    3.6%
+      integrals (int1e_grids)      32.624 thread-s   78.2%
+      contraction                   7.316 thread-s   17.5%
+      set0 and send                 0.181 thread-s    0.4%
+      355 batches of 224 points, 11619174 shell pairs (32730 per batch, 43.4% of all), 1.271e+10 integrals (160298 per point, 42.1% of the AO pairs), 389.7 M integrals per thread-second
+== K build 1 (full): 4.968 s
+   k_part (C driver)               4.324 s  (1 calls)
+   rest (Python)                   0.018 s
+   C driver: 1 calls, wall 4.324 s, thread-seconds 41.814 (97% of 10 threads x wall)
+      grid screening                0.088 thread-s    0.2%
+      shell-pair screening          1.498 thread-s    3.6%
+      integrals (int1e_grids)      32.772 thread-s   78.4%
+      contraction                   7.283 thread-s   17.4%
+      set0 and send                 0.172 thread-s    0.4%
+      355 batches of 224 points, 11619174 shell pairs (32730 per batch, 43.4% of all), 1.271e+10 integrals (160298 per point, 42.1% of the AO pairs), 387.9 M integrals per thread-second
+== K build 2 (incr): 4.404 s
+   k_part (C driver)               3.747 s  (1 calls)
+   reduce_mask_ni2sgx              0.000 s  (1 calls)
+   rest (Python)                   0.019 s
+   C driver: 1 calls, wall 3.746 s, thread-seconds 36.135 (96% of 10 threads x wall)
+      grid screening                0.088 thread-s    0.2%
+      shell-pair screening          1.493 thread-s    4.1%
+      integrals (int1e_grids)      28.385 thread-s   78.6%
+      contraction                   6.008 thread-s   16.6%
+      set0 and send                 0.162 thread-s    0.4%
+      355 batches of 224 points, 9951658 shell pairs (28033 per batch, 37.1% of all), 1.092e+10 integrals (137744 per point, 36.2% of the AO pairs), 384.9 M integrals per thread-second
+max |vk| 8.747e-06

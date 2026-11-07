@@ -1,0 +1,48 @@
+OK: all PySCF libs in pyscf-rx resolve cint/xc/BLAS from deps (cint=qcint-pgo xc=libxc-stock blas=openblas )
+caffeine/def2-tzvp/b3lyp nao 494 6 threads exact node2
+  SCF 215.5 s, 14 cycles, converged True, E -680.5697781455
+  J/K 193.3 s, XC 21.0 s, rest of get_veff 0.2 s, outside get_veff 1.0 s
+  memory: peak RSS 3.20 GB (kernel); sampled peaks by phase: setup RSS 0.12 GB disk 0.00 GB, scf RSS 3.20 GB disk 0.00 GB (max_memory 4000 MB)
+caffeine/def2-tzvp/b3lyp nao 494 6 threads rijk aux=def2-tzvp-jkfit node2
+  SCF 35.0 s, 14 cycles, converged True, E -680.5699152977
+  J/K 13.5 s, XC 20.5 s, rest of get_veff 0.2 s, outside get_veff 0.9 s
+  error against exact: -0.1372 mEh
+  memory: peak RSS 2.66 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 2.66 GB disk 0.00 GB (max_memory 4000 MB)
+caffeine/def2-tzvp/b3lyp nao 494 6 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 node2 before
+  SCF 65.9 s, 15 cycles, converged True, E -680.5703325431; final level 2: -680.5703416855 (+6.0 s)
+  J 12.1 s, K 30.5 s, XC 21.9 s, rest of get_veff 0.3 s, outside get_veff 1.1 s
+    J builds: 0.76 0.76 0.75 0.75 0.74 0.76 0.73 0.72 0.76 0.70 0.69 0.68 0.66 0.76 0.64 0.62 0.61
+    final step (level-2 grid and K): 5.99 s
+  error against exact: -0.5635 mEh
+  memory: peak RSS 1.97 GB (kernel); sampled peaks by phase: setup RSS 0.11 GB disk 0.00 GB, scf RSS 1.35 GB disk 0.00 GB, final RSS 1.97 GB disk 0.00 GB (max_memory 4000 MB)
+caffeine/def2-tzvp/b3lyp nao 494 6 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 node2 after
+  SCF 47.4 s, 15 cycles, converged True, E -680.5703325429; final level 2: -680.5703416852 (+5.0 s)
+  J 2.9 s, K 21.1 s, XC 21.9 s, rest of get_veff 0.3 s, outside get_veff 1.1 s
+    J builds: 0.20 0.18 0.18 0.18 0.18 0.18 0.18 0.17 0.18 0.17 0.17 0.16 0.16 0.18 0.15 0.15 0.15
+    final step (level-2 grid and K): 4.97 s
+  error against exact: -0.5635 mEh
+  memory: peak RSS 1.91 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 1.35 GB disk 0.00 GB, final RSS 1.91 GB disk 0.00 GB (max_memory 4000 MB)
+c20h42/def2-tzvp/b3lyp nao 872 6 threads exact node2
+  SCF 453.1 s, 10 cycles, converged True, E -787.7617828750
+  J/K 410.7 s, XC 39.1 s, rest of get_veff 1.0 s, outside get_veff 2.4 s
+  memory: peak RSS 3.31 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 3.31 GB disk 0.01 GB (max_memory 4000 MB)
+c20h42/def2-tzvp/b3lyp nao 872 6 threads rijk aux=def2-tzvp-jkfit node2
+  SCF 122.1 s, 10 cycles, converged True, E -787.7623117801
+  J/K 83.7 s, XC 35.2 s, rest of get_veff 0.9 s, outside get_veff 2.3 s
+  error against exact: -0.5289 mEh
+  memory: peak RSS 2.22 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 2.21 GB disk 6.88 GB (max_memory 4000 MB)
+c20h42/def2-tzvp/b3lyp nao 872 6 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 node2 before
+  SCF 148.4 s, 10 cycles, converged True, E -787.7629087277; final level 2: -787.7628156420 (+22.2 s)
+  J 27.3 s, K 81.6 s, XC 35.2 s, rest of get_veff 1.6 s, outside get_veff 2.8 s
+    J builds: 2.47 2.45 2.41 2.39 2.26 2.44 2.20 2.16 2.13 2.08 2.44 1.85
+    final step (level-2 grid and K): 22.20 s
+  error against exact: -1.0328 mEh
+  memory: peak RSS 3.12 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 2.15 GB disk 0.01 GB, final RSS 3.12 GB disk 0.01 GB (max_memory 4000 MB)
+c20h42/def2-tzvp/b3lyp nao 872 6 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 node2 after
+  SCF 100.1 s, 11 cycles, converged True, E -787.7629087272; final level 2: -787.7628156411 (+16.3 s)
+  J 7.2 s, K 50.3 s, XC 37.9 s, rest of get_veff 1.6 s, outside get_veff 3.1 s
+    J builds: 0.65 0.60 0.59 0.59 0.55 0.60 0.54 0.53 0.52 0.51 0.60 0.47 0.46
+    final step (level-2 grid and K): 16.31 s
+  error against exact: -1.0328 mEh
+  memory: peak RSS 3.13 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 2.16 GB disk 0.01 GB, final RSS 3.13 GB disk 0.01 GB (max_memory 4000 MB)
+NODE2 RIJCOSX DONE

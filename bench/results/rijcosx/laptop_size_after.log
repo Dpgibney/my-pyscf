@@ -1,0 +1,43 @@
+caffeine/def2-tzvp/b3lyp nao 494 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 jeng auto
+  SCF 32.4 s, 15 cycles, converged True, E -680.5703325431; final level 2: -680.5703416856 (+3.4 s)
+  J 2.4 s, K 22.2 s, XC and rest of get_veff 6.5 s, outside get_veff 1.3 s
+    J builds: 0.23 0.15 0.15 0.14 0.14 0.14 0.14 0.15 0.13 0.14 0.14 0.14 0.14 0.15 0.13 0.12 0.12
+    final step (level-2 grid and K): 3.44 s
+  error against exact: -0.5635 mEh
+  memory: peak RSS 1.97 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 1.40 GB disk 0.00 GB, final RSS 1.97 GB disk 0.00 GB (max_memory 4000 MB)
+caffeine/def2-tzvp/b3lyp nao 494 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 jeng pair
+  SCF 25.8 s, 15 cycles, converged True, E -680.5703325429; final level 2: -680.5703416852 (+2.8 s)
+  J 2.4 s, K 15.3 s, XC and rest of get_veff 6.9 s, outside get_veff 1.2 s
+    J builds: 0.24 0.14 0.15 0.14 0.14 0.14 0.14 0.14 0.13 0.14 0.13 0.13 0.13 0.14 0.13 0.13 0.12
+    final step (level-2 grid and K): 2.80 s
+  error against exact: -0.5635 mEh
+  memory: peak RSS 1.95 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 1.39 GB disk 0.00 GB, final RSS 1.96 GB disk 0.00 GB (max_memory 4000 MB)
+c20h42/def2-tzvp/b3lyp nao 872 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 jeng auto
+  SCF 71.2 s, 10 cycles, converged True, E -787.7629087277; final level 2: -787.7628156420 (+12.5 s)
+  J 4.5 s, K 57.6 s, XC and rest of get_veff 6.7 s, outside get_veff 2.3 s
+    J builds: 0.46 0.40 0.39 0.39 0.38 0.38 0.36 0.37 0.35 0.34 0.40 0.31
+    final step (level-2 grid and K): 12.53 s
+  error against exact: -1.0328 mEh
+  memory: peak RSS 3.12 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 2.20 GB disk 0.01 GB, final RSS 3.12 GB disk 0.01 GB (max_memory 4000 MB)
+c20h42/def2-tzvp/b3lyp nao 872 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 jeng pair
+  SCF 58.1 s, 11 cycles, converged True, E -787.7629087272; final level 2: -787.7628156411 (+9.6 s)
+  J 5.0 s, K 38.5 s, XC and rest of get_veff 11.9 s, outside get_veff 2.6 s
+    J builds: 0.49 0.41 0.41 0.41 0.38 0.39 0.38 0.37 0.37 0.35 0.42 0.32 0.32
+    final step (level-2 grid and K): 9.64 s
+  error against exact: -1.0328 mEh
+  memory: peak RSS 3.10 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 2.20 GB disk 0.01 GB, final RSS 3.10 GB disk 0.01 GB (max_memory 4000 MB)
+c26h54/def2-tzvp/b3lyp nao 1130 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 jeng auto
+  SCF 122.7 s, 10 cycles, converged True, E -1023.7292642448; final level 2: -1023.7291409228 (+21.5 s)
+  J 8.0 s, K 102.2 s, XC and rest of get_veff 8.3 s, outside get_veff 4.1 s
+    J builds: 0.79 0.72 0.70 0.69 0.65 0.70 0.65 0.63 0.63 0.61 0.72 0.54
+    final step (level-2 grid and K): 21.46 s
+  error against exact: -1.3257 mEh
+  memory: peak RSS 3.18 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 3.18 GB disk 0.01 GB, final RSS 3.18 GB disk 0.01 GB (max_memory 4000 MB)
+c26h54/def2-tzvp/b3lyp nao 1130 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 jeng pair
+  SCF 91.9 s, 11 cycles, converged True, E -1023.7292642444; final level 2: -1023.7291409216 (+15.1 s)
+  J 8.5 s, K 62.1 s, XC and rest of get_veff 16.8 s, outside get_veff 4.5 s
+    J builds: 0.80 0.71 0.70 0.69 0.65 0.70 0.64 0.63 0.62 0.61 0.71 0.55 0.54
+    final step (level-2 grid and K): 15.14 s
+  error against exact: -1.3257 mEh
+  memory: peak RSS 3.19 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 3.19 GB disk 0.01 GB, final RSS 3.16 GB disk 0.01 GB (max_memory 4000 MB)
+NEW DONE

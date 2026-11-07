@@ -7547,6 +7547,128 @@ and qcint's two templates, together with their next uses. The user: "Please star
 | grad_caffeine+_svp_b3lyp_uks | 3.61 | 3.48 | 1.04x |
 | grad_caffeine_tzvp_b3lyp | 37.56 | 33.47 | 1.12x |
 
+## RIJCOSX in PySCF: screening K by shell pair, a J-engine for RI-J, ORCA's grid scheme, 2026-11-07
+The user relaxed the exact-only rule: "Let's relax the exact requirement now ... I've always liked the RIJCOSX
+approach in orca. Could we explore that here?", then "Could you monitor memory and disk usage as well? Something
+I've noticed about orca is it doesn't need much memory whereas PySCFs RIJ seems very memory hungry".
+- **Where:** pyscf branch `rijcosx` (worktree `pyscf-rx`): `sgx-exp` merged (It25/It26's AO and projection
+  caches, the kernel flags), then fca1515c6 (J-engine), c07235166 (SGX) and 0e7843bfd (the final step keeps the SCF's
+  SGX data for the gradients). Not in `perf` yet.
+- **Tools** (workspace): `bench/diag/rijcosx.py` (one SCF, exact / RIJK / RIJCOSX-like, J/K/XC split, a line per K
+  build, peak RSS and scratch-disk bytes sampled every 0.1 s in a per-run `PYSCF_TMPDIR` on the disk, since `/tmp`
+  is a tmpfs here); `cosx_oracle.py` (the exact energy share of every shell pair and 224-point batch, against what a
+  screening keeps); `sgx_pairtol.py`; `rij_engine_check.py`; `sgx_profile.py` gains `--level --etol --vtol --incr
+  --auxbasis`. ORCA references: `bench/orca/rx/`, `scripts/node2_orca_rx.sh`, summary
+  `bench/results/node2/node2_orca_rx.log`. Laptop logs: `bench/results/rijcosx/`.
+- **Laptop runs:** 10 threads, the power-saver profile with its 2.0 GHz clamp, PySCF's default `max_memory` (4000
+  MB), B3LYP/def2-TZVP. "RIJCOSX" is SGX with dfj (`pjs`), def2-universal-jfit (ORCA's def2/J), grid levels 0 -> 1
+  and the energy once more on level 2, as ORCA does.
+
+### What the first measurements showed
+- **SGX's default screening does nothing.** "auto" sets sgx_tol_energy to direct_scf_tol (1e-13) and splits it over
+  the batches and the shells of each batch (~1e-18 a shell). Caffeine, level 1: SGX computes 98.5% of the integrals of
+  no screening at all, 92% in an incremental build (|dD| 4e-4); sgx_tol_energy from 1e-13 to 1e-7 changes neither the
+  energy (10 digits) nor the time. So incremental builds cost as much as full ones (3.2 s each at level 2).
+- **What a given accuracy needs** (`cosx_oracle.py`, caffeine, level 1, 2.7 M pair-batches): to keep the dropped
+  share of the exchange energy under 1e-6 Eh, 56% of the pair-batches in a full build and 19% in an incremental one.
+- **SGX's own bound is a usable estimate:** rbar_IJ m_bI m_bJ times the batch norms of F exceeds the true share by a
+  median 26x and never falls under it in a full build (0.53 at worst, incremental). A fixed threshold on it at 1e-10
+  keeps 62% / 20% with errors of 8e-9 / 1e-8 Eh.
+- **RI-J was the next cost:** SGX's dfj J (`df_jk.get_j`, integral direct, two passes over int3c2e) took 0.4 s a build
+  on caffeine, ~19 ns per (ab|P), 90% of it in qcint's scalar int3c2e. ORCA's Split-RI-J is ~3x faster per build
+  (scaled from node2).
+- **Memory:** RIJK (`mf.density_fit()`) stores the 3-index tensor, on disk past `max_memory`: 6.9 GB for C20H42 and
+  15.0 GB for C26H54 at the default 4000 MB. SGX's RIJCOSX path stores nothing: peak RSS 2-3.2 GB, no disk. ORCA
+  peaks at 0.6-1.0 GB here.
+
+### Changes
+1. **`sgx_tol_pair`** (`SGXscreen_grid_pair`, `SGXscreen_shells_pair` in `nr_sgx_direct.c`; SGXData `pair_tol`):
+   each shell pair on each batch is evaluated if rbar_IJ m_bI m_bJ (f_I F_J + F_I f_J) > sgx_tol_pair, f the weighted
+   norms of the F contracted, F those of the full density (equal in a full build); with sgx_tol_potential, also if
+   its potential estimate exceeds that. sgx_tol_energy/potential still screen the dense D X and X G steps.
+   - Caffeine level 1, 1e-9: a full build 1.14 -> 0.86 s (69% of the integrals), the exchange energy within 1.2e-8;
+     an incremental build 1.17 -> 0.41 s (26%), within 3e-10.
+   - **A fixed threshold broke the SCF:** caffeine 50 cycles (4e-9) against 15, n-C26H54 37 (1e-9) against 10. The
+     dropped parts of an incremental build move E at first order (tr D dK) while dE falls at second order, so dE
+     never got under conv_tol: every full rebuild landed on the same energy (to 1e-12), the incremental ones scattered
+     by ~5e-9.
+   - **Fix:** an incremental build's threshold is min(sgx_tol_pair, 0.01 |dE of the last cycle|) (`_SGXHF` keeps
+     the last two energies). Caffeine 15 cycles at 4e-9, C20H42 and C26H54 11 at 1e-9 (10 unscreened).
+2. **The J-engine** (`lib/vhf/rij_engine.c`, `df_jk.get_j`, `df_jk.RIJ_ENGINE`): McMurchie-Davidson RI-J. Each AO
+   pair's density goes to Hermite form once (E coefficients) and meets every auxiliary primitive through the R
+   integrals only; pass 2 builds the pair's J block from a Hermite potential. Spherical auxiliary functions take the
+   Hermite components of their own order only (Hobson). Auxiliary primitives of one l go 8 at a time through a
+   tabulated Boys function (Taylor from a 1/16 grid, downward recursion), the R recursion and the contractions.
+   - Same J as int3c2e to 1e-13 relative (cc-pVDZ's general contractions, def2-QZVP's g functions, CH3Br, caffeine).
+   - 2.1x a build on caffeine/def2-TZVP; in the SCF 3.3x (J 7.9 -> 2.4 s), its density screening taking the small
+     incremental dD better. Stores nothing.
+   - mol.cart (Cartesian auxiliary functions) and l > 6 (AO) or > 8 (auxiliary) keep the int3c2e path. Its data follow
+     auxmol, the molecule and its geometry (a first version keyed on the Mole's identity reused the old geometry in
+     `as_scanner`; the SGX gradient tests caught it).
+3. **`grids_level_energy`** (the converged density's energy once more on a larger SGX grid, orbitals unchanged:
+   ORCA's GRIDX3 step) and **`rijcosx(mf)` / `mf.RIJCOSX()`** (def2-universal-jfit, levels 0 -> 1, the energy on level
+   2, sgx_tol_pair 1e-9).
+4. **`get_jk_favorj`** rounds its grid blocks to SGX_BLKSIZE (it failed `assert i0 % BLKSIZE == 0` when the grid took
+   more than one block: the C26H54/PCM crash of 2026-11-05); `get_jk_favork`'s memory estimate counts nao.
+- **Tests:** `test_get_j_engine`, `test_sgx_tol_pair`, `test_rijcosx`, `test_rijcosx_grad`, `test_sgx_jk_blocks`;
+  PySCF's suites (dft scf df grad hessian tdscf solvent sgx): 1060 passed, the 7 known failures (before
+  test_rijcosx_grad; sgx and sgx/grad again after it: 13 passed).
+
+### Laptop results (B3LYP/def2-TZVP, 10 threads, max_memory 4000 MB; total = SCF + the final level-2 step)
+| system | exact | RIJK (`density_fit`) | RIJCOSX before | RIJCOSX now | now vs exact |
+|---|---|---|---|---|---|
+| caffeine (494 AOs) | 55.5 s | 16.0 s | 41.3 s | 28.6 s | 1.9x |
+| n-C20H42 (872) | 157.6 s | 80.1 s, 6.9 GB on disk | 96.4 s | 67.7 s | 2.3x |
+| n-C26H54 (1130) | 331.0 s | 183.8 s, 15.0 GB on disk | 164.2 s | 107.0 s | 3.1x |
+
+- Errors against exact: RIJCOSX -0.56, -1.03, -1.33 mEh (ORCA's RIJCOSX against its exact: -0.56, -1.03, -1.33 with
+  PCM); RIJK -0.14, -0.53, -0.68. The screened energies are within 1e-9 Eh of the unscreened ones.
+- Peak RSS: exact 3.5-3.7 GB (its ERI cache), RIJK 2.3 GB plus the disk, RIJCOSX 2.0-3.2 GB and nothing on disk.
+- "Before" = SGX's default screening and the int3c2e RI-J; "now" = J-engine and sgx_tol_pair 1e-9.
+- **C26H54 now:** K in the SCF ~49 s, the final level-2 step 15 s, XC ~30 s (2.5 s a call: level 3 has ~900k points,
+  and the fused XC's radial cache needs more than 25% of max_memory), J 8.5 s.
+- The harness's first "XC and rest" column subtracted the final step's K too (fixed: it now times nr_rks and keeps
+  the final K apart); the totals above are wall times.
+
+### ORCA 6.1.1 on node2 (6 ranks, B3LYP/G def2-TZVP, gas phase, TightSCF, DefGrid2)
+| system | RIJCOSX | of which COSX / Split-RI-J / XC / GRIDX3 step | exact | RIJCOSX vs exact | peak PSS |
+|---|---|---|---|---|---|
+| caffeine | 57 s, 14 cycles | 37.7 / 4.2 / 9.7 / 7.5 s | 211 s | 3.7x | 0.60 GB |
+| n-C20H42 | 110 s, 12 cycles | 72.5 / 9.7 / 14.8 / 17.4 s | 526 s | 4.8x | 0.95 GB |
+
+- GRIDX1/2/3: caffeine 14,827 / 32,471 / 71,266 points (PySCF's levels 0/1/2: 17,464 / 32,256 / 71,208);
+  C20H42 32,286 / 66,432 / 143,960 (PySCF level 1: 79,312; level 2: 176,984).
+
+### PySCF on node2 beside ORCA (6 threads, max_memory 4000 MB; `scripts/node2_rijcosx.sh`)
+The `rijcosx` branch as a `git archive` built there as `pyscf-rx`; `bench/results/node2/node2_rijcosx.{log,jsonl}`.
+
+| run | caffeine | of which J / K / XC / final step | n-C20H42 | of which J / K / XC / final step | peak memory |
+|---|---|---|---|---|---|
+| PySCF exact | 215.5 s | | 453.1 s | | 3.2-3.3 GB |
+| PySCF RIJK | 35.0 s | | 122.1 s (6.9 GB on disk) | | 2.2-2.7 GB |
+| PySCF RIJCOSX before | 71.9 s | 12.1 / 30.5 / 21.9 / 6.0 | 170.6 s | 27.3 / 81.6 / 35.2 / 22.2 | 2.0-3.1 GB |
+| **PySCF RIJCOSX now** | **52.4 s** | 2.9 / 21.1 / 21.9 / 5.0 | **116.4 s** | 7.2 / 50.3 / 37.9 / 16.3 | 1.9-3.1 GB |
+| ORCA RIJCOSX | 57 s | 4.2 / 37.7 / 9.7 / 7.5 | 110 s | 9.7 / 72.5 / 14.8 / 17.4 | 0.6-1.0 GB |
+| ORCA exact | 211 s | | 526 s | | 0.5-0.7 GB |
+
+- **PySCF's RIJCOSX is level with ORCA's:** 0.92x and 1.06x its time. Its J and K are faster (J 1.3-1.4x, K
+  1.4-1.8x); its XC is 2.3-2.6x slower, on PySCF's level-3 grid of 2.5x DefGrid2's points (caffeine 294,800 against
+  116,136; PySCF's level 1 has 97,000).
+- Against each code's exact run: PySCF 4.1x and 3.9x, ORCA 3.7x and 4.8x.
+- Same errors as ORCA's (-0.56, -1.03 mEh). PySCF's memory is 2-3x ORCA's (the SGX AO cache, the XC blocks).
+- **RIJCOSX gradients** (laptop, caffeine/def2-TZVP; needed 0e7843bfd, the final step had dropped the SGX gradient's
+  data): 10.9 s against the exact gradient's 29.9 s; max |dg| 1.1e-4, rms 3.2e-5 Eh/bohr.
+
+### Left
+- **XC:** the level-3 grid (a setting, not code) and the fused XC's radial cache, which needs more than 25% of
+  max_memory at C26H54 (2.5 s a call without it on the laptop).
+- **K:** the early incremental builds (large dD) save little; the per-integral cost (~2.4 ns, It25/It26); full
+  rebuilds every 5 cycles (`rebuild_nsteps`).
+- **Memory against ORCA's:** the SGX AO cache (nao x grid) and the final level-2 step.
+- The final step recomputes J and XC too (generic get_veff); K alone would do.
+- The J-engine for Cartesian auxiliary functions (mol.cart) and for the DF-J gradient (int3c2e_ip1/ip2 now).
+- Merge `rijcosx` into `perf` and push: the user's decision.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

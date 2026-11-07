@@ -1,0 +1,121 @@
+caffeine/def2-tzvp/b3lyp nao 494 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=1e-11 vtol=auto rebuild=5 etol
+  SCF 34.5 s, 15 cycles, converged True, E -680.5703325431; final level 2: -680.5703416855 (+3.3 s)
+  J 6.7 s, K 20.8 s, XC and rest of get_veff 5.6 s, outside get_veff 1.4 s
+    K build:    17464 points full     0.86 s
+    K build:    17464 points incr     0.75 s
+    K build:    17464 points incr     0.76 s
+    K build:    17464 points incr     0.75 s
+    K build:    17464 points incr     0.75 s
+    K build:    17464 points full     0.75 s
+    K build:    17464 points incr     0.73 s
+    K build:    17464 points incr     0.72 s
+    K build:    32256 points full     1.52 s
+    K build:    32256 points incr     1.29 s
+    K build:    32256 points incr     1.27 s
+    K build:    32256 points incr     1.26 s
+    K build:    32256 points incr     1.24 s
+    K build:    32256 points full     1.37 s
+    K build:    32256 points incr     1.23 s
+    K build:    32256 points incr     1.19 s
+    K build:    32256 points incr     1.18 s
+    K build:    71208 points full     3.17 s
+    final step (level-2 grid and K): 3.31 s
+  error against exact: -0.5635 mEh
+  memory: peak RSS 1.97 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 1.39 GB disk 0.00 GB, final RSS 1.94 GB disk 0.00 GB (max_memory 4000 MB)
+caffeine/def2-tzvp/b3lyp nao 494 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=1e-10 vtol=auto rebuild=5 etol
+  SCF 34.5 s, 15 cycles, converged True, E -680.5703325431; final level 2: -680.5703416855 (+3.4 s)
+  J 6.8 s, K 20.9 s, XC and rest of get_veff 5.5 s, outside get_veff 1.3 s
+    K build:    17464 points full     0.87 s
+    K build:    17464 points incr     0.76 s
+    K build:    17464 points incr     0.77 s
+    K build:    17464 points incr     0.75 s
+    K build:    17464 points incr     0.74 s
+    K build:    17464 points full     0.75 s
+    K build:    17464 points incr     0.73 s
+    K build:    17464 points incr     0.73 s
+    K build:    32256 points full     1.53 s
+    K build:    32256 points incr     1.28 s
+    K build:    32256 points incr     1.27 s
+    K build:    32256 points incr     1.26 s
+    K build:    32256 points incr     1.24 s
+    K build:    32256 points full     1.39 s
+    K build:    32256 points incr     1.21 s
+    K build:    32256 points incr     1.21 s
+    K build:    32256 points incr     1.17 s
+    K build:    71208 points full     3.26 s
+    final step (level-2 grid and K): 3.40 s
+  error against exact: -0.5635 mEh
+  memory: peak RSS 1.96 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 1.40 GB disk 0.00 GB, final RSS 1.96 GB disk 0.00 GB (max_memory 4000 MB)
+caffeine/def2-tzvp/b3lyp nao 494 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=1e-9 vtol=auto rebuild=5 etol
+  SCF 35.8 s, 15 cycles, converged True, E -680.5703325431; final level 2: -680.5703416855 (+3.6 s)
+  J 7.3 s, K 21.6 s, XC and rest of get_veff 5.7 s, outside get_veff 1.2 s
+    K build:    17464 points full     0.86 s
+    K build:    17464 points incr     0.78 s
+    K build:    17464 points incr     0.79 s
+    K build:    17464 points incr     0.79 s
+    K build:    17464 points incr     0.77 s
+    K build:    17464 points full     0.77 s
+    K build:    17464 points incr     0.76 s
+    K build:    17464 points incr     0.75 s
+    K build:    32256 points full     1.58 s
+    K build:    32256 points incr     1.33 s
+    K build:    32256 points incr     1.31 s
+    K build:    32256 points incr     1.34 s
+    K build:    32256 points incr     1.27 s
+    K build:    32256 points full     1.45 s
+    K build:    32256 points incr     1.23 s
+    K build:    32256 points incr     1.21 s
+    K build:    32256 points incr     1.18 s
+    K build:    71208 points full     3.44 s
+    final step (level-2 grid and K): 3.59 s
+  error against exact: -0.5635 mEh
+  memory: peak RSS 1.96 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 1.40 GB disk 0.00 GB, final RSS 1.96 GB disk 0.00 GB (max_memory 4000 MB)
+caffeine/def2-tzvp/b3lyp nao 494 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=1e-8 vtol=auto rebuild=5 etol
+  SCF 37.1 s, 15 cycles, converged True, E -680.5703325431; final level 2: -680.5703416855 (+3.7 s)
+  J 7.8 s, K 22.2 s, XC and rest of get_veff 5.8 s, outside get_veff 1.2 s
+    K build:    17464 points full     0.92 s
+    K build:    17464 points incr     0.82 s
+    K build:    17464 points incr     0.82 s
+    K build:    17464 points incr     0.83 s
+    K build:    17464 points incr     0.80 s
+    K build:    17464 points full     0.82 s
+    K build:    17464 points incr     0.80 s
+    K build:    17464 points incr     0.79 s
+    K build:    32256 points full     1.67 s
+    K build:    32256 points incr     1.37 s
+    K build:    32256 points incr     1.35 s
+    K build:    32256 points incr     1.35 s
+    K build:    32256 points incr     1.31 s
+    K build:    32256 points full     1.50 s
+    K build:    32256 points incr     1.24 s
+    K build:    32256 points incr     1.18 s
+    K build:    32256 points incr     1.15 s
+    K build:    71208 points full     3.52 s
+    final step (level-2 grid and K): 3.70 s
+  error against exact: -0.5635 mEh
+  memory: peak RSS 1.96 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 1.40 GB disk 0.00 GB, final RSS 1.96 GB disk 0.00 GB (max_memory 4000 MB)
+caffeine/def2-tzvp/b3lyp nao 494 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=1e-7 vtol=auto rebuild=5 etol
+  SCF 37.2 s, 15 cycles, converged True, E -680.5703325431; final level 2: -680.5703416855 (+3.6 s)
+  J 8.1 s, K 21.8 s, XC and rest of get_veff 6.1 s, outside get_veff 1.2 s
+    K build:    17464 points full     0.94 s
+    K build:    17464 points incr     0.85 s
+    K build:    17464 points incr     0.86 s
+    K build:    17464 points incr     0.85 s
+    K build:    17464 points incr     0.83 s
+    K build:    17464 points full     0.82 s
+    K build:    17464 points incr     0.80 s
+    K build:    17464 points incr     0.77 s
+    K build:    32256 points full     1.67 s
+    K build:    32256 points incr     1.35 s
+    K build:    32256 points incr     1.32 s
+    K build:    32256 points incr     1.32 s
+    K build:    32256 points incr     1.23 s
+    K build:    32256 points full     1.49 s
+    K build:    32256 points incr     1.15 s
+    K build:    32256 points incr     1.07 s
+    K build:    32256 points incr     1.01 s
+    K build:    71208 points full     3.49 s
+    final step (level-2 grid and K): 3.65 s
+  error against exact: -0.5635 mEh
+  memory: peak RSS 1.96 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 1.40 GB disk 0.00 GB, final RSS 1.96 GB disk 0.00 GB (max_memory 4000 MB)
+ETOL DONE

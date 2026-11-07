@@ -1,0 +1,57 @@
+caffeine/def2-tzvp nao 494 nbas 194, level 1: 32256 points, 144 batches; E_SCF -680.5699152977
+exchange energy (or its change) -87.9773807639; 2723760 pair-batches, 2579472 nonzero
+  sum of dropped |e| <= 1e-04: keep 1093931 of 2723760 pair-batches (40.2%)
+  sum of dropped |e| <= 1e-05: keep 1335955 of 2723760 pair-batches (49.0%)
+  sum of dropped |e| <= 1e-06: keep 1532663 of 2723760 pair-batches (56.3%)
+  sum of dropped |e| <= 1e-07: keep 1690261 of 2723760 pair-batches (62.1%)
+  sum of dropped |e| <= 1e-08: keep 1817889 of 2723760 pair-batches (66.7%)
+  sum of dropped |e| <= 1e-09: keep 1921441 of 2723760 pair-batches (70.5%)
+  sum of dropped |e| <= 1e-10: keep 2006027 of 2723760 pair-batches (73.6%)
+  |e| > 1e-08: keep 782051 (28.7%); dropped sum 1.28e-03, dropped signed sum -3.50e-05
+  |e| > 1e-09: keep 1077214 (39.5%); dropped sum 1.16e-04, dropped signed sum -2.52e-06
+  |e| > 1e-10: keep 1340916 (49.2%); dropped sum 9.49e-06, dropped signed sum -1.79e-07
+  |e| > 1e-11: keep 1555198 (57.1%); dropped sum 7.41e-07, dropped signed sum -1.59e-08
+  |e| > 1e-12: keep 1722330 (63.2%); dropped sum 5.86e-08, dropped signed sum -1.07e-09
+estimate amax: est/|e| median 3.67e+00, 5% 1.17e+00, min 5.96e-01
+  est > 1e-06: keep 398767 (14.6%); dropped |e| sum 4.12e-02, signed -3.59e-03
+  est > 1e-07: keep 680048 (25.0%); dropped |e| sum 4.52e-03, signed -3.30e-04
+  est > 1e-08: keep 989102 (36.3%); dropped |e| sum 4.15e-04, signed -1.93e-05
+  est > 1e-09: keep 1274558 (46.8%); dropped |e| sum 3.34e-05, signed -8.65e-07
+  est > 1e-10: keep 1509773 (55.4%); dropped |e| sum 2.49e-06, signed -4.45e-08
+  est > 1e-11: keep 1689270 (62.0%); dropped |e| sum 1.90e-07, signed -2.56e-09
+estimate sgx: est/|e| median 2.63e+01, 5% 3.30e+00, min 1.02e+00
+  est > 1e-06: keep 597677 (21.9%); dropped |e| sum 1.21e-02, signed -2.03e-03
+  est > 1e-07: keep 936514 (34.4%); dropped |e| sum 9.71e-04, signed -1.63e-04
+  est > 1e-08: keep 1253222 (46.0%); dropped |e| sum 6.36e-05, signed -8.83e-06
+  est > 1e-09: keep 1504901 (55.3%); dropped |e| sum 3.86e-06, signed -3.33e-07
+  est > 1e-10: keep 1692334 (62.1%); dropped |e| sum 2.44e-07, signed -7.64e-09
+  est > 1e-11: keep 1835626 (67.4%); dropped |e| sum 1.67e-08, signed -1.69e-10
+caffeine/def2-tzvp nao 494 nbas 194, level 1: 32256 points, 144 batches; E_SCF -680.5699152977
+incremental: D - D_10, |ddm| 3.96e-04
+exchange energy (or its change) -0.0000156571; 2723760 pair-batches, 2579472 nonzero
+  sum of dropped |e| <= 1e-04: keep 74254 of 2723760 pair-batches (2.7%)
+  sum of dropped |e| <= 1e-05: keep 254478 of 2723760 pair-batches (9.3%)
+  sum of dropped |e| <= 1e-06: keep 519666 of 2723760 pair-batches (19.1%)
+  sum of dropped |e| <= 1e-07: keep 818692 of 2723760 pair-batches (30.1%)
+  sum of dropped |e| <= 1e-08: keep 1101796 of 2723760 pair-batches (40.5%)
+  sum of dropped |e| <= 1e-09: keep 1342677 of 2723760 pair-batches (49.3%)
+  sum of dropped |e| <= 1e-10: keep 1537004 of 2723760 pair-batches (56.4%)
+  |e| > 1e-08: keep 26734 (1.0%); dropped sum 3.06e-04, dropped signed sum -1.76e-06
+  |e| > 1e-09: keep 100622 (3.7%); dropped sum 6.41e-05, dropped signed sum -4.83e-07
+  |e| > 1e-10: keep 254470 (9.3%); dropped sum 1.00e-05, dropped signed sum -7.51e-08
+  |e| > 1e-11: keep 491176 (18.0%); dropped sum 1.25e-06, dropped signed sum -2.10e-09
+  |e| > 1e-12: keep 784518 (28.8%); dropped sum 1.30e-07, dropped signed sum -7.78e-10
+estimate amax: est/|e| median 2.40e+00, 5% 6.90e-01, min 3.27e-01
+  est > 1e-06: keep 297 (0.0%); dropped |e| sum 1.83e-03, signed -4.43e-05
+  est > 1e-07: keep 6457 (0.2%); dropped |e| sum 8.83e-04, signed +6.05e-07
+  est > 1e-08: keep 44902 (1.6%); dropped |e| sum 2.34e-04, signed -1.15e-06
+  est > 1e-09: keep 155310 (5.7%); dropped |e| sum 4.22e-05, signed -2.47e-07
+  est > 1e-10: keep 356307 (13.1%); dropped |e| sum 5.92e-06, signed -9.40e-08
+  est > 1e-11: keep 633319 (23.3%); dropped |e| sum 6.75e-07, signed -4.31e-09
+estimate sgx: est/|e| median 1.36e+01, 5% 1.96e+00, min 5.33e-01
+  est > 1e-06: keep 664 (0.0%); dropped |e| sum 1.70e-03, signed -5.47e-05
+  est > 1e-07: keep 12941 (0.5%); dropped |e| sum 6.75e-04, signed +2.22e-06
+  est > 1e-08: keep 80079 (2.9%); dropped |e| sum 1.36e-04, signed +3.79e-07
+  est > 1e-09: keep 257428 (9.5%); dropped |e| sum 1.74e-05, signed -2.14e-08
+  est > 1e-10: keep 545053 (20.0%); dropped |e| sum 1.75e-06, signed -9.60e-09
+  est > 1e-11: keep 889693 (32.7%); dropped |e| sum 1.42e-07, signed -5.74e-10

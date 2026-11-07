@@ -1,0 +1,5 @@
+# caffeine/def2-TZVP B3LYP (VWN-RPA = B3LYP/G), gas phase, exact J/K (no RIJCOSX), TightSCF, the default grid (DefGrid2).
+! B3LYP/G def2-TZVP NoRIJCOSX TightSCF
+%pal nprocs 6 end
+%maxcore 1800
+* xyzfile 0 1 caffeine.xyz
