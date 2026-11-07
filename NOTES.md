@@ -7456,6 +7456,36 @@ the largest remaining part of the caffeine/def2-TZVP B3LYP Hessian (355 of 831 s
 - **Left:** the CPHF J/K (40% now; the engine's products on the zeros of screened quartets inside blocks),
   the Hessian integrals (about 21%), make_h1's J/K (about 13%; no translational invariance or s8 there).
 
+## Pushed perf-2026-11-07; the fresh clone on node2 found an overflow, fixed in perf-2026-11-07b, 2026-11-07
+The user: "We can leave the screening in as PySCF was supposed to have that working previously. Go ahead and push
+this and run the fresh clone check."
+- **Pushed:** PySCF `perf` a3ef1e042 + tag perf-2026-11-07, qcint `perf` cd07a5d + tag perf-2026-11-07,
+  workspace dbd9ad5 (pins, README). The screening of the Hessian's two-electron parts stays on by default.
+- **node2** (AVX2, 4 lanes, 6 threads), a fresh clone of dbd9ad5:
+  - `cpu_setup.sh --with-base`: 42 min (32 before; qcint PGO 1328 s against 896 s, the _dot kernels doubling
+    the Hessian instances and their training); water B3LYP -8.5e-14 Eh from the laptop; `kernels.py` 77/77.
+  - bbench `--dot` with 4 lanes, every benzene quartet: ipip1 within 3.9e-14, ipvip1 3.9e-14, ip1ip2 5.9e-15,
+    long range (water) 1.1e-15.
+  - caffeine/def2-SVP, 6 threads: `_partial_hess_2e` 44.33 s (loops) -> 20.49 s (energy driver, contracted in
+    PySCF) -> 19.07 s (_dot kernels), 2.32x, within 4.6e-13; RKS B3LYP `make_h1` 32.59 -> 24.81 s (1.31x),
+    within 2.6e-13.
+  - `test_rhf.py test_finite_diff_rhf_hess1` aborted every time (3/3; passes with one thread): "double free or
+    corruption" in a free() of `CVHFnrs8_incore_vk_batch` (the CPHF's in-memory K). Off with
+    `hessian_rhf_jk_energy` or `_dot` or `scf_vhf_int2e_batch`, not with `make_h1_tol = 0`.
+- **The bug** (PySCF `perf` 43838f635, tag perf-2026-11-07b): hess_jk_energy's batch output buffer held
+  lanes x 9 x di^4 doubles, the integral blocks; the _dot kernels write 9 x nh sums per quartet, more than
+  that when every shell is an s shell (H4/6-31G, di = 1) and both Gammas are contracted. The laptop's heap
+  took the overflow silently. Found by AddressSanitizer on an AVX2 (4-lane) qcint build
+  (`build_cint.sh qcint asan-avx2 "-DCMAKE_C_FLAGS=-mno-avx512f -fsanitize=address -fno-omit-frame-pointer -g"`,
+  then `LD_PRELOAD=$(gcc -print-file-name=libasan.so) ASAN_OPTIONS=detect_leaks=0:log_path=...` and pytest
+  `-s`, as pytest's capture swallows ASan's report).
+  - After the fix, under ASan: hessian test_rhf/uhf/rks/uks, grad test_rhf/uhf, scf test_vhf: 78 passed, no
+    report; test_hess_jk_energy's spherical half within 1.3e-14 of the loops, no report.
+  - Its cartesian half hits an over-read in qcint's own `d_ket_cart2spheric` (cart2sph.c:3754, upstream code,
+    last changed upstream in e231f46): the SIMD remainder loads 4 doubles where fewer are left, up to 24 bytes
+    past the array (through `mole.py` `cart2sph`). The extra values are discarded; a fault would need the
+    array to end at a page boundary. Not fixed here.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
