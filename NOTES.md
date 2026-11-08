@@ -7769,6 +7769,27 @@ For the user's question on sharing the grid. wB97X, n-C20H42/def2-TZVP RIJCOSX, 
   takes 12.7 s against 3.2 s full range and 3.7 s long range (qcint's erfc integrals double the roots and have no
   optimizer), so no gain.
 
+### Option A done: the long-range copy shares the grid data (pyscf `perf` 01f1d9b62, local), 2026-11-07
+The user: "Let's do A first, then measure". `SGX.build` gives the RSH copies its grid and optimizer
+(`_share_grid_of`); their SGXData take the overlap projection, the screening's AO norms and the AO values on the
+grid from the full-range object's (`share`), and the full-range build keeps F = D X for the copy's build of the
+same density (while a copy exists). The integral bounds stay each operator's. `test_rijcosx_rsh` checks it.
+
+| n-C20H42/def2-TZVP RIJCOSX, laptop, alternating | before (9ac0bc855) | shared |
+|---|---|---|
+| wB97X total (2 runs each) | 108.5 / 109.8 s | 101.2 / 107.1 s |
+| wB97X K | 62.0 / 63.2 s | 56.8 / 60.9 s |
+| wB97X RSS in the SCF | 2.77 GB | 2.20 GB |
+| wB97M-V (VV10 level 1) total | 193.0 s | 185.9 s |
+| wB97M-V K | 65.5 s | 60.8 s |
+| wB97M-V peak RSS | 5.42 GB | 4.89 GB |
+
+- The energies are the same in every digit printed (wB97X -787.5433505627, wB97M-V -787.2623445252).
+- The final level-2 step gains little memory: at the default max_memory that grid takes several blocks, where
+  neither version keeps AO values.
+- wB97M-V's RSS stays 2.6 GB above wB97X's (4.8 against 2.2 GB in the SCF): that is the XC/VV10 side, not SGX.
+  (`bench/results/rijcosx/laptop_share_ab.log`)
+
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
 - **PySCF `perf` fast-forwarded to `rijcosx` 0e7843bfd** (with it the unpushed refactor commits c9bfd2ea5 and
