@@ -7752,7 +7752,11 @@ The user: "How does the def2-TZVP basis with wB97M-V compare to B3LYP?". Three t
   RIJCOSX against each code's exact: PySCF -1.05, ORCA -1.03 mEh (B3LYP -1.03 both). PySCF against ORCA SCNL 3.5e-5.
 - Peak memory: PySCF 5.4-5.5 GB (B3LYP 3.3; the RSH copy of SGX keeps its own grid, AO cache and projection on the same
   grid as the main object's), ORCA 0.95 GB.
-- B3LYP with 9ac0bc855 on node2: 123 s against 116 s before (the full builds at the end, the final step's J and XC).
+- B3LYP with 9ac0bc855 on node2: n-C20H42 123 s against 116 s before, caffeine 57.5 s against 52.4 s (ORCA 57 s): the
+  full builds at the end and the final step's J and XC.
+- **Pushed** (the user: "Push them"): PySCF `perf` 0e7843bfd..9ac0bc855 + annotated tag perf-2026-11-07d; pins and
+  README -> perf-2026-11-07d (qcint stays perf-2026-11-07c). Before it: sgx, df and solvent tests 260 passed, the 3
+  known failures there; node2's runs above are of 9ac0bc855 itself.
 
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".

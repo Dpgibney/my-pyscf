@@ -1,0 +1,7 @@
+caffeine/def2-tzvp/b3lyp nao 494 6 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 node2-caf-9ac
+  SCF 51.0 s, 15 cycles, converged True, E -680.5703325428; final level 2: -680.5703416852 (+6.5 s)
+  J 3.1 s, K 24.5 s, XC 21.9 s, rest of get_veff 0.3 s, outside get_veff 1.1 s
+    cycles: 3.3 2.6 2.5 2.5 2.5 2.5 2.5 2.4 3.9 3.0 2.9 3.4 3.4 3.4 3.4 3.4 3.4
+    final step (level-2 grid, its K, and J and XC again): 6.50 s
+  memory: peak RSS 2.09 GB (kernel); sampled peaks by phase: setup RSS 0.11 GB disk 0.00 GB, scf RSS 1.35 GB disk 0.00 GB, final RSS 2.09 GB disk 0.00 GB (max_memory 4000 MB)
+CAF DONE
