@@ -7835,6 +7835,98 @@ The user: "Investigate that extra memory overhead" (wB97M-V's SCF held 2.6 GB mo
   tests (dft scf df grad hessian tdscf solvent sgx) 1063 passed, the same 7 known failures. No fresh-clone rerun
   (Python-only changes since perf-2026-11-07d).
 
+### The wB97M-V Hessian: VV10's terms rewritten (pyscf `perf` e526b08ca, local), 2026-11-07
+The user: "Could you see the memory usage for the wB97M-V functional for calculating the hessian on the hydrocarbon
+system", then, at an estimate of 15 h for n-C20H42/def2-TZVP: "are there issues with the hessian in this code
+path?" and "Let's stop it and work on fixing it". The exact Hessian (SGX has gradients, no Hessian), VV10 grid
+level 1, max_memory 4000 MB, monitored by phase with `bench/diag/hess_mem.py`.
+- **Where the time went.** propane/def2-SVP: 213 s, of it about 210 s in the three VV10 terms that PySCF took from
+  GPU4PySCF (Liang et al., JCP 158, 204109 (2023)): `_get_enlc_deriv2` (energy second derivative), `_get_vnlc_deriv1`
+  (Fock derivative, with grid response), `get_vnlc_resp1` (the response, every CPHF iteration, and TDDFT's).
+  `bench/diag/vv10_hess_parts.py` timed them:
+  - the pair kernels: `VXC_vv10nlc_hessian_eval_f_t` looped over all pairs of points once per group of 6 trial
+    densities (for n-C20H42's 186 perturbations every pair 31 times, scalar), `_EUW_with_weight1` once per weight
+    derivative, `_EUW_grid_response` visited every pair once per atom;
+  - the AO work: `contract = numpy.einsum` (no BLAS, one core) per atom and per atom pair, with AO values to second
+    and third derivatives evaluated again per atom: the Fock derivative alone ~5e14 flops for n-C20H42;
+  - the batches assumed max(16 GB, max_memory/2) free (AO batches of 7.3 GB for nao 872 in the second derivative).
+  - the stopped run: SCF 332 s (peak 3.6 GB), the two-electron part 254 s; the rest estimated from propane at ~15 h.
+- **Change** (e526b08ca):
+  - C: the pair kernels evaluate a block of 128 x 256 pairs once and apply it to all trials (or weight derivatives)
+    in dgemm (each thread owns 128 output rows); the grid response sums each pair once into its atoms.
+  - The ground-state quantities, with the O(N^2) U, W, A, B, C, E (`_VV10HessData`), are kept on the NLC grid for
+    the calls with the same density (the CPHF iterations, TDDFT's Davidson iterations).
+  - The densities and potential matrices of the perturbations through the fused kernels, all sets per block of
+    points; the second derivative from the XC Hessian's pieces (the AO-diagonal `dot_terms`, the ipip pairs of
+    `_get_vxc_deriv2_dm`, atom-resolved density derivatives by `_atom_pair_sum` once per block); the Fock
+    derivative's AO-derivative terms from the gradient's `dot_terms` (for the AOs of each atom, and per atom for its
+    points: the grids are sorted spatially, `sort_grids=True`, so an atom's points are not contiguous).
+  - Batches follow max_memory.
+- **Against the code before** (`vv10_hess_parts.py --compare`, `vv10_hess_ref.py`):
+
+| | before | after | agreement |
+|---|---|---|---|
+| propane/def2-SVP Hessian | 220.4 s | 19.6 s | 4.0e-13 (max abs H 0.65) |
+| propane TDA, VV10 in the response (`exclude_nlc = False`) | 594.9 s | 46.1 s | 7.9e-14 Eh |
+| propane TDDFT, same | 417.4 s | 36.9 s | 7.3e-14 Eh |
+| propane: energy 2nd derivative / Fock derivative / response of 33 densities | 15.5 / 50.3 / 20.4 s | 1.8 / 3.5 / 1.5 s | 5e-13 / 3e-14 / 3e-13 relative |
+| water/def2-SVP Hessian, VV10 level 1 / level 3 | 4.6 / 37.2 s | 0.9 / 7.4 s | 6.2e-13 / 3.1e-12 |
+| water TDA and TDDFT with VV10 | | | 2.4e-13 Eh |
+
+  - n-C8H18/def2-TZVP (356 AOs, 85,936 VV10 points): second derivative 17.6 s, Fock derivative 37.9 s (f_t 12.8 s,
+    the 78 potential matrices 9.7 s, EUW_w 9.0 s, EUW_gr 5.6 s, the AO-derivative terms 5.0 s), a response of 78
+    densities 19.0 s. f_t runs at the dgemm rate (about 4.6e12 flops in 12.8 s); the CPHF passes almost all the
+    perturbations in every iteration (propane: 33, 33, 33, 30, 30, 30, 5, 33).
+  - Tests: test_vv10_hessian with its high-cost tests (9 passed), test_tdrks_vv10, test_response_function, hessian
+    test_rks, dft test_numint, grad test_rks: pass.
+- **n-C20H42/def2-TZVP wB97M-V Hessian, e526b08ca**: stopped by the user after the SCF (330 s, peak 3.60 GB) and the
+  full-range two-electron terms (291.5 s, `_partial_hess_2e` 254.8 s, peak 3.84 GB), to work on the low-hanging
+  fruit first.
+- **Low-hanging fruit** (the user, of eight options: "Sure let's stop the current run and work on 1,2,5"):
+  1. **No extra fvind after the Krylov solver** (pyscf `perf` 571affb7d). `cphf.solve_withs1` called fvind once
+     more on the converged solution, for e1 and the last update of its virtual block. The solver now starts from x0
+     (by default the uncoupled solution) with the occupied block set to -1/2 S1, so every Krylov vector has no
+     occupied rows and the solution keeps that block exactly; fvind of the solution is the same combination of the
+     responses already computed (`_krylov_coefficients`, `_krylov_combination`; checked against a call: 5e-16, 4e-13
+     with VV10). One call fewer per CPHF (water RHF 9 -> 8, B3LYP 7 -> 6, wB97M-V 8 -> 7; propane wB97M-V 8 -> 7,
+     vectors 227 -> 196). x0 also takes a guess from outside (`cphf.solve(..., x0=)`). hessian, scf, df and solvent
+     tests pass (the known test_smd_grad).
+  2. **One pair-kernel pass per group of dm1s in the VV10 response** (21e80c7e6): each call of `eval_f_t` costs
+     about 2 s on n-C8H18/def2-TZVP's 82,054 points whatever the number of trials (1 trial 1.95 s, 31 trials 6.9 s,
+     186 trials 31.0 s; dgemm at 345 GFLOP/s), ~12 s on n-C20H42's. The dm1s go to the kernel in groups as large as
+     their masked data allow, their full-grid densities and potentials in batches of 32: n-C20H42 at the CPHF's
+     2000 MB, 3 kernel calls per response of 186 dm1s instead of 5. One division per pair instead of three changed
+     nothing (the loop is AVX2-vectorized; the per-call cost is the kernel blocks' traffic) and is not in.
+- **Found on the way: PySCF's CPHF stops short for DFT** (upstream too, `bench/diag/cphf_residual.py`, one more fvind
+  on the returned solution). `lib.krylov` drops and stops on the absolute norms of Krylov vectors that are orthogonal
+  but not normalized and shrink by orders of magnitude, and its lindep floor (eps) caps the norm at ~1.5e-8 whatever
+  tol; a small but significant direction can carry a large coefficient. True residuals of the returned mo1 against
+  tol = 1e-8 * natm:
+
+| | stock solver, before 571affb7d | stock, after | converged to 1e-11 (normalized Krylov, 2 Gram-Schmidt passes) |
+|---|---|---|---|
+| water/def2-SVP RHF | 3.7e-8 | 3.7e-8 | |
+| water/def2-SVP B3LYP | 9.7e-5 | 2.2e-5 | 2.5e-10 / 1.2e-12 in 12-13 cycles, ~100 vectors (stock 6-7 cycles) |
+| propane/def2-SVP wB97M-V | 3.2e-6 | 2.0e-6 | 4e-12 / 5e-11 in 28-30 cycles, ~900 vectors (stock 196-227) |
+
+  The Hessians move with this: water B3LYP old against new 2.1e-5 (max abs H 0.71), propane wB97M-V 6.1e-7. Converged,
+  the old and the new start give the same Hessian (0.70676300, 0.65438408). Converging to 1e-11 costs ~4x the
+  response work for propane; a residual test with a looser tolerance would sit in between (not done; the user's
+  choice).
+  5. **Warm start from a cheap response** (`bench/diag/cphf_warm.py`: the CPHF of the cheap response, DF-J by the
+     J-engine + SGX-K on a level-0 grid, the XC kernel on a level-1 grid, no VV10, then the exact solve from it with
+     `x0`): two exact calls fewer, and a solution 40-60x closer, but slower in all:
+
+| wB97M-V | cold: exact calls, time, residual | warm: exact calls + cheap calls, total, residual |
+|---|---|---|
+| propane/def2-SVP (33 perturbations), cheap tol x1000 | 7, 10.5 s, 2.0e-6 | 5 (7.5 s) + 5 (4.9 s), 12.5 s, 3.3e-8 |
+| n-C8H18/def2-TZVP (78), cheap tol x1000 | 7, 282.5 s, 3.1e-6 | 5 (182.0 s) + 4 (328.5 s), 511.7 s, 7.0e-8 |
+
+     The cheap response is no cheaper: on n-C8H18 82 s a call for 78 densities against 40 s for the exact one, whose
+     J/K the many-density engine takes (SGX handles many densities poorly). A cheap response of the exact J/K and XC
+     without VV10 would cost about half an exact call and break even at best. Not taken into the library (x0 is in
+     `cphf.solve` from item 1).
+
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
 - **PySCF `perf` fast-forwarded to `rijcosx` 0e7843bfd** (with it the unpushed refactor commits c9bfd2ea5 and

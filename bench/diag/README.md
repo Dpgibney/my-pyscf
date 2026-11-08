@@ -95,3 +95,9 @@ Run them in a configuration's pinned environment:
 | `vv10_fused_check.py` | `nr_nlc_vxc` on the fused kernels against its `block_loop` path, for a tagged, an untagged and a non-symmetric dm | RIJCOSX: wB97M-V's extra memory |
 | `vv10_fused_grad.py` | the gradient's VV10 term (`grad.rks.get_nlc_vxc`) both ways: matrices, times and the peak RSS of each call | RIJCOSX: wB97M-V's extra memory |
 | `rijcosx_block_loop_vv10.py` | runs `rijcosx.py` with `nr_nlc_vxc` on its `block_loop` path (the A side of the A/B) | RIJCOSX: wB97M-V's extra memory |
+| `hess_mem.py` | an RKS Hessian's memory and time by phase (SCF, the partial Hessian's 2e/XC/VV10 terms, make_h1, the CPHF's J/K, XC and VV10 responses), RSS sampled every 0.1 s | The wB97M-V Hessian: VV10's terms rewritten |
+| `vv10_hess_parts.py` | the three VV10 Hessian terms (energy second derivative, Fock derivative, response): times split into C kernels and einsum, outputs saved to compare trees (`--compare`) | The wB97M-V Hessian: VV10's terms rewritten |
+| `vv10_hess_ref.py` | whole Hessians and TDA/TDDFT energies with VV10 in the response, saved to compare trees | The wB97M-V Hessian: VV10's terms rewritten |
+| `cphf_calls.py` | a Hessian with the CPHF's fvind calls and vectors counted, saved to compare trees | The wB97M-V Hessian: low-hanging fruit |
+| `cphf_residual.py` | the true residual of the CPHF solution a Hessian takes; `KRYLOV_NORM=1` swaps in a normalized Krylov solver | The wB97M-V Hessian: CPHF stops short for DFT |
+| `cphf_warm.py` | the Hessian's CPHF cold and warm-started from a cheap response (DF-J + SGX-K level 0, XC level 1, no VV10): exact calls, times, true residuals | The wB97M-V Hessian: low-hanging fruit, 5 |
