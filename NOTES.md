@@ -7967,6 +7967,90 @@ level 1, max_memory 4000 MB, monitored by phase with `bench/diag/hess_mem.py`.
   `kernels.py` ALL PASS; PySCF's tests (dft scf df grad hessian tdscf solvent sgx) 1063 passed, the same 7 known
   failures. No fresh-clone rerun (Python and libdft only; the build is the same).
 
+### The Hessian's memory (pyscf `perf` f5ca066cb, c6570dbac, 8e9a5f85a, local), 2026-11-08
+The user: "Push it and then work on the memory usage". The n-C20H42/def2-TZVP wB97M-V Hessian above peaked at
+13.3 GB under max_memory 4000 MB (nao 872, 186 perturbations: a stack of 186 AO matrices is 1.13 GB).
+- **Where it went:**
+  - **The SCF's semi-direct ERIs, 2722 MB**, resident through the Hessian (`_init_semi_direct` gives them 3/4 of what
+    is left under max_memory). No integral of the Hessian reads them: its derivative integrals are other ones, and
+    the CPHF's many-density J/K (`_direct_jk_gemm`, 13 dms or more) evaluates all its quartets. With them the
+    Hessian started at 3.3 GB, and every phase's `max(2000, max_memory*.9 - mem_now)` was the 2000 MB floor.
+  - **The CPHF J/K (the 13.32 GB peak):** the engine's symmetry test `abs(dms - dms.transpose(0,2,1))` made two
+    temporaries of all 186 dms (2.26 GB); J and K were made while the dms, the XC + VV10 potentials and the VV10
+    response's own stack were alive; the long-range K was made while J and K were; `vj - .5*vk` temporaries.
+  - **The XC Fock derivative and second derivative:** AO blocks (to second derivatives) sized by the whole budget, with
+    the per-block products and per-atom arrays on top (~4 GB over).
+  - **The VV10 Fock derivative:** drho/dA, dgamma/dA and w f_gamma d(nabla rho)/dA of all atoms on all points
+    (~3 GB) beside its 1.13 GB result.
+- **Changes** (results to rounding):
+  - f5ca066cb:
+    - the RKS response adds each J or K stack, scaled in place, before the next is made;
+    - the VV10 response adds its matrices to v1 a batch at a time (`get_vnlc_resp*(out=)`);
+    - the VV10 Fock derivative keeps drho/dA and dgamma/dA on the masked points only and evaluates d(nabla rho)/dA
+      again per block, its blocks sized from max_memory (`_vv10_blksize`);
+    - the XC Fock derivative and second derivative size their AO blocks from the memory left, the other arrays of a
+      block counted (`_xc_block_memory`, a 500 MB floor).
+  - c6570dbac:
+    - `HessianBase.kernel` releases the semi-direct ERIs, and keeps get_jk from storing them again, when H1 and the
+      CPHF's arrays of all perturbations (about 5 AO matrices each) would not fit beside them under max_memory. The
+      next SCF stores them again. Small molecules keep them: their CPHF calls have fewer than 13 dms and read them.
+    - The RKS response makes J and K first and adds the XC and VV10 responses to the memory of J; the HF response
+      adds -K/2 to J in place (the same numbers bitwise).
+    - The direct and incore J/K test the dms' symmetry a few at a time and free each batch's buffers before the next.
+  - 8e9a5f85a: the VV10 Fock derivative adds to h1ao (`_get_vnlc_deriv1(..., out=)`: h1ao halved, the half matrices
+    accumulated into it, one symmetrization) instead of returning a stack of its own; also in the DF Hessian.
+- **Checks:**
+  - Old (21e80c7e6) against new, `bench/diag/hess_resp_ref.py`: Hessians (water HF, UHF H2O+, B3LYP with its ERIs
+    in memory, direct, and with the release forced, UKS H2O+, HSE06, LRC-wPBE, CAM-B3LYP, wB97M-V; propane wB97M-V,
+    the GEMM J/K): within 8.5e-11 relative (CAM-B3LYP's 6e-11 is the CPHF tolerance's noise; HF and UHF 1.5e-15).
+    TDA and TDDFT singlets and triplets (HF, B3LYP, HSE06, LRC-wPBE, CAM-B3LYP, wB97M-V with VV10): within 6e-13.
+    With the release forced, no semi-direct ERIs after the Hessian, and the next get_jk stores them again.
+  - The VV10 Fock derivative of propane against 21e80c7e6: 2.7e-14 relative.
+  - PySCF's tests (dft scf df grad hessian tdscf solvent sgx): 1063 passed, the 7 known failures, after f5ca066cb and
+    after c6570dbac; after 8e9a5f85a hessian, df and dft (264 passed) and test_vv10_hessian with its high-cost tests
+    (9 passed). Two runs of the same tree differ by up to 1.4e-11 in these Hessians (the threads' order of sums), the
+    size of the old-against-new differences.
+- **n-C8H18/def2-TZVP wB97M-V Hessian, max_memory 4000 MB** (laptop, 10 threads, balanced profile; snapshots, old
+  21e80c7e6, new c6570dbac then 8e9a5f85a, run old, new, old, new; `scratch/hess-mem-ab/run.sh`, `run2.sh`;
+  `bench/results/hessian/laptop_c8h18_tzvp_wb97mv_hessian_mem_ab.log`, `bench/diag/hess_mem_compare.py`). The SCF's
+  semi-direct ERIs: 2461 + 622 MB; after the SCF 3.82 GB resident, so the new Hessian releases them.
+
+| phase | old: time (two runs) | old: peak RSS | new: time (two runs) | new: peak RSS |
+|---|---|---|---|---|
+| SCF (the same code in both) | 36.8, 41.9 s | 3.86 GB | 44.8, 44.5 s | 3.86 GB |
+| partial Hessian | 78.6, 87.6 s | 8.08 GB | 92.3, 93.1 s | 3.24 GB |
+| of it `_partial_hess_2e`, full-range J/K and long-range K (the same code) | 45.8, 52.9 s | 4.12 GB | 56.6, 57.1 s | 1.10 GB |
+| of it the XC second derivative | 10.1, 10.3 s | 8.08 GB | 10.7, 10.7 s | 3.24 GB |
+| of it the VV10 second derivative (the same code) | 18.3, 19.7 s | 4.65 GB | 20.3, 20.5 s | 1.75 GB |
+| make_h1 | 105.6, 110.9 s | 6.90 GB | 115.1, 115.9 s | 2.88 GB |
+| of it the XC Fock derivative | 29.3, 31.1 s | 6.90 GB | 31.7, 32.2 s | 2.88 GB |
+| of it the VV10 Fock derivative | 40.9, 42.9 s | 5.89 GB | 46.6, 47.0 s | 2.80, 2.72 GB |
+| CPHF | 304.8, 306.8 s | 5.53 GB | 304.9, 304.2 s | 2.45 GB |
+| of it the J/K | 100.0, 100.9 s | 4.98 GB | 100.0, 99.5 s | 1.88, 1.83 GB |
+| of it the VV10 response | 134.5, 134.8 s | 5.53 GB | 134.2, 134.0 s | 2.45 GB |
+| of it the XC response | 67.8, 68.5 s | 4.52 GB | 68.2, 68.1 s | 1.45 GB |
+| Hessian | 489.1, 505.2 s | 8.08 GB | 512.4, 513.3 s | 3.24 GB |
+| whole run (ru_maxrss) | 526, 547 s | 7.89, 7.90 GB | 557, 558 s | 3.77 GB |
+
+  - The whole run's peak is now the SCF's (its semi-direct ERIs); the Hessian stays under max_memory.
+  - Time: the phases whose code is the same in both trees (the SCF, the two-electron terms, the VV10 second
+    derivative) moved by up to 22% between runs, the first run after an idle laptop the fastest; the Hessians'
+    489-513 s is mostly that. The new code's one change of time is the VV10 Fock derivative, +4-6 s: d(nabla rho)/dA
+    evaluated again per block instead of 9 natm ngrids doubles kept (0.93 GB on n-C20H42). The CPHF, where the
+    response changes are, took the same time in all four runs (304-307 s). max|H| the same (0.6161).
+- **Projected for n-C20H42/def2-TZVP at 4000 MB** (from the array sizes, not measured): the Hessian starts at about
+  0.6 GB instead of 3.3; the XC terms and make_h1 stay near max_memory (3-4 GB); the CPHF peaks at about 7-8.6 GB
+  (before 13.3), from what it still holds at once: h1ao, the 186 densities, J and K (1.13 GB each), the J/K engine's
+  batch buffers (about 1.25 GB: it batches 41 dms at the 1000 MB its formula gives), and the MO-basis arrays with the
+  Krylov space (0.7-2.2 GB over the iterations).
+- **Left** (time against memory; for the user to decide):
+  - Chunking the CPHF response over the perturbations: the densities, J/K and VV10 by chunks, the XC response from
+    the factors for all at once. About 4-5 GB on n-C20H42 at 4000 MB. The J/K engine's integral passes would stay
+    (5 per response there either way); the VV10 pair kernel would run once per chunk (about 5 calls of ~12 s per
+    response instead of 2, ~+250 s, ~3%). With room under max_memory it is one chunk, as now.
+  - h1ao on disk between make_h1, the CPHF and the last contraction: 1.13 GB on n-C20H42, a few seconds of I/O.
+  - The UHF/UKS response (`_gen_uhf_response`) has not had the J/K-first change.
+
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
 - **PySCF `perf` fast-forwarded to `rijcosx` 0e7843bfd** (with it the unpushed refactor commits c9bfd2ea5 and

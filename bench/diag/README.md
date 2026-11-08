@@ -101,3 +101,5 @@ Run them in a configuration's pinned environment:
 | `cphf_calls.py` | a Hessian with the CPHF's fvind calls and vectors counted, saved to compare trees | The wB97M-V Hessian: low-hanging fruit |
 | `cphf_residual.py` | the true residual of the CPHF solution a Hessian takes; `KRYLOV_NORM=1` swaps in a normalized Krylov solver | The wB97M-V Hessian: CPHF stops short for DFT |
 | `cphf_warm.py` | the Hessian's CPHF cold and warm-started from a cheap response (DF-J + SGX-K level 0, XC level 1, no VV10): exact calls, times, true residuals | The wB97M-V Hessian: low-hanging fruit, 5 |
+| `hess_mem_compare.py` | the phase tables of several `hess_mem.py` runs in one log, side by side (time and peak RSS per phase) | The Hessian's memory |
+| `hess_resp_ref.py` | Hessians and TD energies through every branch of the RHF/RKS response (each range separation, singlet and triplet, HF), UHF/UKS Hessians, and the forced release of the semi-direct ERIs, saved to compare trees | The Hessian's memory |
