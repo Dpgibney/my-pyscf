@@ -1,0 +1,25 @@
+OK: all PySCF libs in pyscf-rx resolve cint/xc/BLAS from deps (cint=qcint-pgo xc=libxc-stock blas=openblas )
+c20h42/def2-tzvp/b3lyp nao 872 6 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 node2 b3lyp 9ac0bc855
+  SCF 103.0 s, 10 cycles, converged True, E -787.7629087270; final level 2: -787.7628156411 (+20.1 s)
+  J 7.1 s, K 56.1 s, XC 35.4 s, rest of get_veff 1.6 s, outside get_veff 2.8 s
+    J builds: 0.65 0.60 0.59 0.59 0.56 0.60 0.54 0.53 0.60 0.60 0.60 0.60
+    cycles: 9.5 7.1 6.9 6.8 6.3 11.7 8.1 7.8 9.7 9.8 9.7 9.7
+    final step (level-2 grid, its K, and J and XC again): 20.12 s
+  memory: peak RSS 3.26 GB (kernel); sampled peaks by phase: setup RSS 0.12 GB disk 0.00 GB, scf RSS 2.16 GB disk 0.01 GB, final RSS 3.26 GB disk 0.01 GB (max_memory 4000 MB)
+c20h42/def2-tzvp/wb97m-v/nlc1 nao 872 6 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 node2 wb97m-v nlc 1 9ac0bc855
+  SCF 368.6 s, 10 cycles, converged True, E -787.2624487547; final level 2: -787.2623445252 (+58.1 s)
+  J 7.0 s, K 122.7 s, XC 62.3 s, VV10 171.4 s, rest of get_veff 2.5 s, outside get_veff 2.8 s
+    J builds: 0.64 0.60 0.58 0.57 0.56 0.60 0.53 0.55 0.53 0.60 0.60 0.60
+    cycles: 25.5 29.1 22.1 28.1 27.6 38.5 30.8 31.9 30.3 34.8 34.7 35.3
+    final step (level-2 grid, its K, and J and XC again): 58.13 s
+  memory: peak RSS 5.38 GB (kernel); sampled peaks by phase: setup RSS 0.11 GB disk 0.00 GB, scf RSS 5.31 GB disk 0.01 GB, final RSS 5.38 GB disk 0.01 GB (max_memory 4000 MB)
+c20h42/def2-tzvp/wb97m-v nao 872 6 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 node2 wb97m-v nlc default 9ac0bc855
+  SCF 1093.6 s, 10 cycles, converged True, E -787.2624312152; final level 2: -787.2623269883 (+110.3 s)
+  J 7.0 s, K 121.6 s, XC 62.5 s, VV10 896.9 s, rest of get_veff 2.8 s, outside get_veff 2.8 s
+    J builds: 0.64 0.60 0.59 0.57 0.56 0.60 0.54 0.55 0.53 0.60 0.60 0.60
+    cycles: 86.4 81.8 148.7 81.0 80.6 93.1 85.3 86.1 85.5 89.4 88.2 87.5
+    final step (level-2 grid, its K, and J and XC again): 110.30 s
+  memory: peak RSS 5.51 GB (kernel); sampled peaks by phase: setup RSS 0.11 GB disk 0.00 GB, scf RSS 5.45 GB disk 0.01 GB, final RSS 5.29 GB disk 0.01 GB (max_memory 4000 MB)
+NODE2 WB97B DONE
+
+[exited with code 0]

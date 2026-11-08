@@ -1,0 +1,5 @@
+# c20h42/def2-TZVP wB97M-V, gas phase, exact J/K, VV10 self-consistent (SCNL), TightSCF, the default grid (DefGrid2).
+! wB97M-V def2-TZVP NoRIJCOSX TightSCF SCNL
+%pal nprocs 6 end
+%maxcore 1800
+* xyzfile 0 1 c20h42.xyz

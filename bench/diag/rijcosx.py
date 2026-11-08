@@ -84,6 +84,7 @@ ap.add_argument('--rebuild', type=int, default=5)
 ap.add_argument('--pair-tol', type=float, default=None)
 ap.add_argument('--switch-thrd', type=float, default=None)
 ap.add_argument('--xc-level', type=int, default=None)
+ap.add_argument('--nlc-level', type=int, default=None, help='the VV10 grid level (mf.nlcgrids.level)')
 ap.add_argument('--conv-tol', type=float, default=1e-9)
 ap.add_argument('--ref', default=None)
 ap.add_argument('--json', default=None)
@@ -114,8 +115,10 @@ mf = dft.RKS(mol, xc=args.xc)
 mf.conv_tol = args.conv_tol
 if args.xc_level is not None:
     mf.grids.level = args.xc_level
+if args.nlc_level is not None:
+    mf.nlcgrids.level = args.nlc_level
 
-T = {'j': 0., 'k': 0., 'jk': 0., 'veff': 0., 'xc': 0.}
+T = {'j': 0., 'k': 0., 'jk': 0., 'veff': 0., 'xc': 0., 'nlc': 0.}
 in_final = [False]
 kbuilds = []
 jbuilds = []
@@ -167,8 +170,9 @@ else:
             return get_j0(*a, **k)
         finally:
             dt = time.perf_counter() - t
-            T['j'] += dt
-            jbuilds.append(dt)
+            if not in_final[0]:
+                T['j'] += dt
+                jbuilds.append(dt)
 
     def get_k_only(s, dm, *a, **k):
         incr = s._full_dm is not None
@@ -193,18 +197,33 @@ def nr_rks(*a, **k):
     try:
         return nr_rks0(*a, **k)
     finally:
-        T['xc'] += time.perf_counter() - t
+        if not in_final[0]:
+            T['xc'] += time.perf_counter() - t
 
 
 mf._numint.nr_rks = nr_rks
+nr_nlc_vxc0 = mf._numint.nr_nlc_vxc
+
+
+def nr_nlc_vxc(*a, **k):
+    t = time.perf_counter()
+    try:
+        return nr_nlc_vxc0(*a, **k)
+    finally:
+        if not in_final[0]:
+            T['nlc'] += time.perf_counter() - t
+
+
+mf._numint.nr_nlc_vxc = nr_nlc_vxc
 
 
 def get_veff(*a, **k):
     t = time.perf_counter()
     v = get_veff0(*a, **k)
-    T['veff'] += time.perf_counter() - t
-    cycle_t.append(time.perf_counter())
-    last['vhf'] = v
+    if not in_final[0]:
+        T['veff'] += time.perf_counter() - t
+        cycle_t.append(time.perf_counter())
+        last['vhf'] = v
     return v
 
 
@@ -220,26 +239,24 @@ e_final = None
 t_final = 0.
 if args.method == 'rijcosx' and args.final_level >= 0:
     # ORCA's last step: the exchange energy of the converged density on the larger grid, once
+    # (the library's step, as mf.RIJCOSX() takes it: the converged density's energy with K on the larger grid,
+    # J and XC recomputed, which holds for any functional; the SCF's grid and data are kept)
     mon.set_phase('final')
     in_final[0] = True
     t1 = time.perf_counter()
     sdf = mf.with_df
-    sdf.build(level=args.final_level)
-    hyb = mf._numint.rsh_and_hybrid_coeff(mf.xc, spin=mol.spin)[2]
-    vk = sdf.get_jk(dm, hermi=1, with_j=False, with_k=True, direct_scf_tol=mf.direct_scf_tol)[1]
-    e_k_scf = -.25 * numpy.einsum('ij,ji', dm, last['vhf'].vk).real
-    e_k_fin = -.25 * hyb * numpy.einsum('ij,ji', dm, vk).real
-    e_final = e_tot - e_k_scf + e_k_fin
+    e_final = mf._sgx_energy_on_grid(args.final_level, dm, last['vhf'])
     t_final = time.perf_counter() - t1
-    kbuilds.append((sdf.grids.weights.size, 'final step (grid + K)', t_final))
+    kbuilds.append((0, 'final step (grid + K)', t_final))
 
 mon.stop()
 shutil.rmtree(tmpdir, ignore_errors=True)
 maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
 mem = {ph: dict(rss_gb=r / 1e9, disk_gb=d / 1e9) for ph, (r, d) in mon.peak.items()}
 jk = T['jk'] if args.method != 'rijcosx' else T['j'] + T['k']
-xc_rest = T['veff'] - jk - T['xc']
-case = f'{args.mol}/{args.basis}/{args.xc}' + (f'/xc{args.xc_level}' if args.xc_level is not None else '')
+xc_rest = T['veff'] - jk - T['xc'] - T['nlc']
+case = f'{args.mol}/{args.basis}/{args.xc}' + (f'/xc{args.xc_level}' if args.xc_level is not None else '') \
+    + (f'/nlc{args.nlc_level}' if args.nlc_level is not None else '')
 ref = {}
 if args.ref and os.path.exists(args.ref):
     with open(args.ref) as f:
@@ -262,18 +279,18 @@ print(f'{case} nao {mol.nao} {lib.num_threads()} threads {label} {args.tag}')
 print(f'  SCF {t_scf:.1f} s, {mf.cycles} cycles, converged {mf.converged}, E {e_tot:.10f}'
       + (f'; final level {args.final_level}: {e_final:.10f} (+{t_final:.1f} s)' if e_final is not None else ''))
 if args.method == 'rijcosx':
-    print(f'  J {T["j"]:.1f} s, K {T["k"]:.1f} s, XC {T["xc"]:.1f} s, rest of get_veff {xc_rest:.1f} s, outside '
-          f'get_veff {t_scf - T["veff"]:.1f} s')
+    print(f'  J {T["j"]:.1f} s, K {T["k"]:.1f} s, XC {T["xc"]:.1f} s' + (f', VV10 {T["nlc"]:.1f} s' if T['nlc'] else '')
+          + f', rest of get_veff {xc_rest:.1f} s, outside get_veff {t_scf - T["veff"]:.1f} s')
     print('    J builds: ' + ' '.join(f'{dt:.2f}' for dt in jbuilds))
     # wall time from one get_veff's end to the next (the build, the diagonalization and DIIS between), the first
     # from the start of the SCF
     ends = [t0] + cycle_t
     print('    cycles: ' + ' '.join(f'{b - a:.1f}' for a, b in zip(ends[:-1], ends[1:])))
     for n, kind, dt in kbuilds:
-        print(f'    K build: {n:8d} points {kind:5s} {dt:7.2f} s' if kind != 'final step (grid + K)' else f'    final step (level-{args.final_level} grid and K): {dt:.2f} s')
+        print(f'    K build: {n:8d} points {kind:5s} {dt:7.2f} s' if kind != 'final step (grid + K)' else f'    final step (level-{args.final_level} grid, its K, and J and XC again): {dt:.2f} s')
 else:
-    print(f'  J/K {jk:.1f} s, XC {T["xc"]:.1f} s, rest of get_veff {xc_rest:.1f} s, outside get_veff '
-          f'{t_scf - T["veff"]:.1f} s')
+    print(f'  J/K {jk:.1f} s, XC {T["xc"]:.1f} s' + (f', VV10 {T["nlc"]:.1f} s' if T['nlc'] else '')
+          + f', rest of get_veff {xc_rest:.1f} s, outside get_veff {t_scf - T["veff"]:.1f} s')
 if err is not None:
     print(f'  error against exact: {err * 1e3:+.4f} mEh')
 print(f'  memory: peak RSS {maxrss / 1e9:.2f} GB (kernel); sampled peaks by phase: '
@@ -282,7 +299,7 @@ print(f'  memory: peak RSS {maxrss / 1e9:.2f} GB (kernel); sampled peaks by phas
 if args.json:
     rec = dict(case=case, method=args.method, label=label, tag=args.tag, nao=mol.nao, threads=lib.num_threads(),
                t_scf=t_scf, t_final=t_final, cycles=mf.cycles, converged=bool(mf.converged), e_tot=e_tot,
-               e_final=e_final, err=err, t_j=T['j'], t_k=T['k'], t_jk=jk, t_xc=T['xc'], t_rest=xc_rest,
+               e_final=e_final, err=err, t_j=T['j'], t_k=T['k'], t_jk=jk, t_xc=T['xc'], t_nlc=T['nlc'], t_rest=xc_rest,
                t_outside=t_scf - T['veff'], kbuilds=kbuilds, jbuilds=jbuilds,
                cycle_times=[b - a for a, b in zip(([t0] + cycle_t)[:-1], ([t0] + cycle_t)[1:])], maxrss_gb=maxrss / 1e9, mem=mem,
                max_memory=mf.max_memory)

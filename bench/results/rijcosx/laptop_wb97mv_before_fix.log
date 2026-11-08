@@ -1,0 +1,20 @@
+c20h42/def2-tzvp/wb97m-v/nlc1 nao 872 10 threads exact laptop exact nlc1
+  SCF 368.2 s, 9 cycles, converged True, E -787.2612969440
+  J/K 252.9 s, XC 51.9 s, VV10 59.8 s, rest of get_veff 0.8 s, outside get_veff 2.9 s
+  memory: peak RSS 4.49 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 4.46 GB disk 0.01 GB (max_memory 4000 MB)
+c20h42/def2-tzvp/wb97m-v/nlc1 nao 872 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 laptop rijcosx nlc1
+  SCF 362.6 s, 24 cycles, converged True, E -787.2624487547; final level 2: -765.8760288894 (+10.7 s)
+  J 9.3 s, K 115.9 s, XC 77.0 s, VV10 152.0 s, rest of get_veff 1.6 s, outside get_veff 6.9 s
+    J builds: 0.47 0.41 0.40 0.39 0.39 0.41 0.37 0.38 0.36 0.35 0.41 0.34 0.32 0.32 0.31 0.41 0.32 0.31 0.31 0.30 0.42 0.31 0.30 0.30 0.29 0.42
+    cycles: 15.4 14.0 13.5 13.3 13.1 19.4 15.7 16.4 15.0 13.8 17.6 13.1 12.1 11.8 11.6 17.4 12.3 11.7 11.5 11.5 17.6 11.8 11.8 12.1 11.7 17.6
+    final step (level-2 grid and K): 10.72 s
+  error against exact: +21385.2681 mEh
+  memory: peak RSS 5.43 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 5.34 GB disk 0.01 GB, final RSS 3.15 GB disk 0.01 GB (max_memory 4000 MB)
+c20h42/def2-tzvp/wb97m-v nao 872 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 laptop rijcosx nlc default
+  SCF 1518.5 s, 24 cycles, converged True, E -787.2624312152; final level 2: -765.8760128519 (+10.7 s)
+  J 9.2 s, K 116.9 s, XC 77.1 s, VV10 1306.8 s, rest of get_veff 1.9 s, outside get_veff 6.7 s
+    J builds: 0.48 0.41 0.40 0.38 0.38 0.41 0.37 0.37 0.37 0.35 0.41 0.33 0.31 0.30 0.30 0.41 0.32 0.31 0.30 0.30 0.41 0.31 0.28 0.29 0.29 0.41
+    cycles: 59.8 59.5 58.5 57.8 58.1 62.7 58.4 59.8 59.1 58.7 62.6 57.6 56.5 57.1 55.3 63.0 57.3 56.6 56.3 56.5 61.3 55.2 57.1 55.7 56.8 61.5
+    final step (level-2 grid and K): 10.75 s
+  memory: peak RSS 5.51 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 5.47 GB disk 0.01 GB, final RSS 3.14 GB disk 0.01 GB (max_memory 4000 MB)
+LAPTOP WB97 DONE

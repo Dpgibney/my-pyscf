@@ -7718,6 +7718,42 @@ ORCA 6.1.1 `bench/orca/rx/c20h42_qzvp_rijcosx.inp` after PySCF had finished (`no
   the same energy to the last digit. def2-TZVP took 68 s there (5.6x for 2.75x the basis functions).
 - The two codes' energies differ by 3.1e-5 Eh (def2-TZVP 3.5e-5), from their different XC grids.
 
+### wB97M-V against B3LYP: n-C20H42/def2-TZVP, PySCF and ORCA on node2, 2026-11-07
+The user: "How does the def2-TZVP basis with wB97M-V compare to B3LYP?". Three things showed up on the way.
+- **VV10 dominates wB97M-V in PySCF.** PySCF (upstream too) evaluates it self-consistently on `nlcgrids`, whose
+  default level is the XC grid's (3), and the double sum grows with the square of the points: caffeine/def2-SVP 82%
+  of the SCF (7.4 s a cycle, against 7.3 s for both K parts).
+- **Upstream bug, SGX's range-separated path** (pyscf `perf` baba529cb): `SGX.get_jk`'s omega branch called the RSH
+  copy as `rsh_df.get_jk(dm, hermi, with_j, with_k, direct_scf_tol)`, putting with_j into vhfopt, with_k into with_j
+  and direct_scf_tol into with_k, so every long-range K also made a long-range RI-J (int3c2e, discarded). The copy
+  also never got the build's `_full_dm` and `_pair_tol_now`. Now by name, and the state is handed over for the call.
+  `test_rijcosx_rsh`.
+- **Incremental builds kept wB97M-V from converging** (24 cycles against exact's 9 on the laptop; 10 with full builds
+  only, 10 without pair screening): the screened parts of incremental builds moved the energy by ~3e-8 Eh from cycle
+  8 on, 100x caffeine's. pyscf `perf` 9ac0bc855: with sgx_tol_pair, every build is a full one once |dE| < 1000
+  conv_tol. wB97M-V 10 cycles; B3LYP 10 (11 before).
+- The harness's final step had a B3LYP-only formula (21 Eh off for range-separated hybrids); it now calls the
+  library's `_sgx_energy_on_grid`, as mf.RIJCOSX() does.
+
+| n-C20H42/def2-TZVP, node2, 6 cores | B3LYP | wB97M-V |
+|---|---|---|
+| PySCF RIJCOSX, VV10 on nlcgrids level 1 | 123 s (10 cycles) | 427 s (10 cycles) |
+| PySCF RIJCOSX, PySCF's default VV10 grid | | 1204 s |
+| ORCA RIJCOSX, its default (VV10 once after the SCF, 73,272 points) | 110 s | 242 s (11 cycles) |
+| ORCA RIJCOSX, SCNL (VV10 in every cycle) | | 1206 s |
+| ORCA exact | 526 s | 822 s |
+
+- PySCF wB97M-V (VV10 level 1): K 122.7 s (the long-range K doubles B3LYP's 56.1), XC 62.3 (meta-GGA; B3LYP 35.4),
+  VV10 171.4, J 7.0, the final step 58.1 (VV10 again in it). With the default VV10 grid VV10 takes 896.9 s.
+- With VV10 in every cycle the two codes take the same time (1204 against 1206 s). ORCA's default adds VV10 once
+  after the SCF, 1.6e-4 Eh from its SCNL energy; PySCF has no such option (it would bring PySCF to ~270 s).
+- Energies (Eh): ORCA RIJCOSX -787.262218122162, SCNL -787.262379119423, exact -787.261186165096; PySCF RIJCOSX
+  -787.2623445252 (VV10 level 1), -787.2623269883 (default VV10 grid), PySCF exact (VV10 level 1) -787.2612969440.
+  RIJCOSX against each code's exact: PySCF -1.05, ORCA -1.03 mEh (B3LYP -1.03 both). PySCF against ORCA SCNL 3.5e-5.
+- Peak memory: PySCF 5.4-5.5 GB (B3LYP 3.3; the RSH copy of SGX keeps its own grid, AO cache and projection on the same
+  grid as the main object's), ORCA 0.95 GB.
+- B3LYP with 9ac0bc855 on node2: 123 s against 116 s before (the full builds at the end, the final step's J and XC).
+
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
 - **PySCF `perf` fast-forwarded to `rijcosx` 0e7843bfd** (with it the unpushed refactor commits c9bfd2ea5 and

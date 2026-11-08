@@ -1,0 +1,13 @@
+== c20h42_wb97mv_exact 19:08:00
+   exit 0, wall 822.3 s
+peak PSS 0.70 GB, peak RSS sum 1.07 GB, up to 8 processes, 822 s
+Total number of grid points                  ...   252602
+               ***  Starting incremental Fock matrix formation  ***
+               *           SCF CONVERGED AFTER  11 CYCLES          *
+Total number of grid points                  ...    73272
+Total SCF time: 0 days 0 hours 13 min 36 sec 
+Fock matrix formation       ....     714.204 sec  ( 87.4%)
+  XC integration            ....      78.606 sec  ( 11.0% of F)
+FINAL SINGLE POINT ENERGY      -787.261186165096
+TOTAL RUN TIME: 0 days 0 hours 13 minutes 41 seconds 442 msec
+NODE2 ORCA RX DONE 19:21
