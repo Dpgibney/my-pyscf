@@ -5,7 +5,9 @@ phase being run (outer phases include their inner ones); each call's RSS before 
 Progress lines are printed as calls end.
 
 Usage: hess_mem.py [--n 20] [--basis def2-tzvp] [--xc wb97m-v] [--nlc-level 1] [--conv-tol 1e-10]
-  (n-alkane C_nH_2n+2; max_memory from PYSCF_MAX_MEMORY, PySCF's default 4000 MB when unset)'''
+                   [--residual-tol T] [--sgx-level L]
+  (n-alkane C_nH_2n+2; max_memory from PYSCF_MAX_MEMORY, PySCF's default 4000 MB when unset; --residual-tol and
+  --sgx-level set Hessian.cphf_residual_tol and Hessian.sgx_response)'''
 import argparse
 import os
 import resource
@@ -25,6 +27,8 @@ ap.add_argument('--xc', default='wb97m-v')
 ap.add_argument('--nlc-level', type=int, default=1)
 ap.add_argument('--conv-tol', type=float, default=1e-10)
 ap.add_argument('--log', default=None, help='PySCF log file (verbose 4)')
+ap.add_argument('--residual-tol', type=float, default=None, help='Hessian.cphf_residual_tol (cphf.solve_residual)')
+ap.add_argument('--sgx-level', type=int, default=None, help='Hessian.sgx_response on this grid level')
 args = ap.parse_args()
 
 PAGE = os.sysconf('SC_PAGE_SIZE')
@@ -106,8 +110,18 @@ wrap(rks_hess, '_get_vxc_deriv1', 'make_h1: XC deriv1')
 wrap(rks_hess, '_get_vnlc_deriv1', 'make_h1: VV10 deriv1')
 wrap(rks_hess, 'get_vnlc_resp', 'CPHF: VV10 response')
 wrap(rks_hess, 'get_vnlc_resp1', 'CPHF: VV10 response')
-wrap(mf, 'get_jk', 'J/K (CPHF and others)')
-wrap(mf, 'get_k', 'J/K (CPHF and others)')
+if args.residual_tol is not None:
+    hobj.cphf_residual_tol = args.residual_tol
+if args.sgx_level is None:
+    wrap(mf, 'get_jk', 'J/K (CPHF and others)')
+    wrap(mf, 'get_k', 'J/K (CPHF and others)')
+else:
+    # The response's J/K are those of a copy of mf that takes mf's __dict__: a wrapper left on the instance mf would
+    # be copied and replace the copy's SGX get_jk by the exact one.
+    from pyscf.sgx.sgx import _SGXHF  # noqa: E402
+    hobj.sgx_response = True
+    hobj.sgx_response_level = args.sgx_level
+    wrap(_SGXHF, 'get_jk', 'J/K (SGX response)')
 wrap(numint.NumInt, 'nr_rks_fxc', 'XC response (CPHF)')
 wrap(numint._FusedXC, 'rks_fxc_mo', 'XC response (CPHF)')
 wrap(hobj, 'partial_hess_elec', 'partial_hess_elec')

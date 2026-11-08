@@ -8136,6 +8136,70 @@ The user: "Let's start on the RIJCOSX next and then come back to the direct path
   assume it is in line with your estimate I think the direct J is a good call". `aug_etb` is no faster than direct J
   at these sizes.
 
+### The response in the Hessian, and a CPHF solver that stops on the residual (pyscf `perf` cd7fe5bec, local), 2026-11-08
+The user: "Yes wire it in" (direct J + SGX-K, level 0 by default, level 1 selectable, with a converged CPHF).
+- **What is there now.** `hobj = mf.Hessian(); hobj.sgx_response = True` (`hobj.sgx_response_level = 1` for level 1):
+  the J and K of the CPHF response only are direct J (`SGX.get_jk` with `direct_j`, now with the J-only prescreen of
+  `SCF.get_jk`) and SGX-K, from an RIJCOSX copy of the SCF object (`rhf._sgx_response_scf`). The SCF, the derivative
+  integrals and the XC and VV10 responses stay exact. `hobj.cphf_residual_tol = 1e-4` takes the new solver with any
+  response; `sgx_response` uses it with tol 1e-4 unless told otherwise. RHF and RKS only: UHF/UKS and density-fitted
+  SCFs raise NotImplementedError. Nothing changes without these switches. Tests:
+  `pyscf/hessian/test/test_sgx_response.py` (the solver against dense solves on a toy problem, the options, the
+  NotImplementedError cases). `scripts/run_tests.sh`: 1072 passed (the 8 new ones among them), the 7 known failures.
+- **Why a new solver.** The "converged CPHF" behind the accuracy tables above (normalized Krylov, tol 1e-12) runs until
+  the space is nearly exhausted, ~4x the response work (propane ~900 vectors), more than the approximate response saves.
+  With SGX-K the stock solver also misbehaves: its Krylov vectors shrink under SGX's absolute thresholds (propane, level
+  0: 42 calls and 250 vectors; level 1: 23 calls, 232 vectors).
+- **`cphf.solve_residual`** (`bench/diag/cphf_solver_variants.py`, the prototype with the choices not taken;
+  `bench/results/rijcosx/laptop_cphf_solver_variants.log`). One trial space for all perturbations; each cycle adds the
+  preconditioned residuals of the perturbations above tol, made orthonormal (two Gram-Schmidt passes, then pivoted QR);
+  stops on the true residuals. Three choices the scan settled:
+  - the projection in the plain dot on M = (e_a - e_i) + fvind (symmetric), not on the preconditioned operator as
+    `lib.krylov`: smaller Hessian errors at the same cost, 3x at tol 3e-3 and 200x at 1e-5 (propane, tol 1e-4: 2.3e-8
+    against 6.3e-7);
+  - the last update of the virtual block from the response of the solution (free): water at tol 1e-4, 7.7e-9 with it,
+    7.1e-6 without;
+  - starting from the uncoupled solution in one call (starting from the occupied block alone, which costs one call
+    more, is no better).
+  The Hessian's error goes about as the square of the residual.
+
+| propane/def2-SVP wB97M-V, 33 perturbations; errors against tol 1e-10 with the same response | response calls | vectors | max\|dH\| | max\|df\| cm-1 |
+|---|---|---|---|---|
+| stock, exact response | 7 | 196 | 6.9e-7 | 0.0022 |
+| stock, direct J + SGX-K level 0 / level 1 | 42 / 23 | 250 / 232 | 1.5e-5 / 2.0e-5 | 0.014 / 0.031 |
+| `solve_residual`, tol 3e-3 | 3 | 87 | 1.6e-5 | 0.38 |
+| tol 1e-3 | 4 | 97 | 4.5e-6 | 0.017 |
+| tol 3e-4 | 4 | 120 | 9.5e-8 | 0.0020 |
+| tol 1e-4 | 5 | 130 | 2.3e-8 | 0.0001 |
+| tol 1e-5 | 6 | 160 | 6.6e-10 | 0.0000 |
+
+  - The `solve_residual` rows are the same to the digits shown with the exact response and SGX-K on levels 0 and 1, so the
+    solver's error does not depend on the approximation. Water/def2-SVP wB97M-V: stock 7 calls, 47 vectors, 2.8e-6;
+    tol 1e-4 5 calls, 34 vectors, 7.7e-9.
+  - Against an independent solve (normalized Krylov, tol 1e-12; water/def2-SVP): `solve_residual` tol 1e-9 is within
+    8.4e-13 (B3LYP) and 4.4e-16 (RHF); the stock solver 7.5e-6 and 3.2e-9; tol 1e-4 5.6e-8 and 2.5e-8.
+- **Through the API, n-C5H12/def2-SVP wB97M-V** (nao 130, 51 perturbations; `bench/diag/hess_sgx_response.py`,
+  `bench/results/rijcosx/laptop_c5h12_sgx_response.log`; against `cphf_residual_tol` 1e-8 with the exact response):
+
+| | CPHF | response calls | vectors | max\|dH\| | max\|df\| (mean) cm-1 |
+|---|---|---|---|---|---|
+| stock, exact response | 39.0 s | 7 | 302 | 3.0e-7 | 0.003 (0.000) |
+| `solve_residual` 1e-4, exact response | 27.0 s | 5 | 207 | 2.7e-8 | 0.000 (0.000) |
+| `solve_residual` 1e-4, direct J + SGX-K level 0 | 30.4 s | 5 | 207 | 2.7e-5 | 0.155 (0.038) |
+| `solve_residual` 1e-4, direct J + SGX-K level 1 | 33.6 s | 5 | 207 | 1.3e-5 | 0.031 (0.007) |
+
+  - At this size SGX-K gains nothing (as expected from the N^4.4 against N^3.4 above); the new solver alone is 31% off
+    the CPHF.
+  - The largest frequency error of level 0 grows with size: water 0.03, propane 0.11, n-C5H12 0.155 cm-1. Level 1: 0.00,
+    0.03, 0.03.
+- **Projected for n-C20H42/def2-TZVP wB97M-V (not measured)**, from the stock Hessian's CPHF of 6367 s (J/K 3524, VV10
+  1703, XC 1060, rest 80), n-C5H12's 207/302 of the vectors, and J/K per response of 718 s exact, ~375 s (level 0),
+  ~560 s (level 1), the long-range SGX-K assumed equal to the full-range one: exact response with the new solver ~4390 s
+  (24% off the 8208 s Hessian), level 1 ~3860 s (31%), level 0 ~3230 s (38%).
+- **Left:** the end-to-end n-C20H42 measurement (`bench/diag/hess_mem.py --residual-tol 1e-4 [--sgx-level 0]`, about 1.5 h
+  a run; the user's call); whether `solve_residual` should be the Hessian's default solver (it changes results by what the
+  stock solver leaves unconverged); UHF/UKS.
+
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
 - **PySCF `perf` fast-forwarded to `rijcosx` 0e7843bfd** (with it the unpushed refactor commits c9bfd2ea5 and

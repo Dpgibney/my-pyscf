@@ -1,0 +1,8 @@
+ac=1 profile=balanced mode=full cpu0_hw_max=5090MHz epp=balance_performance
+start 2026-11-08 16:51:23
+n-C5H12/def2-svp wb97m-v: nao 130, 51 perturbations, 10 threads; SCF 5.2 s, partial Hessian + make_h1 24.5 s
+  reference (exact response, cphf_residual_tol 1e-08): 50.3 s, 8 calls, 392 vectors
+  stock cphf.solve, exact response           CPHF     39.0 s (response     38.7 s),   7 calls,   302 vectors; max|dH| 3.04e-07, max|df| 0.003 cm-1, mean|df| 0.000
+  solve_residual 1e-04, exact response       CPHF     27.0 s (response     26.8 s),   5 calls,   207 vectors; max|dH| 2.69e-08, max|df| 0.000 cm-1, mean|df| 0.000
+  solve_residual 1e-04, direct J + SGX-K level 0 CPHF     30.4 s (response     30.1 s),   5 calls,   207 vectors; max|dH| 2.71e-05, max|df| 0.155 cm-1, mean|df| 0.038
+  solve_residual 1e-04, direct J + SGX-K level 1 CPHF     33.6 s (response     33.4 s),   5 calls,   207 vectors; max|dH| 1.27e-05, max|df| 0.031 cm-1, mean|df| 0.007

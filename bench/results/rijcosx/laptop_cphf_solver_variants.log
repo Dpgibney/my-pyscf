@@ -1,0 +1,60 @@
+/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py
+ac=1 profile=balanced mode=full cpu0_hw_max=5090MHz epp=balance_performance
+start 2026-11-08 16:39:03
+water/def2-svp wb97m-v exact: nao 24, 9 perturbations, nvir*nocc 95; SCF 0.3 s, partial + h1 0.5 s
+  reference (oo:M:0 tol 1e-10): 0.5 s calls 10 vecs 82, freq 1601.3..4035.6
+  stock                 0.3 s calls   7 vecs    47 | max|dH| 2.77e-06 max|df|  0.0059 cm-1 | r: 
+  x0:M:1 1e-03          0.2 s calls   4 vecs    27 | max|dH| 9.48e-07 max|df|  0.0053 cm-1 | r: 1.1e-01 2.1e-02 4.8e-03 3.4e-04
+  x0:M:1 1e-04          0.2 s calls   5 vecs    34 | max|dH| 7.69e-09 max|df|  0.0000 cm-1 | r: 1.1e-01 2.0e-02 3.4e-03 1.9e-04 3.0e-05
+  x0:M:1 1e-05          0.3 s calls   6 vecs    38 | max|dH| 2.98e-10 max|df|  0.0000 cm-1 | r: 1.1e-01 2.0e-02 2.8e-03 1.9e-04 1.4e-05 5.1e-06
+  x0:D:1 1e-03          0.2 s calls   4 vecs    27 | max|dH| 3.57e-06 max|df|  0.0078 cm-1 | r: 1.1e-01 2.1e-02 4.7e-03 3.2e-04
+  x0:D:1 1e-04          0.2 s calls   5 vecs    34 | max|dH| 6.60e-07 max|df|  0.0024 cm-1 | r: 1.1e-01 2.0e-02 3.6e-03 1.9e-04 2.9e-05
+  x0:D:1 1e-05          0.3 s calls   6 vecs    38 | max|dH| 4.03e-08 max|df|  0.0003 cm-1 | r: 1.1e-01 2.0e-02 2.6e-03 1.8e-04 1.2e-05 5.8e-06
+  oo:M:0 1e-03          0.2 s calls   5 vecs    33 | max|dH| 1.18e-06 max|df|  0.0039 cm-1 | r: 1.9e-01 6.1e-02 1.8e-02 3.9e-03 3.7e-04
+  oo:M:0 1e-04          0.3 s calls   6 vecs    40 | max|dH| 6.99e-08 max|df|  0.0001 cm-1 | r: 1.9e-01 6.1e-02 1.8e-02 4.2e-03 5.0e-04 8.8e-05
+  oo:M:0 1e-05          0.3 s calls   7 vecs    47 | max|dH| 3.17e-10 max|df|  0.0000 cm-1 | r: 1.9e-01 6.1e-02 1.5e-02 1.6e-03 1.7e-04 1.2e-05 5.2e-06
+propane/def2-svp wb97m-v exact: nao 82, 33 perturbations, nvir*nocc 897; SCF 2.6 s, partial + h1 8.9 s
+  reference (oo:M:0 tol 1e-10): 18.3 s calls 10 vecs 325, freq 0.0+141.5j..3247.8+0.0j
+  stock                10.8 s calls   7 vecs   196 | max|dH| 6.87e-07 max|df|  0.0022 cm-1 | r: 
+  x0:M:1 3e-03          4.7 s calls   3 vecs    87 | max|dH| 1.60e-05 max|df|  0.3826 cm-1 | r: 1.5e-01 2.2e-02 1.6e-03
+  x0:M:1 1e-03          5.4 s calls   4 vecs    97 | max|dH| 4.45e-06 max|df|  0.0174 cm-1 | r: 1.5e-01 2.2e-02 1.5e-03 9.2e-04
+  x0:M:1 3e-04          6.5 s calls   4 vecs   120 | max|dH| 9.52e-08 max|df|  0.0020 cm-1 | r: 1.5e-01 2.0e-02 1.4e-03 1.2e-04
+  x0:M:1 1e-04          7.6 s calls   5 vecs   130 | max|dH| 2.26e-08 max|df|  0.0001 cm-1 | r: 1.5e-01 2.0e-02 1.4e-03 1.2e-04 5.6e-05
+  x0:M:1 1e-05          9.4 s calls   6 vecs   160 | max|dH| 6.57e-10 max|df|  0.0000 cm-1 | r: 1.5e-01 2.0e-02 1.3e-03 1.2e-04 1.0e-05 9.5e-06
+  x0:D:1 3e-03          4.8 s calls   3 vecs    87 | max|dH| 5.04e-05 max|df|  0.9744 cm-1 | r: 1.5e-01 2.2e-02 1.6e-03
+  x0:D:1 1e-03          5.6 s calls   4 vecs    97 | max|dH| 2.36e-05 max|df|  0.0742 cm-1 | r: 1.5e-01 2.2e-02 1.4e-03 8.7e-04
+  x0:D:1 3e-04          6.8 s calls   4 vecs   120 | max|dH| 1.60e-06 max|df|  0.0475 cm-1 | r: 1.5e-01 2.0e-02 1.3e-03 1.1e-04
+  x0:D:1 1e-04          7.5 s calls   5 vecs   128 | max|dH| 6.34e-07 max|df|  0.0035 cm-1 | r: 1.5e-01 2.0e-02 1.3e-03 1.1e-04 7.5e-05
+  x0:D:1 1e-05          9.0 s calls   5 vecs   159 | max|dH| 1.34e-07 max|df|  0.0003 cm-1 | r: 1.5e-01 2.0e-02 1.2e-03 1.1e-04 8.6e-06
+propane/def2-svp wb97m-v sgx0: nao 82, 33 perturbations, nvir*nocc 897; SCF 2.6 s, partial + h1 9.1 s
+  reference (oo:M:0 tol 1e-10): 21.2 s calls 10 vecs 325, freq 0.0+141.7j..3247.8+0.0j
+  stock                28.1 s calls  42 vecs   250 | max|dH| 1.48e-05 max|df|  0.0138 cm-1 | r: 
+  x0:M:1 3e-03          5.7 s calls   3 vecs    87 | max|dH| 1.60e-05 max|df|  0.3823 cm-1 | r: 1.5e-01 2.2e-02 1.6e-03
+  x0:M:1 1e-03          6.4 s calls   4 vecs    97 | max|dH| 4.43e-06 max|df|  0.0174 cm-1 | r: 1.5e-01 2.2e-02 1.5e-03 9.2e-04
+  x0:M:1 3e-04          7.9 s calls   4 vecs   120 | max|dH| 9.51e-08 max|df|  0.0020 cm-1 | r: 1.5e-01 2.0e-02 1.4e-03 1.2e-04
+  x0:M:1 1e-04          8.8 s calls   5 vecs   130 | max|dH| 2.27e-08 max|df|  0.0001 cm-1 | r: 1.5e-01 2.0e-02 1.4e-03 1.2e-04 5.6e-05
+  x0:M:1 1e-05         10.9 s calls   6 vecs   160 | max|dH| 5.82e-10 max|df|  0.0000 cm-1 | r: 1.5e-01 2.0e-02 1.3e-03 1.2e-04 1.0e-05 9.5e-06
+  x0:D:1 3e-03          5.7 s calls   3 vecs    87 | max|dH| 5.05e-05 max|df|  0.9726 cm-1 | r: 1.5e-01 2.2e-02 1.6e-03
+  x0:D:1 1e-03          6.6 s calls   4 vecs    97 | max|dH| 2.35e-05 max|df|  0.0739 cm-1 | r: 1.5e-01 2.2e-02 1.4e-03 8.6e-04
+  x0:D:1 3e-04          8.0 s calls   4 vecs   120 | max|dH| 1.59e-06 max|df|  0.0475 cm-1 | r: 1.5e-01 2.0e-02 1.3e-03 1.1e-04
+  x0:D:1 1e-04          8.9 s calls   5 vecs   128 | max|dH| 6.31e-07 max|df|  0.0035 cm-1 | r: 1.5e-01 2.0e-02 1.3e-03 1.1e-04 7.5e-05
+  x0:D:1 1e-05         10.7 s calls   5 vecs   159 | max|dH| 1.34e-07 max|df|  0.0003 cm-1 | r: 1.5e-01 2.0e-02 1.2e-03 1.1e-04 8.6e-06
+propane/def2-svp wb97m-v sgx1: nao 82, 33 perturbations, nvir*nocc 897; SCF 2.9 s, partial + h1 9.8 s
+  reference (oo:M:0 tol 1e-10): 25.0 s calls 10 vecs 325, freq 0.0+141.5j..3247.8+0.0j
+  stock                22.8 s calls  23 vecs   232 | max|dH| 1.98e-05 max|df|  0.0311 cm-1 | r: 
+  x0:M:1 3e-03          6.5 s calls   3 vecs    87 | max|dH| 1.60e-05 max|df|  0.3827 cm-1 | r: 1.5e-01 2.2e-02 1.6e-03
+  x0:M:1 1e-03          7.5 s calls   4 vecs    97 | max|dH| 4.45e-06 max|df|  0.0174 cm-1 | r: 1.5e-01 2.2e-02 1.5e-03 9.2e-04
+  x0:M:1 3e-04          9.0 s calls   4 vecs   120 | max|dH| 9.52e-08 max|df|  0.0020 cm-1 | r: 1.5e-01 2.0e-02 1.4e-03 1.2e-04
+  x0:M:1 1e-04         10.0 s calls   5 vecs   130 | max|dH| 2.27e-08 max|df|  0.0001 cm-1 | r: 1.5e-01 2.0e-02 1.4e-03 1.2e-04 5.6e-05
+  x0:M:1 1e-05         12.8 s calls   6 vecs   160 | max|dH| 5.81e-10 max|df|  0.0000 cm-1 | r: 1.5e-01 2.0e-02 1.3e-03 1.2e-04 1.0e-05 9.5e-06
+  x0:D:1 3e-03          6.4 s calls   3 vecs    87 | max|dH| 5.04e-05 max|df|  0.9744 cm-1 | r: 1.5e-01 2.2e-02 1.6e-03
+  x0:D:1 1e-03          7.4 s calls   4 vecs    97 | max|dH| 2.37e-05 max|df|  0.0742 cm-1 | r: 1.5e-01 2.2e-02 1.4e-03 8.7e-04
+  x0:D:1 3e-04          9.0 s calls   4 vecs   120 | max|dH| 1.60e-06 max|df|  0.0475 cm-1 | r: 1.5e-01 2.0e-02 1.3e-03 1.1e-04
+  x0:D:1 1e-04          9.9 s calls   5 vecs   128 | max|dH| 6.33e-07 max|df|  0.0035 cm-1 | r: 1.5e-01 2.0e-02 1.3e-03 1.1e-04 7.5e-05
+  x0:D:1 1e-05         12.0 s calls   5 vecs   159 | max|dH| 1.34e-07 max|df|  0.0003 cm-1 | r: 1.5e-01 2.0e-02 1.2e-03 1.1e-04 8.7e-06
+end 2026-11-08 16:45:49
+PROTO3 DONE
+water/def2-svp wb97m-v exact: nao 24, 9 perturbations, nvir*nocc 95; SCF 0.5 s, partial + h1 1.2 s
+  x0:M:0 1e-03          0.5 s calls   4 vecs    27 | max|dH| 4.76e-05 max|df|  0.3041 cm-1 | r: 1.1e-01 2.1e-02 4.8e-03 3.4e-04
+  x0:M:0 1e-04          0.7 s calls   5 vecs    34 | max|dH| 7.11e-06 max|df|  0.0043 cm-1 | r: 1.1e-01 2.0e-02 3.4e-03 1.9e-04 3.0e-05
+  x0:M:0 1e-05          0.7 s calls   6 vecs    38 | max|dH| 3.11e-07 max|df|  0.0013 cm-1 | r: 1.1e-01 2.0e-02 2.8e-03 1.9e-04 1.4e-05 5.1e-06
