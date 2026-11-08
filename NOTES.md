@@ -7758,6 +7758,17 @@ The user: "How does the def2-TZVP basis with wB97M-V compare to B3LYP?". Three t
   README -> perf-2026-11-07d (qcint stays perf-2026-11-07c). Before it: sgx, df and solvent tests 260 passed, the 3
   known failures there; node2's runs above are of 9ac0bc855 itself.
 
+### Sharing the grid between SGX's full-range object and its long-range copy: what is duplicated (2026-11-07)
+For the user's question on sharing the grid. wB97X, n-C20H42/def2-TZVP RIJCOSX, laptop, cProfile:
+- The RSH copy (`SGX._rsh_df`) builds its own grid, identical to the main object's (79,312 points at level 1), keeps
+  its own AO values on it (0.55 GB each; 1.24 GB each at level 2 in the final step) and its own overlap-fitting
+  projection (0.2 s, 6 MB each), and computes F = D X again (F is the same for both: 7.3 s for the two over the SCF).
+  Per-operator: the integral bounds (1.6 s per grid level), the integrals and their contraction (C driver 59.6 s for
+  the two), G and K += X G (5.9 s). The grids took 2.1 s, five builds.
+- The long-range K as K_full - K_SR (erf + erfc = 1): the identity holds (1.6e-9 Eh), but a short-range (erfc) build
+  takes 12.7 s against 3.2 s full range and 3.7 s long range (qcint's erfc integrals double the roots and have no
+  optimizer), so no gain.
+
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
 - **PySCF `perf` fast-forwarded to `rijcosx` 0e7843bfd** (with it the unpushed refactor commits c9bfd2ea5 and
