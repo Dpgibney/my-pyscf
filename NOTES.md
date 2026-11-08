@@ -7961,6 +7961,11 @@ level 1, max_memory 4000 MB, monitored by phase with `bench/diag/hess_mem.py`.
     (2) `_get_vxc_deriv2_dm` and `_get_vxc_deriv1` size their AO blocks (to second derivatives) by the whole budget
     and add the products, AO-dm products and per-atom arrays per block (~4 GB over); (3) the VV10 Fock derivative's
     per-atom grid arrays (~3 GB) beside its 1.13 GB result.
+- **Pushed** (the user: "Push it and then work on the memory usage"): PySCF `perf` 4e37cc8fe..21e80c7e6 (e526b08ca,
+  571affb7d, 21e80c7e6) + annotated tag perf-2026-11-08; pins and README -> perf-2026-11-08 (qcint stays
+  perf-2026-11-07c; the README says which change is not to rounding, the CPHF's). Before it, on the laptop:
+  `kernels.py` ALL PASS; PySCF's tests (dft scf df grad hessian tdscf solvent sgx) 1063 passed, the same 7 known
+  failures. No fresh-clone rerun (Python and libdft only; the build is the same).
 
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
