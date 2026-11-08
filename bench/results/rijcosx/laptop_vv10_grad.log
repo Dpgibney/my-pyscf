@@ -1,0 +1,13 @@
+# bench/diag/vv10_fused_grad.py: the gradient VV10 term (grad.rks.get_nlc_vxc), block_loop path vs fused (pyscf perf 4e37cc8fe), laptop, 10 threads, max_memory from scripts/pyscf-env.sh
+caffeine/def2-tzvp nao 494 nlc grid 97000 max_memory 17829 MB
+  block_loop   2.70 s  RSS before 0.17 GB, peak 5.47 GB (+5.30)
+  fused        1.31 s  RSS before 0.24 GB, peak 0.37 GB (+0.13)
+  block_loop   2.69 s  RSS before 0.26 GB, peak 5.56 GB (+5.30)
+  fused        1.26 s  RSS before 0.30 GB, peak 0.38 GB (+0.08)
+  max|dv| 1.6e-17 (|v| 9.16e-03)
+c20h42/def2-tzvp nao 872 nlc grid 207424 max_memory 17643 MB
+  block_loop   8.90 s  RSS before 0.36 GB, peak 9.62 GB (+9.26)
+  fused        4.39 s  RSS before 0.35 GB, peak 0.71 GB (+0.37)
+  block_loop   9.02 s  RSS before 0.37 GB, peak 9.77 GB (+9.41)
+  fused        4.43 s  RSS before 0.38 GB, peak 0.73 GB (+0.35)
+  max|dv| 8.7e-18 (|v| 6.65e-03)

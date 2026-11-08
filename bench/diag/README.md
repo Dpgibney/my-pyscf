@@ -91,3 +91,7 @@ Run them in a configuration's pinned environment:
 | `scf_hard_remedies.py` | caffeine+ UKS from minao with each convergence remedy (level shift, damping, SOSCF, smearing, guesses) | It22 |
 | `scf_flipmix.py` | flip-pair mixing prototype, and rotations of the π-hole state's hole pair | It22 |
 | `scf_flip_scan.py` | where the flip-pair trigger fires on open-shell molecules under plain CDIIS | It22 |
+| `mem_parts.py` | where a RIJCOSX SCF's memory goes: RSS by phase (J, K, XC, VV10), before and after each call, and the largest live allocations; wB97X, wB97M-V, without VV10, VV10 on its old path | RIJCOSX: wB97M-V's extra memory |
+| `vv10_fused_check.py` | `nr_nlc_vxc` on the fused kernels against its `block_loop` path, for a tagged, an untagged and a non-symmetric dm | RIJCOSX: wB97M-V's extra memory |
+| `vv10_fused_grad.py` | the gradient's VV10 term (`grad.rks.get_nlc_vxc`) both ways: matrices, times and the peak RSS of each call | RIJCOSX: wB97M-V's extra memory |
+| `rijcosx_block_loop_vv10.py` | runs `rijcosx.py` with `nr_nlc_vxc` on its `block_loop` path (the A side of the A/B) | RIJCOSX: wB97M-V's extra memory |

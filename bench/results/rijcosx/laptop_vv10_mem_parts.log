@@ -1,0 +1,61 @@
+# bench/diag/mem_parts.py, n-C20H42/def2-TZVP RIJCOSX, 3 cycles, max_memory 20000 MB, laptop, 10 threads; wb97m-v-oldvv10 = nr_nlc_vxc on its block_loop path
+wb97m-v-oldvv10: 3 cycles, 47 s, RSS at the end 2.14 GB, max_memory 20000 MB
+  peak RSS by phase: vv10 5.74, k 2.82, xc 2.44, j 2.23, other 2.18
+  xc    calls: RSS before -> after: 0.24->1.74, 2.14->2.13, 2.17->2.17, 2.18->2.18
+  vv10  calls: RSS before -> after: 1.74->1.77, 2.13->2.16, 2.17->2.20, 2.18->2.21
+  j     calls: RSS before -> after: 1.77->1.82, 2.16->2.18, 2.20->2.21, 2.21->2.23
+  k     calls: RSS before -> after: 1.82->2.14, 2.14->2.14, 2.18->2.47, 2.47->2.19
+  live allocations traced by tracemalloc: 1.85 GB; the largest:
+     1.403 GB  scf/hf.py:132 <- sgx/sgx.py:242 <- dft/rks.py:81
+     0.295 GB  scf/hf.py:132 <- sgx/sgx.py:242 <- dft/rks.py:123
+     0.038 GB  dft/rks.py:81 <- dft/numint.py:2050 <- dft/numint.py:1576
+     0.017 GB  sgx/sgx.py:293 <- scf/hf.py:2156 <- scf/hf.py:132
+     0.017 GB  scf/hf.py:132 <- sgx/sgx.py:242 <- dft/rks.py:81
+     0.017 GB  sgx/sgx.py:227 <- sgx/sgx.py:680 <- df/df_jk.py:605
+     0.007 GB  df/df_jk.py:605 <- df/df_jk.py:588 <- df/df_jk.py:481
+     0.006 GB  sgx/sgx.py:686 <- sgx/sgx_jk.py:1137 <- sgx/sgx.py:626
+wb97m-v: 3 cycles, 46 s, RSS at the end 2.58 GB, max_memory 20000 MB
+  peak RSS by phase: k 3.27, xc 2.88, vv10 2.77, j 2.67, other 2.64
+  xc    calls: RSS before -> after: 0.24->1.75, 2.58->2.58, 2.62->2.62, 2.63->2.63
+  vv10  calls: RSS before -> after: 1.75->2.21, 2.58->2.60, 2.62->2.64, 2.63->2.65
+  j     calls: RSS before -> after: 2.21->2.26, 2.60->2.62, 2.64->2.65, 2.65->2.67
+  k     calls: RSS before -> after: 2.26->2.58, 2.58->2.58, 2.62->2.91, 2.91->2.63
+  live allocations traced by tracemalloc: 2.30 GB; the largest:
+     1.403 GB  scf/hf.py:132 <- sgx/sgx.py:242 <- dft/rks.py:81
+     0.429 GB  scf/hf.py:132 <- sgx/sgx.py:242 <- dft/rks.py:89
+     0.295 GB  scf/hf.py:132 <- sgx/sgx.py:242 <- dft/rks.py:123
+     0.038 GB  dft/rks.py:81 <- dft/numint.py:2050 <- dft/numint.py:1576
+     0.017 GB  sgx/sgx.py:293 <- scf/hf.py:2156 <- scf/hf.py:132
+     0.017 GB  scf/hf.py:132 <- sgx/sgx.py:242 <- dft/rks.py:81
+     0.017 GB  sgx/sgx.py:227 <- sgx/sgx.py:680 <- df/df_jk.py:605
+     0.011 GB  dft/rks.py:89 <- dft/numint.py:2294 <- dft/numint.py:1576
+wb97m-v-oldvv10: 3 cycles, 45 s, RSS at the end 2.19 GB, max_memory 20000 MB
+  peak RSS by phase: vv10 5.73, k 2.83, xc 2.44, j 2.24, other 2.22
+  xc    calls: RSS before -> after: 0.24->1.74, 2.13->2.13, 2.18->2.18, 2.22->2.19
+  vv10  calls: RSS before -> after: 1.74->1.76, 2.13->2.16, 2.18->2.20, 2.19->2.21
+  j     calls: RSS before -> after: 1.76->1.81, 2.16->2.17, 2.20->2.22, 2.21->2.24
+  k     calls: RSS before -> after: 1.81->2.12, 2.12->2.12, 2.17->2.47, 2.47->2.19
+  live allocations traced by tracemalloc: 1.85 GB; the largest:
+     1.403 GB  scf/hf.py:132 <- sgx/sgx.py:242 <- dft/rks.py:81
+     0.295 GB  scf/hf.py:132 <- sgx/sgx.py:242 <- dft/rks.py:123
+     0.038 GB  dft/rks.py:81 <- dft/numint.py:2050 <- dft/numint.py:1576
+     0.017 GB  sgx/sgx.py:293 <- scf/hf.py:2156 <- scf/hf.py:132
+     0.017 GB  scf/hf.py:132 <- sgx/sgx.py:242 <- dft/rks.py:81
+     0.017 GB  sgx/sgx.py:227 <- sgx/sgx.py:680 <- df/df_jk.py:605
+     0.007 GB  df/df_jk.py:605 <- df/df_jk.py:588 <- df/df_jk.py:481
+     0.006 GB  sgx/sgx.py:686 <- sgx/sgx_jk.py:1137 <- sgx/sgx.py:626
+wb97m-v: 3 cycles, 42 s, RSS at the end 2.60 GB, max_memory 20000 MB
+  peak RSS by phase: k 3.27, xc 2.88, vv10 2.78, j 2.68, other 2.63
+  xc    calls: RSS before -> after: 0.24->1.74, 2.58->2.58, 2.63->2.62, 2.63->2.63
+  vv10  calls: RSS before -> after: 1.74->2.21, 2.58->2.60, 2.62->2.64, 2.63->2.65
+  j     calls: RSS before -> after: 2.21->2.27, 2.60->2.63, 2.64->2.66, 2.65->2.68
+  k     calls: RSS before -> after: 2.27->2.58, 2.58->2.58, 2.63->2.92, 2.92->2.63
+  live allocations traced by tracemalloc: 2.30 GB; the largest:
+     1.403 GB  scf/hf.py:132 <- sgx/sgx.py:242 <- dft/rks.py:81
+     0.429 GB  scf/hf.py:132 <- sgx/sgx.py:242 <- dft/rks.py:89
+     0.295 GB  scf/hf.py:132 <- sgx/sgx.py:242 <- dft/rks.py:123
+     0.038 GB  dft/rks.py:81 <- dft/numint.py:2050 <- dft/numint.py:1576
+     0.017 GB  sgx/sgx.py:293 <- scf/hf.py:2156 <- scf/hf.py:132
+     0.017 GB  scf/hf.py:132 <- sgx/sgx.py:242 <- dft/rks.py:81
+     0.017 GB  sgx/sgx.py:227 <- sgx/sgx.py:680 <- df/df_jk.py:605
+     0.011 GB  dft/rks.py:89 <- dft/numint.py:2294 <- dft/numint.py:1576

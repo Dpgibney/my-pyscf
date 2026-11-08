@@ -7790,6 +7790,46 @@ same density (while a copy exists). The integral bounds stay each operator's. `t
 - wB97M-V's RSS stays 2.6 GB above wB97X's (4.8 against 2.2 GB in the SCF): that is the XC/VV10 side, not SGX.
   (`bench/results/rijcosx/laptop_share_ab.log`)
 
+### wB97M-V's extra memory was VV10's AO blocks: VV10 on the fused XC kernels (pyscf `perf` 4e37cc8fe, local), 2026-11-07
+The user: "Investigate that extra memory overhead" (wB97M-V's SCF held 2.6 GB more than wB97X's).
+- **Where it went** (`bench/diag/mem_parts.py`: RSS sampled by phase, n-C20H42/def2-TZVP RIJCOSX, 3 cycles): all
+  inside `numint.nr_nlc_vxc`, and none of it kept (the RSS after each VV10 call within 0.03 GB of before). Its
+  density and potential passes ran through `block_loop` with `max_memory`, the free budget, so each pass made AO
+  blocks with first derivatives as large as the budget allowed (4 x 872 AOs x up to 67,200 points = 1.9 GB) plus
+  `_dot_ao_aow_sparse`'s buffer. The meta-GGA XC was not the cause (with VV10 off the peak was wB97X's). At
+  max_memory 20000 MB the VV10 phase peaked at 5.74 GB against 2.2 GB around it.
+- **Change:** both passes take the fused kernels that `nr_rks` uses (`_fused_xc`, then `rho_evaluator` and
+  `_dot_wv`), which compute the AO values in place; the gradient's VV10 term (`grad.rks.get_nlc_vxc`, AO blocks
+  with second derivatives before, 10 components) takes `dot_terms` with `_xc_grad_terms('GGA')`. New keyword
+  `_fused_xc(..., radial_cache=False)`: the NLC grid keeps no radial parts (0.43 GB at NLC level 1; at the default
+  NLC level, the XC grid's, a second copy of the XC grid's 1.4 GB); two passes a cycle gain little from them. Where
+  `_fused_xc` declines (Cartesian basis, small dense systems, a NumInt with its own functions) the `block_loop` path
+  stays. UKS (the summed dm), the DF and SGX gradients and the Hessian's `nr_nlc_vxc` call go through the same two
+  functions; the Hessian's own VV10 terms keep their `block_loop` passes (not measured).
+- **Checks:** from dms bit for bit, from orbitals within 1.3e-18 (|v| 5e-3), the gradient term within 1.6e-17
+  (`bench/diag/vv10_fused_check.py`, `vv10_fused_grad.py`); `test_fused_nlc`; the VV10 tests of dft, grad, hessian
+  and df: 137 passed.
+
+| n-C20H42/def2-TZVP wB97M-V RIJCOSX (VV10 level 1), laptop, 10 threads, alternating | VV10 on `block_loop` | fused (4e37cc8fe) |
+|---|---|---|
+| SCF at max_memory 4000 MB (2 runs each) | 157.1 / 158.4 s | 143.0 / 148.3 s |
+| VV10 | 63.2 / 59.5 s | 46.3 / 48.7 s |
+| RSS in the SCF | 4.84 / 4.85 GB | 2.24 / 2.24 GB (wB97X 2.20) |
+| peak RSS (the final level-2 step) | 4.86 GB | 3.27 GB (wB97X 3.27) |
+| SCF and VV10 at 20000 MB | 159.8 s, 61.5 s | 143.9 s, 47.1 s |
+| RSS in the SCF and peak RSS at 20000 MB | 5.91 GB, 6.30 GB | 3.69 GB, 6.25 GB (wB97X 3.64, 6.23) |
+
+- The gradient's VV10 term alone (`vv10_fused_grad.py`, max_memory ~17.7 GB as `pyscf-env.sh` sets it here):
+  caffeine/def2-TZVP +5.3 -> +0.1 GB and 2.7 -> 1.3 s per call; n-C20H42/def2-TZVP +9.3 -> +0.4 GB and
+  8.9 -> 4.4 s.
+- The energies are the same in every digit printed (-787.2624487547 on the SCF grids, -787.2623445252 after the
+  final step). The laptop ran in the balanced power profile (on AC); old and new alternated within the run.
+- What is left: wB97M-V's memory is now wB97X's at both budgets. With a large max_memory the final level-2 step
+  sets the peak for both (6.2 GB at 20000 MB): SGX keeps its AO values on the level-2 grid when they fit (1.24 GB),
+  and the XC grid keeps its radial cache (1.40 GB at 20000 MB, the level-3 grid; it saves ~14% of the XC time,
+  `dft_numint_radial_cache_fraction = 0` turns it off). ORCA's peak was 0.95 GB.
+  (`bench/results/rijcosx/laptop_vv10_fused.log`, `laptop_vv10_mem_parts.log`, `laptop_vv10_grad.log`)
+
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
 - **PySCF `perf` fast-forwarded to `rijcosx` 0e7843bfd** (with it the unpushed refactor commits c9bfd2ea5 and

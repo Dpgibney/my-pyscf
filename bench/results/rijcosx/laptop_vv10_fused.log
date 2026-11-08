@@ -1,0 +1,46 @@
+# n-C20H42/def2-TZVP wB97M-V RIJCOSX (VV10 level 1), laptop, 10 threads, power profile balanced (on AC):
+# nr_nlc_vxc on its block_loop path (bench/diag/rijcosx_block_loop_vv10.py) and on the fused kernels (pyscf perf 4e37cc8fe), alternating
+c20h42/def2-tzvp/wb97m-v/nlc1 nao 872 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 block_loop VV10 r1
+  SCF 157.1 s, 10 cycles, converged True, E -787.2624487547; final level 2: -787.2623445252 (+23.9 s)
+  J 4.2 s, K 56.6 s, XC 29.8 s, VV10 63.2 s, rest of get_veff 1.0 s, outside get_veff 2.2 s
+    cycles: 12.3 11.4 11.5 11.4 11.2 16.2 13.5 13.7 13.0 15.2 14.0 13.8
+    final step (level-2 grid, its K, and J and XC again): 23.87 s
+  memory: peak RSS 4.86 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 4.84 GB disk 0.01 GB, final RSS 4.41 GB disk 0.01 GB (max_memory 4000 MB)
+c20h42/def2-tzvp/wb97m-v/nlc1 nao 872 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 fused VV10 r1
+  SCF 143.0 s, 10 cycles, converged True, E -787.2624487547; final level 2: -787.2623445252 (+24.2 s)
+  J 4.2 s, K 58.5 s, XC 30.7 s, VV10 46.3 s, rest of get_veff 1.0 s, outside get_veff 2.3 s
+    cycles: 12.0 10.4 10.1 10.0 9.7 14.5 11.6 12.1 11.4 13.7 13.7 13.7
+    final step (level-2 grid, its K, and J and XC again): 24.19 s
+  memory: peak RSS 3.27 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 2.24 GB disk 0.01 GB, final RSS 3.28 GB disk 0.01 GB (max_memory 4000 MB)
+c20h42/def2-tzvp/wb97m-v/nlc1 nao 872 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 block_loop VV10 r2
+  SCF 158.4 s, 10 cycles, converged True, E -787.2624487547; final level 2: -787.2623445252 (+25.9 s)
+  J 4.3 s, K 60.4 s, XC 30.9 s, VV10 59.5 s, rest of get_veff 1.0 s, outside get_veff 2.3 s
+    cycles: 13.6 11.8 11.4 11.2 11.1 15.9 12.7 13.2 12.7 14.8 15.1 14.7
+    final step (level-2 grid, its K, and J and XC again): 25.89 s
+  memory: peak RSS 4.86 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 4.85 GB disk 0.01 GB, final RSS 4.31 GB disk 0.01 GB (max_memory 4000 MB)
+c20h42/def2-tzvp/wb97m-v/nlc1 nao 872 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 fused VV10 r2
+  SCF 148.3 s, 10 cycles, converged True, E -787.2624487547; final level 2: -787.2623445252 (+24.6 s)
+  J 4.3 s, K 60.9 s, XC 31.1 s, VV10 48.7 s, rest of get_veff 1.0 s, outside get_veff 2.3 s
+    cycles: 12.8 10.9 10.6 10.4 10.3 15.2 12.0 12.4 11.7 14.1 14.0 13.9
+    final step (level-2 grid, its K, and J and XC again): 24.64 s
+  memory: peak RSS 3.27 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 2.24 GB disk 0.01 GB, final RSS 3.27 GB disk 0.01 GB (max_memory 4000 MB)
+c20h42/def2-tzvp/wb97m-v/nlc1 nao 872 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 block_loop VV10 20 GB
+  SCF 159.8 s, 10 cycles, converged True, E -787.2624487547; final level 2: -787.2623445252 (+24.6 s)
+  J 4.4 s, K 61.0 s, XC 29.5 s, VV10 61.5 s, rest of get_veff 1.1 s, outside get_veff 2.4 s
+    cycles: 13.9 11.8 11.6 11.3 11.1 16.1 13.1 13.1 12.7 15.1 15.0 15.0
+    final step (level-2 grid, its K, and J and XC again): 24.63 s
+  memory: peak RSS 6.30 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 5.91 GB disk 0.01 GB, final RSS 6.26 GB disk 0.01 GB (max_memory 20000 MB)
+c20h42/def2-tzvp/wb97m-v/nlc1 nao 872 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 fused VV10 20 GB
+  SCF 143.9 s, 10 cycles, converged True, E -787.2624487547; final level 2: -787.2623445252 (+23.3 s)
+  J 4.3 s, K 60.3 s, XC 29.0 s, VV10 47.1 s, rest of get_veff 1.0 s, outside get_veff 2.2 s
+    cycles: 12.6 10.7 10.2 10.1 9.8 14.8 11.5 12.1 11.4 13.5 13.6 13.5
+    final step (level-2 grid, its K, and J and XC again): 23.29 s
+  memory: peak RSS 6.25 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 3.69 GB disk 0.01 GB, final RSS 6.25 GB disk 0.01 GB (max_memory 20000 MB)
+VV10 AB DONE
+# wB97X at 20000 MB with the fused VV10 tree (no VV10 in wB97X), for the peak comparison
+c20h42/def2-tzvp/wb97x nao 872 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 wB97X 20 GB
+  SCF 79.4 s, 10 cycles, converged True, E -787.5434566856; final level 2: -787.5433505627 (+17.5 s)
+  J 4.3 s, K 56.2 s, XC 15.6 s, rest of get_veff 0.9 s, outside get_veff 2.3 s
+    cycles: 7.1 5.4 5.1 4.8 4.6 9.2 6.2 6.7 6.1 8.1 8.1 8.1
+    final step (level-2 grid, its K, and J and XC again): 17.47 s
+  memory: peak RSS 6.23 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 3.64 GB disk 0.01 GB, final RSS 6.23 GB disk 0.01 GB (max_memory 20000 MB)
