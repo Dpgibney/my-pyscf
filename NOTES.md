@@ -7928,6 +7928,39 @@ level 1, max_memory 4000 MB, monitored by phase with `bench/diag/hess_mem.py`.
      J/K the many-density engine takes (SGX handles many densities poorly). A cheap response of the exact J/K and XC
      without VV10 would cost about half an exact call and break even at best. Not taken into the library (x0 is in
      `cphf.solve` from item 1).
+  Also considered (the user asked about symmetries before the large run): point-group symmetry (n-C20H42 here is
+  C2h, 21 symmetry-unique atoms of 62: the CPHF and make_h1 for 63 coordinates instead of 186; the grids are
+  symmetric for this molecule; PySCF has no point-group Hessian), translational invariance (mostly used already),
+  the locality of the atomic perturbations in the VV10 terms, the symmetry of the VV10 pair kernel (halves only the
+  kernel evaluation and block traffic, ~1-2% of the Hessian). None done; the user chose to measure first.
+- **n-C20H42/def2-TZVP wB97M-V Hessian, 21e80c7e6** (`bench/diag/hess_mem.py`, laptop, 10 threads, max_memory
+  4000 MB, VV10 grid level 1, balanced power profile; `bench/results/hessian/laptop_c20h42_tzvp_wb97mv_hessian.log`):
+  8538 s in all, the Hessian 8208 s (2 h 17 min), peak RSS 13.3 GB.
+
+| phase | time | peak RSS |
+|---|---|---|
+| SCF (10 cycles) | 329.5 s | 3.61 GB |
+| partial Hessian: two-electron terms, full-range J/K | 290.2 s | 3.83 GB |
+| partial Hessian: long-range K | 208.0 s | 3.74 GB |
+| partial Hessian: XC (meta-GGA) diagonal + second derivative | 13.3 + 63.1 s | 7.57 GB |
+| partial Hessian: VV10 second derivative | 209.2 s | 5.60 GB |
+| make_h1: XC Fock derivative | 214.5 s | 7.27 GB |
+| make_h1: VV10 Fock derivative | 525.7 s | 8.89 GB |
+| make_h1: derivative J/K | 316.6 s | |
+| CPHF, 7 responses: J + full-range K / long-range K | 2323.8 / 1200.1 s | 13.32 GB |
+| CPHF: VV10 response | 1703.2 s | 11.76 GB |
+| CPHF: XC response | 1060.5 s | 8.73 GB |
+| CPHF: the rest (Krylov, transformations) | 79.8 s | |
+
+  - The CPHF is 78% of the Hessian (6367 s); exact J/K 55% of it. A response of 186 densities: J + K 473 s, long-range
+    K 245 s, VV10 294 s, XC 184 s; the last two responses had fewer vectors (575 s and 187 s in all).
+  - VV10 in all: 2438 s (30% of the Hessian), estimated at ~15 h before e526b08ca.
+  - Memory above max_memory, three sizings: (1) the CPHF takes the 62 atoms in one block (solve_mo1 sizes the block
+    by the MO-basis arrays only) and its response holds several stacks of 186 AO matrices, 1.13 GB each (the
+    densities, the XC and VV10 potentials, J, K and long-range K), on top of h1ao (1.13 GB) and the SCF's 3.3 GB;
+    (2) `_get_vxc_deriv2_dm` and `_get_vxc_deriv1` size their AO blocks (to second derivatives) by the whole budget
+    and add the products, AO-dm products and per-atom arrays per block (~4 GB over); (3) the VV10 Fock derivative's
+    per-atom grid arrays (~3 GB) beside its 1.13 GB result.
 
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
