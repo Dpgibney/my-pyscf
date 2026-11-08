@@ -1,0 +1,14 @@
+# bench/diag/rijcosx_resp_accuracy.py --converge --split --levels 0,1 with direct J (sgx.dfj = False, sgx.direct_j = True), pyscf perf 0ad1f8318, laptop, 10 threads
+water/def2-svp wb97m-v: nao 24, 9 perturbations; exact Hessian 1.3 s, max|H| 0.7156, frequencies 1601.3..4035.6 cm-1
+  DF-J + exact K: 1.1 s; max|dH| 1.30e-04 (1.8e-04 of max|H|); frequencies: max|df| 0.41 cm-1, mean|df| 0.32 cm-1
+  DF-J + SGX-K level 0 (2160 points): 1.2 s; max|dH| 1.29e-04 (1.8e-04 of max|H|); frequencies: max|df| 0.38 cm-1, mean|df| 0.32 cm-1
+  exact J + SGX-K level 0: 1.2 s; max|dH| 1.29e-05 (1.8e-05 of max|H|); frequencies: max|df| 0.03 cm-1, mean|df| 0.02 cm-1
+  DF-J + SGX-K level 1 (4184 points): 1.3 s; max|dH| 1.30e-04 (1.8e-04 of max|H|); frequencies: max|df| 0.41 cm-1, mean|df| 0.32 cm-1
+  exact J + SGX-K level 1: 1.2 s; max|dH| 5.68e-07 (7.9e-07 of max|H|); frequencies: max|df| 0.00 cm-1, mean|df| 0.00 cm-1
+propane/def2-svp wb97m-v: nao 82, 33 perturbations; exact Hessian 62.9 s, max|H| 0.6544, frequencies 0.0+141.5j..3247.8+0.0j cm-1
+  DF-J + exact K: 64.1 s; max|dH| 4.25e-05 (6.5e-05 of max|H|); frequencies: max|df| 0.45 cm-1, mean|df| 0.08 cm-1
+  DF-J + SGX-K level 0 (7560 points): 73.8 s; max|dH| 3.96e-05 (6.1e-05 of max|H|); frequencies: max|df| 0.53 cm-1, mean|df| 0.09 cm-1
+  exact J + SGX-K level 0: 75.7 s; max|dH| 2.73e-05 (4.2e-05 of max|H|); frequencies: max|df| 0.11 cm-1, mean|df| 0.04 cm-1
+  DF-J + SGX-K level 1 (14424 points): 85.0 s; max|dH| 5.37e-05 (8.2e-05 of max|H|); frequencies: max|df| 0.46 cm-1, mean|df| 0.09 cm-1
+  exact J + SGX-K level 1: 84.8 s; max|dH| 1.12e-05 (1.7e-05 of max|H|); frequencies: max|df| 0.03 cm-1, mean|df| 0.01 cm-1
+ACC DONE

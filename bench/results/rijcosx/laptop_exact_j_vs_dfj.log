@@ -1,0 +1,49 @@
+# n-C20H42/def2-TZVP, 186 CPHF first-response densities (make_h1, B3LYP, RIJCOSX orbitals): exact J alone against DF-J, bench/diag/sgx_many_dm.py --n 20 --h1 --j-only, pyscf perf 0ad1f8318, laptop, 10 threads
+# max_memory 4000 MB
+ac=1 profile=balanced mode=full cpu0_hw_max=5090MHz epp=balance_performance
+start 2026-11-08 14:42:40
+n-C20H42/def2-tzvp b3lyp: nao 872, natm 62, 10 threads; RIJCOSX SCF 64.2 s, E -787.76281564
+make_h1 286.8 s
+186 densities, max|dm| 0.138
+  exact J alone (direct, many-density engine)  172.59 s  ( 927.9 ms a density)
+  DF-J (J-engine)                              65.34 s  ( 351.3 ms a density)
+    DF-J against exact J: 1.7e-03 of max|J|; exact J / DF-J 2.64x
+end 2026-11-08 14:52:33
+C20 EXACT J DONE
+# PYSCF_MAX_MEMORY=12000
+ac=1 profile=balanced mode=full cpu0_hw_max=5090MHz epp=balance_performance
+start 2026-11-08 15:01:11
+n-C20H42/def2-tzvp b3lyp: nao 872, natm 62, 10 threads; RIJCOSX SCF 72.4 s, E -787.76281564
+make_h1 316.1 s
+186 densities, max|dm| 0.138
+  exact J alone (direct, many-density engine)  136.45 s  ( 733.6 ms a density)
+  DF-J (J-engine)                              70.82 s  ( 380.8 ms a density)
+    DF-J against exact J: 1.7e-03 of max|J|; exact J / DF-J 1.93x
+end 2026-11-08 15:11:11
+C20 EXACT J 12G DONE
+# n-C8H18 and n-C12H26, the same densities, 4000 MB: J + K, J alone, K alone, DF-J with def2-universal-jfit and aug_etb (a one-off script on the setup of sgx_many_dm.py)
+n-C8H18/def2-tzvp b3lyp: nao 356, natm 26, 10 threads; RIJCOSX SCF 11.3 s, E -315.83016167
+make_h1 31.0 s
+78 densities, max|dm| 0.136
+  exact J + K together                             8.96 s  (  114.8 ms a density)
+  exact J alone                                    4.53 s  (   58.0 ms a density)
+  exact K alone                                    6.63 s  (   85.0 ms a density)
+    J alone against J of J + K: 2.7e-12 of max|J|
+  DF-J, def2-universal-jfit (J-engine)             3.86 s  (   49.4 ms a density)
+    against exact J: 1.7e-03 of max|J|
+  DF-J, aug_etb (J-engine)                         7.87 s  (  100.9 ms a density)
+    build 0.0 s, 1842 fitting functions (jfit: 590); against exact J: 1.6e-04 of max|J|
+  exact J / DF-J(jfit) 1.17x, exact J / DF-J(etb) 0.58x; J + K together vs K alone: 9.0 vs 6.6 s
+n-C12H26/def2-tzvp b3lyp: nao 528, natm 38, 10 threads; RIJCOSX SCF 26.5 s, E -473.14104801
+make_h1 87.7 s
+114 densities, max|dm| 0.137
+  exact J + K together                            50.39 s  (  442.0 ms a density)
+  exact J alone                                   19.36 s  (  169.8 ms a density)
+  exact K alone                                   31.69 s  (  278.0 ms a density)
+    J alone against J of J + K: 2.3e-12 of max|J|
+  DF-J, def2-universal-jfit (J-engine)            13.63 s  (  119.5 ms a density)
+    against exact J: 1.7e-03 of max|J|
+  DF-J, aug_etb (J-engine)                        27.72 s  (  243.1 ms a density)
+    build 0.0 s, 2734 fitting functions (jfit: 874); against exact J: 1.6e-04 of max|J|
+  exact J / DF-J(jfit) 1.42x, exact J / DF-J(etb) 0.70x; J + K together vs K alone: 50.4 vs 31.7 s
+EXACT J DONE

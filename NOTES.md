@@ -8064,10 +8064,13 @@ The user: "Let's start on the RIJCOSX next and then come back to the direct path
 |---|---|---|
 | DF-J (def2-universal-jfit) + exact K | 1.3e-4, 0.41 cm-1 | 4.3e-5, 0.45 cm-1 (0.08) |
 | DF-J + SGX-K, level 0 | 1.3e-4, 0.38 | 4.0e-5, 0.53 (0.09) |
-| exact J + SGX-K, level 0 | 4.4e-5, 0.20 | 8.7e-5, 0.33 (0.15) |
+| exact J + SGX-K, level 0 | 1.3e-5, 0.03 | 2.7e-5, 0.11 (0.04) |
 | DF-J + SGX-K, level 1 | 1.3e-4, 0.41 | 5.4e-5, 0.46 (0.09) |
-| exact J + SGX-K, level 1 | 3.9e-6, 0.01 | 1.7e-5, 0.04 (0.02) |
+| exact J + SGX-K, level 1 | 5.7e-7, 0.00 | 1.1e-5, 0.03 (0.01) |
 
+  - Exact J is direct SCF's (`sgx.dfj = False`, `sgx.direct_j = True`;
+    `bench/results/rijcosx/laptop_resp_accuracy_direct_j.log`). The first version of these two rows set only
+    `dfj = False`, which leaves J to SGX's grid as well (those runs: level 0 0.20 and 0.33 cm-1, level 1 0.01 and 0.04).
   - DF-J's fitting basis carries most of the error: the response densities of nuclear perturbations have
     core-region character that a J-fitting basis does not describe. DF-J + exact K with def2-universal-jkfit 0.11
     and 0.24 cm-1, PySCF's even-tempered `aug_etb` basis (2.4x jfit's size) 0.02 and 0.05, `autoaux` 0.02 and 0.24
@@ -8104,13 +8107,34 @@ The user: "Let's start on the RIJCOSX next and then come back to the direct path
   - n-C20H42, level 1: F = X D 35.4 s, G = A F 86.0 s, K = X^T w G 68.3 s. On C8H18 (the make_h1 densities)
     against exact: DF-J 1.7e-3 of max|J|, SGX-K level 0 1.5e-3, level 1 1.6e-4 of max|K|.
   - Exact J and K grow about as N^4.4 here, DF-J and SGX-K as N^3.4: no gain at C8H18, even at C12H26 (level 1).
+- **Exact J against DF-J** (the user: "What is the timing difference between exact and DF-J for the hessians?";
+  `sgx_many_dm.py --h1 --j-only`, the CPHF's first densities; `bench/results/rijcosx/laptop_exact_j_vs_dfj.log`):
+
+| | exact J alone | DF-J (jfit) | DF-J (`aug_etb`) | exact J + K | exact K alone |
+|---|---|---|---|---|---|
+| n-C8H18/def2-TZVP, 78 densities | 4.5 s | 3.9 s | 7.9 s | 9.0 s | 6.6 s |
+| n-C12H26/def2-TZVP, 114 | 19.4 s | 13.6 s | 27.7 s | 50.4 s | 31.7 s |
+| n-C20H42/def2-TZVP, 186, max_memory 4000 MB | 172.6 s | 65.3 s | | 473 s (the Hessian's) | |
+| the same, 12000 MB | 136.5 s | 70.8 s | | | |
+
+  - The J engine holds 54 dms at 4000 MB, so n-C20H42's 186 take 4 passes over the integrals; one at 12000 MB, and at
+    the two smaller sizes. A power law through C8 and C12 gave ~120 s for n-C20H42. At 12000 MB the ratio to DF-J is
+    the expected one (1.93x; that run's SCF and make_h1 were 10-12% slower than the 4000 MB run's), at 4000 MB 2.64x.
+  - On these densities DF-J (jfit) is within 1.7e-3 of max|J|, `aug_etb` 1.6e-4.
+  - DF-J with exact K saves little (C12H26: 13.6 + 31.7 s against 50.4 s; the whole propane Hessian 19.2 s against
+    19.5 s): K is where the time goes.
+  - Over the Hessian (its J + K is 4.9 full responses), exact J costs about 530 s more than DF-J at 4000 MB (6% of
+    the 8208 s) and 320 s at 12000 MB (4%).
 - **Where that leaves the response** (n-C20H42/def2-TZVP wB97M-V, a response of 186 densities): exact J + K 473 s
   and long-range K 245 s; DF-J + SGX-K level 1 63 + 193 s and a long-range SGX-K of about as much (less with F
-  shared), so the J/K 1.6-1.9x faster, level 0 2.5-2.9x. The XC (151 s) and VV10 (243 s) responses stay: a CPHF
-  iteration from about 1110 s to 650-800 s.
+  shared), so the J/K 1.6-1.9x faster, level 0 2.5-2.9x. With direct J at 4000 MB: 173 + 193 + 193 s at level 1
+  (1.3x against 718 s), 173 + 101 + 101 s at level 0 (1.9x); the long-range SGX-K is assumed equal to the full-range
+  one, not measured. The XC (151 s) and VV10 (243 s) responses stay: a CPHF iteration from about 1110 s to 650-950 s.
 - **Left:** the opt-in response in the Hessian, with the converged CPHF; the F and K products (half of SGX-K at
   C20H42: dense over the block's AOs times all AOs; F shared between the full- and long-range K); AVX-512 row
-  kernels; exact J, or DF-J with `aug_etb`, for the accurate variant.
+  kernels. For the J of the response the user, before the measurements above: "Let's do a measurement first, but
+  assume it is in line with your estimate I think the direct J is a good call". `aug_etb` is no faster than direct J
+  at these sizes.
 
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".

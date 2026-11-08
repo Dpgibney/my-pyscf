@@ -7,7 +7,9 @@ The densities are those of the overlap-derivative part of the first-order orbita
 With --h1, those of the CPHF's first response (the uncoupled solution, x_ai = -(h1 - S1 e_i)_ai / (e_a - e_i)), with
 h1 from the exact Hessian's make_h1 on the RIJCOSX orbitals.
 
-Usage: sgx_many_dm.py [--n 8] [--basis def2-tzvp] [--xc b3lyp] [--levels 0,1] [--nset N] [--h1]'''
+--j-only times exact J alone and DF-J on the densities, nothing else.
+
+Usage: sgx_many_dm.py [--n 8] [--basis def2-tzvp] [--xc b3lyp] [--levels 0,1] [--nset N] [--h1] [--no-exact] [--j-only]'''
 import argparse
 import os
 import sys
@@ -27,6 +29,7 @@ ap.add_argument('--levels', default='0,1')
 ap.add_argument('--nset', type=int, default=0, help='the first N densities only (0: all 3 natm)')
 ap.add_argument('--h1', action='store_true', help="the CPHF's first densities, from make_h1")
 ap.add_argument('--no-exact', action='store_true', help='skip the exact J and K (no errors then)')
+ap.add_argument('--j-only', action='store_true', help='exact J alone and DF-J, nothing else')
 args = ap.parse_args()
 
 mol = gto.M(atom=n_alkane(args.n), basis=args.basis, verbose=0)
@@ -78,6 +81,18 @@ def timed(label, fn):
     print(f'  {label:42s} {dt:7.2f} s  ({dt / nset * 1e3:6.1f} ms a density)', flush=True)
     return out, dt
 
+
+if args.j_only:
+    mfx = dft.RKS(mol, xc=args.xc)
+    mfx.max_memory = mf.max_memory
+    mfx.semi_direct = False  # as in the Hessian: the many-density J/K does not read it
+    mfx._opt[None] = mfx.init_direct_scf(mol)
+    vj_x, t_x = timed('exact J alone (direct, many-density engine)',
+                      lambda: mfx.get_jk(mol, dms, hermi=1, with_k=False)[0])
+    vj_df, t_df = timed('DF-J (J-engine)', lambda: mf.get_jk(mol, dms, hermi=1, with_k=False)[0])
+    print(f'    DF-J against exact J: {abs(vj_df - vj_x).max() / abs(vj_x).max():.1e} of max|J|; '
+          f'exact J / DF-J {t_x / t_df:.2f}x', flush=True)
+    sys.exit(0)
 
 # exact
 if not args.no_exact:

@@ -116,7 +116,9 @@ def sgx_copy(level, dfj=True):
     mf_c = mf.RIJCOSX()
     sgx = mf_c.with_df
     if not dfj:
+        # J by direct SCF; with dfj and direct_j both off, SGX computes J on the grid too
         sgx.dfj = False
+        sgx.direct_j = True
     sgx.grids_level_i = sgx.grids_level_f = level
     sgx.build(level=level)
     mf_c._nsteps_direct = 0  # the SCF state of an SGX object used outside an SCF
