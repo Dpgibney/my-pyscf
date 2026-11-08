@@ -7829,6 +7829,11 @@ The user: "Investigate that extra memory overhead" (wB97M-V's SCF held 2.6 GB mo
   and the XC grid keeps its radial cache (1.40 GB at 20000 MB, the level-3 grid; it saves ~14% of the XC time,
   `dft_numint_radial_cache_fraction = 0` turns it off). ORCA's peak was 0.95 GB.
   (`bench/results/rijcosx/laptop_vv10_fused.log`, `laptop_vv10_mem_parts.log`, `laptop_vv10_grad.log`)
+- **Pushed** (the user: "Push and update the pins"): PySCF `perf` 9ac0bc855..4e37cc8fe (option A 01f1d9b62, this
+  4e37cc8fe) + annotated tag perf-2026-11-07e; pins and README -> perf-2026-11-07e (qcint stays perf-2026-11-07c).
+  Before it, on the laptop: `kernels.py` ALL PASS (the five VV10 arrays within 1.7e-15 of pyscf-base); PySCF's
+  tests (dft scf df grad hessian tdscf solvent sgx) 1063 passed, the same 7 known failures. No fresh-clone rerun
+  (Python-only changes since perf-2026-11-07d).
 
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
