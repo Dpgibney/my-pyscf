@@ -7911,8 +7911,10 @@ level 1, max_memory 4000 MB, monitored by phase with `bench/diag/hess_mem.py`.
 
   The Hessians move with this: water B3LYP old against new 2.1e-5 (max abs H 0.71), propane wB97M-V 6.1e-7. Converged,
   the old and the new start give the same Hessian (0.70676300, 0.65438408). Converging to 1e-11 costs ~4x the
-  response work for propane; a residual test with a looser tolerance would sit in between (not done; the user's
-  choice).
+  response work for propane; a residual test with a looser tolerance would sit in between.
+  **Future work** (the user: "Let's leave it as is for now but flag it as potential future work"): a stopping test
+  on the true residual (the response of the solution is free since 571affb7d), a normalized Krylov with
+  reorthogonalization, or preconditioned CG for the symmetric orbital Hessian of real perturbations.
   5. **Warm start from a cheap response** (`bench/diag/cphf_warm.py`: the CPHF of the cheap response, DF-J by the
      J-engine + SGX-K on a level-0 grid, the XC kernel on a level-1 grid, no VV10, then the exact solve from it with
      `x0`): two exact calls fewer, and a solution 40-60x closer, but slower in all:
