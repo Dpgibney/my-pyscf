@@ -8051,6 +8051,67 @@ The user: "Push it and then work on the memory usage". The n-C20H42/def2-TZVP wB
   - h1ao on disk between make_h1, the CPHF and the last contraction: 1.13 GB on n-C20H42, a few seconds of I/O.
   - The UHF/UKS response (`_gen_uhf_response`) has not had the J/K-first change.
 
+### The RIJCOSX-style CPHF response: SGX-K of many densities (pyscf `perf` 0ad1f8318, local), 2026-11-08
+The user: "Let's start on the RIJCOSX next and then come back to the direct paths higher memory usage".
+- **Approach.** There is no RIJCOSX Hessian (`_SGXHF.Hessian = method_not_implemented`). Here the SCF and every
+  derivative integral stay exact and only the CPHF response's J and K are approximated: DF-J by the J-engine and
+  SGX-K of an RIJCOSX copy of the SCF object, as an opt-in (not in the library's API yet).
+- **Accuracy** (`bench/diag/rijcosx_resp_accuracy.py`, wB97M-V/def2-SVP, the XC and VV10 responses exact, harmonic
+  frequencies by `thermo.harmonic_analysis`; `--converge`: every CPHF converged, normalized Krylov and
+  conv_tol_cpscf 1e-12):
+
+| response J and K | water: max\|dH\|, max\|df\| | propane: max\|dH\|, max\|df\| (mean) |
+|---|---|---|
+| DF-J (def2-universal-jfit) + exact K | 1.3e-4, 0.41 cm-1 | 4.3e-5, 0.45 cm-1 (0.08) |
+| DF-J + SGX-K, level 0 | 1.3e-4, 0.38 | 4.0e-5, 0.53 (0.09) |
+| exact J + SGX-K, level 0 | 4.4e-5, 0.20 | 8.7e-5, 0.33 (0.15) |
+| DF-J + SGX-K, level 1 | 1.3e-4, 0.41 | 5.4e-5, 0.46 (0.09) |
+| exact J + SGX-K, level 1 | 3.9e-6, 0.01 | 1.7e-5, 0.04 (0.02) |
+
+  - DF-J's fitting basis carries most of the error: the response densities of nuclear perturbations have
+    core-region character that a J-fitting basis does not describe. DF-J + exact K with def2-universal-jkfit 0.11
+    and 0.24 cm-1, PySCF's even-tempered `aug_etb` basis (2.4x jfit's size) 0.02 and 0.05, `autoaux` 0.02 and 0.24
+    (stock CPHF).
+  - With the stock CPHF, one run of DF-J + SGX-K level 0 on propane gave 3.74 cm-1 (max|dH| 2.0e-3): `lib.krylov`
+    stopping short (above, flagged as future work) can move the Hessian more than the approximation, so an
+    approximate response needs the converged CPHF.
+- **SGX-K of many densities, before** (`bench/diag/sgx_many_dm.py`, n-C8H18/def2-TZVP B3LYP, 78 CPHF-like
+  densities, 10 threads): exact J and K 7.7 s, DF-J 3.4 s, SGX-K level 0 21.7 s, level 1 38.8 s. One density took
+  0.40 / 0.60 s and every further one 0.26 / 0.51 s: `SGXnr_direct_k_drv` evaluates a batch's shell-pair integrals
+  once but contracts them with one density after another, each with accumulators of its own (78 of nao x 224
+  doubles per thread), out of cache.
+- **Change** (0ad1f8318, `lib/vhf/nr_sgx_many.c`, `sgx_jk._get_k_only_many`): `get_k_only` takes 8 densities or
+  more at once. Per block of points, F = X D and K = X^T w G are matrix products over all densities (the density
+  index innermost, the AOs with values on the block), and G = A F is `SGXnr_direct_k_many`: per batch the screening
+  of `SGXscreen_grid_pair` (shell norms over all densities, so the shell pairs of the old driver on the same
+  densities), the integrals of every pair once, stored point-major; per point A gathered by row shell (both
+  triangles, flat column lists), then 8 densities at a time with the row's sums in registers (AVX2/FMA picked at
+  run time, the file built at -O3). Other screenings keep the old driver. Against the old driver on the same
+  densities: within 1.4e-14 relative; `test_sgx_jk.py ManyDensities`. PySCF's tests: 1064 passed, the 7 known
+  failures.
+  - The contraction on C8H18, level 1: per-density loop 33 s; point-major integrals with an AXPY over the densities
+    9.8 s; the sums by row shell 7.4 s; flat columns 5.2 s; -O3 2.7 s (GCC at -O2 kept the accumulators on the
+    stack, every FMA through memory; the row kernels then run at 265 GFLOP/s).
+  - Tried and dropped: the F and K products on runs of consecutive AOs instead of a gather (2-4x slower, every
+    run's product reads all of F or G again).
+
+| SGX-K and DF-J of the CPHF-like densities | exact J + K | DF-J | SGX-K level 0 | SGX-K level 1 |
+|---|---|---|---|---|
+| n-C8H18/def2-TZVP, 78 densities (from make_h1) | 8.4 s | 3.6 s | 4.9 s | 8.7 s |
+| n-C12H26/def2-TZVP, 114 | 48.6 s | 13.7 s | 18.1 s | 34.4 s |
+| n-C20H42/def2-TZVP, 186 (`bench/results/rijcosx/laptop_c20h42_sgx_many_dm.log`) | 473 s (the Hessian's) | 62.6 s | 101.1 s | 193.0 s |
+
+  - n-C20H42, level 1: F = X D 35.4 s, G = A F 86.0 s, K = X^T w G 68.3 s. On C8H18 (the make_h1 densities)
+    against exact: DF-J 1.7e-3 of max|J|, SGX-K level 0 1.5e-3, level 1 1.6e-4 of max|K|.
+  - Exact J and K grow about as N^4.4 here, DF-J and SGX-K as N^3.4: no gain at C8H18, even at C12H26 (level 1).
+- **Where that leaves the response** (n-C20H42/def2-TZVP wB97M-V, a response of 186 densities): exact J + K 473 s
+  and long-range K 245 s; DF-J + SGX-K level 1 63 + 193 s and a long-range SGX-K of about as much (less with F
+  shared), so the J/K 1.6-1.9x faster, level 0 2.5-2.9x. The XC (151 s) and VV10 (243 s) responses stay: a CPHF
+  iteration from about 1110 s to 650-800 s.
+- **Left:** the opt-in response in the Hessian, with the converged CPHF; the F and K products (half of SGX-K at
+  C20H42: dense over the block's AOs times all AOs; F shared between the full- and long-range K); AVX-512 row
+  kernels; exact J, or DF-J with `aug_etb`, for the accurate variant.
+
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
 - **PySCF `perf` fast-forwarded to `rijcosx` 0e7843bfd** (with it the unpushed refactor commits c9bfd2ea5 and

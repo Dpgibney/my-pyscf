@@ -1,0 +1,9 @@
+# bench/diag/sgx_many_dm.py --n 20 --no-exact: n-C20H42/def2-TZVP B3LYP RIJCOSX orbitals, 186 CPHF-like densities (S1 part), DF-J and many-density SGX-K (pyscf perf 0ad1f8318), laptop, 10 threads, max_memory 4000 MB; exact J+K of the same densities in the wB97M-V Hessian run: 473 s a response
+n-C20H42/def2-tzvp b3lyp: nao 872, natm 62, 10 threads; RIJCOSX SCF 64.9 s, E -787.76281564
+186 densities, max|dm| 348.354
+  DF-J (J-engine)                              62.60 s  ( 336.6 ms a density)
+sgX K of 186 dms (wall): AO values 0.16 s, F = X D 18.52 s, G = A F 43.57 s, K = X^T w G 36.08 s
+  SGX-K, level 0 (42288 points)               101.11 s  ( 543.6 ms a density)
+sgX K of 186 dms (wall): AO values 0.28 s, F = X D 35.43 s, G = A F 85.98 s, K = X^T w G 68.28 s
+  SGX-K, level 1 (79312 points)               193.03 s  (1037.8 ms a density)
+SGX C20 DONE
