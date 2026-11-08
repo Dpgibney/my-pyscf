@@ -1,0 +1,7 @@
+c20h42/def2-qzvp/b3lyp nao 2400 10 threads rijcosx aux=def2-universal-jfit levels=0->1 final=2 etol=auto vtol=auto rebuild=5 pair_tol=1e-09 laptop-qzvp
+  SCF 328.2 s, 11 cycles, converged True, E -787.8304073262; final level 2: -787.8304080992 (+51.0 s)
+  J 22.5 s, K 171.9 s, XC 108.4 s, rest of get_veff 1.7 s, outside get_veff 23.7 s
+    J builds: 1.71 1.81 1.91 1.91 1.82 1.82 1.62 1.66 1.63 1.64 1.87 1.55 1.52
+    cycles: 23.6 23.2 23.1 23.0 20.2 34.0 27.1 27.9 23.5 25.2 33.9 21.1 22.2
+    final step (level-2 grid and K): 51.05 s
+  memory: peak RSS 3.59 GB (kernel); sampled peaks by phase: setup RSS 0.10 GB disk 0.00 GB, scf RSS 3.59 GB disk 0.05 GB, final RSS 3.25 GB disk 0.05 GB (max_memory 4000 MB)

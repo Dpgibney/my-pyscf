@@ -1,0 +1,6 @@
+# c20h42/def2-QZVP B3LYP (VWN-RPA = B3LYP/G, as PySCF's B3LYP), gas phase, ORCA 6.1.1's default RIJCOSX (def2/J,
+# GRIDX1/2 in the SCF and the final exchange energy on GRIDX3), TightSCF, the default grid (DefGrid2).
+! B3LYP/G def2-QZVP TightSCF
+%pal nprocs 6 end
+%maxcore 1800
+* xyzfile 0 1 c20h42.xyz

@@ -7694,6 +7694,30 @@ The user asked for the remaining speed items in detail. `bench/results/rijcosx/l
   in df/grad), XC 1.8 s (15%). The gradient's K takes the pair screening with whatever threshold the SCF's last K
   build left in the C struct (a tightened one): accurate, but not set on purpose.
 
+### def2-QZVP: n-C20H42 (2400 basis functions) against ORCA on node2, 2026-11-07
+The user asked for the SCF cycle of one of the alkanes in def2-QZVP with RIJCOSX, then for ORCA on it. PySCF's
+`perf` (laptop) and node2's `pyscf-rx` (the same SCF path), `bench/diag/rijcosx.py --pair-tol 1e-9` at the default
+max_memory (`bench/results/rijcosx/laptop_qzvp.{log,jsonl}`, `bench/results/node2/node2_rijcosx_qzvp.{log,jsonl}`);
+ORCA 6.1.1 `bench/orca/rx/c20h42_qzvp_rijcosx.inp` after PySCF had finished (`node2_orca_qzvp.log`).
+
+| node2, 6 cores | PySCF RIJCOSX | ORCA RIJCOSX |
+|---|---|---|
+| total | 651 s (SCF 567 + final step 84) | 620 s |
+| cycles, typical cycle | 11, ~40 s (35-61) | 12, ~33 s (24-63) |
+| K / COSX | 291.5 s | 418.9 s |
+| XC | 200.2 s (694,296 points, level 3) | 57.2 s (257,324, DefGrid2) |
+| J / Split-RI-J | 33.2 s (1442 auxiliary functions) | 42.1 s (1442) |
+| final step on the larger grid | 83.8 s (177,536 points) | 97.9 s (GRIDX3 154,128) |
+| diagonalization, DIIS, the rest | ~42 s | ~21 s (SOSCF steps) |
+| peak memory | 3.5 GB RSS, no disk | 3.3 GB PSS |
+| energy | -787.8304080992 | -787.8304390662 |
+
+- PySCF 5% slower: faster K (1.4x), J (1.3x) and final step, the XC 3.5x slower on 2.7x the points (per point
+  within ~20%). With XC level 2 (as accurate as level 3 here) PySCF's XC would be ~125 s and the total ~575 s.
+- The laptop (10 threads, 2 GHz clamp): 379 s (SCF 328 + 51), cycles 20-34 s; K 172, XC 108, J 22.5, the rest 24 s;
+  the same energy to the last digit. def2-TZVP took 68 s there (5.6x for 2.75x the basis functions).
+- The two codes' energies differ by 3.1e-5 Eh (def2-TZVP 3.5e-5), from their different XC grids.
+
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
 - **PySCF `perf` fast-forwarded to `rijcosx` 0e7843bfd** (with it the unpushed refactor commits c9bfd2ea5 and

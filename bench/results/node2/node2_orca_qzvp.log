@@ -1,0 +1,18 @@
+== c20h42_qzvp_rijcosx 17:54:17
+   exit 0, wall 620.6 s
+peak PSS 3.28 GB, peak RSS sum 5.01 GB, up to 8 processes, 621 s
+Total number of grid points                  ...   257324
+Total number of grid points                  ...    32950
+Total number of grid points                  ...    71764
+Total number of grid points                  ...   154128
+               ***  Starting incremental Fock matrix formation  ***
+               *           SCF CONVERGED AFTER  12 CYCLES          *
+Recomputing exchange energy using gridx3       ... done (   97.886 sec)
+Total SCF time: 0 days 0 hours 9 min 52 sec 
+Fock matrix formation       ....     501.422 sec  ( 84.6%)
+  Split-RI-J                ....      42.120 sec  (  8.4% of F)
+  Chain of spheres X        ....     418.888 sec  ( 83.5% of F)
+  XC integration            ....      57.217 sec  ( 11.4% of F)
+FINAL SINGLE POINT ENERGY      -787.830439066236
+TOTAL RUN TIME: 0 days 0 hours 10 minutes 19 seconds 798 msec
+NODE2 ORCA RX DONE 18:04

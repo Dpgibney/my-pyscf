@@ -265,6 +265,10 @@ if args.method == 'rijcosx':
     print(f'  J {T["j"]:.1f} s, K {T["k"]:.1f} s, XC {T["xc"]:.1f} s, rest of get_veff {xc_rest:.1f} s, outside '
           f'get_veff {t_scf - T["veff"]:.1f} s')
     print('    J builds: ' + ' '.join(f'{dt:.2f}' for dt in jbuilds))
+    # wall time from one get_veff's end to the next (the build, the diagonalization and DIIS between), the first
+    # from the start of the SCF
+    ends = [t0] + cycle_t
+    print('    cycles: ' + ' '.join(f'{b - a:.1f}' for a, b in zip(ends[:-1], ends[1:])))
     for n, kind, dt in kbuilds:
         print(f'    K build: {n:8d} points {kind:5s} {dt:7.2f} s' if kind != 'final step (grid + K)' else f'    final step (level-{args.final_level} grid and K): {dt:.2f} s')
 else:
@@ -279,7 +283,8 @@ if args.json:
     rec = dict(case=case, method=args.method, label=label, tag=args.tag, nao=mol.nao, threads=lib.num_threads(),
                t_scf=t_scf, t_final=t_final, cycles=mf.cycles, converged=bool(mf.converged), e_tot=e_tot,
                e_final=e_final, err=err, t_j=T['j'], t_k=T['k'], t_jk=jk, t_xc=T['xc'], t_rest=xc_rest,
-               t_outside=t_scf - T['veff'], kbuilds=kbuilds, jbuilds=jbuilds, maxrss_gb=maxrss / 1e9, mem=mem,
+               t_outside=t_scf - T['veff'], kbuilds=kbuilds, jbuilds=jbuilds,
+               cycle_times=[b - a for a, b in zip(([t0] + cycle_t)[:-1], ([t0] + cycle_t)[1:])], maxrss_gb=maxrss / 1e9, mem=mem,
                max_memory=mf.max_memory)
     with open(args.json, 'a') as f:
         f.write(json.dumps(rec) + '\n')
