@@ -8349,10 +8349,29 @@ The user: "Let's work on the SGX-K".
   the last tidy-up, against 30.4 and 33.6 s before the change. The logged run of 5a5a82aff
   (`bench/results/rijcosx/laptop_c5h12_sgx_response_factors.log`) is 9% slower in every row, the unchanged exact-response rows too. PySCF's
   tests: 1083 passed, the 7 known failures.
-- **Not measured at n-C20H42.** Scaling the SGX-K by this size's ratio (13.5 / 23.5), per full response from about 250 s to 155 s; if the rest stays,
-  CPHF about 3850 s (4283 s) and the Hessian about 5950 s (6413 s). The AO stacks go away with `h1ao` on disk and the chunks of the J, which leaves
-  VV10's chunk as the peak, about 5.2-5.7 GB against 11.55 GB (from the array sizes; the last such estimate came out 0.85 GB short).
-- **Left:** `G = A F` is what remains of SGX-K (9 of 13.5 s here), integrals and contraction; VV10's 2.15 GB inside a chunk; UHF/UKS.
+- **Measured, n-C20H42/def2-TZVP wB97M-V, level 0** (`solve_residual` 1e-4, 4000 MB, 10 threads, balanced, H1 on real disk, a frozen snapshot of
+  5a5a82aff; `bench/results/hessian/laptop_c20h42_tzvp_wb97mv_hessian_sgx0_factors.log`, against `..._hessian_sgx0.log` on cd7fe5bec):
+
+| n-C20H42 level 0 | cd7fe5bec, K from AO stacks | 5a5a82aff, K from the factors |
+|---|---|---|
+| J and K of the response | 1961.2 s | 1543.4 s (direct J 922.6, SGX-K 620.8) |
+| XC response | 905.4 s | 908.4 s |
+| VV10 response | 1398.7 s | 1396.2 s |
+| CPHF (solve_mo1) | 4283.2 s | 3863.6 s (-10%) |
+| SCF, partial Hessian, make_h1 (not touched) | 350.8, 884.9, 1244.1 s | 349.1, 905.8, 1266.8 s |
+| Hessian | 6412.5 s | 6036.7 s |
+| whole run | 6763 s | 6386 s (-6%) |
+| peak RSS, sampled | 11.55 GB | 5.48 GB (-53%) |
+
+  - J and K per response (s): 420, 436, 438, 432, 235 before; 326, 345, 351, 336, 185 now. Within a full response the two SGX-Ks (full and long
+    range) take 128-143 s, about 65-72 s each against 109-118 s for the long-range one before, and direct J 193-208 s, unchanged.
+  - The Hessian is equal to the one from AO stacks: max|dH| 7.9e-13, rms 1.4e-14. Level 0's error against the exact response is therefore as before: max|dH| 8.1e-5,
+    max|df| 0.518 cm-1 at a -18 cm-1 mode, at most 0.175 above 200 cm-1, mean|df| 0.067, ZPE -0.017 of 368 kcal/mol.
+  - Peaks by phase: SGX-K 4.62 GB (from an RSS of 2.1-2.4 GB, the blocks grow to the cap), direct J 4.64, XC 3.71, VV10 response 5.48 (fourth response:
+    RSS 3.18 before it, +2.30 GB inside). RSS at the start of a response grows by about 0.3 GB per CPHF cycle from the trial vectors, the responses and v1mo held in memory.
+  - Against the estimates: CPHF 3864 s (about 3850), Hessian 6037 s (about 5950; the untouched phases were 44 s slower this time), peak 5.48 GB (5.2-5.7).
+  - Level 0 is now smaller as well as faster than the exact response on 78143659c: 6386 s and 5.48 GB against 8000 s and 6.15 GB, CPHF 3864 s against 5411 s.
+- **Left:** VV10's 2.15-2.30 GB inside a chunk is the peak on both paths; `G = A F` is what remains of SGX-K's time (9 of 13.5 s at n-C12H26), then the integrals and the contraction; UHF/UKS.
 
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".

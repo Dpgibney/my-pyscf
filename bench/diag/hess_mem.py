@@ -120,10 +120,12 @@ if args.sgx_level is None:
 else:
     # The response's J/K are those of a copy of mf that takes mf's __dict__: a wrapper left on the instance mf would
     # be copied and replace the copy's SGX get_jk by the exact one.
-    from pyscf.sgx.sgx import _SGXHF  # noqa: E402
+    from pyscf.sgx.sgx import _SGXHF, SGX  # noqa: E402
     hobj.sgx_response = True
     hobj.sgx_response_level = args.sgx_level
     wrap(_SGXHF, 'get_jk', 'J/K (SGX response)')
+    if hasattr(SGX, 'get_k_mo'):
+        wrap(SGX, 'get_k_mo', 'SGX-K of the response, from the factors')
 wrap(numint.NumInt, 'nr_rks_fxc', 'XC response (CPHF)')
 wrap(numint._FusedXC, 'rks_fxc_mo', 'XC response (CPHF)')
 wrap(hobj, 'partial_hess_elec', 'partial_hess_elec')
