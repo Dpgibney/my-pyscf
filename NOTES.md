@@ -8308,6 +8308,52 @@ the scaled trial vectors.
 - Left: VV10's 2.15 GB inside a chunk (the K array is its output array, so VV10 needs no other), +0.19 GB per response for the subspace,
   SGX-K's own peak at level 0 (11.55 GB; `_get_k_only_many` evaluates the integrals once per grid block for all dms, so chunking would repeat them).
 
+### SGX-K's memory: the K of the CPHF's densities from their factors (pyscf `perf` 5a5a82aff, local), 2026-11-09
+The user: "Let's work on the SGX-K".
+- **Where level 0's peak came from.** RSS against time of one `get_k_only` of 114 CPHF-like densities (n-C12H26/def2-TZVP, level 0,
+  blocks of 224 points as at n-C20H42, which runs above max_memory): one *stack* is nset nao^2 doubles, 1.13 GB at n-C20H42. +2.5
+  to +4.4 stacks through the loop (`dmT`, `vkT`, the block's F, G and integrals) and +5.2 at the very end (`dmT` still alive, `vkT`, the
+  overlap-fit einsum's temporaries, the symmetrization's two copies). With `vj` made before it that is +6.2 stacks, about 7 GB:
+  the +6.87 GB of the Hessian's first J/K at n-C20H42. Chunking the densities would repeat the integrals, which are once per
+  batch of points for all of them.
+- **Change.** The CPHF's densities are a[x] O^T + O a[x]^T (a = C x, O = mocc) and the response needs only C^T K O. `SGX.get_k_mo`
+  (`sgx_jk._get_k_only_many(..., factors=(a, mocc, mo_coeff))`, the same loop over blocks):
+  F[g,j,x] = (X P a_x)[g,m] O[j,m] + (X P O)[g,m] a_x[j,m], and C^T K O = .5 (c1^T K' O + (o1^T K' C)^T) from K' contracted on the
+  grid with O on either side (c1, o1 = P C, P O under the symmetric overlap fit, else C, O). None of the whole-stack arrays exist: per block
+  F and G, and four arrays of nset nao nocc (105 MB each at n-C20H42). The integrals stay once per batch and the screening
+  sees the same F. The matrix products take about 3 nocc/nao of the flops. `_gen_rhf_response.vind_mo` takes this path for an SGX
+  object with hermi=1 (`k_mo_from_factors`, falling back to the J and K of the dms where `get_k_mo` returns None: fewer than 8 densities,
+  another screening, `optk=False`), and SGX's direct J goes by chunks as direct SCF's. The VV10 and XC parts are as before.
+  In the path from the dms, `dmT` is released before the end and K symmetrized in place.
+- **Timings and peak** (`bench/diag/sgx_k_factors.py`, `bench/results/rijcosx/laptop_sgx_k_factors.log`, 10 threads, two repeats where two
+  numbers are given):
+
+| one K of 114 densities, n-C12H26/def2-TZVP, level 0 (26016 points) | wall | CPU | F = X D | G = A F | K = X^T w G | peak above the RSS before |
+|---|---|---|---|---|---|---|
+| from the dms, blocks of 224 | 24.1, 22.9 s | 193, 184 s | 5.6, 4.7 | 9.4, 9.1 | 8.6, 8.6 | +1.23 GB (+4.84 stacks) |
+| from the factors, blocks of 224 | 13.5, 13.5 s | 125 s | 1.9 | 8.9, 9.1 | 2.3, 2.4 | +0.44 GB (+1.75 stacks) |
+| from the dms, blocks by the memory left | 17.3 s | 149 s | 4.6 | 8.2 | 4.0 | +3.24 GB |
+| from the factors, blocks by the memory left | 11.9 s | 108 s | 1.9 | 7.9 | 1.9 | +2.73 GB |
+
+  - max|dK| between the two 1.6e-14 (max|K| 0.215); `test_sgx_jk.py test_get_k_mo` within 1e-12 relative with the symmetric overlap fit
+    on and off, the pair screening on and off, full, long- and short-range K. `test_sgx_response.py test_sgx_response_k_from_factors`:
+    the Hessian within 1e-10 of the path through the dms (B3LYP, wB97M-V, LRC-wPBE, HSE06), the path checked as taken.
+  - With memory to spare the blocks grow to fill it (`get_loop_data`), so the peak of the two there says nothing about this change.
+  - n-C5H12/def2-SVP, level 1 (22064 points, nocc/nao 0.16): 0.70, 0.76 s from the factors against 0.77 s; no gain, no loss.
+- The per-point products first went through `numpy.matmul`: numpy's own OpenBLAS (not the one PySCF links) left its threads spinning into
+  the OpenMP kernel after it, G = A F 25% slower (11.3 s against 9 s) and CPU 305 s against 180 s. A Python loop of `lib.dot` fixed that
+  (15.3 s) and was then overhead at small sizes (n-C5H12: 1.35 s against 0.75 s). `SGXdot_points` in `nr_sgx_many.c` is one OpenMP
+  loop of single-thread `dgemm`s: 13.5 s, and even at n-C5H12.
+- **The n-C5H12/def2-SVP wB97M-V Hessian** (`hess_sgx_response.py`, 51 perturbations): the errors are those of the earlier
+  log to every digit shown (level 0 max|dH| 2.71e-5, max|df| 0.155 cm-1; level 1 1.27e-5, 0.031). CPHF 30.3 s and 33.5 s on the code just before
+  the last tidy-up, against 30.4 and 33.6 s before the change. The logged run of 5a5a82aff
+  (`bench/results/rijcosx/laptop_c5h12_sgx_response_factors.log`) is 9% slower in every row, the unchanged exact-response rows too. PySCF's
+  tests: 1083 passed, the 7 known failures.
+- **Not measured at n-C20H42.** Scaling the SGX-K by this size's ratio (13.5 / 23.5), per full response from about 250 s to 155 s; if the rest stays,
+  CPHF about 3850 s (4283 s) and the Hessian about 5950 s (6413 s). The AO stacks go away with `h1ao` on disk and the chunks of the J, which leaves
+  VV10's chunk as the peak, about 5.2-5.7 GB against 11.55 GB (from the array sizes; the last such estimate came out 0.85 GB short).
+- **Left:** `G = A F` is what remains of SGX-K (9 of 13.5 s here), integrals and contraction; VV10's 2.15 GB inside a chunk; UHF/UKS.
+
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
 - **PySCF `perf` fast-forwarded to `rijcosx` 0e7843bfd** (with it the unpushed refactor commits c9bfd2ea5 and

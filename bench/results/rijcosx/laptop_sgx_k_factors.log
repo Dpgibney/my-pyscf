@@ -1,0 +1,36 @@
+# bench/diag/sgx_k_factors.py: SGX-K of many CPHF-like densities from the density matrices against from their factors (pyscf perf 5a5a82aff), laptop, 10 threads; the two with a minimum block size at n-C12H26 are the case of a molecule at max_memory
+ac=1 profile=balanced mode=full cpu0_hw_max=5090MHz epp=balance_performance
+$ sgx_k_factors.py 5 1 4000 2 def2-svp
+n-C5H12: nao 130, natm 17, 10 threads, SCF 2.9 s
+51 densities, nocc 21, grid level 1: 22064 points, sgx.max_memory 4000; a stack of AO matrices is 0.007 GB
+sgX K of 51 dms (wall): AO values 0.01 s, F = X D 0.16 s, G = A F 0.43 s, K = X^T w G 0.13 s
+K from the factors, MO block    0.76 s (cpu     7.9 s)  RSS before 0.33 GB, peak +2.70 GB = +392.25 stacks
+sgX K of 51 dms (wall): AO values 0.00 s, F = X D 0.15 s, G = A F 0.42 s, K = X^T w G 0.17 s
+K from the dms, then MO         0.77 s (cpu     6.4 s)  RSS before 0.47 GB, peak +2.62 GB = +379.78 stacks
+  max|dK| 2.63e-15 of max|K| 0.311
+sgX K of 51 dms (wall): AO values 0.01 s, F = X D 0.14 s, G = A F 0.42 s, K = X^T w G 0.13 s
+K from the factors, MO block    0.70 s (cpu     6.9 s)  RSS before 0.46 GB, peak +2.61 GB = +378.07 stacks
+sgX K of 51 dms (wall): AO values 0.00 s, F = X D 0.16 s, G = A F 0.43 s, K = X^T w G 0.17 s
+K from the dms, then MO         0.77 s (cpu     6.5 s)  RSS before 0.49 GB, peak +2.61 GB = +378.03 stacks
+  max|dK| 2.63e-15 of max|K| 0.311
+$ sgx_k_factors.py 12 0 1 2
+n-C12H26: nao 528, natm 38, 10 threads, SCF 25.0 s
+114 densities, nocc 49, grid level 0: 26016 points, sgx.max_memory 1; a stack of AO matrices is 0.254 GB
+sgX K of 114 dms (wall): AO values 0.07 s, F = X D 1.86 s, G = A F 8.93 s, K = X^T w G 2.31 s
+K from the factors, MO block   13.47 s (cpu   125.0 s)  RSS before 1.39 GB, peak +0.44 GB = +1.75 stacks
+sgX K of 114 dms (wall): AO values 0.11 s, F = X D 5.57 s, G = A F 9.42 s, K = X^T w G 8.61 s
+K from the dms, then MO        24.14 s (cpu   192.5 s)  RSS before 1.42 GB, peak +1.23 GB = +4.84 stacks
+  max|dK| 1.55e-14 of max|K| 0.215
+sgX K of 114 dms (wall): AO values 0.07 s, F = X D 1.88 s, G = A F 9.10 s, K = X^T w G 2.36 s
+K from the factors, MO block   13.48 s (cpu   124.8 s)  RSS before 1.44 GB, peak +0.45 GB = +1.78 stacks
+sgX K of 114 dms (wall): AO values 0.10 s, F = X D 4.65 s, G = A F 9.11 s, K = X^T w G 8.59 s
+K from the dms, then MO        22.89 s (cpu   183.9 s)  RSS before 1.60 GB, peak +1.23 GB = +4.84 stacks
+  max|dK| 1.55e-14 of max|K| 0.215
+$ sgx_k_factors.py 12 0 4000 1
+n-C12H26: nao 528, natm 38, 10 threads, SCF 26.3 s
+114 densities, nocc 49, grid level 0: 26016 points, sgx.max_memory 4000; a stack of AO matrices is 0.254 GB
+sgX K of 114 dms (wall): AO values 0.03 s, F = X D 1.89 s, G = A F 7.86 s, K = X^T w G 1.92 s
+K from the factors, MO block   11.93 s (cpu   107.8 s)  RSS before 1.39 GB, peak +2.73 GB = +10.74 stacks
+sgX K of 114 dms (wall): AO values 0.03 s, F = X D 4.60 s, G = A F 8.16 s, K = X^T w G 4.03 s
+K from the dms, then MO        17.26 s (cpu   149.1 s)  RSS before 1.42 GB, peak +3.24 GB = +12.76 stacks
+  max|dK| 1.56e-14 of max|K| 0.215

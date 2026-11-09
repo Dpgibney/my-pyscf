@@ -1,0 +1,15 @@
+# bench/diag/hess_sgx_response.py --n 5 --basis def2-svp --xc wb97m-v --tol 1e-4 --levels 0,1 --ref-tol 1e-8, pyscf perf 5a5a82aff (K of the response from the factors), laptop
+ac=1 profile=balanced mode=full cpu0_hw_max=5090MHz epp=balance_performance
+n-C5H12/def2-svp wb97m-v: nao 130, 51 perturbations, 10 threads; SCF 6.1 s, partial Hessian + make_h1 28.7 s
+  reference (exact response, cphf_residual_tol 1e-08): 52.6 s, 8 calls, 392 vectors
+  stock cphf.solve, exact response           CPHF     41.7 s (response     41.4 s),   7 calls,   302 vectors; max|dH| 3.04e-07, max|df| 0.003 cm-1, mean|df| 0.000
+    J/K per response (s): 0.5 0.5 0.5 0.4 0.4 0.4 0.2; in all 3.0 s
+    vector norms (largest, smallest): 2.8e-01,1.0e-01 1.3e-01,6.3e-06 2.9e-02,4.9e-07 2.0e-03,4.7e-05 1.4e-04,3.1e-06 8.7e-06,2.2e-07 5.5e-07,2.8e-07
+  solve_residual 1e-04, exact response       CPHF     29.5 s (response     29.2 s),   5 calls,   207 vectors; max|dH| 2.69e-08, max|df| 0.000 cm-1, mean|df| 0.000
+    J/K per response (s): 0.5 0.5 0.5 0.5 0.2; in all 2.1 s
+    vector norms (largest, smallest): 2.8e-01,1.0e-01 1.4e-01,6.3e-06 2.0e-02,1.1e-06 1.5e-03,4.5e-05 1.2e-04,5.0e-05
+  solve_residual 1e-04, exact response, scaled trials CPHF     29.8 s (response     29.6 s),   5 calls,   207 vectors; max|dH| 2.69e-08, max|df| 0.000 cm-1, mean|df| 0.000
+    J/K per response (s): 0.5 0.5 0.5 0.5 0.2; in all 2.2 s
+    vector norms (largest, smallest): 2.8e-01,1.0e-01 1.4e-01,6.3e-06 2.0e-02,1.1e-06 1.5e-03,4.5e-05 1.2e-04,5.0e-05
+  solve_residual 1e-04, direct J + SGX-K level 0 CPHF     33.7 s (response     33.5 s),   5 calls,   207 vectors; max|dH| 2.71e-05, max|df| 0.155 cm-1, mean|df| 0.038
+  solve_residual 1e-04, direct J + SGX-K level 1 CPHF     37.0 s (response     36.8 s),   5 calls,   207 vectors; max|dH| 1.27e-05, max|df| 0.031 cm-1, mean|df| 0.007
