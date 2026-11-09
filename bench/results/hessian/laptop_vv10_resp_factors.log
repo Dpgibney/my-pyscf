@@ -1,0 +1,23 @@
+# bench/diag/vv10_resp_factors.py 12 50: one VV10 response of the CPHF-like densities from the AO matrices against from their factors (pyscf perf 229192464), laptop, 10 threads; the AO chunks of 50 of 114 are the ratio of n-C20H42's 82 of 186
+ac=1 profile=balanced mode=full cpu0_hw_max=5090MHz epp=balance_performance
+n-C12H26/def2-tzvp wb97m-v: nao 528, 10 threads, density-fitted SCF 30.8 s, VV10 grid 126432 points
+114 densities, nocc 49, chunks of 50 dms in the AO path, max_memory 2000 MB
+from the factors     49.79 s (cpu   490.9 s): densities   2.86, f_t  43.29, potentials   3.14; RSS before 2.72 GB, peak +1.14 GB
+from the AO matrices   71.13 s (cpu   701.4 s): densities   7.99, f_t  53.08, potentials   9.32; RSS before 2.69 GB, peak +1.63 GB
+  max|dv| 7.22e-18 of max|v| 1.056e-04
+from the factors     49.77 s (cpu   490.4 s): densities   2.90, f_t  43.22, potentials   3.13; RSS before 2.77 GB, peak +1.13 GB
+from the AO matrices   71.02 s (cpu   700.8 s): densities   7.81, f_t  53.22, potentials   9.28; RSS before 2.73 GB, peak +1.61 GB
+  max|dv| 7.22e-18 of max|v| 1.056e-04
+
+$ vv10_resp_factors.py 5 51 2000 3 def2-svp
+n-C5H12/def2-svp wb97m-v: nao 130, 10 threads, density-fitted SCF 5.1 s, VV10 grid 55568 points
+51 densities, nocc 21, chunks of 51 dms in the AO path, max_memory 2000 MB
+from the factors      5.06 s (cpu    49.6 s): densities   0.11, f_t   4.68, potentials   0.15; RSS before 0.44 GB, peak +0.23 GB
+from the AO matrices    5.28 s (cpu    51.5 s): densities   0.27, f_t   4.59, potentials   0.28; RSS before 0.45 GB, peak +0.25 GB
+  max|dv| 8.61e-19 of max|v| 1.101e-04
+from the factors      5.01 s (cpu    48.9 s): densities   0.10, f_t   4.62, potentials   0.17; RSS before 0.45 GB, peak +0.23 GB
+from the AO matrices    5.26 s (cpu    51.2 s): densities   0.25, f_t   4.60, potentials   0.27; RSS before 0.45 GB, peak +0.25 GB
+  max|dv| 8.61e-19 of max|v| 1.101e-04
+from the factors      4.99 s (cpu    48.7 s): densities   0.11, f_t   4.61, potentials   0.16; RSS before 0.45 GB, peak +0.26 GB
+from the AO matrices    5.23 s (cpu    51.0 s): densities   0.26, f_t   4.55, potentials   0.29; RSS before 0.45 GB, peak +0.25 GB
+  max|dv| 8.61e-19 of max|v| 1.101e-04

@@ -8373,6 +8373,31 @@ The user: "Let's work on the SGX-K".
   - Level 0 is now smaller as well as faster than the exact response on 78143659c: 6386 s and 5.48 GB against 8000 s and 6.15 GB, CPHF 3864 s against 5411 s.
 - **Left:** VV10's 2.15-2.30 GB inside a chunk is the peak on both paths; `G = A F` is what remains of SGX-K's time (9 of 13.5 s at n-C12H26), then the integrals and the contraction; UHF/UKS.
 
+### The CPHF's VV10 response from the factors of its densities (pyscf `perf` 229192464, local), 2026-11-09
+The next item after the push of 5a5a82aff: VV10's memory inside a chunk, which set the peak on both Hessian paths.
+- **Where the peak came from** (`get_vnlc_resp1` at n-C20H42: 82 dms in a chunk, 207,424 points; one number per point and dm is U = 136 MB). In the RSS before the call: the chunk's dms, 0.5 GB. Inside it:
+  `rho_t`, `nabla_rho_t` and the kernels (7 U around the pair kernel, 5 U after it), the full-grid `wv` of a batch of 32 dms (0.21 GB) and up to 0.48 GB of temporaries making it, the batch's `v` (0.2 GB),
+  `vmat` (0.5 GB), and the partial sums of the fused kernels, 2 per thread of `n nao^2`, kept within half of max_memory (1 GB at the CPHF's floor of 2000 MB).
+- **Change.** `get_vnlc_resp_mo` adds P^T v Q for the dms a[k] Q^T + Q a[k]^T from the factors, as the XC response does: rho and nabla rho by `_FusedXC.rho_lowrank`, the pair kernel `f_t` once per group
+  of dms (7 ngrids per dm in 60% of max_memory, the groups evened out), the potentials by blocks of points into `v Q` by `dot_ao_mo`, in batches whose partial sums (now `n nao nocc`) stay within a quarter of max_memory. No AO
+  matrix of the dms or of the response exists. `vind_mo` takes it where the fused kernels apply to the VV10 grids, otherwise VV10 stays with the K-only chunks. The chunks of the dms are then only for J and K, and in the SGX path only for J.
+- **Timings and peak** (`bench/diag/vv10_resp_factors.py`, `bench/results/hessian/laptop_vv10_resp_factors.log`, 10 threads, 2000 MB, one process, two or three repeats):
+
+| one VV10 response | wall | CPU | densities | pair kernel | potentials | peak above the RSS before |
+|---|---|---|---|---|---|---|
+| n-C12H26/def2-TZVP (528 AOs, 126,432 points, 114 dms), AO matrices by chunks of 50 (the ratio of n-C20H42's 82 of 186; 3 kernel calls) | 71.1, 71.0 s | 701 s | 8.0, 7.8 | 53.1, 53.2 | 9.3, 9.3 | +1.63, +1.61 GB |
+| the same from the factors (1 kernel call) | 49.8, 49.8 s | 491 s | 2.9 | 43.3, 43.2 | 3.1 | +1.14, +1.13 GB |
+| n-C5H12/def2-SVP (130 AOs, 55,568 points, 51 dms), AO matrices | 5.28, 5.26, 5.23 s | 51 s | 0.26 | 4.6 | 0.28 | +0.25 GB |
+| the same from the factors | 5.06, 5.01, 4.99 s | 49 s | 0.11 | 4.6 | 0.16 | +0.23-0.26 GB |
+
+  - max|dv| 7.2e-18 of max|v| 1.06e-4 at n-C12H26, 8.6e-19 at n-C5H12; `test_cphf_memory.py` `test_vnlc_from_factors` (groups and batches down to one dm, 1e-11 relative; water and the differences seen by hand 2e-19, CO 7e-19) and
+    `test_vind_mo_vnlc_path` (the path taken once, the AO path within 1e-10). PySCF's tests: 1085 passed, 66 skipped, the 7 known failures; `test_vv10_hessian.py`'s 5 high-cost tests pass.
+  - The n-C5H12/def2-SVP wB97M-V Hessian (`hess_sgx_response.py`, `bench/results/rijcosx/laptop_c5h12_sgx_response_vv10_factors.log`): the errors of every option equal those of the earlier logs to every digit shown (exact response 2.69e-8; level 0 2.71e-5, 0.155 cm-1; level 1 1.27e-5, 0.031 cm-1).
+  - The pair kernel is now 87% of VV10's response at n-C12H26: one call's fixed part 5 s, 0.34 s per dm, scaling to about 13 s and 0.90 s at n-C20H42 (207,424 points).
+- **Not measured at n-C20H42.** From the sizes: the VV10 response's own peak about +1.1 GB (5 U of a group of 93, 0.77 GB, and 0.35 GB of partial sums in batches of 31) on an RSS 0.5 GB lower, about 3.8 GB against 5.48 GB in the fourth cycle, so the whole run's peak moves
+  to direct J (4.64 GB) and SGX-K (4.62 GB). Time per full response: 2 kernel calls instead of 3 and the densities and potentials a third of what they were: about 230 s against 310 s, about 350 s off the Hessian (CPHF about 3500 s).
+- **Left:** the pair kernel itself (`f_t`, at its dgemm rate); direct J's and SGX-K's 2.0 GB floors under max_memory; UHF/UKS.
+
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
 - **PySCF `perf` fast-forwarded to `rijcosx` 0e7843bfd** (with it the unpushed refactor commits c9bfd2ea5 and

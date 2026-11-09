@@ -90,6 +90,8 @@ def timed(owner, name, key):
 
 
 timed(rks_hess, 'get_vnlc_resp', 'VV10')
+if hasattr(rks_hess, 'get_vnlc_resp_mo'):
+    timed(rks_hess, 'get_vnlc_resp_mo', 'VV10')
 timed(numint._FusedXC, 'rks_fxc_mo', 'XC')
 get_jk = mf.get_jk
 

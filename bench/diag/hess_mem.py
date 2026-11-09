@@ -112,6 +112,8 @@ wrap(rks_hess, '_get_vxc_deriv1', 'make_h1: XC deriv1')
 wrap(rks_hess, '_get_vnlc_deriv1', 'make_h1: VV10 deriv1')
 wrap(rks_hess, 'get_vnlc_resp', 'CPHF: VV10 response')
 wrap(rks_hess, 'get_vnlc_resp1', 'CPHF: VV10 response')
+if hasattr(rks_hess, 'get_vnlc_resp_mo'):
+    wrap(rks_hess, 'get_vnlc_resp_mo', 'CPHF: VV10 response')
 if args.residual_tol is not None:
     hobj.cphf_residual_tol = args.residual_tol
 if args.sgx_level is None:
