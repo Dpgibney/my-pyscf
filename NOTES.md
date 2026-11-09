@@ -8397,6 +8397,9 @@ The next item after the push of 5a5a82aff: VV10's memory inside a chunk, which s
 - **Not measured at n-C20H42.** From the sizes: the VV10 response's own peak about +1.1 GB (5 U of a group of 93, 0.77 GB, and 0.35 GB of partial sums in batches of 31) on an RSS 0.5 GB lower, about 3.8 GB against 5.48 GB in the fourth cycle, so the whole run's peak moves
   to direct J (4.64 GB) and SGX-K (4.62 GB). Time per full response: 2 kernel calls instead of 3 and the densities and potentials a third of what they were: about 230 s against 310 s, about 350 s off the Hessian (CPHF about 3500 s).
 - **Left:** the pair kernel itself (`f_t`, at its dgemm rate); direct J's and SGX-K's 2.0 GB floors under max_memory; UHF/UKS.
+- **Pushed, tagged `perf-2026-11-09`, pins moved (workspace c6f4111).** A fresh clone of that main on the laptop in a clean environment (`env -i`, Python 3.14.4 of /usr/bin; `bench/results/laptop_fresh_clone_2026-11-09.log`; node2 was
+  running the user's ORCA jobs, so no AVX2-only build this time): `cpu_setup.sh --with-base` 21 min, water B3LYP +1.4e-14 Eh from the laptop, `kernels.py` 77 arrays agree; PySCF's tests 1085 passed, the 7 known failures; VV10's 5
+  high-cost Hessian tests pass; a wB97M-V water Hessian through `scripts/pyscf-env.sh` equals the working tree's to all digits shown, the VV10 response from the factors in 7 of 7 calls. The clone was removed afterwards.
 
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".

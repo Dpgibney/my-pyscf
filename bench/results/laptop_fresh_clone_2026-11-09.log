@@ -1,0 +1,60 @@
+# scripts/cpu_setup.sh --with-base from a fresh clone of the pushed main, laptop, clean environment (env -i, PATH=/usr/bin:/bin)
+== clone 10:00:42
+c6f4111 pins: PySCF perf-2026-11-09 (the Hessian's memory and CPHF; K and VV10 of the response from the factors); README
+== cpu_setup.sh --with-base 10:00:46
+== AMD Ryzen AI 9 365 w/ Radeon 880M; this process may use 10 cores (20 CPUs) and 32 GB; gcc 15.2.0; x86-64-v3 kernels on; 20 build jobs
+== venv: .venv
+   python 3.14.4 numpy 2.5.4 scipy 1.18.1 h5py 3.16.0
+== sources (scripts/pins.txt)
+   pyscf: perf-2026-11-09
+   qcint: perf-2026-11-07c
+   libxc: f1eb21e8d6743ed5ba519b8950c1ae02c3f5acd9
+   OpenBLAS: e0166008be8e466242aa76b2ff75ce3f0fbf574a
+   pyscf-base: 44313dfb457b93358918c391fc66285fa44153ef
+   libcint: 42ec76d6b57d8f0de8e515109c809f67e52040eb
+== builds (logs in build/cpu_setup/)
+   openblas: built (173 s)
+   libxc: built (61 s)
+   qcint: built (236 s)
+   pyscf: built (8 s)
+   qbench: built (1 s)
+   qcint-pgo: built (596 s)
+   libcint: built (10 s)
+   pyscf-base: built (6 s)
+== check: water/def2-SVP B3LYP with the new tree
+   E = -76.3581418310 Eh, 7 cycles, 0.1 s (+1.4e-14 from the laptop)
+   pyscf 2.14.0: pyscf/pyscf
+   install/libxc-stock/lib/libxc.so.15
+   install/openblas/lib/libopenblasp-r0.3.34.so
+   install/qcint-pgo/lib/libcint.so.6.2.0
+   ok
+== check: the XC, J and K kernels of the new tree against the unmodified one (bench/kernels.py)
+   77 arrays agree (build/cpu_setup/kernels.log)
+== ready (21 min). To run your scripts with it:
+   source /home/danny/Chemistry/my-pyscf/scratch/fresh-cpu-setup/my-pyscf/scripts/pyscf-env.sh && python my_script.py
+   (here: OMP_NUM_THREADS=10 PYSCF_MAX_MEMORY=20000. In a Slurm job they follow the job's -c and --mem; export your own
+   values before sourcing to override them)
+   exit 0, 1299 s
+2291924 hessian, response: the CPHF's VV10 response from the factors of its densities
+e25a81f int2e_ip1_sph_batch from the template of the Hessians' integrals; int2e_ip1_sph_batch_dot
+== tests 10:22:25
+=========================== short test summary info ============================
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_custom_rsh
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tda_b3lyp_xcfun
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tda_lda_xcfun
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tddft_b3lyp_xcfun
+FAILED ../../pyscf/pyscf/solvent/test/test_smd_grad.py::KnownValues::test_grad_solvent
+FAILED ../../pyscf/pyscf/sgx/test/test_dm_screening.py::KnownValues::test_rhf_dm_screening
+FAILED ../../pyscf/pyscf/sgx/test/test_dm_screening.py::KnownValues::test_uhf_dm_screening
+7 failed, 1085 passed, 66 skipped, 276 warnings, 134 subtests passed in 158.26s (0:02:38)
+== VV10's high-cost Hessian tests 10:25:04
+.....                                                                    [100%]
+5 passed, 4 deselected in 135.23s (0:02:15)
+== water wB97M-V Hessian through scripts/pyscf-env.sh 10:27:20
+/home/danny/Chemistry/my-pyscf/scratch/fresh-cpu-setup/my-pyscf/pyscf/pyscf/__init__.py
+E -76.3254581514, max|H| 0.7155735205, VV10 response from the factors in 7 of 7 calls
+== the same on the laptop's working tree 10:27:21
+/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py
+E -76.3254581514, max|H| 0.7155735205, VV10 response from the factors in 7 of 7 calls
+== end 10:27:23
+FRESH CLONE DONE
