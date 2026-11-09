@@ -8192,13 +8192,54 @@ The user: "Yes wire it in" (direct J + SGX-K, level 0 by default, level 1 select
     the CPHF.
   - The largest frequency error of level 0 grows with size: water 0.03, propane 0.11, n-C5H12 0.155 cm-1. Level 1: 0.00,
     0.03, 0.03.
-- **Projected for n-C20H42/def2-TZVP wB97M-V (not measured)**, from the stock Hessian's CPHF of 6367 s (J/K 3524, VV10
+- **Projected for n-C20H42/def2-TZVP wB97M-V (before the measurement below, which came out higher)**, from the stock Hessian's CPHF of 6367 s (J/K 3524, VV10
   1703, XC 1060, rest 80), n-C5H12's 207/302 of the vectors, and J/K per response of 718 s exact, ~375 s (level 0),
   ~560 s (level 1), the long-range SGX-K assumed equal to the full-range one: exact response with the new solver ~4390 s
   (24% off the 8208 s Hessian), level 1 ~3860 s (31%), level 0 ~3230 s (38%).
-- **Left:** the end-to-end n-C20H42 measurement (`bench/diag/hess_mem.py --residual-tol 1e-4 [--sgx-level 0]`, about 1.5 h
-  a run; the user's call); whether `solve_residual` should be the Hessian's default solver (it changes results by what the
-  stock solver leaves unconverged); UHF/UKS.
+- **Measured, n-C20H42/def2-TZVP wB97M-V** (nao 872, 186 perturbations, VV10 grid level 1, 10 threads, max_memory
+  4000 MB, laptop on balanced; `bench/diag/hess_mem.py --residual-tol 1e-4 [--sgx-level 0] --save`,
+  `bench/results/hessian/laptop_c20h42_tzvp_wb97mv_hessian_{residual,sgx0}.log`; the two new runs one after the other on
+  2026-11-08 from a snapshot of cd7fe5bec. The stock column is the earlier run on 21e80c7e6, before the Hessian's memory
+  commits):
+
+| | stock solver, exact response (21e80c7e6) | `solve_residual` 1e-4, exact response | `solve_residual` 1e-4, direct J + SGX-K level 0 |
+|---|---|---|---|
+| response calls | 7 | 5 | 5 |
+| J/K in the response | 3524 s | 3539 s | 1961 s |
+| XC response | 1061 s | 912 s | 905 s |
+| VV10 response | 1703 s | 1428 s | 1399 s |
+| CPHF | 6367 s | 5896 s | 4283 s |
+| Hessian | 8208 s | 8043 s | 6413 s |
+| whole run | 8538 s | 8431 s | 6763 s |
+| peak RSS (sampled) | 13.32 GB | 8.12 GB | 11.55 GB |
+
+  - Level 0 against the exact response, same solver, same tree, same evening: J/K 45% less, CPHF 27% less, Hessian 20%
+    less. XC and VV10 are now 54% of level 0's CPHF.
+  - Level 0's error at this size, the two saved Hessians compared: max|dH| 8.1e-5; max|df| 0.518 cm-1, at a -18 cm-1
+    mode (the geometry is not optimized: 9 imaginary modes in both); 0.175 cm-1 at most above 200 cm-1; mean|df| 0.067 and
+    mean signed df -0.067, so the shifts are of one sign; ZPE -0.017 kcal/mol out of 368. The largest error over all
+    modes went water 0.03, propane 0.11, n-C5H12 0.155, n-C20H42 0.518, the last from a soft mode (df ~ dlambda/2f).
+  - **The new solver saves little at this size with the exact response**: CPHF -7%, Hessian -2%. The Hessian's -2% is
+    inside the noise (the SCF, identical work, took 351 s and 388 s in the two runs). All of it is in XC + VV10 (2340 s
+    against 2764 s, fewer vectors); J/K shows no saving. The stock solver's J/K per response falls, 717, 670, 634, 590, 533,
+    293, 88 s, while over the first five responses its XC (182-185 s) and VV10 (291-295 s) stay flat: the same number of
+    vectors, of smaller and smaller norm, most likely screened harder (not isolated). `solve_residual` orthonormalizes its
+    trial vectors and its J/K does not fall: 736, 788, 793, 792, 431 s. The tol-1e-4 solver's accuracy is not measured at
+    this size (no tight reference; n-C5H12: 2.7e-8 against the stock solver's 3.0e-7).
+  - Against the projection: CPHF 5896 s against ~4390 s (exact), 4283 s against ~3230 s (level 0). The projection took
+    n-C5H12's 207/302 of the vectors, which implied ~3.4 full-size responses; going by the timings the run took 4 at
+    full size and one at about half. And J/K per full response came out at 420-438 s for level 0 (direct J + full-range
+    SGX-K 307-322 s, long-range SGX-K 109-118 s; projected ~375 s) and 736-793 s for the exact response (projected 718 s).
+  - The phases the solver does not touch were slower than in the stock run (SCF 351-388 s against 330, partial_hess_elec
+    885-908 s against 784, make_h1 1239-1244 s against 1057). The memory commits and the machine's state cannot be
+    told apart here, so the comparison with the stock column is not like-for-like; the other two columns are.
+  - Memory: level 0's peak is 3.4 GB above the exact response's, so that much is SGX-K's own, on top of the direct path's
+    8.12 GB (which is itself twice max_memory). The peak comes in the J/K of the response in both.
+- **Left:** whether `solve_residual` should be the Hessian's default solver (it changes results by what the stock solver
+  leaves unconverged, and at this size it saves only ~7% of the CPHF); scaling each trial vector by its residual norm
+  before the exact response and back after (J/K is linear), to recover the screening the stock solver gets, not tried and
+  worth about 560 s of the 3539 s if the J/K fell as the stock solver's does (not for SGX-K, whose absolute thresholds are
+  why the vectors are normalized); SGX-K's and the direct path's peak memory; UHF/UKS.
 
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".

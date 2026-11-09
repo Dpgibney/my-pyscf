@@ -5,15 +5,16 @@ phase being run (outer phases include their inner ones); each call's RSS before 
 Progress lines are printed as calls end.
 
 Usage: hess_mem.py [--n 20] [--basis def2-tzvp] [--xc wb97m-v] [--nlc-level 1] [--conv-tol 1e-10]
-                   [--residual-tol T] [--sgx-level L]
+                   [--residual-tol T] [--sgx-level L] [--save FILE]
   (n-alkane C_nH_2n+2; max_memory from PYSCF_MAX_MEMORY, PySCF's default 4000 MB when unset; --residual-tol and
-  --sgx-level set Hessian.cphf_residual_tol and Hessian.sgx_response)'''
+  --sgx-level set Hessian.cphf_residual_tol and Hessian.sgx_response; --save keeps the Hessian in a .npy file)'''
 import argparse
 import os
 import resource
 import sys
 import threading
 import time
+import numpy
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from molecules import n_alkane  # noqa: E402
 from pyscf import gto, dft, lib  # noqa: E402
@@ -29,6 +30,7 @@ ap.add_argument('--conv-tol', type=float, default=1e-10)
 ap.add_argument('--log', default=None, help='PySCF log file (verbose 4)')
 ap.add_argument('--residual-tol', type=float, default=None, help='Hessian.cphf_residual_tol (cphf.solve_residual)')
 ap.add_argument('--sgx-level', type=int, default=None, help='Hessian.sgx_response on this grid level')
+ap.add_argument('--save', default=None, help='save the Hessian to this .npy file')
 args = ap.parse_args()
 
 PAGE = os.sysconf('SC_PAGE_SIZE')
@@ -131,6 +133,8 @@ wrap(hobj, 'hess_nuc', 'hess_nuc')
 wrap(hobj, 'kernel', 'Hessian')
 h = hobj.kernel()
 done.set()
+if args.save:
+    numpy.save(args.save, h)
 
 print(f'\nHessian done, {time.perf_counter() - T0:.0f} s in all; max|H| {abs(h).max():.4f}; '
       f'peak RSS {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1e6:.2f} GB (ru_maxrss), '

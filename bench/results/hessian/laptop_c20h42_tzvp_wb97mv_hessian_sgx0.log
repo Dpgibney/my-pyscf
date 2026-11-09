@@ -1,0 +1,60 @@
+# bench/diag/hess_mem.py: n-C20H42/def2-TZVP wB97M-V Hessian (VV10 grid level 1), pyscf perf cd7fe5bec (snapshot scratch/pyscf-hess-sgx), laptop, options: --residual-tol 1e-4 --sgx-level 0 --save scratch/c20_hess_sgx0.npy
+ac=1 profile=balanced mode=full cpu0_hw_max=5090MHz epp=balance_performance
+start 2026-11-08 17:15:58
+/home/danny/Chemistry/my-pyscf/scratch/pyscf-hess-sgx/pyscf/__init__.py
+n-C20H42/def2-tzvp wb97m-v: 62 atoms, nao 872, 10 threads, max_memory 4000 MB, VV10 grid level 1
+[    351 s] scf: 350.8 s, RSS 0.11 -> 3.32 GB, peak so far 3.61 GB
+SCF: E = -787.2612969440, converged True, 10 cycles; XC grid 694296, VV10 grid 207424 points
+[    619 s]       partial: _partial_hess_2e: 268.0 s, RSS 0.77 -> 0.84 GB, peak so far 1.02 GB
+[    655 s]     partial: 2e J/K terms: 303.9 s, RSS 0.60 -> 0.68 GB, peak so far 1.11 GB
+[    904 s]     partial: _partial_hess_2e: 249.2 s, RSS 0.68 -> 0.69 GB, peak so far 1.02 GB
+[    918 s]     partial: XC diagonal: 14.4 s, RSS 0.69 -> 0.69 GB, peak so far 1.39 GB
+[    995 s]     partial: XC deriv2: 76.9 s, RSS 0.69 -> 0.69 GB, peak so far 3.21 GB
+[   1236 s]     partial: VV10 deriv2: 240.6 s, RSS 0.69 -> 0.69 GB, peak so far 3.00 GB
+[   1236 s]   partial_hess_elec: 884.9 s, RSS 0.60 -> 0.69 GB, peak so far 3.21 GB
+[   1477 s]     make_h1: XC deriv1: 241.1 s, RSS 0.69 -> 1.82 GB, peak so far 3.30 GB
+[   2142 s]     make_h1: VV10 deriv1: 665.3 s, RSS 1.82 -> 1.82 GB, peak so far 4.10 GB
+[   2480 s]   make_h1: 1244.1 s, RSS 0.69 -> 1.83 GB, peak so far 4.10 GB
+[   2681 s]     XC response (CPHF): 197.3 s, RSS 3.89 -> 3.99 GB, peak so far 4.99 GB
+[   2988 s]     J/K (SGX response): 306.8 s, RSS 3.99 -> 6.26 GB, peak so far 10.86 GB
+[   3101 s]     J/K (SGX response): 113.5 s, RSS 5.13 -> 6.26 GB, peak so far 10.86 GB
+[   3412 s]     CPHF: VV10 response: 310.8 s, RSS 5.13 -> 5.16 GB, peak so far 7.21 GB
+[   3615 s]     XC response (CPHF): 200.1 s, RSS 4.33 -> 4.40 GB, peak so far 5.38 GB
+[   3934 s]     J/K (SGX response): 319.2 s, RSS 4.40 -> 6.66 GB, peak so far 11.26 GB
+[   4051 s]     J/K (SGX response): 116.9 s, RSS 5.53 -> 6.66 GB, peak so far 11.26 GB
+[   4360 s]     CPHF: VV10 response: 309.0 s, RSS 5.53 -> 5.56 GB, peak so far 7.61 GB
+[   4561 s]     XC response (CPHF): 198.5 s, RSS 4.61 -> 4.69 GB, peak so far 5.67 GB
+[   4881 s]     J/K (SGX response): 320.4 s, RSS 4.69 -> 6.95 GB, peak so far 11.55 GB
+[   4999 s]     J/K (SGX response): 117.5 s, RSS 5.82 -> 6.95 GB, peak so far 11.55 GB
+[   5308 s]     CPHF: VV10 response: 308.6 s, RSS 5.82 -> 5.85 GB, peak so far 7.90 GB
+[   5517 s]     XC response (CPHF): 206.4 s, RSS 4.78 -> 4.85 GB, peak so far 5.84 GB
+[   5839 s]     J/K (SGX response): 322.3 s, RSS 4.85 -> 7.08 GB, peak so far 11.55 GB
+[   5949 s]     J/K (SGX response): 109.3 s, RSS 5.97 -> 7.08 GB, peak so far 11.55 GB
+[   6255 s]     CPHF: VV10 response: 306.6 s, RSS 5.97 -> 6.00 GB, peak so far 8.05 GB
+[   6361 s]     XC response (CPHF): 103.1 s, RSS 4.20 -> 4.22 GB, peak so far 5.84 GB
+[   6531 s]     J/K (SGX response): 170.8 s, RSS 4.22 -> 5.38 GB, peak so far 11.55 GB
+[   6596 s]     J/K (SGX response): 64.4 s, RSS 4.80 -> 5.38 GB, peak so far 11.55 GB
+[   6760 s]     CPHF: VV10 response: 163.6 s, RSS 4.80 -> 4.85 GB, peak so far 8.05 GB
+[   6763 s]   CPHF (solve_mo1): 4283.2 s, RSS 1.83 -> 2.15 GB, peak so far 11.55 GB
+[   6763 s]   hess_nuc: 0.0 s, RSS 0.91 -> 0.91 GB, peak so far 0.91 GB
+[   6763 s] Hessian: 6412.5 s, RSS 3.32 -> 0.91 GB, peak so far 11.55 GB
+
+Hessian done, 6763 s in all; max|H| 0.6160; peak RSS 11.28 GB (ru_maxrss), sampled 11.55 GB, max_memory 4000 MB
+phase                                calls      time  peak RSS  RSS before -> after (first calls)
+scf                                      1    350.8s     3.61 GB  0.11->3.32
+partial: _partial_hess_2e                2    517.3s     1.02 GB  0.77->0.84, 0.68->0.69
+partial: 2e J/K terms                    1    303.9s     1.11 GB  0.60->0.68
+partial: XC diagonal                     1     14.4s     1.39 GB  0.69->0.69
+partial: XC deriv2                       1     76.9s     3.21 GB  0.69->0.69
+partial: VV10 deriv2                     1    240.6s     3.00 GB  0.69->0.69
+partial_hess_elec                        1    884.9s     3.21 GB  0.60->0.69
+make_h1: XC deriv1                       1    241.1s     3.30 GB  0.69->1.82
+make_h1: VV10 deriv1                     1    665.3s     4.10 GB  1.82->1.82
+make_h1                                  1   1244.1s     4.10 GB  0.69->1.83
+XC response (CPHF)                       5    905.4s     5.84 GB  3.89->3.99, 4.33->4.40, 4.61->4.69 ...
+J/K (SGX response)                      10   1961.2s    11.55 GB  3.99->6.26, 5.13->6.26, 4.40->6.66 ...
+CPHF: VV10 response                      5   1398.7s     8.05 GB  5.13->5.16, 5.53->5.56, 5.82->5.85 ...
+CPHF (solve_mo1)                         1   4283.2s    11.55 GB  1.83->2.15
+hess_nuc                                 1      0.0s     0.00 GB  0.91->0.91
+Hessian                                  1   6412.5s    11.55 GB  3.32->0.91
+end 2026-11-08 19:08:42
