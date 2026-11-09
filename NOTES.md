@@ -8298,7 +8298,7 @@ the scaled trial vectors.
     stock solver's own responses were 670, 634, 590 s there.
   - The peak is short of the 5.3 GB I expected. It is a VV10 response in the fourth cycle: RSS 4.00 GB before it, +2.15 GB within
     it. The largest J/K is 5.34 GB, the rest at most 4.12 GB (make_h1). (The log's `ru_maxrss` "6.01 GB" is KiB / 1e6, the same 6.15 GB.)
-- Two defects in 78143659c, read off this log, fixed in b1aff30b5 (+ a test each, failing on 78143659c); **not measured at n-C20H42**:
+- Two defects in 78143659c, read off this log, fixed in b1aff30b5 (+ a test each, failing on 78143659c; measured at n-C20H42 later, with the VV10 response from the factors, under "The CPHF's VV10 response from the factors": J/K 2959 s in 5 + 3 passes):
   1. The chunk was sized before its own dms were in RSS, and from the memory left instead of in batches of the J/K call. At
      the first response's 1.72 GB: chunks of 46 and 93 dms, while the call took 41 and 82 at a time, so 9 + 4 passes over the integrals
      ([41, 5] x 4 + [2]; [82, 11] x 2) instead of 5 + 3, the small ones without the GEMM path. J/K 821 s against 736 s unscaled. Worth
@@ -8373,7 +8373,7 @@ The user: "Let's work on the SGX-K".
   - Level 0 is now smaller as well as faster than the exact response on 78143659c: 6386 s and 5.48 GB against 8000 s and 6.15 GB, CPHF 3864 s against 5411 s.
 - **Left:** VV10's 2.15-2.30 GB inside a chunk is the peak on both paths; `G = A F` is what remains of SGX-K's time (9 of 13.5 s at n-C12H26), then the integrals and the contraction; UHF/UKS.
 
-### The CPHF's VV10 response from the factors of its densities (pyscf `perf` 229192464, local), 2026-11-09
+### The CPHF's VV10 response from the factors of its densities (pyscf `perf` 229192464, tag `perf-2026-11-09`), 2026-11-09
 The next item after the push of 5a5a82aff: VV10's memory inside a chunk, which set the peak on both Hessian paths.
 - **Where the peak came from** (`get_vnlc_resp1` at n-C20H42: 82 dms in a chunk, 207,424 points; one number per point and dm is U = 136 MB). In the RSS before the call: the chunk's dms, 0.5 GB. Inside it:
   `rho_t`, `nabla_rho_t` and the kernels (7 U around the pair kernel, 5 U after it), the full-grid `wv` of a batch of 32 dms (0.21 GB) and up to 0.48 GB of temporaries making it, the batch's `v` (0.2 GB),
@@ -8394,8 +8394,38 @@ The next item after the push of 5a5a82aff: VV10's memory inside a chunk, which s
     `test_vind_mo_vnlc_path` (the path taken once, the AO path within 1e-10). PySCF's tests: 1085 passed, 66 skipped, the 7 known failures; `test_vv10_hessian.py`'s 5 high-cost tests pass.
   - The n-C5H12/def2-SVP wB97M-V Hessian (`hess_sgx_response.py`, `bench/results/rijcosx/laptop_c5h12_sgx_response_vv10_factors.log`): the errors of every option equal those of the earlier logs to every digit shown (exact response 2.69e-8; level 0 2.71e-5, 0.155 cm-1; level 1 1.27e-5, 0.031 cm-1).
   - The pair kernel is now 87% of VV10's response at n-C12H26: one call's fixed part 5 s, 0.34 s per dm, scaling to about 13 s and 0.90 s at n-C20H42 (207,424 points).
-- **Not measured at n-C20H42.** From the sizes: the VV10 response's own peak about +1.1 GB (5 U of a group of 93, 0.77 GB, and 0.35 GB of partial sums in batches of 31) on an RSS 0.5 GB lower, about 3.8 GB against 5.48 GB in the fourth cycle, so the whole run's peak moves
-  to direct J (4.64 GB) and SGX-K (4.62 GB). Time per full response: 2 kernel calls instead of 3 and the densities and potentials a third of what they were: about 230 s against 310 s, about 350 s off the Hessian (CPHF about 3500 s).
+- **Measured at n-C20H42/def2-TZVP wB97M-V, SGX-K level 0** (`bench/results/hessian/laptop_c20h42_tzvp_wb97mv_hessian_sgx0_vv10factors.log`; 10 threads, max_memory 4000 MB, snapshot of 229192464; 5 responses, 4 full and one of half the dms):
+
+| phase | AO matrices by chunks (5a5a82aff) | from the factors (229192464) |
+|---|---|---|
+| VV10 of the response | 1396.2 s (14 calls; 133 + 134 + 42 per full response) | 1180.4 s (5 calls; 262 per full response) |
+| J and K of the response (direct J + SGX-K) | 1543.4 s (922.6 + 620.8) | 1540.3 s (925.2 + 615.1) |
+| XC of the response | 908.4 s | 905.3 s |
+| CPHF | 3863.6 s | 3638.9 s |
+| SCF / partial_hess_elec / make_h1 | 349.1 / 905.8 / 1266.8 s | 378.4 / 968.6 / 1291.4 s (see below) |
+| Hessian | 6036.7 s | 5899.4 s |
+| whole run | 6386 s | 6278 s |
+| peak RSS (sampled) | 5.48 GB, in VV10 | 4.71 GB, in direct J (SGX-K 4.60, VV10 3.97, make_h1 4.02) |
+
+  - The SCF and the first `_partial_hess_2e` overlapped short 2-thread tests of mine (the first `_partial_hess_2e` 320.8 s, the second 263.0 s), so the whole-run difference understates the change: the phases the change touches are the VV10 response (-216 s) and the CPHF (-225 s).
+  - The estimates from the sizes were optimistic on time: 262 s per full response against about 230 s, 216 s off VV10 against about 350 s. On memory they held: 3.97 GB in VV10 against about 3.8, 4.71 GB for the run against about 4.6.
+  - The Hessian against 5a5a82aff's: max|dH| 1.1e-12, rms 1.5e-14, the 180 frequencies equal to the 3 decimals printed. Against the exact Hessian: unchanged, max|dH| 8.1e-5, max|df| 0.518 cm-1 at -18 cm-1, mean|df| 0.067 cm-1, ZPE -0.017 of 368 kcal/mol.
+- **Measured at n-C20H42, the exact response (direct J and K)** (`bench/results/hessian/laptop_c20h42_tzvp_wb97mv_hessian_exact_vv10factors.log`; same settings, the laptop idle; also the first measurement there of b1aff30b5's chunks):
+
+| phase | 78143659c | 229192464 |
+|---|---|---|
+| VV10 of the response | 1398.1 s (13 calls) | 1173.3 s (5 calls) |
+| J and K of the response | 3082.8 s | 2958.8 s |
+| XC of the response | 906.6 s | 902.2 s |
+| CPHF | 5411.3 s | 5049.8 s |
+| SCF / partial_hess_elec / make_h1 | 378.2 / 943.8 / 1265.8 s | 384.6 / 931.3 / 1276.0 s |
+| Hessian | 7621.6 s | 7257.6 s |
+| whole run | 8000 s | 7642 s |
+| peak RSS (sampled) | 6.15 GB, in VV10 | 5.02 GB, in the J/K of the K-only chunk (VV10 3.94, make_h1 4.11) |
+
+  - The J/K calls are the 5 + 3 passes b1aff30b5 was for (first response 99, 97, 94, 94, 62 s and 106, 103, 45 s), 2959 s in all against the 2980 s projected.
+  - The Hessian against the two earlier exact ones (78143659c, and the `--residual` run): max|dH| 5.1e-12 for both, rms 2.0e-13 and 1.8e-13, the 180 frequencies equal to the 3 decimals printed.
+  - SGX-K level 0 against exact at the same commit: 6278 against 7642 s (the J and K of the response 1540 against 2959 s), peak 4.71 against 5.02 GB, for the error given above.
 - **Left:** the pair kernel itself (`f_t`, at its dgemm rate); direct J's and SGX-K's 2.0 GB floors under max_memory; UHF/UKS.
 - **Pushed, tagged `perf-2026-11-09`, pins moved (workspace c6f4111).** A fresh clone of that main on the laptop in a clean environment (`env -i`, Python 3.14.4 of /usr/bin; `bench/results/laptop_fresh_clone_2026-11-09.log`; node2 was
   running the user's ORCA jobs, so no AVX2-only build this time): `cpu_setup.sh --with-base` 21 min, water B3LYP +1.4e-14 Eh from the laptop, `kernels.py` 77 arrays agree; PySCF's tests 1085 passed, the 7 known failures; VV10's 5
@@ -8403,7 +8433,8 @@ The next item after the push of 5a5a82aff: VV10's memory inside a chunk, which s
 - **RIJCOSX in geometry optimizations, fixed (pyscf `perf` 2decf7302, tag and pin `perf-2026-11-09b`).** Found while testing a wB97M-V optimization script for the user: `mf.RIJCOSX()` with geomeTRIC, or any gradient
   scanner of SGX with `dfj`, died with a RecursionError. `sgx/grad/rhf.py`'s `get_jk` called `super(mf_grad.__class__, mf_grad).get_jk` (upstream's line, 54c2aa38c), and a scanner's class derives from the SGX gradient class, so that found the same `get_jk` again. Single gradients were
   fine, and the tests only covered energy scanners. Now `super(_GradientsMixin, mf_grad)`. `test_grad_scanner_dfj` (RHF, UHF, RKS, UKS, wB97X) fails with the RecursionError on the old code; the 7 tests of `sgx/grad/test` pass (2 threads, next to the n-C20H42 run;
-  PySCF's full suite not rerun for it). wB97M-V/def2-TZVP water from a distorted geometry with RIJCOSX and geomeTRIC (1.1.1, in a scratch directory; it is not in the venv or installed by `cpu_setup.sh`) converges, r(OH) within 4e-5 A of exact J/K.
+  afterwards PySCF's full suite on 2decf7302: 1086 passed, 66 skipped, the 7 known failures). wB97M-V/def2-TZVP water from a distorted geometry with RIJCOSX and geomeTRIC (1.1.1, in a scratch directory; it is not in the venv or installed by `cpu_setup.sh`) converges, r(OH) within 5e-5 A of exact J/K.
+  `examples/wb97mv_geomopt.py` as pushed (workspace 7f12de7), in a clean environment through `scripts/pyscf-env.sh` with geomeTRIC on PYTHONPATH, writing only the `.out` and `.xyz` its header names: 4 cycles, 2.6 s, E -76.4295961, r(OH) 0.96107 A, angle 105.07 degrees; with its RIJCOSX line on 4 cycles, 3.0 s, E -76.4297424, 0.96102 A, 105.08 degrees.
 
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
