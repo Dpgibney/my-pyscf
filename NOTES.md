@@ -8236,15 +8236,15 @@ The user: "Yes wire it in" (direct J + SGX-K, level 0 by default, level 1 select
   - Memory: level 0's peak is 3.4 GB above the exact response's, so that much is SGX-K's own, on top of the direct path's
     8.12 GB (which is itself twice max_memory). The peak comes in the J/K of the response in both.
 - **Left:** whether `solve_residual` should be the Hessian's default solver (it changes results by what the stock solver
-  leaves unconverged, and at this size it saves only ~7% of the CPHF); wiring in the scaled trial vectors of the next
-  section; SGX-K's and the direct path's peak memory; UHF/UKS.
+  leaves unconverged, and at this size it saves only ~7% of the CPHF); SGX-K's and the direct path's peak memory; UHF/UKS.
 
 ### Trial vectors at their size in the residuals (pyscf `perf` 155a52ac0, local), 2026-11-08
 The user: "Sure try that", on recovering the J/K screening the normalized trial vectors of `solve_residual` give up.
 - `cphf.solve_residual(..., scale_trials=True)` gives fvind each trial vector multiplied by its size in the residuals (the
-  pivoted QR's diagonal) and divides the response by that size. fvind is linear, so only what the density screening of the
-  integrals can skip changes. Off by default; the Hessian does not use it yet. Not for SGX's K, whose absolute thresholds
-  are why the vectors are normalized.
+  pivoted QR's diagonal, not below 1e-6) and divides the response by that size. fvind is linear, so only what the density
+  screening of the integrals can skip changes. Off by default in the solver. The user: "Sounds good!" to wiring it in: with
+  `cphf_residual_tol` the Hessian uses it for direct SCF's J/K (pyscf `perf` b5085f0fa), not for `sgx_response` (SGX's absolute
+  thresholds are why the vectors are normalized), a density-fitted or SGX SCF, or a given `fx`.
 - n-C8H18/def2-TZVP RHF, where J/K is the whole response (nao 356, 78 perturbations; `bench/diag/hess_sgx_response.py --n 8
   --basis def2-tzvp --xc hf --levels '' --ref-tol 1e-5`, `bench/results/rijcosx/laptop_c8h18_tzvp_rhf_scale_trials.log`;
   errors against `cphf_residual_tol` 1e-5, unscaled):
