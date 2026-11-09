@@ -1,0 +1,19 @@
+# bench/diag/hess_sgx_response.py --n 8 --basis def2-tzvp --xc hf --levels '' --ref-tol 1e-5, pyscf perf 155a52ac0, laptop, 10 threads
+ac=1 profile=balanced mode=full cpu0_hw_max=5090MHz epp=balance_performance
+start 2026-11-08 21:49:10
+pyscf plugins found in 
+/home/danny/Chemistry/my-pyscf/pyscf
+When PYTHONPATH is set, it is recommended to load these plugins through the environment variable PYSCF_EXT_PATH
+/home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py
+n-C8H18/def2-tzvp hf: nao 356, 78 perturbations, 10 threads; SCF 11.3 s, partial Hessian + make_h1 45.7 s
+  reference (exact response, cphf_residual_tol 1e-05): 53.0 s, 6 calls, 432 vectors
+  stock cphf.solve, exact response           CPHF     56.5 s (response     55.0 s),   7 calls,   477 vectors; max|dH| 3.55e-09, max|df| 0.000 cm-1, mean|df| 0.000
+    J/K per response (s): 8.9 8.7 8.6 8.4 8.2 8.0 3.8; in all 54.5 s
+    vector norms (largest, smallest): 2.8e-01,9.6e-02 8.3e-02,9.2e-03 1.7e-02,7.4e-04 1.8e-03,6.4e-05 1.4e-04,4.8e-06 1.1e-05,3.6e-07 7.8e-07,3.5e-07
+  solve_residual 1e-04, exact response       CPHF     44.4 s (response     43.8 s),   5 calls,   357 vectors; max|dH| 4.95e-09, max|df| 0.000 cm-1, mean|df| 0.000
+    J/K per response (s): 9.4 8.9 8.9 8.9 7.3; in all 43.4 s
+    vector norms (largest, smallest): 2.8e-01,9.6e-02 1.0e+00,1.0e+00 1.0e+00,1.0e+00 1.0e+00,1.0e+00 1.0e+00,1.0e+00
+  solve_residual 1e-04, exact response, scaled trials CPHF     42.4 s (response     41.8 s),   5 calls,   357 vectors; max|dH| 4.95e-09, max|df| 0.000 cm-1, mean|df| 0.000
+    J/K per response (s): 8.9 8.7 8.6 8.5 6.8; in all 41.5 s
+    vector norms (largest, smallest): 2.8e-01,9.6e-02 8.4e-02,6.0e-03 1.6e-02,5.4e-04 1.9e-03,5.5e-05 2.1e-04,1.1e-05
+end 2026-11-08 21:53:24

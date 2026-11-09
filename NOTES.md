@@ -8236,10 +8236,31 @@ The user: "Yes wire it in" (direct J + SGX-K, level 0 by default, level 1 select
   - Memory: level 0's peak is 3.4 GB above the exact response's, so that much is SGX-K's own, on top of the direct path's
     8.12 GB (which is itself twice max_memory). The peak comes in the J/K of the response in both.
 - **Left:** whether `solve_residual` should be the Hessian's default solver (it changes results by what the stock solver
-  leaves unconverged, and at this size it saves only ~7% of the CPHF); scaling each trial vector by its residual norm
-  before the exact response and back after (J/K is linear), to recover the screening the stock solver gets, not tried and
-  worth about 560 s of the 3539 s if the J/K fell as the stock solver's does (not for SGX-K, whose absolute thresholds are
-  why the vectors are normalized); SGX-K's and the direct path's peak memory; UHF/UKS.
+  leaves unconverged, and at this size it saves only ~7% of the CPHF); wiring in the scaled trial vectors of the next
+  section; SGX-K's and the direct path's peak memory; UHF/UKS.
+
+### Trial vectors at their size in the residuals (pyscf `perf` 155a52ac0, local), 2026-11-08
+The user: "Sure try that", on recovering the J/K screening the normalized trial vectors of `solve_residual` give up.
+- `cphf.solve_residual(..., scale_trials=True)` gives fvind each trial vector multiplied by its size in the residuals (the
+  pivoted QR's diagonal) and divides the response by that size. fvind is linear, so only what the density screening of the
+  integrals can skip changes. Off by default; the Hessian does not use it yet. Not for SGX's K, whose absolute thresholds
+  are why the vectors are normalized.
+- n-C8H18/def2-TZVP RHF, where J/K is the whole response (nao 356, 78 perturbations; `bench/diag/hess_sgx_response.py --n 8
+  --basis def2-tzvp --xc hf --levels '' --ref-tol 1e-5`, `bench/results/rijcosx/laptop_c8h18_tzvp_rhf_scale_trials.log`;
+  errors against `cphf_residual_tol` 1e-5, unscaled):
+
+| | J/K per response (s) | J/K | CPHF | vectors | max\|dH\| |
+|---|---|---|---|---|---|
+| stock | 8.9, 8.7, 8.6, 8.4, 8.2, 8.0, 3.8 | 54.5 s | 56.5 s | 477 | 3.6e-9 |
+| `solve_residual` 1e-4 | 9.4, 8.9, 8.9, 8.9, 7.3 | 43.4 s | 44.4 s | 357 | 4.95e-9 |
+| `solve_residual` 1e-4, `scale_trials` | 8.9, 8.7, 8.6, 8.5, 6.8 | 41.5 s | 42.4 s | 357 | 4.95e-9 |
+
+  - The mechanism holds: the scaled vectors have the stock solver's norms (largest 8.4e-2, 1.6e-2, 1.9e-3, 2.1e-4 against
+    8.3e-2, 1.7e-2, 1.8e-3, 1.4e-4), and their J/K follows the stock solver's response by response, to 0.1 s over the first
+    four. The Hessian's error is unchanged to the digits shown.
+  - The gain here is 4% of the J/K, because at this size the stock solver's own J/K falls only 8% by its fifth response.
+    At n-C20H42/def2-TZVP wB97M-V it falls 26%. Not measured there; if the scaled J/K follows the stock solver's again, the
+    3539 s of the exact response become about 2980 s (CPHF about 5340 s against 5896 s).
 
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
