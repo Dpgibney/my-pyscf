@@ -8260,7 +8260,53 @@ The user: "Sure try that", on recovering the J/K screening the normalized trial 
     four. The Hessian's error is unchanged to the digits shown.
   - The gain here is 4% of the J/K, because at this size the stock solver's own J/K falls only 8% by its fifth response.
     At n-C20H42/def2-TZVP wB97M-V it falls 26%. Not measured there; if the scaled J/K follows the stock solver's again, the
-    3539 s of the exact response become about 2980 s (CPHF about 5340 s against 5896 s).
+    3539 s of the exact response become about 2980 s (CPHF about 5340 s against 5896 s). Measured below: 3083 s and 5411 s.
+
+### The CPHF response by chunks, H1 on disk (pyscf `perf` 78143659c, b1aff30b5, local), 2026-11-09
+The user: "Sounds good!", to holding the n-C20H42 rerun until the memory work was done, so that one run measures both this and
+the scaled trial vectors.
+- `vind_mo(dm1, x)` in `_gen_rhf_response` (singlet RKS with MO coefficients; the Hessian's `gen_vind`) returns the response in
+  the MO basis, the dms made from the factors for `dm1=None`. The AO dms and their J, K and VV10 responses exist for a chunk at a
+  time and go to the MO basis before the next chunk. The J/K call with J has its own chunks, the K-only calls and VV10 the larger
+  ones of the K-only batches (`_cphf_chunk`), so that no J/K call makes more passes over the integrals. Not for density-fitted
+  or SGX J/K (SGX-K would repeat its integrals per chunk), not for UHF/UKS.
+- `hess_elec` keeps H1 in a temporary file when it and the CPHF would not fit under `max_memory` (`_h1ao_out_of_core`), 1.13 GB here.
+- The cost of chunking, n-C6H14/def2-TZVP wB97M-V with the batches patched to n-C20H42's ratio (13 dms for J+K, 60
+  perturbations; `bench/diag/cphf_chunks.py`, `bench/results/hessian/laptop_c6h14_tzvp_wb97mv_cphf_chunks.log`): CPHF 111.3,
+  123.8 s whole against 120.3, 132.0 s by chunks (+7-8%), nearly all in VV10, whose pair kernel runs once per chunk. A first design
+  with one chunk size for everything cost +20-30% (long-range K in 5 passes instead of 3). max|d mo1| 8.9e-7, the CPHF's part of
+  the Hessian differs by 1.7e-11.
+- n-C20H42/def2-TZVP wB97M-V (`hess_mem.py --n 20 --basis def2-tzvp --xc wb97m-v --nlc-level 1 --residual-tol 1e-4`, 4000 MB, 10
+  threads, balanced; `bench/results/hessian/laptop_c20h42_tzvp_wb97mv_hessian_chunks.log`, snapshot of 78143659c):
+
+| | exact response, `solve_residual` (cd7fe5bec) | + scaled trial vectors, chunks, H1 on disk (78143659c) |
+|---|---|---|
+| responses | 5 | 5 |
+| J/K per response (s) | 736, 788, 793, 792, 431 | 821, 693, 656, 606, 306 |
+| J/K | 3538.6 s | 3082.8 s (-13%) |
+| XC | 911.9 s | 906.6 s |
+| VV10 | 1428.0 s | 1398.1 s |
+| CPHF | 5896.2 s | 5411.3 s (-8%) |
+| Hessian | 8043.4 s | 7621.6 s (-5%) |
+| whole run | 8431 s | 8000 s (-5%) |
+| peak RSS, sampled | 8.12 GB | 6.15 GB (-24%) |
+| SCF / partial / make_h1 | 387.9 / 907.9 / 1239.0 s | 378.2 / 943.8 / 1265.8 s |
+
+  - The same Hessian: max|dH| 2.6e-12 against the unscaled, whole-response run, frequencies equal to 1e-3 cm-1. Scaling leaves the
+    subspaces as they were, only the screening of the integrals sees it.
+  - From the second response on, the scaled vectors take 12-24% off (693, 656, 606 against 788, 793, 792 s; 306 against 431 s); the
+    stock solver's own responses were 670, 634, 590 s there.
+  - The peak is short of the 5.3 GB I expected. It is a VV10 response in the fourth cycle: RSS 4.00 GB before it, +2.15 GB within
+    it. The largest J/K is 5.34 GB, the rest at most 4.12 GB (make_h1). (The log's `ru_maxrss` "6.01 GB" is KiB / 1e6, the same 6.15 GB.)
+- Two defects in 78143659c, read off this log, fixed in b1aff30b5 (+ a test each, failing on 78143659c); **not measured at n-C20H42**:
+  1. The chunk was sized before its own dms were in RSS, and from the memory left instead of in batches of the J/K call. At
+     the first response's 1.72 GB: chunks of 46 and 93 dms, while the call took 41 and 82 at a time, so 9 + 4 passes over the integrals
+     ([41, 5] x 4 + [2]; [82, 11] x 2) instead of 5 + 3, the small ones without the GEMM path. J/K 821 s against 736 s unscaled. Worth
+     about 100 s of the 5411 s, which would also put the J/K at the projected 2980 s.
+  2. The loop variable of the reduction to the MO basis was a view of the chunk's J/K and kept it alive through the next
+     chunk: 0.28 GB in the J+K chunks, 0.5 GB in the K-only chunks, at the peak too (expected peak about 5.65 GB).
+- Left: VV10's 2.15 GB inside a chunk (the K array is its output array, so VV10 needs no other), +0.19 GB per response for the subspace,
+  SGX-K's own peak at level 0 (11.55 GB; `_get_k_only_many` evaluates the integrals once per grid block for all dms, so chunking would repeat them).
 
 ### Merged into `perf`, tagged perf-2026-11-07c, 2026-11-07
 The user: "Yes let's merge it, this sounds very much like what I have been looking for within PySCF".
