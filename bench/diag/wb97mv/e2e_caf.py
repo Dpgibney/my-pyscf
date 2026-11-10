@@ -1,5 +1,5 @@
 '''End to end on caffeine wB97M-V/def2-TZVPD, grids (99,590)/(50,194), through the public API of the new options.
-Prints a line as each step ends. Usage: e2e_caf.py scf|rijcosx|hess'''
+Prints a line as each step ends. Usage: e2e_caf.py scf|rijcosx|hess SCRATCH [VV10 response level, default 1]'''
 import sys, time, numpy
 import pyscf
 from pyscf import gto, dft, df, lib
@@ -39,7 +39,8 @@ else:
     z = numpy.load(S + '/caf_exact_scf.npz')
     mf = make()
     mf.mo_coeff, mf.mo_occ, mf.mo_energy, mf.e_tot, mf.converged = z['mo_coeff'], z['mo_occ'], z['mo_energy'], float(z['e_tot']), True
-    mf.set_second_grids(2); mf.set_second_nlcgrids(0)
+    nlc_level = int(sys.argv[3]) if len(sys.argv) > 3 else 1
+    mf.set_second_grids(2); mf.set_second_nlcgrids(nlc_level)
     hobj = mf.Hessian(); hobj.sgx_response = True
     for owner, name in ((hobj, 'partial_hess_elec'), (hobj, 'solve_mo1')):
         def wrap(fn, name):
@@ -55,7 +56,7 @@ else:
         setattr(mod, name, wrap(getattr(mod, name), name))
     rhf_hess._MAKE_H1_SPLIT[rks_hess.make_h1] = rks_hess._make_h1_split
     t = time.perf_counter(); h = hobj.kernel(); dt = time.perf_counter() - t
-    say(f'Hessian (split H1, second grids 2 / VV10 level 0, sgx_response level 1, one-pass K): {dt:.1f} s (3176 s exact before)')
+    say(f'Hessian (split H1, second grids 2 / VV10 level {nlc_level}, sgx_response level 1, one-pass K): {dt:.1f} s (3176 s exact before)')
     h0 = numpy.load(S + '/hv_caf_ref.npy')
     f = numpy.asarray(thermo.harmonic_analysis(mol, h, imaginary_freq=False)['freq_wavenumber'])
     f0 = numpy.asarray(thermo.harmonic_analysis(mol, h0, imaginary_freq=False)['freq_wavenumber'])

@@ -29,14 +29,19 @@ SCF's own solution from 2 of its Fock builds instead of 15, iterating on a cheap
 a reference density (178.7 s against 451 s, the energy within 1.3e-10 Eh). The XC and VV10 terms of the RKS gradient are
 contracted on the grid (14.5 -> 4.9 s), SGX evaluates the exchange of a range-separated hybrid in one pass (needs
 the qcint of this workspace), and the CPHF response of the Hessian takes its own grids (`mf.set_second_grids(2)`,
-`mf.set_second_nlcgrids(0)`) and seminumerical K (`hobj.sgx_response = True`, now on grid level 1): the Hessian in 1867 s against 3176 s,
-frequencies within 0.07 cm^-1 of the exact response's.
+`mf.set_second_nlcgrids(1)`) and seminumerical K (`hobj.sgx_response = True`, now on grid level 1): the Hessian in
+2041 s against 3176 s, frequencies within 0.04 cm^-1 of the exact response's (VV10 response on level 0: 1867 s,
+0.07 cm^-1).
+Hessians solve their CPHF equations with `cphf.solve_residual` to a residual of 1e-4 by default
+(`hobj.cphf_residual_tol`; `None` for PySCF's Krylov solver): at its default tolerance the Krylov solver stops
+short of a converged solution for DFT, by 0.01-0.03 cm^-1 for closed shells, 0.3 cm^-1 for wB97M-V in SMD and
+1.2 cm^-1 for a UKS/B3LYP radical, and takes longer.
 SMD and PCM Hessians and gradients no longer recompute the surface integrals for every nuclear coordinate or hold
 surface arrays quadratic in the points with nine components (`NOTES.md`, "SMD Hessians, UKS and the rest of the
 wB97M-V list"): the solvent terms of caffeine's SMD Hessian take 32 s (above 16 GB and unfinished before), the
 solvent term of its gradient 6.5 s instead of 45 s. The CPHF of a solvated model runs from the same factors as in
 the gas phase (it fell back to AO matrices for every PCM/SMD Hessian: 1549 -> 668 s), so caffeine's
-wB97M-V/def2-TZVPD Hessian in SMD water takes 2156 s within 12 GB, with the VV10 response on level 1
+wB97M-V/def2-TZVPD Hessian in SMD water takes 2156 s and about 12 GB (`max_memory` 12000), with the VV10 response on level 1
 (`mf.set_second_nlcgrids(1)`: level 0 moves a soft mode of H2PO4- in SMD by 0.2 cm^-1). UKS has the same gradient
 and response options, and Hessians of VV10 functionals, which upstream does not implement.
 These are in the local `perf` branches, after the tags below. `examples/wb97mv_hessian.py` has the settings.

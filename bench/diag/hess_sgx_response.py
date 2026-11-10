@@ -140,7 +140,7 @@ def report(label, **attrs):
         print(f'    vector norms (largest, smallest): {" ".join(f"{a:.1e},{b:.1e}" for a, b in c["norms"])}', flush=True)
 
 
-report('stock cphf.solve, exact response')
+report('stock cphf.solve, exact response', cphf_residual_tol=None)
 report(f'solve_residual {args.tol:.0e}, exact response', cphf_residual_tol=args.tol)
 report(f'solve_residual {args.tol:.0e}, exact response, scaled trials', cphf_residual_tol=args.tol, scale_trials=True)
 for level in [int(x) for x in args.levels.split(',') if x != '']:

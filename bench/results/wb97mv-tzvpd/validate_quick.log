@@ -1,0 +1,20 @@
+candidate new: pyscf {} [cint=qcint-pgo xc=libxc-stock blas=openblas]
+reference ref: pyscf-base {} [cint=libcint-stock xc=libxc-stock blas=openblas]
+PASS  scf_caffeine_svp_pbe
+      e_tot                  max|d|=  9.09e-13 tol= 1e-09 ok
+      cycles                 max|d|=  40 vs 39 tol=       warn
+PASS  scf_caffeine_svp_b3lyp
+      e_tot                  max|d|=  1.14e-12 tol= 1e-09 ok
+      cycles                 max|d|=  27 vs 24 tol=       warn
+PASS  scf_caffeine_svp_r2scan
+      e_tot                  max|d|=  2.27e-13 tol= 1e-09 ok
+      cycles                 max|d|=  24 vs 25 tol=       warn
+PASS  grad_benzene_svp_b3lyp
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      grad                   max|d|=  3.55e-14 tol= 1e-08 ok
+PASS  tda_benzene_svp_b3lyp
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  4.80e-15 tol= 1e-09 ok
+PASS  grid_caffeine_svp
+ALL PASS
+exit 0

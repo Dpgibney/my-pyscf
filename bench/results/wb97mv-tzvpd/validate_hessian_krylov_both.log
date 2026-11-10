@@ -1,0 +1,67 @@
+candidate new: pyscf {} [cint=qcint-pgo xc=libxc-stock blas=openblas]
+reference ref: pyscf-base {} [cint=libcint-stock xc=libxc-stock blas=openblas]
+FAIL  hess_water_svp_LDA,VWN
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  9.59e-06 tol= 1e-07 FAIL
+PASS  hess_water_svp_r2SCAN
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  5.99e-08 tol= 1e-07 ok
+FAIL  hess_water_svp_CAM-B3LYP
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  2.88e-05 tol= 1e-07 FAIL
+PASS  hess_water+_svp_LDA,VWN_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  1.62e-11 tol= 1e-07 ok
+PASS  hess_water+_svp_PBE_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  1.15e-11 tol= 1e-07 ok
+PASS  hess_water+_svp_r2SCAN_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  1.05e-11 tol= 1e-07 ok
+PASS  hess_water+_svp_wB97X_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  1.32e-11 tol= 1e-07 ok
+FAIL  hess_water_svp_b3lyp_df
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  2.16e-05 tol= 1e-07 FAIL
+PASS  hess_water+_svp_pbe_uks_df
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  2.08e-11 tol= 1e-07 ok
+PASS  tda_water+_svp_LDA,VWN_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  4.77e-15 tol= 1e-09 ok
+PASS  tda_water+_svp_PBE_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  6.11e-15 tol= 1e-09 ok
+PASS  tda_water+_svp_r2SCAN_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  9.10e-15 tol= 1e-09 ok
+PASS  tda_water+_svp_B3LYP_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  1.17e-14 tol= 1e-09 ok
+PASS  tda_water+_svp_wB97X_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  9.99e-15 tol= 1e-09 ok
+PASS  tddft_water+_svp_PBE_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  7.49e-14 tol= 1e-09 ok
+PASS  tddft_water+_svp_r2SCAN_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  1.24e-13 tol= 1e-09 ok
+PASS  tddft_water+_svp_B3LYP_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  1.16e-13 tol= 1e-09 ok
+PASS  grad_water_svp_CAM-B3LYP
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      grad                   max|d|=  2.09e-14 tol= 1e-08 ok
+PASS  grad_water+_svp_PBE_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      grad                   max|d|=  2.31e-14 tol= 1e-08 ok
+PASS  grad_water+_svp_B3LYP_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      grad                   max|d|=  2.22e-14 tol= 1e-08 ok
+PASS  grad_water+_svp_wB97X_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      grad                   max|d|=  1.91e-14 tol= 1e-08 ok
+SOME FAILED
+exit 1

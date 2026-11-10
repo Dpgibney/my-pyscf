@@ -152,15 +152,78 @@ def td_case(atom, basis, xc, method, nstates=5, charge=0, spin=0, full_jk=False)
     return setup
 
 
+def _refined_solve(solve, unrestricted, tol=1e-9, max_pass=20):
+    '''cphf.solve (ucphf.solve) repeated on the residual of its solution until that is below tol: the equations are
+    linear, so the solution of (h1 = the residual on the virtual rows scaled to unit size, s1 = 0) is the
+    correction. Only the tree's own solver and response function are used; the residual is the true one, from
+    one more call of fvind per pass, and the first order energies are those of the final solution (solve's own
+    come from the Krylov solution before its last update, and keep the error of the first pass).'''
+    def spins(x):
+        return list(x) if unrestricted else [x]
+
+    def join(xs):
+        return tuple(xs) if unrestricted else xs[0]
+
+    def refined(fvind, mo_energy, mo_occ, h1, s1=None, *args, **kwargs):
+        if s1 is None:
+            return solve(fvind, mo_energy, mo_occ, h1, s1, *args, **kwargs)
+        h1s = [np.asarray(x) for x in spins(h1)]
+        s1s = [np.asarray(x).reshape(h.shape) for x, h in zip(spins(s1), h1s)]
+        nset = h1s[0].shape[0]
+        mo1, e1 = solve(fvind, mo_energy, mo_occ, h1, s1, *args, **kwargs)
+        mo1 = [np.array(x).reshape(h.shape) for x, h in zip(spins(mo1), h1s)]
+        for _ in range(max_pass):
+            v = fvind(np.hstack([x.reshape(nset, -1) for x in mo1])).reshape(nset, -1)
+            rs, e1, p = [], [], 0
+            for x, h, s, e, occ in zip(mo1, h1s, s1s, spins(mo_energy), spins(mo_occ)):
+                vs = v[:, p:p+x[0].size].reshape(x.shape)
+                p += x[0].size
+                o, vir = occ > 0, occ == 0
+                hs = h - s * e[o] + vs
+                r = np.zeros(x.shape)
+                r[:, vir] = (e[vir, None] - e[o]) * x[:, vir] + hs[:, vir]
+                rs.append(r)
+                e1.append(hs[:, o] + x[:, o] * (e[o][:, None] - e[o]))
+            size = max(abs(r).max() for r in rs)
+            if size < tol:
+                return join(mo1), join(e1)
+            d1 = solve(fvind, mo_energy, mo_occ, join([r / size for r in rs]),
+                       join([np.zeros_like(x) for x in s1s]), *args, **kwargs)[0]
+            for x, d in zip(mo1, spins(d1)):
+                x += np.asarray(d).reshape(x.shape) * size
+        raise RuntimeError(f'CPHF residual {size:.1e} after {max_pass} passes')
+    return refined
+
+
+def _converged_cphf(mf, hobj):
+    '''Validation compares Hessians at converged CPHF solutions. PySCF's solver (lib.krylov to conv_tol_cpscf)
+    stops short of one for DFT, by 1e-6 to 1e-4 in the Hessian, and where it stops is not what validation is
+    after: the perf tree's cphf.solve starts it from another vector since 571affb7d and ends 1e-5 from stock's
+    for water/B3LYP, both as far from the converged Hessian. A tree whose Hessian has cphf.solve_residual
+    solves to a residual of 1e-9; the others, stock PySCF among them, repeat their solver on its residual
+    (_refined_solve).'''
+    from pyscf.scf import cphf, ucphf
+    unrestricted = np.ndim(mf.mo_occ) == 2
+    solver = ucphf if unrestricted else cphf
+    if hasattr(solver, 'solve_residual') and hasattr(hobj, 'cphf_residual_tol'):
+        hobj.cphf_residual_tol = 1e-9
+    else:
+        solver.solve = _refined_solve(solver.solve, unrestricted)
+
+
 def hess_case(atom, basis, xc, charge=0, spin=0, density_fit=False, full_jk=False):
     def setup(tight):
         mf = converged_ks(atom, basis, xc, tight, charge, spin, density_fit, full_jk)
 
         def run():
-            h = mf.Hessian().kernel()
+            hobj = mf.Hessian()
+            if tight:
+                _converged_cphf(mf, hobj)  # timings (not tight) take each tree's default solver
+            h = hobj.kernel()
             return {'e_tot': mf.e_tot, 'hessian': h.tolist()}
         return run
     setup.post_scf = True  # starts from converged_ks, see there
+    setup.ref_version = '__cphf-refined'  # cached references from before _converged_cphf are not these
     return setup
 
 

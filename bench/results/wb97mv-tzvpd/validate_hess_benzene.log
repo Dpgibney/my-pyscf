@@ -1,0 +1,13 @@
+candidate new: pyscf {} [cint=qcint-pgo xc=libxc-stock blas=openblas]
+reference ref: pyscf-base {} [cint=libcint-stock xc=libxc-stock blas=openblas]
+PASS  hess_benzene_svp_b3lyp
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  9.67e-11 tol= 1e-07 ok
+PASS  hess_benzene_svp_pbe
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  6.94e-12 tol= 1e-07 ok
+PASS  hess_benzene+_svp_b3lyp_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  7.01e-09 tol= 1e-07 ok
+ALL PASS
+exit 0

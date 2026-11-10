@@ -1,0 +1,10 @@
+[     0 s] pyscf /home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py, 10 threads, mode hess
+[   794 s] partial_hess_elec: 794.0 s
+[   886 s] _get_vxc_deriv1: 91.8 s
+[  1054 s] _get_vnlc_deriv1: 167.7 s
+[  1404 s] _make_h1_split: 609.7 s
+[  2041 s] solve_mo1: 637.7 s
+[  2041 s] Hessian (split H1, second grids 2 / VV10 level 1, sgx_response level 1, one-pass K): 2041.5 s (3176 s exact before)
+[  2041 s] against the exact Hessian of the review: max|dH| 2.88e-05, max|df| 0.044 cm-1, mean|df| 0.009
+[  2041 s] done
+guard: peak RSS about 11 GB

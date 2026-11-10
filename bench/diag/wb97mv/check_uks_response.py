@@ -21,7 +21,7 @@ for name, make in (('UHF', lambda m: scf.UHF(m)), ('UKS pbe', lambda m: dft.UKS(
     mf.kernel()
     href, tref = hess(mf, cphf_residual_tol=1e-9)
     f0 = freqs(cation, href)
-    for label, kw in (('stock Krylov solver', {}),
+    for label, kw in (('stock Krylov solver', dict(cphf_residual_tol=None)),
                       ('residual tol 1e-6', dict(cphf_residual_tol=1e-6)), ('residual tol 1e-4', dict(cphf_residual_tol=1e-4)),
                       ('sgx_response level 1', dict(sgx_response=True)),
                       ('sgx_response level 2', dict(sgx_response=True, sgx_response_level=2)),

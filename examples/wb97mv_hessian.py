@@ -46,7 +46,7 @@ mf.two_level = True
 # Grids of the CPHF response only (the energy, the gradient and the Hessian's derivative terms keep the
 # grids above). Largest change of a harmonic frequency on a water dimer, H2PO4-, glycine and caffeine:
 # XC kernel on level 2: 0.02 cm^-1; VV10 kernel on level 1: 0.01 cm^-1 (level 0: 0.07 cm^-1, and 0.2 cm^-1
-# on a soft mode of H2PO4- in SMD, for a VV10 response 2-3 times cheaper: a few percent of the Hessian).
+# on a soft mode of H2PO4- in SMD; it saves 7% of caffeine's Hessian).
 mf.set_second_grids(2)
 mf.set_second_nlcgrids(1)
 
@@ -54,8 +54,9 @@ mf.kernel()
 gradient = mf.Gradients().kernel()  # Eh/Bohr, one row per atom
 
 hobj = mf.Hessian()
-# The CPHF solver that stops on the true residual (PySCF's Krylov solver stops short for DFT)
-hobj.cphf_residual_tol = 1e-4
+# The CPHF equations are solved until their true residuals are below hobj.cphf_residual_tol = 1e-4, the
+# default of this build (1e-8 in the Hessian). PySCF's own Krylov solver stops short of that for DFT, by up
+# to 1 cm^-1 for open shells; hobj.cphf_residual_tol = None brings it back.
 # For larger molecules: seminumerical K (and direct J) in the CPHF response only, 0.03 cm^-1 on grid
 # level 1; with def2-TZVPD level 0 costs up to 1 cm^-1. The SCF and every derivative integral stay exact.
 # hobj.sgx_response = True

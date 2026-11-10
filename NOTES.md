@@ -8562,7 +8562,7 @@ reference: exact response, `cphf_residual_tol` 1e-7. Largest change of a harmoni
 
 ## SMD Hessians, UKS and the rest of the wB97M-V list, 2026-11-10
 The user, on the "not done" list of the section above: "Could you work on that isn't done yet". The laptop, 10 threads,
-balanced profile, single runs. pyscf `perf` ad53ed420..47f668552 (local, not pushed); scripts `bench/diag/wb97mv/`, logs
+balanced profile, single runs. pyscf `perf` ad53ed420..9acee0ae5 (local, not pushed); scripts `bench/diag/wb97mv/`, logs
 `bench/results/wb97mv-tzvpd/`.
 
 ### The solvent terms of the SMD/PCM Hessian (ad53ed420; `smd_hess_prof.py`)
@@ -8654,9 +8654,70 @@ Hessian of the section above: 1867 s with `solve_mo1` 498 s (VV10 response on le
   against residual 1e-9 (`check_uks_response.py`): residual 1e-4 2e-9 in the Hessian; `sgx_response` level 1 0.004-0.014
   cm^-1, level 2 0.001-0.002, with `aug_etb` RI-J 0.02-0.05.
 - **`ucphf.solve`'s Krylov solver stops short for DFT, more than cphf's**: UKS/B3LYP 1.8e-4 in a Hessian element and
-  **1.18 cm^-1** in a frequency at the default `conv_tol_cpscf`; PBE 0.09, wB97M-V 0.02, UHF 0.000. The default is
-  unchanged (the question of `solve_residual` as the default is open with the user); `hobj.cphf_residual_tol = 1e-4`
-  costs no more.
+  **1.18 cm^-1** in a frequency at the default `conv_tol_cpscf`; PBE 0.09, wB97M-V 0.02, UHF 0.000.
+  `hobj.cphf_residual_tol = 1e-4` costs no more, and is the default since 9acee0ae5 (below).
+
+### The default CPHF solver, and the VV10 response on level 1 (9acee0ae5; `check_default_solver.py`)
+The user, on the two open questions of the report: "Let's set the residual solver as the default and do the level 1
+recommendation you proposed."
+- **`HessianBase.cphf_residual_tol = 1e-4`** (was `None`, which still selects `cphf.solve` to `mf.conv_tol_cpscf`).
+  A water-ammonia complex and its radical cation, def2-SVPD, against the residual solver at 1e-9; the time is
+  `solve_mo1`'s:
+
+  | | Krylov, `conv_tol_cpscf` 1e-8: max abs(dH), max abs(df) cm^-1, time | residual 1e-4: the same |
+  |---|---|---|
+  | RHF | 3.3e-08, 0.000, 0.1 s | 1.6e-08, 0.000, 0.1 s |
+  | RKS PBE | 1.5e-06, 0.008, 0.3 s | 1.9e-10, 0.000, 0.2 s |
+  | RKS B3LYP | 3.6e-06, 0.016, 0.3 s | 1.2e-08, 0.000, 0.2 s |
+  | RKS wB97M-V | 1.2e-06, 0.026, 3.2 s | 1.7e-08, 0.000, 2.4 s |
+  | RKS B3LYP, density fitting | 3.6e-06, 0.016, 0.7 s | 1.2e-08, 0.000, 0.4 s |
+  | RKS B3LYP, PCM | 3.2e-06, 0.007, 0.5 s | 1.4e-08, 0.000, 0.3 s |
+  | RKS wB97M-V, SMD | **5.9e-05, 0.300**, 3.5 s | 5.3e-08, 0.000, 2.5 s |
+  | UHF | 3.2e-08, 0.000, 0.2 s | 1.8e-08, 0.001, 0.1 s |
+  | UKS PBE | 3.0e-05, 0.094, 0.8 s | 2.1e-09, 0.000, 0.5 s |
+  | UKS B3LYP | **1.8e-04, 1.183**, 1.0 s | 1.7e-09, 0.000, 0.6 s |
+  | UKS wB97M-V | 5.7e-06, 0.021, 6.0 s | 1.4e-08, 0.000, 3.8 s |
+  | UKS B3LYP, density fitting | 1.8e-04, 1.192, 1.7 s | 1.7e-09, 0.000, 1.1 s |
+  | UKS B3LYP, PCM | 6.0e-05, 0.243, 1.1 s | 2.0e-09, 0.000, 0.7 s |
+
+  The closed-shell wB97M-V Hessian in SMD, the user's production model, was 0.3 cm^-1 off with the stock solver.
+  Under `sgx_response` the residual solver was already the one in use, so the caffeine runs above do not change.
+- **`mf.conv_tol_cpscf` is not used by default any more**: a warning says so when the SCF object's value differs from
+  the class default (`rhf._cphf_residual_tol`).
+- **`pyscf.eph` keeps `cphf.solve`** (`cphf_residual_tol = None` on its four classes): the electron-phonon matrix is
+  linear in the CPHF solution, where the Hessian's error goes as the square of the residual. The same holds for
+  anything outside the tree that takes `hobj.solve_mo1`'s solution for a linear property (dipole derivatives for IR
+  intensities): tighten `cphf_residual_tol` there.
+- **`validate.py` compares Hessians at converged CPHF solutions now** (`bench/cases.py` `_converged_cphf`,
+  `_refined_solve`; the timing runs take each tree's default). With `cphf.solve` on both sides, three closed-shell
+  cases of the hessian suite fail at 1e-7 (`validate_hessian_krylov_both.log`: LDA 9.6e-6, CAM-B3LYP 2.9e-5, B3LYP
+  with density fitting 2.2e-5), and have since 571affb7d of 2026-11-08 (in the pushed tags perf-2026-11-08 to 09b):
+  that commit starts the Krylov solver from x0, and two unconverged solutions of different starts are as far from
+  each other as from the converged one (its parent: 1e-11 from stock; "The Hessians move with this" in the section of
+  that day). No run of the suite is recorded after perf-2026-11-07c. The Krylov Hessians of the pushed trees are no
+  further from the converged ones than stock's (these three cases: 7.0e-7, 2.4e-5, 7.6e-6 against 1.0e-5, 4.2e-5,
+  2.9e-5); the comparison had stopped meaning anything. In validation a tree with `solve_residual` solves to a residual of 1e-9; the others (stock)
+  repeat their own `cphf.solve`/`ucphf.solve` on the true residual of the solution until it is below 1e-9, with the
+  first-order energies taken from the final solution (those `solve` returns belong to the Krylov solution before its
+  last update: refining mo1 alone left 1e-5 in the Hessian). Cached references of the Hessian cases have a new key
+  (`ref_version`).
+  - hessian suite, 21 cases: all pass, Hessians within 1.4e-10 of stock (UKS 7.3e-11).
+  - `hess_benzene_svp_b3lyp`, `_pbe`, `hess_benzene+_svp_b3lyp_uks`: 9.7e-11, 6.9e-12, 7.0e-9.
+  - quick suite, 7 cases: all pass.
+- Tests: `test_default_solver` (`test_sgx_response.py`), the two `test_cphf_iterations_are_logged` for both solvers.
+  hessian, eph, solvent, tools, x2c, df, sgx, gto, geomopt: 536 passed, the 3 known failures (`test_smd_grad`, the
+  two `test_dm_screening`). No reference value of a Hessian test moved beyond its tolerance.
+- **VV10 response on level 1**: the docstring of `set_second_nlcgrids`, the example and the README say level 1.
+  Caffeine in the gas phase with it (`e2e_caf.py hess SCRATCH 1`, `e2e_hess_nlc1.log`; level 0 is the 1867 s run of
+  the section above):
+
+  | VV10 response | Hessian | `solve_mo1` | max / mean abs(df) against the exact response | max abs(dH) |
+  |---|---|---|---|---|
+  | level 0 | 1866.6 s | 497.8 s | 0.068 / 0.009 cm^-1 | 2.3e-5 |
+  | level 1 | 2041.5 s | 637.7 s | 0.044 / 0.009 cm^-1 | 2.9e-5 |
+
+  140 s more in the CPHF (the other steps of the two runs differ by 35 s: drift), 7% of the Hessian; 3176 s with
+  the exact response. Peak resident memory 11 GB in both (`max_memory` 12000).
 
 ### `two_level`: the cheap model's grids (6b1cd0357; `two_level_rijcosx.py`, `two_level_exact.py`)
 | cheap model's XC / VV10 level | RIJCOSX(aug_etb) model | exact model |
@@ -8683,7 +8744,6 @@ which cost about what a second set of roots does (0.85 s here). Left over: a few
 
 ### Still open
 - The second-derivative integrals (771 s of caffeine's 1867 s Hessian) and `make_h1`'s J/K (339 s): exact, two passes each.
-- `solve_residual` as the default CPHF solver (RKS and UKS).
 - ROKS: no gradient-contracted XC term, no Hessian.
 - SMD at the production size (about 1000 AOs, 10,000 surface points, 180 perturbations): not run. The per-atom surface
   arrays (natm x 9 x n per atom block) and what is left of the n^2 surface algebra are unprofiled there, and so is the

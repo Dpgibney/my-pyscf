@@ -25,7 +25,9 @@ def reference(name, cfg, threads):
     sha = repo_shas().get(cfg.tree, cfg.tree)
     env = '-'.join(f'{k}={v}' for k, v in sorted(cfg.env.items())) or 'default'
     variant = cfg.variant().replace(' ', '_').replace('=', '-')
-    path = RESULTS / 'ref' / f'{name}__{cfg.tree}@{sha}__{variant}__{env}__t{threads}.json'
+    # ref_version: set on a case when what its reference computes changes, so that older cached records are not used
+    version = getattr(CASES[name][0], 'ref_version', '')
+    path = RESULTS / 'ref' / f'{name}{version}__{cfg.tree}@{sha}__{variant}__{env}__t{threads}.json'
     scf_path = path.with_suffix('.scf.npz') if getattr(CASES[name][0], 'post_scf', False) else None
     if path.exists() and (scf_path is None or scf_path.exists()):
         return json.loads(path.read_text()), scf_path
