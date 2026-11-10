@@ -8759,6 +8759,17 @@ The user, asked whether to run the full suite first: "Sure validate and then pus
   annotated tag `perf-2026-11-10`; `scripts/pins.txt` and the README's table moved to them. The two tags go together:
   PySCF's one-pass exchange of a range-separated hybrid asks qcint for the mixed-range operator
   (`sgx_jk.mixed_range_supported()`) and takes the two passes with an older qcint.
+- **A fresh clone of the pushed main (0156dd7) on the laptop**, clean environment (`env -i`, `PATH=/usr/bin:/bin`;
+  `bench/results/laptop_fresh_clone_2026-11-10.log`): `cpu_setup.sh --with-base` 22 min (the qcint profile-guided
+  build 602 s), both trees at their `perf-2026-11-10` tags, water B3LYP +1.4e-14 Eh from the laptop, `kernels.py` 77
+  arrays agree, `mixed_range_supported()` True, `HessianBase.cphf_residual_tol` 1e-4. `examples/wb97mv_hessian.py`
+  through `scripts/pyscf-env.sh`: E -76.4334439938, frequencies 1623.9 3859.4 3954.0, the same as the working tree.
+  PySCF's tests (dft scf df grad hessian tdscf solvent sgx eph): 1104 passed, the 7 known failures. node2 (AVX2 only)
+  was not used this time.
+- **Found in that run, not fixed (cosmetic):** with `mol.output` set and `verbose` 4, the grid summary of the coarse
+  grids of `two_level` and `init_guess='pre_scf'` goes to the terminal, not to the output file: `hf._pre_scf_grids`
+  copies the grids with `copy.copy`, and the copy's `stdout` is `sys.stdout` (`cheap.grids.stdout`; the model and its
+  `mol` keep the file). One line (`g.stdout = grids.stdout`); numbers are not affected.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are

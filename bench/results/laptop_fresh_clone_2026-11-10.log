@@ -1,0 +1,106 @@
+# scripts/cpu_setup.sh --with-base from a fresh clone of the pushed main, laptop, clean environment (env -i, PATH=/usr/bin:/bin)
+== clone 13:10:40
+0156dd7 pins: PySCF and qcint perf-2026-11-10 (the wB97M-V/def2-TZVPD work, SMD Hessians, UKS, the residual CPHF solver as the default); full validation; README
+== cpu_setup.sh --with-base 13:10:43
+== AMD Ryzen AI 9 365 w/ Radeon 880M; this process may use 10 cores (20 CPUs) and 32 GB; gcc 15.2.0; x86-64-v3 kernels on; 20 build jobs
+== venv: .venv
+   python 3.14.4 numpy 2.5.4 scipy 1.18.1 h5py 3.16.0
+== sources (scripts/pins.txt)
+   pyscf: perf-2026-11-10
+   qcint: perf-2026-11-10
+   libxc: f1eb21e8d6743ed5ba519b8950c1ae02c3f5acd9
+   OpenBLAS: e0166008be8e466242aa76b2ff75ce3f0fbf574a
+   pyscf-base: 44313dfb457b93358918c391fc66285fa44153ef
+   libcint: 42ec76d6b57d8f0de8e515109c809f67e52040eb
+== builds (logs in build/cpu_setup/)
+   openblas: built (171 s)
+   libxc: built (61 s)
+   qcint: built (250 s)
+   pyscf: built (9 s)
+   qbench: built (1 s)
+   qcint-pgo: built (602 s)
+   libcint: built (11 s)
+   pyscf-base: built (7 s)
+== check: water/def2-SVP B3LYP with the new tree
+   E = -76.3581418310 Eh, 7 cycles, 0.2 s (+1.4e-14 from the laptop)
+   pyscf 2.14.0: pyscf/pyscf
+   install/libxc-stock/lib/libxc.so.15
+   install/openblas/lib/libopenblasp-r0.3.34.so
+   install/qcint-pgo/lib/libcint.so.6.2.0
+   ok
+== check: the XC, J and K kernels of the new tree against the unmodified one (bench/kernels.py)
+   77 arrays agree (build/cpu_setup/kernels.log)
+== ready (22 min). To run your scripts with it:
+   source /home/danny/Chemistry/my-pyscf/scratch/fresh-cpu-setup-2026-11-10/my-pyscf/scripts/pyscf-env.sh && python my_script.py
+   (here: OMP_NUM_THREADS=10 PYSCF_MAX_MEMORY=20000. In a Slurm job they follow the job's -c and --mem; export your own
+   values before sourcing to override them)
+   exit 0, 1320 s
+9acee0a hessian: cphf.solve_residual to 1e-4 as the default CPHF solver
+3474509 int1e_grids: the mixed-range operator c_full/r12 + c_lr erf(omega r12)/r12
+perf-2026-11-10
+perf-2026-11-10
+== the mixed-range operator and the default CPHF solver 13:32:43
+/home/danny/Chemistry/my-pyscf/scratch/fresh-cpu-setup-2026-11-10/my-pyscf/pyscf/pyscf/__init__.py
+mixed_range_supported True
+HessianBase.cphf_residual_tol 0.0001
+== examples/wb97mv_hessian.py through scripts/pyscf-env.sh 13:32:44
+output file: wb97mv_hessian.out
+radial grids: 
+Treutler-Ahlrichs [JCP 102, 346 (1995); DOI:10.1063/1.469408] (M4) radial grids
+
+becke partition: Becke, JCP 88, 2547 (1988); DOI:10.1063/1.454033
+pruning grids: <function nwchem_prune at 0x7f09e650d850>
+grids dens level: 1
+symmetrized grids: False
+atomic radii adjust function: <function treutler_atomic_radii_adjust at 0x7f09e650d7a0>
+radial grids: 
+Treutler-Ahlrichs [JCP 102, 346 (1995); DOI:10.1063/1.469408] (M4) radial grids
+
+becke partition: Becke, JCP 88, 2547 (1988); DOI:10.1063/1.454033
+pruning grids: <function nwchem_prune at 0x7f09e650d850>
+grids dens level: 0
+symmetrized grids: False
+atomic radii adjust function: <function treutler_atomic_radii_adjust at 0x7f09e650d7a0>
+tot grids = 10128
+tot grids = 2328
+E = -76.4334439938 Eh
+largest gradient component 3.14e-03 Eh/Bohr
+harmonic frequencies (cm^-1): 1623.9 3859.4 3954.0
+== the same on the laptop's working tree 13:32:48
+output file: wb97mv_hessian.out
+radial grids: 
+    Treutler-Ahlrichs [JCP 102, 346 (1995); DOI:10.1063/1.469408] (M4) radial grids
+    
+becke partition: Becke, JCP 88, 2547 (1988); DOI:10.1063/1.454033
+pruning grids: <function nwchem_prune at 0x7d762f157600>
+grids dens level: 1
+symmetrized grids: False
+atomic radii adjust function: <function treutler_atomic_radii_adjust at 0x7d762f157b00>
+radial grids: 
+    Treutler-Ahlrichs [JCP 102, 346 (1995); DOI:10.1063/1.469408] (M4) radial grids
+    
+becke partition: Becke, JCP 88, 2547 (1988); DOI:10.1063/1.454033
+pruning grids: <function nwchem_prune at 0x7d762f157600>
+grids dens level: 0
+symmetrized grids: False
+atomic radii adjust function: <function treutler_atomic_radii_adjust at 0x7d762f157b00>
+tot grids = 10128
+tot grids = 2328
+E = -76.4334439938 Eh
+largest gradient component 3.14e-03 Eh/Bohr
+harmonic frequencies (cm^-1): 1623.9 3859.4 3954.0
+== tests 13:32:52
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_custom_rsh
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tda_b3lyp_xcfun
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tda_lda_xcfun
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tddft_b3lyp_xcfun
+FAILED ../../pyscf/pyscf/solvent/test/test_smd_grad.py::KnownValues::test_grad_solvent
+FAILED ../../pyscf/pyscf/sgx/test/test_dm_screening.py::KnownValues::test_rhf_dm_screening
+FAILED ../../pyscf/pyscf/sgx/test/test_dm_screening.py::KnownValues::test_uhf_dm_screening
+7 failed, 1104 passed, 66 skipped, 452 warnings, 134 subtests passed in 188.49s (0:03:08)
+== end 13:36:01
+FRESH CLONE DONE
