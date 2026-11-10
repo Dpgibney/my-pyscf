@@ -1,0 +1,25 @@
+pyscf pyscf/pyscf/__init__.py threads 10
+reference (150,974) unpruned: 3506400 points, nelec 102.00000020, E_xc -65.4668340380, 19.0 s
+grid                                 points pts/atom         dN       dE_xc   max|dV|   tr(D dV)  s/call
+level 1                               97000     4041  -4.62e-04  -4.490e-05  1.27e-04  +1.42e-04    0.56
+level 2                              209768     8740  -1.26e-04  +9.977e-06  2.37e-05  +1.38e-05    1.20
+level 3 (PySCF default)              294800    12283  -1.27e-04  +6.608e-06  2.47e-05  +1.38e-05    1.63
+level 4                              553968    23082  -3.62e-06  +3.934e-07  5.06e-06  +1.44e-06    3.02
+level 5                              833640    34735  -1.24e-07  -2.523e-07  5.35e-06  -1.84e-07    5.09
+(75,302) nwchem                      345096    14379  -1.27e-04  +6.219e-06  2.47e-05  +1.30e-05    2.19
+(99,590) nwchem (production)         767472    31978  -3.44e-06  +8.350e-07  4.38e-06  +1.52e-06    4.69
+(99,590) treutler                    738288    30762  +1.02e-06  +1.749e-06  1.93e-04  -2.44e-05    4.45
+(99,590) unpruned                   1401840    58410  -5.26e-06  +8.398e-07  4.50e-06  +1.58e-06    9.03
+(75,302) unpruned                    543600    22650  -9.50e-05  +4.896e-06  1.88e-05  +1.13e-05    3.46
+(50,194) sg1                         102384     4266  +7.13e-05  -5.609e-05  4.06e-04  -9.11e-05    0.70
+
+VV10 energy by NLC grid (same density)
+reference (99,590) unpruned: 1401840 points, E_nlc 0.3835306264, 185.4 s
+level 0                               21312      888 dE_nlc  -6.582e-05 max|dV|  1.56e-04    0.12 s
+level 1                               97000     4041 dE_nlc  -9.237e-07 max|dV|  1.30e-05    1.11 s
+level 2                              209768     8740 dE_nlc  +9.266e-07 max|dV|  2.07e-06    4.48 s
+(50,194) nwchem (production)         157224     6551 dE_nlc  +2.574e-06 max|dV|  5.59e-06    2.66 s
+(50,194) sg1                         102384     4266 dE_nlc  +2.235e-06 max|dV|  3.81e-05    1.26 s
+(50,194) unpruned                    232800     9700 dE_nlc  +2.590e-06 max|dV|  6.20e-06    5.70 s
+level 3                              294800    12283 dE_nlc  +7.248e-07 max|dV|  2.26e-06    8.71 s
+done

@@ -1,0 +1,33 @@
+pyscf pyscf/pyscf/__init__.py threads 10
+caffeine/def2-tzvpd wb97m-v: natm 24 nao 614 nocc 51, max_memory 12000 MB
+exact SCF: E = -680.3497717994 conv True cycles 13; XC grid 767472 pts, VV10 grid 157224 pts
+  per cycle (s): 71.8 33.1 32.5 31.7 31.2 30.5 30.0 29.5 28.8 27.9 27.2 26.6 25.9
+  J/K calls: [('jk J+K', 17.0), ('jk LR-K', 14.8), ('jk J+K', 14.0), ('jk LR-K', 12.8), ('jk J+K', 13.7), ('jk LR-K', 12.5), ('jk J+K', 13.4), ('jk LR-K', 12.2), ('jk J+K', 13.0), ('jk LR-K', 11.7), ('jk J+K', 12.7), ('jk LR-K', 11.4), ('jk J+K', 12.4), ('jk LR-K', 11.0), ('jk J+K', 12.2), ('jk LR-K', 10.8), ('jk J+K', 12.0), ('jk LR-K', 10.5), ('jk J+K', 11.6), ('jk LR-K', 10.1), ('jk J+K', 11.2), ('jk LR-K', 9.7), ('jk J+K', 10.9), ('jk LR-K', 9.2), ('jk J+K', 10.6), ('jk LR-K', 8.8), ('jk J+K', 10.2), ('jk LR-K', 8.4), ('jk J+K', 9.9), ('jk LR-K', 7.9)]
+  XC calls: [3.9, 4.2, 4.3, 4.3, 4.4, 4.4, 4.4, 4.4, 4.4, 4.5, 4.5, 4.5, 4.6, 4.6, 4.5]
+  VV10 calls: [2.1, 2.6, 2.5, 2.4, 2.5, 2.6, 2.5, 2.6, 2.5, 2.5, 2.5, 2.5, 2.5, 2.6, 2.5]
+--- exact SCF: 451.4 s
+    jk J+K                                184.6 s   40.9%
+    jk LR-K                               161.9 s   35.9%
+    vv10 nr_nlc_vxc                        37.4 s    8.3%
+    xc nr_rks                              66.0 s   14.6%
+--- exact gradient: 155.8 s
+    jk grad J+K                            69.8 s   44.8%
+    jk grad LR-K                           67.7 s   43.5%
+    vv10 grad                               3.7 s    2.3%
+    xc grad                                14.4 s    9.2%
+RIJCOSX SCF: E = -680.3503342703 conv True cycles 14; error vs exact -5.625e-04 Eh
+  per cycle (s): 20.2 9.8 9.7 9.6 9.8 9.6 12.3 11.4 11.5 11.1 12.1 12.1 12.2 12.2
+  K calls: [1.2, 1.3, 1.0, 1.3, 1.0, 1.2, 1.0, 1.2, 1.0, 1.1, 1.1, 1.2, 0.9, 1.1, 2.2, 2.4, 1.7, 2.0, 1.8, 2.0, 1.6, 1.7, 2.0, 2.3, 2.0, 2.3, 2.0, 2.4, 2.0, 2.4, 2.0, 2.4, 4.8, 5.4]
+  J calls: [0.19, 0.17, 0.17, 0.17, 0.17, 0.17, 0.17, 0.17, 0.17, 0.17, 0.17, 0.18, 0.18, 0.18, 0.18, 0.18, 0.19]
+--- RIJCOSX SCF (incl. final level-2 step): 194.1 s
+    rij J                                   3.0 s    1.5%
+    sgx K                                  63.0 s   32.5%
+    vv10 nr_nlc_vxc                        44.2 s   22.8%
+    xc nr_rks                              82.2 s   42.3%
+--- RIJCOSX gradient: 50.7 s
+    rij J grad                              3.4 s    6.7%
+    sgx K grad                             27.7 s   54.7%
+    vv10 grad                               3.7 s    7.4%
+    xc grad                                15.6 s   30.8%
+  gradient error vs exact: max 1.142e-04, rms 3.331e-05 Eh/bohr (max |g| 1.596e-01)
+done

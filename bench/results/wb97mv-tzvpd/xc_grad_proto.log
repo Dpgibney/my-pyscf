@@ -1,0 +1,7 @@
+pyscf pyscf/pyscf/__init__.py threads 10
+caffeine/def2-tzvpd: nao 614, nocc 51, 767472 grid points
+grad.rks.get_vxc: 16.32 s (an SCF nr_rks call: 4.12 s)
+density-contracted prototype (numpy): 12.94 s  (AO values to 2nd derivatives 1.55, MO products 2.61, libxc 0.09, 12 column dot products per block in one numpy thread 8.69)
+   with the column dot products on 10 threads (in a C kernel): about 5.38 s
+max |de_new - de_now| 4.83e-14 (max |de| 0.329)
+done

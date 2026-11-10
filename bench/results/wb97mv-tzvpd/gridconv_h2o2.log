@@ -1,0 +1,10 @@
+pyscf pyscf/pyscf/__init__.py threads 10
+XC   99,590 ( 195160 pts)  VV10  50,194 ( 39552 pts)  E -152.875081800  max|g| 3.5e-05    32.6 s
+   frequencies: 135.19 145.66 154.94 190.97 365.09 622.82 1623.46 1642.33 3715.06 3814.47 3894.43 3910.45
+XC   99,590 ( 195160 pts)  VV10       1 ( 20248 pts)  E -152.875081598  max|g| 3.5e-05    28.5 s  max|dH| 2.5e-04  max|df| 0.609 at 191  mean|df| 0.090  max|df| f>200 0.051
+XC   99,590 ( 195160 pts)  VV10       3 ( 67400 pts)  E -152.875081839  max|g| 3.5e-05    69.4 s  max|dH| 4.0e-05  max|df| 0.091 at 191  mean|df| 0.016  max|df| f>200 0.010
+XC   99,590 ( 195160 pts)  VV10  99,590 (195160 pts)  E -152.875081844  max|g| 3.5e-05   339.0 s  max|dH| 4.2e-05  max|df| 0.096 at 191  mean|df| 0.017  max|df| f>200 0.009
+XC        4 ( 119352 pts)  VV10  50,194 ( 39552 pts)  E -152.875082031  max|g| 3.5e-05    23.1 s  max|dH| 8.4e-04  max|df| 2.127 at 191  mean|df| 0.412  max|df| f>200 0.410
+XC        5 ( 180120 pts)  VV10  50,194 ( 39552 pts)  E -152.875081811  max|g| 3.4e-05    25.2 s  max|dH| 1.8e-04  max|df| 0.459 at 191  mean|df| 0.096  max|df| f>200 0.040
+XC  150,974 ( 487560 pts)  VV10  50,194 ( 39552 pts)  E -152.875081795  max|g| 3.5e-05    37.7 s  max|dH| 2.3e-04  max|df| 0.576 at 191  mean|df| 0.166  max|df| f>200 0.103
+done

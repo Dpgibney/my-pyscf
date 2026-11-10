@@ -1,0 +1,13 @@
+pyscf pyscf/pyscf/__init__.py threads 10
+stage 1 (RIJCOSX, XC grid 2, VV10 grid 1, conv_tol 1e-07): 81.3 s, 11 cycles, E -680.3497882392
+orbital space: 612 of 614 functions
+macro 0: exact build 45.5 s; exact E -680.3497716824  E - Eref +1.17e-07; exact |g| 6.35e-04 (conv_tol_grad of conv_tol 1e-9: 3.2e-05)   [127 s so far]
+   micro 1: |g| 2.07e-04  |D - D_ref| 5.06e-02  cheap build 8.0 s
+   micro 2: |g| 8.85e-05  |D - D_ref| 5.37e-02  cheap build 7.8 s
+   micro 3: |g| 2.11e-05  |D - D_ref| 5.64e-02  cheap build 7.5 s
+   micro 4: |g| 9.74e-06  |D - D_ref| 5.65e-02  cheap build 7.6 s
+macro 1: exact build 37.8 s; exact E -680.3497717995  E - Eref -6.66e-11; exact |g| 9.79e-06 (conv_tol_grad of conv_tol 1e-9: 3.2e-05)   [204 s so far]
+   micro 1: |g| 9.64e-06  |D - D_ref| 1.83e-04  cheap build 7.4 s
+macro 2: exact build 37.4 s; exact E -680.3497717995  E - Eref -1.05e-10; exact |g| 9.64e-06 (conv_tol_grad of conv_tol 1e-9: 3.2e-05)   [256 s so far]
+totals: stage 1 81.3 s; 3 exact builds 120.7 s; 7 cheap builds 53.6 s; all 256.0 s
+done

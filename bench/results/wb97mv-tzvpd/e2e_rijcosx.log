@@ -1,0 +1,5 @@
+[     0 s] pyscf pyscf/pyscf/__init__.py, 10 threads, mode rijcosx
+[   176 s] RIJCOSX(aug_etb) SCF, production grids: 176.2 s, 14 cycles, E - E(exact) -9.71e-06
+[   219 s] RIJCOSX(aug_etb) gradient: 42.9 s; max|g - g(exact)| 4.46e-05
+[   376 s] the same with two_level (coarse grids in the iterations): 157.1 s, 2 builds on the production grids, E - E(plain RIJCOSX) -3.72e-11
+[   376 s] done

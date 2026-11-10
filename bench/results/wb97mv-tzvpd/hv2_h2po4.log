@@ -1,0 +1,26 @@
+pyscf pyscf/pyscf/__init__.py threads 10
+h2po4_opt.xyz def2-tzvpd wb97m-v: natm 7 nao 221 nocc 25; SCF 9.4 s, 11 cycles, E -643.7242125250, conv True; XC grid 221064, VV10 grid 45464; max_memory 12000
+gradient: max 6.72e-05, rms 3.76e-05 Eh/bohr
+partial_hess_elec 24.8 s, make_h1 22.4 s
+    make_h1: VV10 deriv1              6.2 s
+    make_h1: XC deriv1                7.1 s
+    partial: 2e J+K                   7.5 s
+    partial: 2e LR-K                  7.1 s
+    partial: VV10 deriv2              3.3 s
+    partial: XC deriv2                5.0 s
+    partial: XC diag                  1.9 s
+    make_h1: J/K deriv + hcore        9.0 s
+
+reference (exact response, tol 1e-07): CPHF 40.7 s, 10 calls, 182 vectors; max|H| 1.0198
+  frequencies (cm-1): 201.9 321.7 324.0 389.7 434.6 501.0 508.3 788.6 815.6 1042.3 1062.1 1111.8 1331.3 3856.2 3857.1
+  CPHF parts: J/K: J+K 3.7, J/K: LR-K 7.0, VV10 response 16.0, XC kernel setup (cache_xc_kernel) 0.1, XC response 13.7
+
+variant                      CPHF s calls  vecs   max|dH|  max|df| mean|df|    at f= max|df| f>200  parts
+vg=0                           18.0     7   129  8.04e-06    0.071    0.013    201.9         0.071  J/K: J+K 2.6, J/K: LR-K 5.2, VV10 response 0.6, XC kernel setup (cache_xc_kernel) 0.1, XC response 9.4
+vg=1                           31.6     7   129  6.66e-08    0.000    0.000    201.9         0.000  J/K: J+K 3.7, J/K: LR-K 7.0, VV10 response 8.7, XC kernel setup (cache_xc_kernel) 0.1, XC response 11.8
+vg=sg1                         29.4     7   129  8.65e-07    0.001    0.000    201.9         0.001  J/K: J+K 3.5, J/K: LR-K 6.3, VV10 response 7.2, XC kernel setup (cache_xc_kernel) 0.1, XC response 12.2
+g2=2+vg=0                      11.6     7   129  1.05e-05    0.072    0.015    201.9         0.072  J/K: J+K 2.6, J/K: LR-K 5.2, VV10 response 0.6, XC kernel setup (cache_xc_kernel) 0.0, XC response 3.0
+g2=2+vg=1+sgx1                 21.6     7   129  4.76e-06    0.028    0.008    201.9         0.028  SGX obj: J(+K) 4.6, SGX-K from factors LR 3.6, SGX-K from factors full 3.7, VV10 response 6.5, XC kernel setup (cache_xc_kernel) 0.0, XC response 3.0
+g2=2+vg=0+sgx1                 15.7     7   129  1.28e-05    0.099    0.020    201.9         0.099  SGX obj: J(+K) 4.6, SGX-K from factors LR 3.7, SGX-K from factors full 3.7, VV10 response 0.6, XC kernel setup (cache_xc_kernel) 0.0, XC response 3.0
+g2=1+vg=0+sgx0                 10.9     7   129  6.73e-05    0.251    0.057    201.9         0.251  SGX obj: J(+K) 4.6, SGX-K from factors LR 2.1, SGX-K from factors full 2.0, VV10 response 0.6, XC kernel setup (cache_xc_kernel) 0.0, XC response 1.5
+done

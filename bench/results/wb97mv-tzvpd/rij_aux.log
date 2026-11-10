@@ -1,0 +1,13 @@
+pyscf pyscf/pyscf/__init__.py threads 10
+caffeine/def2-tzvpd: nao 614; exact direct J 13.9 s, E_J 1245.88171313
+  def2-universal-jfit    naux    796 lmax 4  first   0.23 s  build   0.19 s  dE_J -5.595e-04  max|dJ| 7.90e-04
+  def2-universal-jkfit   naux   1242 lmax 4  first   0.27 s  build   0.24 s  dE_J -2.784e-04  max|dJ| 5.30e-04
+  def2-tzvpp-jkfit       naux   1242 lmax 4  first   0.27 s  build   0.24 s  dE_J -2.784e-04  max|dJ| 5.30e-04
+  def2-qzvpp-jkfit       naux   1242 lmax 4  first   0.27 s  build   0.24 s  dE_J -2.784e-04  max|dJ| 5.30e-04
+  aug-cc-pvtz-jkfit      naux   1916 lmax 4  first   0.34 s  build   0.28 s  dE_J -1.084e-04  max|dJ| 1.81e-04
+  aug-cc-pvqz-jkfit      naux   2748 lmax 5  first   0.49 s  build   0.40 s  dE_J -3.087e-05  max|dJ| 7.92e-05
+  aug_etb beta=2.0       naux   3142 lmax 4  first   0.57 s  build   0.45 s  dE_J -1.034e-05  max|dJ| 5.66e-05
+  aug_etb beta=1.7       naux   3968 lmax 4  first   0.79 s  build   0.59 s  dE_J -5.417e-06  max|dJ| 4.82e-05
+  autoaux                naux   3642 lmax 4  first   0.67 s  build   0.52 s  dE_J -9.278e-06  max|dJ| 6.60e-05
+  autoabs: AttributeError: 'NoneType' object has no attribute 'api'
+done

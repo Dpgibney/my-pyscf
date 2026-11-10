@@ -1,0 +1,7 @@
+pyscf pyscf/pyscf/__init__.py threads 10
+caffeine/def2-tzvpd wb97m-v nao 614; mode nsc
+stage 1: RI-J aug_etb + SGX-K, XC grid 2, VV10 grid 1, conv_tol 1e-08: 95.6 s, 13 cycles, conv True, E -680.3497882470 (E - Eref -1.64e-05)
+   per cycle: 11.6 5.3 5.3 5.2 5.3 5.0 7.7 6.7 7.3 7.2 7.3 7.2 7.2
+stage 2: one-shot energy on the production grids, SGX level 2: 18.2 s, E -680.3497814936 (E - Eref -9.69e-06)
+total 113.7 s
+done

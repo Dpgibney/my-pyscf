@@ -23,6 +23,16 @@ longer recomputes the response of its solution (one response fewer) and starts f
 explicit guess, so DFT Hessians move within the CPHF's own convergence error, 1e-7 to 1e-5 in Hessian elements
 (PySCF's Krylov solver stops short of its tolerance for DFT; converged, the old and new start agree).
 
+For wB97M-V/def2-TZVPD with production grids (`NOTES.md`, "wB97M-V/def2-TZVPD: the review and what came of it";
+caffeine, 614 functions, XC grid (99,590), VV10 grid (50,194), the laptop): `mf.two_level = True` gets the exact
+SCF's own solution from 2 of its Fock builds instead of 15, iterating on a cheap model's Fock matrix corrected at
+a reference density (178.7 s against 451 s, the energy within 1.3e-10 Eh). The XC and VV10 terms of the RKS gradient are
+contracted on the grid (14.5 -> 4.9 s), SGX evaluates the exchange of a range-separated hybrid in one pass (needs
+the qcint of this workspace), and the CPHF response of the Hessian takes its own grids (`mf.set_second_grids(2)`,
+`mf.set_second_nlcgrids(0)`) and seminumerical K (`hobj.sgx_response = True`, now on grid level 1): the Hessian in 1867 s against 3176 s,
+frequencies within 0.07 cm^-1 of the exact response's.
+These are in the local `perf` branches, after the tags below. `examples/wb97mv_hessian.py` has the settings.
+
 ```python
 mf = dft.RKS(mol, xc='b3lyp').RIJCOSX()   # instead of the exact J/K or mf.density_fit()
 mf.kernel()

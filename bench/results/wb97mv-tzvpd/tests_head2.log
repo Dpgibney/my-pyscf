@@ -1,0 +1,273 @@
+bringing up nodes...
+bringing up nodes...
+
+........................................................................ [  6%]
+..s.s................................................................... [ 12%]
+.....ss......s.............................s..ss.......................s [ 18%]
+s.......F............................................................... [ 24%]
+....s.........s...............................................s......sss [ 30%]
+ss.........................................ss.....s....................s [ 36%]
+...................................F.........F..ss............F..sss.... [ 43%]
+..................ssss.s................................................ [ 49%]
+...............ss....................................................... [ 55%]
+.s.............s................F..................................u.... [ 61%]
+...........u.....u....u.....u....s.ss.u...ss...u.........u...u.......... [ 67%]
+.........s......s.s.u...s..u.....u..........u.....uuuu.uu............ss. [ 72%]
+........................s....u.sss.....u.................s.........u.... [ 78%]
+..u.....u................ss......sssssss...u..u........u................ [ 83%]
+u........s..s.........u.......u..s..........s........u..su.............. [ 89%]
+.....u....u.uu..uuu..u.u.u...u.....u..u..u.u..uu..uuuu..u.uu..u.u.uu...u [ 93%]
+......u.........u.u...u...u...uu..u........u.uuuuu.u.uuu.uuuuuuuuuuuu.u. [ 97%]
+uu.uuuu.uuuuuuuu.Fuu.Fu.u..uuuu.u.uu.uuuuu.uu.uu.u.u..u.......u.....u..u [ 99%]
+.u..u.                                                                   [100%]
+=================================== FAILURES ===================================
+_________________________ KnownValues.test_custom_rsh __________________________
+[gw3] linux -- Python 3.12.8 .venv/bin/python
+
+self = <pyscf.tdscf.test.test_tdrks.KnownValues testMethod=test_custom_rsh>
+
+    @unittest.skipIf(has_xcfun, "xcfun library not found.")
+    def test_custom_rsh(self):
+        mol = gto.M(atom='H 0 0 0.6; H 0 0 0', basis = "6-31g")
+        mf = dft.RKS(mol)
+>       mf._numint.libxc = dft.xcfun
+                           ^^^^^^^^^
+E       AttributeError: module 'pyscf.dft' has no attribute 'xcfun'
+
+../../pyscf/pyscf/tdscf/test/test_tdrks.py:555: AttributeError
+_______________________ KnownValues.test_tda_b3lyp_xcfun _______________________
+[gw3] linux -- Python 3.12.8 .venv/bin/python
+
+self = <pyscf.tdscf.test.test_tdrks.KnownValues testMethod=test_tda_b3lyp_xcfun>
+
+    @unittest.skipIf(has_xcfun, "xcfun library not found.")
+    def test_tda_b3lyp_xcfun(self):
+>       with lib.temporary_env(dft.numint.NumInt, libxc=dft.xcfun):
+                                                        ^^^^^^^^^
+E       AttributeError: module 'pyscf.dft' has no attribute 'xcfun'
+
+../../pyscf/pyscf/tdscf/test/test_tdrks.py:165: AttributeError
+________________________ KnownValues.test_tda_lda_xcfun ________________________
+[gw3] linux -- Python 3.12.8 .venv/bin/python
+
+self = <pyscf.tdscf.test.test_tdrks.KnownValues testMethod=test_tda_lda_xcfun>
+
+    @unittest.skipIf(has_xcfun, "xcfun library not found.")
+    def test_tda_lda_xcfun(self):
+        mf = dft.RKS(mol)
+        mf.xc = 'lda,vwn'
+        mf.grids.prune = None
+>       mf._numint.libxc = dft.xcfun
+                           ^^^^^^^^^
+E       AttributeError: module 'pyscf.dft' has no attribute 'xcfun'
+
+../../pyscf/pyscf/tdscf/test/test_tdrks.py:175: AttributeError
+______________________ KnownValues.test_tddft_b3lyp_xcfun ______________________
+[gw3] linux -- Python 3.12.8 .venv/bin/python
+
+self = <pyscf.tdscf.test.test_tdrks.KnownValues testMethod=test_tddft_b3lyp_xcfun>
+
+    @unittest.skipIf(has_xcfun, "xcfun library not found.")
+    def test_tddft_b3lyp_xcfun(self):
+>       with lib.temporary_env(dft.numint.NumInt, libxc=dft.xcfun):
+                                                        ^^^^^^^^^
+E       AttributeError: module 'pyscf.dft' has no attribute 'xcfun'
+
+../../pyscf/pyscf/tdscf/test/test_tdrks.py:157: AttributeError
+________________________ KnownValues.test_grad_solvent _________________________
+[gw7] linux -- Python 3.12.8 .venv/bin/python
+
+self = <pyscf.solvent.test.test_smd_grad.KnownValues testMethod=test_grad_solvent>
+
+    def test_grad_solvent(self):
+        mf = dft.rks.RKS(mol, xc='b3lyp').SMD()
+        mf.grids.atom_grid = (99,590)
+        mf.with_solvent.solvent = 'toluene'
+        mf.with_solvent.sasa_ng = 590
+        mf.kernel()
+        g = mf.nuc_grad_method().kernel()
+        g_ref = numpy.array(
+            [[-0.000000,       0.000000,      -0.106849],
+            [0.047191,      -0.000000,       0.053424],
+            [-0.047191,       0.000000,       0.053424]]
+            )
+>       assert numpy.linalg.norm(g - g_ref) < 1e-4
+E       AssertionError: assert np.float64(0.00011691125492082998) < 0.0001
+E        +  where np.float64(0.00011691125492082998) = <function norm at 0x79d2cd5bc8b0>((array([[ 9.65451459e-16, -5.27892690e-16, -1.06772880e-01],\n       [ 4.71407633e-02,  1.51013905e-16,  5.33864060e-02],\n       [-4.71407633e-02,  3.88973034e-17,  5.33864060e-02]]) - array([[-0.      ,  0.      , -0.106849],\n       [ 0.047191, -0.      ,  0.053424],\n       [-0.047191,  0.      ,  0.053424]])))
+E        +    where <function norm at 0x79d2cd5bc8b0> = <module 'numpy.linalg' from '.venv/lib/python3.12/site-packages/numpy/linalg/__init__.py'>.norm
+E        +      where <module 'numpy.linalg' from '.venv/lib/python3.12/site-packages/numpy/linalg/__init__.py'> = numpy.linalg
+
+../../pyscf/pyscf/solvent/test/test_smd_grad.py:116: AssertionError
+______________________ KnownValues.test_rhf_dm_screening _______________________
+[gw7] linux -- Python 3.12.8 .venv/bin/python
+
+self = <pyscf.sgx.test.test_dm_screening.KnownValues testMethod=test_rhf_dm_screening>
+
+    def test_rhf_dm_screening(self):
+>       e0, te0, tg0, c0 = self._check_finite_diff_grad(False, False, False)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+../../pyscf/pyscf/sgx/test/test_dm_screening.py:82: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../pyscf/pyscf/sgx/test/test_dm_screening.py:78: in _check_finite_diff_grad
+    self.assertAlmostEqual(numpy.abs(g.sum(axis=0)).sum(), 0, 11)
+E   AssertionError: np.float64(7.0804013693748225e-12) != 0 within 11 places (np.float64(7.0804013693748225e-12) difference)
+---------------------------- Captured stdout setup -----------------------------
+output file: /dev/null
+______________________ KnownValues.test_uhf_dm_screening _______________________
+[gw7] linux -- Python 3.12.8 .venv/bin/python
+
+self = <pyscf.sgx.test.test_dm_screening.KnownValues testMethod=test_uhf_dm_screening>
+
+    def test_uhf_dm_screening(self):
+>       e0, te0, tg0, c0 = self._check_finite_diff_grad(True, False, False)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+../../pyscf/pyscf/sgx/test/test_dm_screening.py:94: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../pyscf/pyscf/sgx/test/test_dm_screening.py:78: in _check_finite_diff_grad
+    self.assertAlmostEqual(numpy.abs(g.sum(axis=0)).sum(), 0, 11)
+E   AssertionError: np.float64(7.079597325043707e-12) != 0 within 11 places (np.float64(7.079597325043707e-12) difference)
+----------------------------- Captured stderr call -----------------------------
+WARN: HOMO -0.475998618108728 >= LUMO -0.475998618108728
+WARN: beta  nocc = 9  HOMO -0.321369825123794 >= LUMO -0.32122141704576
+WARN: HOMO -0.32122141704576 >= LUMO -0.32122141704576
+=============================== warnings summary ===============================
+../../pyscf/pyscf/solvent/ddpcm.py:38: 10 warnings
+  pyscf/pyscf/solvent/ddpcm.py:38: UserWarning: Module ddPCM is under testing
+    warnings.warn('Module ddPCM is under testing')
+
+pyscf/scf/test/test_h2o.py: 4 warnings
+pyscf/scf/test/test_rhf.py: 11 warnings
+pyscf/scf/test/test_uhf.py: 6 warnings
+pyscf/dft/test/test_h2o.py: 1 warning
+pyscf/scf/test/test_ghf.py: 3 warnings
+pyscf/scf/test/test_dhf.py: 2 warnings
+pyscf/scf/test/test_he.py: 2 warnings
+  pyscf/pyscf/lib/misc.py:732: DeprecationWarning: remove_linear_dep_ is deprecated and will be removed in a future release. Linear dependency handling is now built into the SCF procedure by default. Linear dependency removal can be controlled using the following settings:
+    pyscf.scf.hf.remove_overlap_zero_eigenvalue = True
+    pyscf.scf.hf.overlap_zero_eigenvalue_threshold = 1e-6
+  
+    return fn(self, *args, **kwargs)
+
+pyscf/dft/test/test_numint.py::KnownValues::test_eval_mat
+  pyscf/pyscf/dft/numint.py:684: UserWarning: Note the output of libxc.eval_xc cannot be directly used in eval_mat.
+  vsigma from eval_xc should be restructured as (vsigma[:,0],vsigma[:,1])
+  
+    warnings.warn('Note the output of libxc.eval_xc cannot be '
+
+pyscf/scf/test/test_addons.py::KnownValues::test_remove_lindep
+  pyscf/pyscf/scf/test/test_addons.py:453: DeprecationWarning: remove_linear_dep_ is deprecated and will be removed in a future release. Linear dependency handling is now built into the SCF procedure by default. Linear dependency removal can be controlled using the following settings:
+    pyscf.scf.hf.remove_overlap_zero_eigenvalue = True
+    pyscf.scf.hf.overlap_zero_eigenvalue_threshold = 1e-6
+  
+    mf = addons.remove_linear_dep_(scf.RHF(mol), threshold=1e-8,
+
+pyscf/grad/test/test_rks.py: 15 warnings
+pyscf/grad/test/test_uks.py: 1 warning
+pyscf/df/test/test_df_grad.py: 8 warnings
+pyscf/grad/test/test_pdft_diatomic_gradients.py: 6 warnings
+pyscf/sgx/test/test_sgx.py: 8 warnings
+pyscf/scf/test/test_diffuse_orbital.py: 1 warning
+pyscf/sgx/grad/test/test_uhf.py: 6 warnings
+pyscf/sgx/test/test_dm_screening.py: 2 warnings
+pyscf/grad/test/test_lpdft.py: 2 warnings
+pyscf/sgx/grad/test/test_rks.py: 16 warnings
+pyscf/sgx/grad/test/test_rhf.py: 10 warnings
+pyscf/sgx/grad/test/test_uks.py: 6 warnings
+  pyscf/pyscf/df/grad/rhf.py:289: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+    _vj.shape = (nset, 3, -1)
+
+pyscf/grad/test/test_rks.py: 45 warnings
+pyscf/grad/test/test_uks.py: 3 warnings
+pyscf/df/test/test_df_grad.py: 24 warnings
+pyscf/grad/test/test_pdft_diatomic_gradients.py: 18 warnings
+pyscf/sgx/test/test_sgx.py: 24 warnings
+pyscf/scf/test/test_diffuse_orbital.py: 3 warnings
+pyscf/sgx/grad/test/test_uhf.py: 18 warnings
+pyscf/sgx/test/test_dm_screening.py: 6 warnings
+pyscf/grad/test/test_lpdft.py: 6 warnings
+pyscf/sgx/grad/test/test_rks.py: 48 warnings
+pyscf/sgx/grad/test/test_rhf.py: 30 warnings
+pyscf/sgx/grad/test/test_uks.py: 18 warnings
+  pyscf/pyscf/df/grad/rhf.py:295: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+    _int3c.shape = (p1 - p0, -1)
+
+pyscf/grad/test/test_rhf.py::KnownValues::test_gth_pp_hcore_grad
+  pyscf/pyscf/gto/moleintor.py:282: UserWarning: Function int1e_r2_origi_sph not found.  Set its comp to 1
+    warnings.warn('Function %s not found.  Set its comp to 1' % intor_name)
+
+pyscf/df/test/test_df_grad.py: 2 warnings
+pyscf/grad/test/test_casscf.py: 1 warning
+pyscf/grad/test/test_mp2.py: 2 warnings
+pyscf/grad/test/test_ccsd.py: 1 warning
+pyscf/grad/test/test_cisd.py: 1 warning
+pyscf/tdscf/test/test_tdrhf.py: 1 warning
+pyscf/grad/test/test_tdrhf_grad.py: 1 warning
+pyscf/grad/test/test_casci.py: 1 warning
+  pyscf/pyscf/gto/mole.py:4449: DeprecationWarning: The API mol.RHF.run is deprecated and will be removed in a future release. Please use mol.RHF().run instead.
+    warnings.warn(
+
+pyscf/df/test/test_df_grad.py::KnownValues::test_casscf_grad
+  pyscf/pyscf/gto/mole.py:4449: DeprecationWarning: The API mol.RHF.density_fit is deprecated and will be removed in a future release. Please use mol.RHF().density_fit instead.
+    warnings.warn(
+
+pyscf/df/test/test_df_grad.py::KnownValues::test_uhf_grad
+pyscf/tdscf/test/test_tduhf.py::KnownValues::test_symmetry_init_guess
+  pyscf/pyscf/gto/mole.py:4449: DeprecationWarning: The API mol.UHF.run is deprecated and will be removed in a future release. Please use mol.UHF().run instead.
+    warnings.warn(
+
+pyscf/df/test/test_df_grad.py::KnownValues::test_uks_gga_grad
+pyscf/df/test/test_df_grad.py::KnownValues::test_uks_lda_grad
+pyscf/df/test/test_df_hessian.py::KnownValues::test_uks_hess
+pyscf/df/test/test_df_hessian.py::KnownValues::test_uks_lda_hess
+  pyscf/pyscf/gto/mole.py:4449: DeprecationWarning: The API mol.UKS.run is deprecated and will be removed in a future release. Please use mol.UKS().run instead.
+    warnings.warn(
+
+pyscf/df/test/test_df_grad.py::KnownValues::test_uks_gga_grad
+pyscf/df/test/test_df_hessian.py::KnownValues::test_uks_hess
+  pyscf/pyscf/gto/mole.py:4449: DeprecationWarning: The API mol.UKS.density_fit is deprecated and will be removed in a future release. Please use mol.UKS().density_fit instead.
+    warnings.warn(
+
+pyscf/df/test/test_df_hessian.py::KnownValues::test_rks_gga_hess
+pyscf/df/test/test_df_hessian.py::KnownValues::test_rks_lda_hess
+pyscf/df/test/test_df_hessian.py::KnownValues::test_rks_mgga_hess
+pyscf/df/test/test_df_hessian.py::KnownValues::test_rks_rsh_hess
+  pyscf/pyscf/gto/mole.py:4449: DeprecationWarning: The API mol.RKS.run is deprecated and will be removed in a future release. Please use mol.RKS().run instead.
+    warnings.warn(
+
+pyscf/df/test/test_df_hessian.py::KnownValues::test_rks_gga_hess
+pyscf/df/test/test_df_hessian.py::KnownValues::test_rks_lda_hess
+pyscf/df/test/test_df_hessian.py::KnownValues::test_rks_mgga_hess
+pyscf/df/test/test_df_hessian.py::KnownValues::test_rks_rsh_hess
+  pyscf/pyscf/gto/mole.py:4449: DeprecationWarning: The API mol.RKS.density_fit is deprecated and will be removed in a future release. Please use mol.RKS().density_fit instead.
+    warnings.warn(
+
+pyscf/scf/test/test_diffuse_orbital.py::KnownValues::test_rhf
+  pyscf/pyscf/gto/basis/__init__.py:616: UserWarning: The basis set string does not explicitly match the element H. It is stilled parsed and assigned to H without enforcing element matching. If you want to enforce a strict match between the basis set and elements, set
+      gto_basis_enforce_element_match = True
+  in ~/.pyscf_conf.py
+    warnings.warn(
+
+pyscf/scf/test/test_diffuse_orbital.py::KnownValues::test_rhf
+  pyscf/pyscf/gto/basis/__init__.py:616: UserWarning: The basis set string does not explicitly match the element Li. It is stilled parsed and assigned to Li without enforcing element matching. If you want to enforce a strict match between the basis set and elements, set
+      gto_basis_enforce_element_match = True
+  in ~/.pyscf_conf.py
+    warnings.warn(
+
+pyscf/df/test/test_addons.py::KnownValues::test_default_auxbasis
+  pyscf/pyscf/gto/basis/__init__.py:732: UserWarning: Basis may be available in basis-set-exchange. It is recommended to install basis-set-exchange: pip install basis-set-exchange
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_custom_rsh
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tda_b3lyp_xcfun
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tda_lda_xcfun
+FAILED ../../pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tddft_b3lyp_xcfun
+FAILED ../../pyscf/pyscf/solvent/test/test_smd_grad.py::KnownValues::test_grad_solvent
+FAILED ../../pyscf/pyscf/sgx/test/test_dm_screening.py::KnownValues::test_rhf_dm_screening
+FAILED ../../pyscf/pyscf/sgx/test/test_dm_screening.py::KnownValues::test_uhf_dm_screening
+7 failed, 1095 passed, 66 skipped, 396 warnings, 134 subtests passed in 153.71s (0:02:33)

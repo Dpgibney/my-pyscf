@@ -1,0 +1,19 @@
+pyscf pyscf/pyscf/__init__.py threads 10
+caffeine def2-tzvpd wb97m-v: natm 24 nao 614 nocc 51; SCF 0.3 s, 0 cycles, E -680.3497717994, conv True; XC grid 767472, VV10 grid 157224; max_memory 12000
+partial_hess_elec 831.7 s, make_h1 803.0 s
+    make_h1: VV10 deriv1            183.9 s
+    make_h1: XC deriv1              269.8 s
+    partial: 2e J+K                 342.6 s
+    partial: 2e LR-K                305.1 s
+    partial: VV10 deriv2             75.5 s
+    partial: XC deriv2               74.0 s
+    partial: XC diag                 30.6 s
+    make_h1: J/K deriv + hcore      349.3 s
+
+reference (exact response, tol 0.0001): CPHF 1541.4 s, 6 calls, 360 vectors; max|H| 0.9401
+  frequencies (cm-1): -115.1 66.3 125.1 158.8 181.2 205.1 220.9 242.4 283.7 331.9 367.9 372.5 398.9 409.1 435.7 501.9 522.2 582.1 590.7 670.2 714.0 745.0 762.0 770.3 793.7 847.6 890.8 989.4 1044.6 1062.6 1123.0 1166.9 1168.5 1196.4 1218.2 1231.2 1251.0 1275.5 1341.1 1381.9 1402.2 1429.3 1442.4 1457.8 1459.5 1467.7 1483.8 1492.9 1500.4 1508.2 1524.9 1562.0 1575.5 1661.2 1747.9 1797.8 2339.7 2397.4 3034.1 3040.3 3091.8 3100.0 3170.4 3172.1 3205.4 3277.3
+  CPHF parts: J/K: J+K 448.7, J/K: LR-K 329.4, VV10 response 323.9, XC kernel setup (cache_xc_kernel) 0.7, XC response 436.3
+
+variant                      CPHF s calls  vecs   max|dH|  max|df| mean|df|    at f= max|df| f>200  parts
+g2=2+vg=0+sgx1                662.1     6   360  2.31e-05    0.068    0.009    242.4         0.068  SGX obj: J(+K) 243.6, SGX-K from factors LR 137.9, SGX-K from factors full 138.5, VV10 response 13.2, XC kernel setup (cache_xc_kernel) 0.2, XC response 126.8
+done

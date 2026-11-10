@@ -1,0 +1,11 @@
+pyscf pyscf/pyscf/__init__.py threads 10
+caffeine/def2-tzvpd: nao 614, 72 densities
+exact direct J, 72 dms: 42.9 s
+exact direct J, 1 dm: 14.8 s
+exact direct J+K, 72 dms: 82.9 s
+exact direct LR-K, 72 dms: 63.1 s
+RI-J def2-universal-jfit (naux 796): J-engine, one density at a time: 13.9 s for 72 dms (0.19 s each); max|dJ|/max|J| 5.5e-02
+    stored tensor: build (integrals once + Cholesky) 1.1 s, J of 72 dms by products 0.36 s; vs engine max|dJ| 1.1e-11
+RI-J aug_etb (naux 3142): J-engine, one density at a time: 33.4 s for 72 dms (0.46 s each); max|dJ|/max|J| 6.4e-04
+    stored tensor: build (integrals once + Cholesky) 8.2 s, J of 72 dms by products 1.13 s; vs engine max|dJ| 1.8e-10
+done

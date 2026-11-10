@@ -1,0 +1,4 @@
+[     0 s] pyscf pyscf/pyscf/__init__.py, 10 threads, mode scf
+[   179 s] two-level SCF: 178.7 s, 2 Fock builds of the model, conv True, E -680.3497717995, E - E(plain SCF) -1.31e-10
+[   339 s] exact gradient: 160.2 s (156 s before); max|g - g(plain SCF, old code)| 2.50e-06
+[   339 s] done

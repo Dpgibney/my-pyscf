@@ -1,0 +1,23 @@
+output file: wb97mv_hessian.out
+radial grids: 
+    Treutler-Ahlrichs [JCP 102, 346 (1995); DOI:10.1063/1.469408] (M4) radial grids
+    
+becke partition: Becke, JCP 88, 2547 (1988); DOI:10.1063/1.454033
+pruning grids: <function nwchem_prune at 0x79f7a85d76a0>
+grids dens level: 2
+symmetrized grids: False
+atomic radii adjust function: <function treutler_atomic_radii_adjust at 0x79f7a85d7ba0>
+radial grids: 
+    Treutler-Ahlrichs [JCP 102, 346 (1995); DOI:10.1063/1.469408] (M4) radial grids
+    
+becke partition: Becke, JCP 88, 2547 (1988); DOI:10.1063/1.454033
+pruning grids: <function nwchem_prune at 0x79f7a85d76a0>
+grids dens level: 1
+symmetrized grids: False
+atomic radii adjust function: <function treutler_atomic_radii_adjust at 0x79f7a85d7ba0>
+tot grids = 21952
+tot grids = 10128
+E = -76.4334439938 Eh
+largest gradient component 3.14e-03 Eh/Bohr
+harmonic frequencies (cm^-1): 1623.9 3859.4 3954.0
+guard: peak RSS about 0 GB

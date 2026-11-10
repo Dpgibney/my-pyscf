@@ -8456,6 +8456,110 @@ The user: "Yes let's merge it, this sounds very much like what I have been looki
   RIJCOSX 47.3 + 5.0 s, the energy of the earlier node2 run to the last digit, peak RSS 2.0 GB, no disk. The clone
   was removed afterwards.
 
+## wB97M-V/def2-TZVPD: the review and what came of it, 2026-11-09
+The user: "read through this work specifically focusing on the wB97M-V/def2-TZVPD energies gradients and hessians to see
+if there is room for improvement in speed by rewriting the code or introducing more efficient approximations", then
+"go through and implement the improvements and modifications you suggested". Their production settings: `grids.atom_grid
+= (99,590)`, `nlcgrids.atom_grid = (50,194)`, ~1000 functions. Everything here is caffeine/def2-TZVPD (614 functions), the
+laptop, 10 threads, max_memory 12000 MB, balanced power profile, single runs, unless said otherwise. Scripts:
+`bench/diag/wb97mv/` (run with its `run.sh THREADS MAXMEM script.py ...`); logs: `bench/results/wb97mv-tzvpd/`.
+
+### Where the time went (before the changes; `prof_scf_grad.py`, `hess_variants.py`)
+| | exact | `mf.RIJCOSX()` |
+|---|---|---|
+| SCF | 451 s, 13 cycles = 15 Fock builds: J + K 185, long-range K 162, XC 66, VV10 37 | 194 s, -5.6e-4 Eh: XC 82, K 63, VV10 44, J 3 |
+| gradient | 156 s: J + K 70, long-range K 68, XC 14, VV10 4 | 51 s: K 28, XC 16, VV10 4, J 3 |
+| Hessian | 3176 s: second-derivative integrals 343 + 305 (long range), `make_h1` J/K 349, XC Fock derivative 270, VV10 Fock derivative 184, XC second derivative 105, VV10 second derivative 76; CPHF 1541 (6 calls: J + K 449, long-range K 329, XC 436, VV10 324) | no RIJCOSX Hessian |
+
+- **Screening does little with diffuse functions** (`k_accuracy.py`): `direct_scf_tol` 1e-13 -> 1e-9 takes a J + K pass from
+  18.2 to 14.3 s; the SCF's incremental builds go from 14 to 10 s. J alone 13.6 s, K alone 15.3 s, together 18.2 s. The cost
+  of an exact SCF is the number of its Fock builds.
+- **RIJCOSX's error is the J-fitting basis** (`k_accuracy.py`, `rij_aux.py`): SGX-K of wB97M-V (0.15 K + 0.85 K_LR) is off by
+  -1.2e-5 Eh on level 1, +5.5e-7 on level 2, -1.1e-7 on level 3; RI-J by -5.6e-4 (def2-universal-jfit, 796 functions, 0.19 s
+  a build), -2.8e-4 (jkfit), -3.1e-5 (aug-cc-pVQZ-jkfit), -1.0e-5 (`df.aug_etb`, 3142 functions, 0.45 s), against 13.9 s for
+  the exact J.
+- **Grids** (`xc_grids.py`, fixed density, against (150,974) unpruned): XC level 3 +6.6e-6 Eh, level 4 +3.9e-7 (554k points),
+  (99,590) +8.4e-7 (767k); VV10 level 0 -6.6e-5, level 1 -9.2e-7 (97k points), (50,194) +2.6e-6 (157k).
+- **The analytical Hessian is less converged in its XC grid than in any approximation below** (`hess_gridconv.py`,
+  consistent SCF + Hessian per grid; the CPU code has no weight derivatives): water dimer, (99,590) against (150,974): 0.58
+  cm^-1; H2PO4-, (99,590) against (150,590), (200,590), (250,590): 2.14 cm^-1 (mean 0.77), the three agreeing to 0.002:
+  phosphorus needs 150 radial points. Levels 4 and 5 are 2-3 cm^-1 off for H2PO4- (their phosphorus grids), and `nlcgrids`
+  level 1, as good as (50,194) for energies, moves the Hessian's VV10 derivative terms by 0.5-0.6 cm^-1.
+
+### Approximations of the CPHF response, measured (`hess_variants.py`)
+Optimized geometries (`opt.py`; the glycine structure is a saddle point, one imaginary mode), XC (99,590), VV10 (50,194),
+reference: exact response, `cphf_residual_tol` 1e-7. Largest change of a harmonic frequency, cm^-1:
+
+| response | water dimer | H2PO4- | glycine |
+|---|---|---|---|
+| stock Krylov solver, exact response | 0.048 | 0.003 | 0.027 |
+| XC kernel on `second_grids` level 1 / SG-1 / 2 / 3 | 0.39 / 0.16 / 0.018 / 0.031 | 0.23 / 0.04 / 0.012 / 0.004 | 0.11 / 0.06 / 0.007 / 0.004 |
+| VV10 kernel on level 0 / 1 / SG-1 (now `second_nlcgrids`) | 0.062 / 0.009 / 0.005 | 0.071 / 0.000 / 0.001 | 0.013 / 0.002 / 0.002 |
+| no VV10 in the response (`with_nlc=False`) | 2.66 | 2.16 | 1.68 |
+| `sgx_response` level 0 / 1 (direct J) | 0.12 / 0.007 | 0.41 / 0.027 | 1.18 / 0.022 |
+| exact J + K, only the long-range K from SGX, level 0 / 1 | 0.13 / 0.008 | 0.27 / 0.015 | 0.95 / 0.015 |
+| `sgx_response` level 1 with RI-J: `aug_etb` / jkfit / jfit | 0.11 / 0.54 / 4.0 | 0.11 / 0.36 / 2.1 | 0.05 / 0.37 / 2.3 |
+| `second_grids` 2 + VV10 level 0 + `sgx_response` level 1 | 0.045 | 0.099 | 0.023 |
+
+- The VV10 response cannot be dropped; on a level-0 grid it costs 1/54 of the pairs for 0.07 cm^-1.
+- SGX level 0, the default of `sgx_response` until now, is too coarse for def2-TZVPD (0.03-0.5 cm^-1 with def2-SVP/TZVP
+  before). The SCF's J-fitting bases cannot describe the response densities of the nuclei; the even-tempered basis can.
+- Caffeine, the last row: CPHF 662 s against 1541 s, 0.068 cm^-1 (direct J 244, SGX-K 138 + 138, XC 127, VV10 13).
+
+### Changes (pyscf `perf` 85c9151a7..7bb8d8cad, qcint `perf` 3474509; local, not pushed)
+1. **`init_guess='pre_scf'`** (85c9151a7): its coarse grids when `atom_grid` is set (it lowered `grids.level`, which
+   `atom_grid` overrides: the pre-SCF ran on all 767,472 points); `pre_scf_fit` 'auto' / 'df' / 'rijcosx'.
+2. **`mf.set_second_nlcgrids(level)`** (cb81adcc2): the VV10 part of the response functions on a grid of its own, as
+   `second_grids` for the XC kernel. `Hessian.sgx_response_level` is 1 by default.
+3. **RIJCOSX's energy on the larger grid from K alone** (098d74362): no XC, VV10 and J again (7.6 of 17.8 s here).
+4. **The XC and VV10 terms of the gradient contracted with the density on the grid** (d887583fa,
+   `VXCfused_dot_terms_q`, `grad.rks.XC_DM`): 14.5 -> 4.9 s (VV10 3.6 -> 2.6 s); n-C20H42/def2-TZVP r2SCAN 7.2 -> 2.9 s; equal
+   to 5e-15. RKS only (direct, density-fitted, RIJCOSX); UKS keeps the matrices.
+5. **The J-engine for many densities in one pass** (3ba8d841d, `RIJdrv_many`): 72 densities, jfit 10.5 -> 1.4 s, `aug_etb`
+   29.5 -> 3.4 s (exact direct J 42.9 s); n-C20H42/def2-TZVP, 186 densities, jfit 76.5 -> 10.7 s. `Hessian.sgx_response_auxbasis`
+   (5cd5c5eac; default None = direct J) takes RI-J in the response: 'aug_etb' for 0.05-0.11 cm^-1.
+6. **`mf.two_level = True`** (8c66bbd4f, `scf/two_level.py`): the SCF iterates on F = h + V[D_ref] + (V_cheap[D] -
+   V_cheap[D_ref]), the cheap model being RI-J(`aug_etb`) + SGX-K on XC level 2 and VV10 level 1; each reference density
+   costs one Fock build of the model, which gives its energy and orbital gradient there. Caffeine: **178.7 s against 451 s,
+   2 Fock builds, the plain SCF's energy to 1.3e-10 Eh**. Ten small models (RHF, UHF, RKS, UKS, ROKS, density-fitted, PCM,
+   RIJCOSX) within 5e-11 Eh with 2 builds. A custom loop must leave out the overlap's eigenvectors below 1e-6 as
+   `SCF.kernel` does (`check_linear_dependency`; 2 of 614 here, 1.6e-5 Eh): the first prototype did not.
+7. **The exchange of a range-separated hybrid in one SGX pass** (qcint 3474509, pyscf d3d1b5fa0): `int1e_grids` with the
+   operator c_full/r + c_lr erf(omega r)/r (`PTR_RANGE_COEFF_FULL`/`LR`, env slots 13 and 14; the roots of the two operators
+   together). In the SCF, the gradients, the energy on the larger grid and the response from the factors. Against the two
+   passes: SCFs within 1.6e-10 Eh in the same cycles, gradients 2e-9, Hessians 1e-10. The K of 72 response densities 38.9 ->
+   20.6 s; one density 3.26 -> 2.93 s on level 1 and 8.70 -> 7.26 s on level 2: with twice the roots a single-density build
+   stays near two passes of integrals. Needs the new qcint (`sgx_jk.mixed_range_supported()` checks; otherwise the two
+   passes). `install/qcint-pgo` is the new profile-guided build; the old one is `install/qcint-pgo-e25a81f`.
+8. **H1's XC and VV10 kernel potentials as products with the occupied orbitals** (7bb8d8cad, `rks._make_h1_split`,
+   `rks.H1_OCC`): `hess_elec` uses H1 only as H1 mocc. Hessians equal to 1e-14 (LDA, GGA, meta-GGA, VV10, PCM).
+
+### After the changes
+| | before | now |
+|---|---|---|
+| exact SCF | 451 s | 178.7 s with `two_level`, E within 1.3e-10 Eh |
+| RIJCOSX SCF, production grids | 194 s, -5.6e-4 Eh (jfit) | 176 s, -9.7e-6 Eh (`aug_etb`); 157 s with `two_level` (2 builds on the production grids, 4e-11 Eh from the plain one) |
+| RIJCOSX gradient | 50.7 s, max error 1.1e-4 Eh/Bohr | 42.9 s, 4.5e-5 (`aug_etb`) |
+| XC term of the gradient | 14.5 s | 4.9 s |
+| Hessian | 3176 s exact | **1867 s**, 0.068 cm^-1 (mean 0.009), max 2.3e-5 in a Hessian element: `second_grids` 2, `second_nlcgrids` 0, `sgx_response` (level 1, direct J). Second-derivative terms 771 s, H1 598 s (XC 92 from 270, VV10 167 from 184, J/K 339), CPHF 498 s from 1541; peak RSS 11 GB |
+
+- The exact gradient ran in 160 s (156 s before): 88% of it is the two passes over the derivative integrals, and the 10 s
+  less of XC are inside the run-to-run drift.
+- PySCF's tests on the final state (dft scf df grad hessian tdscf solvent sgx): 1095 passed, the 7 known failures;
+  `kernels.py` ALL PASS with the new qcint build.
+- A test of mine asked for every AO pair of caffeine on 1503 points with three derivative components (tens of GB) and
+  took the session down. `bench/diag/wb97mv/run.sh` caps the address space (`VMEM_KB`), and `guard.sh` kills a run above
+  a resident size: PySCF's direct J/K reserves 3.2 GB of address space per thread whatever the molecule (`nr_direct.c`, 400e6 doubles; untouched pages cost nothing), so with 10 threads the cap must be lifted (`VMEM_KB=unlimited`) and the guard used: under an 18 GB cap even the water example fails in `CVHFallocate_JKArray`.
+
+### Not done, and what was ruled out
+- **One n-point Rys rule for the mixed-range kernel** exists and is computable in double precision (`mixed_roots.py`:
+  Lanczos compression of the 2n-point rule, moments to 1e-14 for n <= 9). It would make the single-density SGX-K one pass
+  of integrals instead of nearly two, and with J from RI every exact two-electron step one pass. Not built.
+- The derivative integrals are now the wall of the Hessian (about 1000 s of the 1867 here) and of the exact gradient.
+- UKS: the gradient's XC term, `two_level` beyond the energies checked, `sgx_response`.
+- Ruled out: J and K in separate quartet passes; looser thresholds (1e-11: -11%, 3e-10 Eh); the exact full-range K with
+  SGX for the long-range part only (no better than SGX for both); `nlcgrids` level 1 or XC level 4 for Hessians.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

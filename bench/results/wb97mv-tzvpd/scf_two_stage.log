@@ -1,0 +1,8 @@
+pyscf pyscf/pyscf/__init__.py threads 10
+caffeine/def2-tzvpd wb97m-v nao 614; mode two-stage
+stage 1: RI-J def2-universal-jfit + SGX-K, XC grid 2, VV10 grid 1, conv_tol 1e-06: 71.6 s, 10 cycles, conv True, E -680.3503409942 (E - Eref -5.69e-04)
+   per cycle: 10.9 5.0 4.9 4.8 5.0 4.7 7.4 6.9 6.9 7.4
+stage 2: exact from the stage-1 density: 226.3 s, 5 cycles, conv True, E -680.3497717994 (E - Eref -2.77e-11)
+   per cycle: 78.7 32.1 30.2 29.8 28.1
+total 297.9 s
+done
