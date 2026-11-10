@@ -8766,10 +8766,12 @@ The user, asked whether to run the full suite first: "Sure validate and then pus
   through `scripts/pyscf-env.sh`: E -76.4334439938, frequencies 1623.9 3859.4 3954.0, the same as the working tree.
   PySCF's tests (dft scf df grad hessian tdscf solvent sgx eph): 1104 passed, the 7 known failures. node2 (AVX2 only)
   was not used this time.
-- **Found in that run, not fixed (cosmetic):** with `mol.output` set and `verbose` 4, the grid summary of the coarse
+- **Found in that run (cosmetic), fixed in a72443310, tag and pin `perf-2026-11-10b`:** with `mol.output` set and `verbose` 4, the grid summary of the coarse
   grids of `two_level` and `init_guess='pre_scf'` goes to the terminal, not to the output file: `hf._pre_scf_grids`
   copies the grids with `copy.copy`, and the copy's `stdout` is `sys.stdout` (`cheap.grids.stdout`; the model and its
-  `mol` keep the file). One line (`g.stdout = grids.stdout`); numbers are not affected.
+  `mol` keep the file). One line (`g.stdout = grids.stdout`); numbers are not affected. The user: "Feel free to fix
+  that. No need to run verification for a fix that straighforward": pushed after a check that the coarse grids of a
+  model with an output file have that file as `stdout`; no suite, tests or fresh clone on perf-2026-11-10b.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
