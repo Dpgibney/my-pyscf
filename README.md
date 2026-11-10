@@ -31,6 +31,14 @@ contracted on the grid (14.5 -> 4.9 s), SGX evaluates the exchange of a range-se
 the qcint of this workspace), and the CPHF response of the Hessian takes its own grids (`mf.set_second_grids(2)`,
 `mf.set_second_nlcgrids(0)`) and seminumerical K (`hobj.sgx_response = True`, now on grid level 1): the Hessian in 1867 s against 3176 s,
 frequencies within 0.07 cm^-1 of the exact response's.
+SMD and PCM Hessians and gradients no longer recompute the surface integrals for every nuclear coordinate or hold
+surface arrays quadratic in the points with nine components (`NOTES.md`, "SMD Hessians, UKS and the rest of the
+wB97M-V list"): the solvent terms of caffeine's SMD Hessian take 32 s (above 16 GB and unfinished before), the
+solvent term of its gradient 6.5 s instead of 45 s. The CPHF of a solvated model runs from the same factors as in
+the gas phase (it fell back to AO matrices for every PCM/SMD Hessian: 1549 -> 668 s), so caffeine's
+wB97M-V/def2-TZVPD Hessian in SMD water takes 2156 s within 12 GB, with the VV10 response on level 1
+(`mf.set_second_nlcgrids(1)`: level 0 moves a soft mode of H2PO4- in SMD by 0.2 cm^-1). UKS has the same gradient
+and response options, and Hessians of VV10 functionals, which upstream does not implement.
 These are in the local `perf` branches, after the tags below. `examples/wb97mv_hessian.py` has the settings.
 
 ```python

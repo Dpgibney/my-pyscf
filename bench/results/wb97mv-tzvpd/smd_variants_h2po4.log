@@ -1,0 +1,11 @@
+exact response 148 s; frequencies [-212.8  -81.8  324.3  362.9  428.2  477.2  485.3  760.5  763.5 1027.2
+ 1057.7 1093.3 1286.6 3853.5 3855.7]
+residual tol 1e-4                    109 s  max|dH| 1.3e-08  max|df| 0.001 cm-1 (mode at -82), mean 0.000; real modes above 300: max 0.000
+second_grids 2                        93 s  max|dH| 1.8e-06  max|df| 0.016 cm-1 (mode at -82), mean 0.004; real modes above 300: max 0.012
+second_nlcgrids 0                    121 s  max|dH| 9.4e-06  max|df| 0.175 cm-1 (mode at -82), mean 0.020; real modes above 300: max 0.008
+second_nlcgrids 1                    129 s  max|dH| 4.5e-08  max|df| 0.001 cm-1 (mode at -82), mean 0.000; real modes above 300: max 0.000
+sgx_response level 1                 113 s  max|dH| 2.1e-06  max|df| 0.066 cm-1 (mode at -82), mean 0.007; real modes above 300: max 0.005
+sgx_response level 2                 122 s  max|dH| 2.9e-07  max|df| 0.002 cm-1 (mode at -82), mean 0.000; real modes above 300: max 0.000
+sgx_response level 1, tol 1e-6       141 s  max|dH| 2.1e-06  max|df| 0.067 cm-1 (mode at -82), mean 0.008; real modes above 300: max 0.005
+all three (grids 2, nlc 0, sgx 1)     73 s  max|dH| 1.2e-05  max|df| 0.257 cm-1 (mode at -82), mean 0.031; real modes above 300: max 0.026
+guard: peak RSS about 7 GB

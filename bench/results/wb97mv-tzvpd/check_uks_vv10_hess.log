@@ -1,0 +1,5 @@
+closed shell wb97m-v: max|H(UKS) - H(RKS)| 1.4e-08 (max|H| 0.80)
+cation b3lyp: max|H analytical - finite difference of gradients| 3.6e-05
+cation wb97m-v: max|H analytical - finite difference of gradients| 8.1e-05
+cation wb97x-v: max|H analytical - finite difference of gradients| 7.8e-05
+guard: peak RSS about 1 GB

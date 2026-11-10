@@ -1,0 +1,14 @@
+[     8 s] pyscf /home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py, 10 threads; 7 atoms, 221 AOs, 2122 surface points
+[     8 s] two-level SCF: 8.4 s, 2 Fock builds, conv True, E -643.8340671423
+[    14 s] gradient: 5.3 s, max |g| 3.25e-02
+[    38 s]   partial_hess_elec: 24.4 s
+[    83 s]   solve_mo1: 24.8 s
+[    85 s]   solvent Hessian: 2.1 s
+[    85 s] Hessian, response on second_grids 2 / second_nlcgrids 0 with sgx_response level 1: 70.9 s
+[    85 s] frequencies (cm^-1): -212.8 -82.0 324.3 362.9 428.2 477.2 485.3 760.5 763.5 1027.1 1057.7 1093.2 ...
+[   109 s]   partial_hess_elec: 24.2 s
+[   217 s]   solve_mo1: 88.6 s
+[   219 s]   solvent Hessian: 2.0 s
+[   219 s] Hessian, exact response: 134.0 s
+[   219 s] approximate against exact response: max|dH| 1.25e-05, max|df| 0.257 cm^-1, mean 0.031
+guard: peak RSS about 6 GB

@@ -1,0 +1,23 @@
+[    32 s] pyscf /home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py, 10 threads; 24 atoms, 614 AOs, 5525 surface points; SCF 32.2 s, E -679.8082019790
+[    38 s] solvent gradient: 6.1 s
+[    42 s]     get_dqsym_dx_fix_vgrids: 3.6 s
+[    44 s]       get_dvgrids: 1.9 s
+[    44 s]     get_dqsym_dx_fix_K_R: 2.0 s
+[    44 s]   get_dqsym_dx: 5.6 s
+[    44 s] analytical_hess_nuc: 5.7 s
+[    57 s]   get_dqsym_dx: 0.0 s
+[    57 s] analytical_hess_qv: 13.1 s
+[    60 s]   _d2A_d2Sii_dot: 0.4 s
+[    63 s]   _d2_contract: 2.2 s
+[    65 s]   get_dvgrids: 0.0 s
+[    65 s] analytical_hess_solver: 7.5 s
+[    65 s] get_cds: 0.0 s
+[    65 s] solvent Hessian: 26.3 s
+[    69 s]   get_dqsym_dx: 0.0 s
+[    75 s] analytical_grad_vmat: 10.6 s
+[    75 s] solvent part of H1: 10.6 s
+[    85 s] solvent response of 72 densities: 9.1 s
+[    85 s] hess: max|new - saved| 8.19e-11 (max|saved| 7.78e-02)
+[    85 s] dv: max|new - saved| 1.53e-10 (max|saved| 1.30e-01)
+[    85 s] resp: max|new - saved| 3.89e-16 (max|saved| 5.20e-01)
+guard: peak RSS about 6 GB

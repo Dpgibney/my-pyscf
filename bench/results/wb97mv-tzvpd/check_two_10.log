@@ -1,0 +1,11 @@
+RKS wb97m-v            dE +4.0e-12 conv True builds 12 -> 2  t 5.0 -> 1.7 max|dg| 1.8e-07
+RKS b3lyp              dE -1.3e-11 conv True builds 10 -> 2  t 1.1 -> 0.8 max|dg| 6.5e-07
+RKS pbe                dE -1.2e-11 conv True builds 11 -> 2  t 1.2 -> 0.6 max|dg| 4.6e-07
+RHF                    dE -4.5e-13 conv True builds 12 -> 2  t 0.1 -> 0.3 max|dg| 1.3e-07
+UKS wb97x              dE -3.8e-11 conv True builds 15 -> 2  t 2.5 -> 1.6 max|dg| 1.7e-06
+UHF                    dE -7.6e-12 conv True builds 15 -> 2  t 0.1 -> 0.5 max|dg| 8.2e-07
+ROKS b3lyp             dE -2.9e-12 conv True builds 14 -> 2  t 2.4 -> 1.2
+RKS b3lyp df           dE -1.4e-11 conv True builds 10 -> 2  t 1.1 -> 0.5 max|dg| 8.1e-07
+RKS wb97m-v PCM        dE +0.0e+00 conv True builds 12 -> 2  t 5.1 -> 2.0 max|dg| 1.8e-07
+RKS wb97m-v RIJCOSX    dE -7.7e-13 conv True builds 12 -> 2  t 5.2 -> 1.9 max|dg| 2.1e-07
+guard: peak RSS about 0 GB

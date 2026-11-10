@@ -1,0 +1,11 @@
+RHF PCM            exact response  max|H(factors) - H(AO matrices)| 8.4e-15; CPHF 0.3 -> 0.3 s
+RHF PCM            sgx_response    max|H(factors) - H(AO matrices)| 1.0e-14; CPHF 1.3 -> 1.3 s
+RKS pbe PCM        exact response  max|H(factors) - H(AO matrices)| 4.6e-15; CPHF 2.8 -> 0.5 s
+RKS pbe PCM        sgx_response    max|H(factors) - H(AO matrices)| 9.2e-15; CPHF 2.9 -> 0.6 s
+RKS wb97m-v SMD    exact response  max|H(factors) - H(AO matrices)| 1.2e-13; CPHF 16.3 -> 4.4 s
+RKS wb97m-v SMD    sgx_response    max|H(factors) - H(AO matrices)| 7.2e-11; CPHF 18.2 -> 5.2 s
+UKS b3lyp PCM      exact response  max|H(factors) - H(AO matrices)| 6.9e-15; CPHF 8.4 -> 1.3 s
+UKS b3lyp PCM      sgx_response    max|H(factors) - H(AO matrices)| 4.0e-15; CPHF 9.8 -> 2.6 s
+UKS wb97m-v SMD    exact response  max|H(factors) - H(AO matrices)| 4.0e-12; CPHF 32.9 -> 8.1 s
+UKS wb97m-v SMD    sgx_response    max|H(factors) - H(AO matrices)| 1.9e-12; CPHF 36.4 -> 11.2 s
+guard: peak RSS about 2 GB

@@ -1,0 +1,3 @@
+RKS neutral b3lyp: max|H analytical - finite difference of gradients| 3.0e-05
+RKS neutral wb97x-v: max|H analytical - finite difference of gradients| 5.6e-05
+guard: peak RSS about 0 GB

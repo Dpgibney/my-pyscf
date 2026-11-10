@@ -8560,6 +8560,135 @@ reference: exact response, `cphf_residual_tol` 1e-7. Largest change of a harmoni
 - Ruled out: J and K in separate quartet passes; looser thresholds (1e-11: -11%, 3e-10 Eh); the exact full-range K with
   SGX for the long-range part only (no better than SGX for both); `nlcgrids` level 1 or XC level 4 for Hessians.
 
+## SMD Hessians, UKS and the rest of the wB97M-V list, 2026-11-10
+The user, on the "not done" list of the section above: "Could you work on that isn't done yet". The laptop, 10 threads,
+balanced profile, single runs. pyscf `perf` ad53ed420..47f668552 (local, not pushed); scripts `bench/diag/wb97mv/`, logs
+`bench/results/wb97mv-tzvpd/`.
+
+### The solvent terms of the SMD/PCM Hessian (ad53ed420; `smd_hess_prof.py`)
+Never profiled before. They were the largest cost of an SMD Hessian, and its memory:
+
+| solvent Hessian + solvent part of H1 | before | now |
+|---|---|---|
+| glycine/def2-TZVPD (10 atoms, 236 AOs, 2725 surface points) | 117 + 25 s, 6 GB | 5.8 + 0.5 s, 1 GB |
+| caffeine/def2-TZVPD (24 atoms, 614 AOs, 5525 points) | killed above 16 GB in the first term (would be hours) | 26.4 + 5.7 s, 9 GB with the SCF |
+| caffeine, the solvent term of the gradient | 45.0 s, 10 GB peak | 6.5 s |
+
+Equal to 1e-11 (glycine, H2PO4-; C-PCM, IEF-PCM, SMD), caffeine's gradient to 1.1e-11; `pyscf/solvent` tests as before.
+- **3 natm passes over all AO pairs x surface charges, twice.** `analytical_hess_qv` called `grad_qv` once per nuclear
+  coordinate (104 of glycine's 117 s) and `analytical_grad_vmat` built the potential of each charge derivative with its
+  own pass. `grad_nuc` and `grad_qv` are linear in the charges: products with what `get_dvgrids` has. The potentials of
+  all charge derivatives: one pass (`_int1e_grids_dot` with many sets of charges). `get_dqsym_dx` was computed 4 times;
+  kept per density now (`_hess_intermediate`).
+- **Blocks of derivative integrals the size of `max_memory`**, and per-atom calls with no block at all (9 x nao^2 x 302
+  points = 8 GB for caffeine). Now through `int1e_grids_ip/ipip/ipvip` in the batched SGX driver
+  (`pcm._int1e_grids_deriv`, the new operator `SGXnrs1_ijg_ji_gi`), contracted as they are made; the derivatives of a
+  charge's position from translational invariance, (ij|dg) = -(di j|g) - (i dj|g) and its second-order forms, so two
+  passes of second derivatives instead of four.
+- **[3,3,n,n] and [n,n,3] surface arrays** (the derivatives of S and D; by their sizes about 17 GB of temporaries at 10,000 points, in
+  the gradient as well): contracted by blocks of rows over the threads (`_d2_contract`, `_LazyD1`, `_d1_antisym`); d2A and
+  d2Sii one atom's points at a time.
+- **`numpy.dot` of a 3-index array with a matrix is a loop of dot products**, and `numpy.linalg.solve(K, ...)` factorized
+  K at every call: single gemm calls, and the factorization the SCF keeps (caffeine: 16 -> 6 s in `get_dqsym_dx`).
+- What is left of caffeine's 32 s (`smd_caf_final2.log`): the q.V term 13.1 s (the two second-derivative passes are most
+  of it), the solver term 7.6 s, the nuclear term 5.7 s, the potentials of the charge derivatives in H1 5.7 s. The
+  solvent's response in the CPHF: 4.4 s for 72 densities per call (both after 47f668552, below; 10.6 and 9.1 s before).
+
+### SMD end to end (`smd_hess_e2e.py`, `smd_hess_variants.py`)
+H2PO4-/def2-TZVPD wB97M-V in SMD water (gas-phase geometry: two imaginary modes), XC (99,590) with 150 radial points on
+P, VV10 (50,194); against the exact response, CPHF residual 1e-7:
+
+| response | Hessian time | max abs(df), cm^-1 | real modes above 300 cm^-1 |
+|---|---|---|---|
+| exact, residual 1e-4 | 109 s | 0.001 | 0.000 |
+| `second_grids` 2 | 93 s | 0.016 | 0.012 |
+| `second_nlcgrids` 0 / 1 | 121 / 129 s | 0.175 / 0.001 | 0.008 / 0.000 |
+| `sgx_response` level 1 / 2 | 113 / 122 s | 0.066 / 0.002 | 0.005 / 0.000 |
+| `second_grids` 2 + `second_nlcgrids` 0 + `sgx_response` 1 | 73 s | 0.257 | 0.026 |
+
+The largest change is always the imaginary mode at -82 cm^-1, and of that the VV10 kernel on level 0: a soft mode takes
+a change of the Hessian five times as hard as one at 400 cm^-1. `examples/wb97mv_hessian.py` now sets
+`set_second_nlcgrids(1)`.
+
+### Caffeine in SMD water end to end, and the CPHF of a solvated model (272624d21, 47f668552)
+`smd_hess_e2e.py caffeine --skip-exact`, `max_memory` 12000, the gas-phase geometry of the benchmarks (one imaginary
+mode, -123.6 cm^-1, then 31.5, 108.4, ...); response on `second_grids` 2, `second_nlcgrids` 1, `sgx_response` level 1:
+
+| step | ad53ed420 | 272624d21 | 47f668552 |
+|---|---|---|---|
+| two-level SCF (2 Fock builds, E -680.3716132024) | 191.6 s | 189.6 s | 180.1 s |
+| gradient | 175.0 s | 175.6 s | 174.4 s |
+| `partial_hess_elec` | 846.4 s | 845.0 s | 843.8 s |
+| `solve_mo1` | 1548.6 s | 690.3 s | 668.4 s |
+| solvent Hessian | 22.7 s | 22.8 s | 22.8 s |
+| Hessian | 3042.3 s | 2185.4 s | 2155.9 s |
+| peak resident memory (`guard.sh`: whole GB, a sample every 3 s) | 12 GB | 16 GB | 12 GB |
+
+The three Hessians agree to 4.2e-10 (frequencies to 0.0000 cm^-1). `make_h1` is the rest, about 620 s. The gas-phase
+Hessian of the section above: 1867 s with `solve_mo1` 498 s (VV10 response on level 0 there, level 1 here).
+- **Every PCM/SMD Hessian solved its CPHF with AO matrices.** `_Solvation.gen_response` wraps the gas-phase response
+  function and returned a plain function: `hessian.rhf` looks for `vind_mo` on it (the response from the factors, the
+  occupied-virtual blocks only) and did not find it, with or without the options above. `_attach_solvent` now gives the
+  wrapper a `vind_mo` (`_solvent_vind_mo`, RHF/RKS and UHF/UKS): the gas-phase one plus the solvent's response of the
+  same densities, in blocks of `max_memory`/(3 x 8 x nao^2) perturbations. `check_solvent_vind_mo.py`: Hessians equal to
+  7e-11 (RHF, RKS and UKS in PCM and SMD, exact and `sgx_response`), the CPHF of the DFT tests 3-6 times faster (RHF
+  as before); here 1549 -> 690 s.
+- **A matrix per set of charges per thread.** The solvent's response is the potential of one set of surface charges per
+  perturbation; the driver behind `_int1e_grids_dot(charges=...)` kept [nao,nao] for each set in each thread (72 sets x
+  10 threads x 614^2: 2.2 GB) and added them at the end, on top of the response's own blocks: the 16 GB of the middle
+  column, 4 GB over `max_memory`. `SGXnr_g_ij_drv_batches` threads over shell pairs and sums into the matrices: the
+  response of 72 densities 9.1 -> 4.4 s, the charge-derivative potentials of H1 10.6 -> 5.7 s, same numbers (1e-10), and
+  the peak back at 12 GB. Where in the run the peak falls was not measured (the sampler of the last run read the
+  wrong process).
+
+### UKS (b8525934e, dd9a38ce2)
+- **Gradients**: the XC and VV10 terms contracted on the grid as for RKS (`grad.uks._get_vxc_de`,
+  `_FusedXC.get_vxc_grad_q_uks`); 2e-14 against the matrices (`check_xcgrad_uks.py`: a radical cation and a triplet, five
+  functionals, direct, density-fitted, RIJCOSX).
+- **UKS Hessians of VV10 functionals did not exist** (`NotImplementedError('UKS Hessian for NLC functional')` upstream).
+  VV10 is a functional of the total density: its two derivative terms are `hessian.rks`'s for the orbitals
+  (C_alpha, C_beta)/sqrt(2) with occupation 2 (`uks._total_density_orbitals`); the response functions had it. A closed
+  shell as UKS: the RKS Hessian to 1.4e-8. A radical cation against finite differences of gradients: 8e-5 (wB97M-V,
+  wB97X-V), B3LYP 3.6e-5; the same test for RKS: 5.6e-5 and 3.0e-5 (the missing weight derivatives).
+- **`ucphf.solve_residual`**, and with it `cphf_residual_tol` and `sgx_response` for UHF/UKS. Radical cation/def2-SVPD
+  against residual 1e-9 (`check_uks_response.py`): residual 1e-4 2e-9 in the Hessian; `sgx_response` level 1 0.004-0.014
+  cm^-1, level 2 0.001-0.002, with `aug_etb` RI-J 0.02-0.05.
+- **`ucphf.solve`'s Krylov solver stops short for DFT, more than cphf's**: UKS/B3LYP 1.8e-4 in a Hessian element and
+  **1.18 cm^-1** in a frequency at the default `conv_tol_cpscf`; PBE 0.09, wB97M-V 0.02, UHF 0.000. The default is
+  unchanged (the question of `solve_residual` as the default is open with the user); `hobj.cphf_residual_tol = 1e-4`
+  costs no more.
+
+### `two_level`: the cheap model's grids (6b1cd0357; `two_level_rijcosx.py`, `two_level_exact.py`)
+| cheap model's XC / VV10 level | RIJCOSX(aug_etb) model | exact model |
+|---|---|---|
+| 2 / 1 (the default until now) | 158.4 s, 2 builds | 201.9 s, 2 builds |
+| 1 / 1 | 146.7 s, 2 | |
+| 1 / 0 (the default now) | 125.8 s, 2 | 170.2 s, 2 |
+| 0 / 0 | 167.2 s, 3 | |
+
+Energies within 1e-10 Eh of each other and of the plain SCFs (RIJCOSX 176 s, exact 451 s). The ten small models of
+`check_two.py`: 2 builds each, within 4e-11 Eh.
+
+### The n-point rule for the mixed-range kernel: measured, not built (`mixed_rootcost_time.py`)
+A qcint whose mixed mode evaluates both sets of roots and runs the recurrences on one (wrong numbers, the cost of an
+n-point rule before its compression step), non-PGO builds, one density of caffeine:
+
+| SGX-K | K | K_LR | mixed, 2n roots | both root sets, n-root recurrences |
+|---|---|---|---|---|
+| level 1 | 2.07 s | 2.47 s | 3.76 s | 2.94 s |
+| level 2 | 4.46 s | 5.32 s | 8.26 s | 6.48 s |
+
+At most 22% of a single-density K, before a Lanczos compression and a tridiagonal eigenproblem per shell pair and point,
+which cost about what a second set of roots does (0.85 s here). Left over: a few percent of a RIJCOSX SCF. Not built.
+
+### Still open
+- The second-derivative integrals (771 s of caffeine's 1867 s Hessian) and `make_h1`'s J/K (339 s): exact, two passes each.
+- `solve_residual` as the default CPHF solver (RKS and UKS).
+- ROKS: no gradient-contracted XC term, no Hessian.
+- SMD at the production size (about 1000 AOs, 10,000 surface points, 180 perturbations): not run. The per-atom surface
+  arrays (natm x 9 x n per atom block) and what is left of the n^2 surface algebra are unprofiled there, and so is the
+  block size of the solvent's response.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

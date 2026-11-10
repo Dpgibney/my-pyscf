@@ -1,0 +1,5 @@
+[  158 s] cheap grids XC level 2, VV10 level 1: 158.4 s, 2 builds of the model, conv True, E -680.3497815048 (+0.0e+00 from the first)
+[  305 s] cheap grids XC level 1, VV10 level 1: 146.7 s, 2 builds of the model, conv True, E -680.3497815048 (+5.0e-11 from the first)
+[  431 s] cheap grids XC level 1, VV10 level 0: 125.8 s, 2 builds of the model, conv True, E -680.3497815047 (+8.6e-11 from the first)
+[  598 s] cheap grids XC level 0, VV10 level 0: 167.2 s, 3 builds of the model, conv True, E -680.3497815048 (+2.0e-11 from the first)
+guard: peak RSS about 3 GB
