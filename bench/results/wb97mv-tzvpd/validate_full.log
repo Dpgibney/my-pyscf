@@ -1,0 +1,61 @@
+candidate new: pyscf {} [cint=qcint-pgo xc=libxc-stock blas=openblas]
+reference ref: pyscf-base {} [cint=libcint-stock xc=libxc-stock blas=openblas]
+PASS  scf_caffeine_svp_pbe
+      e_tot                  max|d|=  6.82e-12 tol= 1e-09 ok
+      cycles                 max|d|=  44 vs 39 tol=       warn
+PASS  scf_caffeine_svp_b3lyp
+      e_tot                  max|d|=  1.14e-12 tol= 1e-09 ok
+PASS  scf_caffeine_svp_r2scan
+      e_tot                  max|d|=  2.73e-12 tol= 1e-09 ok
+PASS  grad_benzene_svp_b3lyp
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      grad                   max|d|=  3.55e-14 tol= 1e-08 ok
+PASS  tda_benzene_svp_b3lyp
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  4.80e-15 tol= 1e-09 ok
+PASS  grid_caffeine_svp
+PASS  scf_caffeine_tzvp_dfpbe
+      e_tot                  max|d|=  2.27e-12 tol= 1e-09 ok
+      cycles                 max|d|=  31 vs 28 tol=       warn
+PASS  scf_caffeine_tzvp_b3lyp
+      e_tot                  max|d|=  1.14e-12 tol= 1e-09 ok
+      cycles                 max|d|=  25 vs 26 tol=       warn
+PASS  scf_caffeine_svp_camb3lyp
+      e_tot                  max|d|=  4.55e-13 tol= 1e-09 ok
+      cycles                 max|d|=  29 vs 24 tol=       warn
+PASS  scf_caffeine+_svp_b3lyp_uks
+      e_tot                  max|d|=  1.36e-12 tol= 1e-09 ok
+      cycles                 max|d|=  49 vs 47 tol=       warn
+PASS  tddft_benzene_svp_b3lyp
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  8.09e-14 tol= 1e-09 ok
+PASS  hess_benzene_svp_b3lyp
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  9.67e-11 tol= 1e-07 ok
+PASS  hess_benzene_svp_pbe
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  6.93e-12 tol= 1e-07 ok
+PASS  tda_caffeine+_svp_b3lyp_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  1.03e-15 tol= 1e-09 ok
+PASS  hess_benzene+_svp_b3lyp_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      hessian                max|d|=  7.01e-09 tol= 1e-07 ok
+PASS  scf_benzene+_svp_r2scan_uks
+      e_tot                  max|d|=  4.55e-13 tol= 1e-09 ok
+      cycles                 max|d|=  20 vs 19 tol=       warn
+PASS  grad_caffeine_svp_b3lyp
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      grad                   max|d|=  1.54e-12 tol= 1e-08 ok
+PASS  grad_caffeine+_svp_b3lyp_uks
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      grad                   max|d|=  1.52e-12 tol= 1e-08 ok
+PASS  tda_caffeine_svp_b3lyp
+      e_tot                  max|d|=  0.00e+00 tol= 1e-09 ok
+      excitations            max|d|=  1.47e-15 tol= 1e-09 ok
+PASS  scf_c20h42_svp_b3lyp
+      e_tot                  max|d|=  2.73e-12 tol= 1e-09 ok
+PASS  scf_c20h42_tzvp_pbe
+      e_tot                  max|d|=  3.64e-12 tol= 1e-09 ok
+ALL PASS
+exit 0

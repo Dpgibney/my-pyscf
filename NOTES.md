@@ -8506,7 +8506,7 @@ reference: exact response, `cphf_residual_tol` 1e-7. Largest change of a harmoni
   before). The SCF's J-fitting bases cannot describe the response densities of the nuclei; the even-tempered basis can.
 - Caffeine, the last row: CPHF 662 s against 1541 s, 0.068 cm^-1 (direct J 244, SGX-K 138 + 138, XC 127, VV10 13).
 
-### Changes (pyscf `perf` 85c9151a7..7bb8d8cad, qcint `perf` 3474509; local, not pushed)
+### Changes (pyscf `perf` 85c9151a7..7bb8d8cad, qcint `perf` 3474509; pushed on 2026-11-10 in the tags perf-2026-11-10)
 1. **`init_guess='pre_scf'`** (85c9151a7): its coarse grids when `atom_grid` is set (it lowered `grids.level`, which
    `atom_grid` overrides: the pre-SCF ran on all 767,472 points); `pre_scf_fit` 'auto' / 'df' / 'rijcosx'.
 2. **`mf.set_second_nlcgrids(level)`** (cb81adcc2): the VV10 part of the response functions on a grid of its own, as
@@ -8562,7 +8562,7 @@ reference: exact response, `cphf_residual_tol` 1e-7. Largest change of a harmoni
 
 ## SMD Hessians, UKS and the rest of the wB97M-V list, 2026-11-10
 The user, on the "not done" list of the section above: "Could you work on that isn't done yet". The laptop, 10 threads,
-balanced profile, single runs. pyscf `perf` ad53ed420..9acee0ae5 (local, not pushed); scripts `bench/diag/wb97mv/`, logs
+balanced profile, single runs. pyscf `perf` ad53ed420..9acee0ae5 (pushed in tag perf-2026-11-10, below); scripts `bench/diag/wb97mv/`, logs
 `bench/results/wb97mv-tzvpd/`.
 
 ### The solvent terms of the SMD/PCM Hessian (ad53ed420; `smd_hess_prof.py`)
@@ -8748,6 +8748,17 @@ which cost about what a second set of roots does (0.85 s here). Left over: a few
 - SMD at the production size (about 1000 AOs, 10,000 surface points, 180 perturbations): not run. The per-atom surface
   arrays (natm x 9 x n per atom block) and what is left of the n^2 surface algebra are unprofiled there, and so is the
   block size of the solvent's response.
+
+### Validated and pushed: perf-2026-11-10
+The user, asked whether to run the full suite first: "Sure validate and then push it".
+- **`validate.py new=pyscf --suite full`** on pyscf 9acee0ae5 with qcint 3474509 (`install/qcint-pgo`) against stock
+  PySCF and libcint (`bench/results/wb97mv-tzvpd/validate_full.log`): 21 cases, all pass. Energies within 6.8e-12 Eh,
+  gradients 1.5e-12, Hessians 7.0e-9 (converged CPHF on both sides), excitation energies 8.1e-14. With the hessian suite
+  (21 cases, 1.4e-10) and the quick suite of the section above, every suite has run on the pushed state.
+- **Pushed:** PySCF `perf` 2decf7302..9acee0ae5 (16 commits) and qcint `perf` e25a81f..3474509 (1 commit), each with the
+  annotated tag `perf-2026-11-10`; `scripts/pins.txt` and the README's table moved to them. The two tags go together:
+  PySCF's one-pass exchange of a range-separated hybrid asks qcint for the mixed-range operator
+  (`sgx_jk.mixed_range_supported()`) and takes the two passes with an older qcint.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
