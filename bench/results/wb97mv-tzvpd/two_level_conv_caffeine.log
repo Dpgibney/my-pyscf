@@ -1,0 +1,16 @@
+[   98 s] rijcosx, cheap SCF to 1e-07, second-order test False: 98.3 s, conv True, E -680.3497815047 (+0.0e+00); two-level SCF: 2 Fock builds of the model, 7 of the cheap one after its SCF of 11 cycles
+        reference 1  E= -680.349793577073  |g|= 0.00179  (2 |g|^2/gap=  inf)
+        reference 2  E= -680.349793883481  E - predicted= -2.09e-11  |g|= 5.24e-06  (2 |g|^2/gap=  inf, 7 cheap builds)
+[  202 s] rijcosx, cheap SCF to 1e-07, second-order test True: 103.2 s, conv True, E -680.3497815047 (+0.0e+00); two-level SCF: 2 Fock builds of the model, 7 of the cheap one after its SCF of 11 cycles
+        reference 1  E= -680.349793577075  |g|= 0.00179  (2 |g|^2/gap= 1.84e-05)
+        reference 2  E= -680.349793883481  E - predicted= -1.84e-11  |g|= 5.24e-06  (2 |g|^2/gap= 1.58e-10, 7 cheap builds)
+[  305 s] rijcosx, cheap SCF to 1e-06, second-order test True: 103.3 s, conv True, E -680.3497815048 (-5.2e-11); two-level SCF: 2 Fock builds of the model, 8 of the cheap one after its SCF of 10 cycles
+        reference 1  E= -680.34979354306  |g|= 0.0018  (2 |g|^2/gap= 1.86e-05)
+        reference 2  E= -680.349793883508  E - predicted= -2.06e-11  |g|= 2.41e-06  (2 |g|^2/gap= 3.35e-11, 8 cheap builds)
+[  404 s] rijcosx, cheap SCF to 1e-05, second-order test True: 98.9 s, conv True, E -680.3497815047 (+2.5e-11); two-level SCF: 2 Fock builds of the model, 9 of the cheap one after its SCF of 8 cycles
+        reference 1  E= -680.349789584439  |g|= 0.00298  (2 |g|^2/gap= 5.12e-05)
+        reference 2  E= -680.349793883497  E - predicted= -9.38e-10  |g|= 3.95e-06  (2 |g|^2/gap= 8.98e-11, 9 cheap builds)
+[  503 s] rijcosx, cheap SCF to 0.0001, second-order test True: 99.5 s, conv True, E -680.3497815047 (+2.3e-11); two-level SCF: 2 Fock builds of the model, 9 of the cheap one after its SCF of 8 cycles
+        reference 1  E= -680.34978958444  |g|= 0.00298  (2 |g|^2/gap= 5.12e-05)
+        reference 2  E= -680.349793883498  E - predicted= -9.38e-10  |g|= 3.95e-06  (2 |g|^2/gap= 8.98e-11, 9 cheap builds)
+guard: peak RSS about 3 GB

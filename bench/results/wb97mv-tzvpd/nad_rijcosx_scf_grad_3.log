@@ -1,0 +1,712 @@
+#INFO: **** input file is /home/danny/Chemistry/my-pyscf/bench/diag/wb97mv/prod_scf_grad.py ****
+'''A production-size wB97M-V/def2-TZVPD energy and gradient in SMD through the public options: grids (99,590) and
+(50,194), exact J and K (or RIJCOSX), the two-level SCF, then the analytical gradient. PySCF's own output at verbose 4 with its
+timers on (the wall time of each step), and a line per phase marked ">>>" with the wall time, the resident memory
+and its peak since the previous such line.
+Usage: prod_scf_grad.py XYZ [--charge 0] [--solvent water] [--rijcosx] [--plain] [--dm0 DM.npy] [--save PREFIX]
+  --rijcosx RI-J in the even-tempered fitting basis (df.aug_etb) and seminumerical K instead of the exact J and K
+  --plain   the plain SCF instead of mf.two_level
+  --dm0     start the SCF from a saved density matrix (PREFIX_dm.npy of an earlier run)'''
+import argparse, time, numpy
+import pyscf
+from pyscf import gto, dft, df, lib, grad
+from pyscf.lib import logger
+logger.TIMER_LEVEL = 4      # timer lines at verbose 4
+p = argparse.ArgumentParser()
+p.add_argument('xyz'); p.add_argument('--charge', type=int, default=0); p.add_argument('--solvent', default='water')
+p.add_argument('--basis', default='def2-tzvpd'); p.add_argument('--plain', action='store_true')
+p.add_argument('--dm0'); p.add_argument('--save'); p.add_argument('--rijcosx', action='store_true')
+a = p.parse_args()
+T0 = time.perf_counter()
+
+
+def memory():
+    '''resident memory now and its peak since the last call, GB'''
+    d = {}
+    with open('/proc/self/status') as f:
+        for line in f:
+            if line.startswith(('VmRSS', 'VmHWM')):
+                d[line[:5]] = int(line.split()[1]) / 1048576
+    try:
+        with open('/proc/self/clear_refs', 'w') as f:
+            f.write('5')        # the peak starts again from here
+    except OSError:
+        pass
+    return d['VmRSS'], d['VmHWM']
+
+
+PEAKS = []
+
+
+def say(msg, phase=None):
+    rss, peak = memory()
+    if phase:
+        PEAKS.append((phase, peak))
+    print(f'>>> [{time.perf_counter() - T0:6.0f} s] {msg}; resident {rss:.1f} GB, peak since the last line {peak:.1f} GB',
+          flush=True)
+
+
+mol = gto.M(atom=a.xyz, basis=a.basis, charge=a.charge, verbose=4)
+mf = dft.RKS(mol, xc='wb97m-v')
+mf.grids.atom_grid = (99, 590)
+mf.nlcgrids.atom_grid = (50, 194)
+if a.rijcosx:
+    mf = mf.RIJCOSX(auxbasis=df.aug_etb(mol))
+mf = mf.SMD()
+mf.with_solvent.solvent = a.solvent
+mf.two_level = not a.plain
+say(f'pyscf {pyscf.__file__}, {lib.num_threads()} threads, max_memory {mf.max_memory:.0f} MB; {mol.natm} atoms, '
+    f'{mol.nelectron} electrons, {mol.nao} AOs; wB97M-V/{a.basis} in SMD {a.solvent}, '
+    f'{"RIJCOSX (aug_etb)" if a.rijcosx else "exact J and K"}, '
+    f'{"plain" if a.plain else "two-level"} SCF')
+
+t = time.perf_counter()
+mf.with_solvent.build()
+surface = mf.with_solvent._intermediates['D']
+n = surface.shape[0]
+say(f'solvent surface: {time.perf_counter() - t:.1f} s, {n} points, {n * n * 8 / 1e9:.2f} GB for each [n,n] matrix',
+    'solvent surface')
+
+t = time.perf_counter()
+e = mf.kernel(dm0=numpy.load(a.dm0) if a.dm0 else None)
+t_scf = time.perf_counter() - t
+assert mf.with_solvent._intermediates['D'] is surface, 'the SCF built the solvent surface again'
+say(f'SCF: {t_scf:.1f} s, {mf.cycles} {"cycles" if a.plain else "Fock builds of the model"}, converged {mf.converged}, '
+    f'E = {e:.10f} Eh; XC grid {mf.grids.weights.size} points, VV10 grid {mf.nlcgrids.weights.size} points', 'SCF')
+if a.save:
+    numpy.save(a.save + '_dm.npy', mf.make_rdm1())
+
+t = time.perf_counter()
+g = mf.Gradients().kernel()
+t_grad = time.perf_counter() - t
+say(f'gradient: {t_grad:.1f} s, max |g| {abs(g).max():.3e}, rms {numpy.sqrt((g**2).mean()):.3e} Eh/Bohr, '
+    f'sum over atoms {abs(g.sum(axis=0)).max():.1e}', 'gradient')
+if a.save:
+    numpy.savez(a.save + '_result.npz', e_tot=e, grad=g, t_scf=t_scf, t_grad=t_grad)
+print('>>> summary: SCF %.0f s, gradient %.0f s, total %.0f s; peak resident memory by phase: %s'
+      % (t_scf, t_grad, time.perf_counter() - T0, ', '.join(f'{k} {v:.1f} GB' for k, v in PEAKS)), flush=True)
+#INFO: ******************** input file end ********************
+
+
+System: uname_result(system='Linux', node='laptop', release='7.0.0-43-generic', version='#43-Ubuntu SMP PREEMPT_DYNAMIC Fri Oct 23 13:25:25 UTC 2026', machine='x86_64')  Threads 10
+Python 3.12.8 (main, Dec 19 2024, 14:33:20) [Clang 18.1.8 ]
+numpy 2.5.4  scipy 1.18.1  h5py 3.16.0
+Date: Wed Nov 11 07:04:36 2026
+PySCF version 2.14.0
+PySCF path  /home/danny/Chemistry/my-pyscf/pyscf
+GIT ORIG_HEAD 7bb8d8cad0ccc5dfcf2a97200d179955b8c7147b
+GIT HEAD (branch perf) bc3b9543f21acf08e4200a8627757bd0ecc8dad3
+
+[ENV] PYSCF_MAX_MEMORY 16000
+[ENV] PYSCF_CONFIG_FILE /home/danny/Chemistry/my-pyscf/bench/pyscf_conf.py
+[CONFIG] conf_file /home/danny/Chemistry/my-pyscf/bench/pyscf_conf.py
+[INPUT] verbose = 4
+[INPUT] num. atoms = 70
+[INPUT] num. electrons = 344
+[INPUT] charge = -1
+[INPUT] spin (= nelec alpha-beta = 2S) = 0
+[INPUT] symmetry False subgroup None
+[INPUT] Mole.unit = angstrom
+[INPUT] Symbol           X                Y                Z      unit          X                Y                Z       unit  Magmom
+[INPUT]  1 N      9.811530000000  -1.672040000000   2.421415000000 AA   18.541104562954  -3.159697669318   4.575811183914 Bohr   0.0
+[INPUT]  2 C      8.776909000000  -0.939922000000   1.914323000000 AA   16.585954230230  -1.776195158453   3.617546183956 Bohr   0.0
+[INPUT]  3 O      8.334781000000   0.035110000000   2.503603000000 AA   15.750453398229   0.066348284233   4.731123994639 Bohr   0.0
+[INPUT]  4 C      8.178069000000  -1.373351000000   0.636168000000 AA   15.454310637796  -2.595257262898   1.202183289212 Bohr   0.0
+[INPUT]  5 C      8.864645000000  -2.150535000000  -0.295568000000 AA   16.751751241495  -4.063922171292  -0.558542571185 Bohr   0.0
+[INPUT]  6 C      8.232996000000  -2.496638000000  -1.484843000000 AA   15.558107624640  -4.717962052182  -2.805946607978 Bohr   0.0
+[INPUT]  7 C      6.933059000000  -2.063088000000  -1.720836000000 AA   13.101582715451  -3.898671290877  -3.251908745292 Bohr   0.0
+[INPUT]  8 N      6.279511000000  -1.307706000000  -0.806994000000 AA   11.866555986194  -2.471206191450  -1.524997644167 Bohr   0.0
+[INPUT]  9 C      6.879198000000  -0.947261000000   0.352742000000 AA   12.999800176656  -1.790063858482   0.666585772631 Bohr   0.0
+[INPUT] 10 C      4.880430000000  -0.903786000000  -1.105670000000 AA    9.222676070111  -1.707908015216  -2.089413484148 Bohr   0.0
+[INPUT] 11 O      4.424331000000   0.119257000000  -0.222339000000 AA    8.360773874423   0.225363068437  -0.420159816810 Bohr   0.0
+[INPUT] 12 C      2.994043000000  -0.126849000000  -0.013313000000 AA    5.657921275171  -0.239709869175  -0.025157923896 Bohr   0.0
+[INPUT] 13 C      2.769587000000  -0.309954000000   1.492907000000 AA    5.233760908156  -0.585728171213   2.821185359446 Bohr   0.0
+[INPUT] 14 O      1.480182000000  -0.788174000000   1.803538000000 AA    2.797138594511  -1.489432998503   3.408192875246 Bohr   0.0
+[INPUT] 15 P      0.262563000000   0.280045000000   1.722971000000 AA    0.496172160444   0.529208352554   3.255943310568 Bohr   0.0
+[INPUT] 16 O      0.746906000000   1.542087000000   1.060898000000 AA    1.411447780794   2.914122090252   2.004806666099 Bohr   0.0
+[INPUT] 17 O     -0.397051000000   0.382301000000   3.080939000000 AA   -0.750317647485   0.722444187147   5.822130916491 Bohr   0.0
+[INPUT] 18 O     -0.769632000000  -0.494236000000   0.809476000000 AA   -1.454393696701  -0.933970680901   1.529687944408 Bohr   0.0
+[INPUT] 19 P     -0.800415000000  -1.151444000000  -0.626612000000 AA   -1.512565135994  -2.175913807774  -1.184125066366 Bohr   0.0
+[INPUT] 20 O     -0.496979000000  -2.626425000000  -0.520658000000 AA   -0.939154199660  -4.963223936711  -0.983901024564 Bohr   0.0
+[INPUT] 21 O     -0.038742000000  -0.335091000000  -1.645616000000 AA   -0.073211769518  -0.633230216807  -3.109763546202 Bohr   0.0
+[INPUT] 22 O     -2.393614000000  -0.997611000000  -0.911710000000 AA   -4.523274907925  -1.885211568853  -1.722882205027 Bohr   0.0
+[INPUT] 23 C     -2.937862000000   0.302157000000  -1.059171000000 AA   -5.551754571767   0.570993976620  -2.001543109082 Bohr   0.0
+[INPUT] 24 C     -3.000429000000   1.137812000000   0.233217000000 AA   -5.669989066203   2.150153061244   0.440716257593 Bohr   0.0
+[INPUT] 25 O     -3.943079000000   2.231414000000   0.011466000000 AA   -7.451339397524   4.216761330520   0.021667599744 Bohr   0.0
+[INPUT] 26 C     -5.017994000000   2.061368000000   0.951887000000 AA   -9.482634354711   3.895420961942   1.798805731534 Bohr   0.0
+[INPUT] 27 C     -4.990321000000   0.611591000000   1.431238000000 AA   -9.430339963666   1.155739490249   2.704647839070 Bohr   0.0
+[INPUT] 28 O     -5.577233000000   0.453873000000   2.729321000000 AA  -10.539442902886   0.857695665335   5.157669196024 Bohr   0.0
+[INPUT] 29 C     -3.491088000000   0.370256000000   1.471141000000 AA   -6.597200196756   0.699682435977   2.780053580619 Bohr   0.0
+[INPUT] 30 O     -3.035062000000   0.974890000000   2.703814000000 AA   -5.735435951075   1.842275101577   5.109467951765 Bohr   0.0
+[INPUT] 31 N     -6.261410000000   2.485992000000   0.341489000000 AA  -11.832350053613   4.697844027860   0.645320684552 Bohr   0.0
+[INPUT] 32 C     -7.021917000000   3.545887000000   0.772520000000 AA  -13.269499999428   6.700755298656   1.459851225749 Bohr   0.0
+[INPUT] 33 N     -8.111852000000   3.707268000000   0.050169000000 AA  -15.329178643005   7.005721190364   0.094805669943 Bohr   0.0
+[INPUT] 34 C     -8.042400000000   2.709387000000  -0.901245000000 AA  -15.197933384202   5.119999395457  -1.703106221134 Bohr   0.0
+[INPUT] 35 C     -8.903082000000   2.347976000000  -1.952180000000 AA  -16.824386644545   4.437031587052  -3.689085545853 Bohr   0.0
+[INPUT] 36 N    -10.089246000000   3.024160000000  -2.229789000000 AA  -19.065911743364   5.714834156865  -4.213690525568 Bohr   0.0
+[INPUT] 37 N     -8.590226000000   1.273531000000  -2.710642000000 AA  -16.233174488118   2.406624801143  -5.122371001743 Bohr   0.0
+[INPUT] 38 C     -7.443207000000   0.613791000000  -2.432614000000 AA  -14.065622718446   1.159896887723  -4.596974226783 Bohr   0.0
+[INPUT] 39 N     -6.547448000000   0.866130000000  -1.461124000000 AA  -12.372883534831   1.636748488270  -2.761124194029 Bohr   0.0
+[INPUT] 40 C     -6.906921000000   1.932883000000  -0.730091000000 AA  -13.052189054007   3.652619500828  -1.379672036010 Bohr   0.0
+[INPUT] 41 C      2.643612000000  -1.374405000000  -0.833753000000 AA    4.995702659614  -2.597249034233  -1.575564825534 Bohr   0.0
+[INPUT] 42 O      2.325314000000  -1.026148000000  -2.192647000000 AA    4.394206613617  -1.939138683270  -4.143502317849 Bohr   0.0
+[INPUT] 43 C      3.961220000000  -2.101823000000  -0.911810000000 AA    7.485620919150  -3.971869832312  -1.723071177640 Bohr   0.0
+[INPUT] 44 O      4.033358000000  -3.028607000000  -1.999614000000 AA    7.621941982323  -5.723237768941  -3.778722814846 Bohr   0.0
+[INPUT] 45 H     10.117604000000  -1.410107000000   3.352891000000 AA   19.119500596804  -2.664716036332   6.336045715519 Bohr   0.0
+[INPUT] 46 H     10.026460000000  -2.613622000000   2.125587000000 AA   18.947263398907  -4.939029773138   4.016777283936 Bohr   0.0
+[INPUT] 47 H      9.889726000000  -2.468726000000  -0.123888000000 AA   18.688873586990  -4.665216016593  -0.234114390120 Bohr   0.0
+[INPUT] 48 H      8.747012000000  -3.100695000000  -2.229112000000 AA   16.529457088284  -5.859464345808  -4.212411180981 Bohr   0.0
+[INPUT] 49 H      6.400902000000  -2.319927000000  -2.634411000000 AA   12.095951730181  -4.384026658984  -4.978315289542 Bohr   0.0
+[INPUT] 50 H      6.313185000000  -0.330002000000   1.046938000000 AA   11.930190623712  -0.623613400559   1.978426089400 Bohr   0.0
+[INPUT] 51 H      4.885737000000  -0.514535000000  -2.132321000000 AA    9.232704846654  -0.972330231503  -4.029502699659 Bohr   0.0
+[INPUT] 52 H      2.464311000000   0.746218000000  -0.401088000000 AA    4.656872875753   1.410147649221  -0.757946471850 Bohr   0.0
+[INPUT] 53 H      3.491423000000  -1.034146000000   1.888441000000 AA    6.597833255007  -1.954252712814   3.568636292400 Bohr   0.0
+[INPUT] 54 H      2.977219000000   0.622174000000   2.032081000000 AA    5.626128522851   1.175738461825   3.840076552932 Bohr   0.0
+[INPUT] 55 H     -3.946500000000   0.174242000000  -1.463753000000 AA   -7.457804150596   0.329269659396  -2.766092284010 Bohr   0.0
+[INPUT] 56 H     -2.388898000000   0.852689000000  -1.831848000000 AA   -4.514362959521   1.611348679429  -3.461691021832 Bohr   0.0
+[INPUT] 57 H     -2.030970000000   1.606809000000   0.422017000000 AA   -3.837977067208   3.036428944486   0.797496549911 Bohr   0.0
+[INPUT] 58 H     -4.829469000000   2.744331000000   1.790839000000 AA   -9.126373737077   5.186033985154   3.384195243190 Bohr   0.0
+[INPUT] 59 H     -5.474858000000  -0.079452000000   0.735756000000 AA  -10.345982190884  -0.150142520049   1.390377334505 Bohr   0.0
+[INPUT] 60 H     -4.819961000000   0.599979000000   3.342346000000 AA   -9.108406221085   1.133795990490   6.316118553536 Bohr   0.0
+[INPUT] 61 H     -3.236694000000  -0.691384000000   1.512539000000 AA   -6.116465209023  -1.306526406906   2.858284462724 Bohr   0.0
+[INPUT] 62 H     -2.069757000000   0.742951000000   2.815693000000 AA   -3.911273874401   1.403973913972   5.320888620855 Bohr   0.0
+[INPUT] 63 H     -6.730719000000   4.159446000000   1.615925000000 AA  -12.719215531406   7.860213769918   3.053655687838 Bohr   0.0
+[INPUT] 64 H    -10.419305000000   3.553263000000  -1.429739000000 AA  -19.689632858311   6.714693918550  -2.701815139610 Bohr   0.0
+[INPUT] 65 H    -10.748537000000   2.418044000000  -2.698442000000 AA  -20.311791169754   4.569440917148  -5.099316343024 Bohr   0.0
+[INPUT] 66 H     -7.216457000000  -0.233366000000  -3.073681000000 AA  -13.637127319700  -0.440997826785  -5.808415284279 Bohr   0.0
+[INPUT] 67 H      1.854895000000  -2.006325000000  -0.432872000000 AA    3.505243539825  -3.791404766868  -0.818009526993 Bohr   0.0
+[INPUT] 68 H      1.380625000000  -0.677448000000  -2.133545000000 AA    2.609003130728  -1.280191183634  -4.031815724435 Bohr   0.0
+[INPUT] 69 H      4.180106000000  -2.631752000000   0.022054000000 AA    7.899255511651  -4.973290507776   0.041676019951 Bohr   0.0
+[INPUT] 70 H      3.177884000000  -2.902728000000  -2.478756000000 AA    6.005330415637  -5.485360934106  -4.684169969622 Bohr   0.0
+
+nuclear repulsion = 6116.89133205333
+number of shells = 720
+number of NR pGTOs = 2650
+number of NR cGTOs = 1916
+basis = def2-tzvpd
+ecp = {}
+CPU time:         0.36
+ETB for P: l = 0, exps = 0.09766263045 * 2^n , n = 0..17
+ETB for P: l = 1, exps = 0.13285011662026025 * 2^n , n = 0..14
+ETB for P: l = 2, exps = 0.11987489577329327 * 2^n , n = 0..12
+ETB for P: l = 3, exps = 0.1630653793569161 * 2^n , n = 0..8
+ETB for P: l = 4, exps = 0.147139090668 * 2^n , n = 0..5
+ETB for C: l = 0, exps = 0.09695080274 * 2^n , n = 0..15
+ETB for C: l = 1, exps = 0.1396436269879928 * 2^n , n = 0..11
+ETB for C: l = 2, exps = 0.13282395419408172 * 2^n , n = 0..9
+ETB for C: l = 3, exps = 0.19131371984912965 * 2^n , n = 0..6
+ETB for C: l = 4, exps = 0.181970672848 * 2^n , n = 0..3
+ETB for O: l = 0, exps = 0.14057605254 * 2^n , n = 0..15
+ETB for O: l = 1, exps = 0.11987683701057777 * 2^n , n = 0..13
+ETB for O: l = 2, exps = 0.102225491412 * 2^n , n = 0..10
+ETB for O: l = 3, exps = 0.1733409715424882 * 2^n , n = 0..7
+ETB for O: l = 4, exps = 0.29392954732 * 2^n , n = 0..4
+ETB for H: l = 0, exps = 0.20614482 * 2^n , n = 0..8
+ETB for H: l = 1, exps = 0.1987125598126364 * 2^n , n = 0..5
+ETB for H: l = 2, exps = 0.191548259264 * 2^n , n = 0..3
+ETB for N: l = 0, exps = 0.136883211694 * 2^n , n = 0..15
+ETB for N: l = 1, exps = 0.19758884916892525 * 2^n , n = 0..11
+ETB for N: l = 2, exps = 0.1874119851975033 * 2^n , n = 0..9
+ETB for N: l = 3, exps = 0.2705263707460298 * 2^n , n = 0..6
+ETB for N: l = 4, exps = 0.25659284116 * 2^n , n = 0..3
+>>> [     0 s] pyscf /home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py, 10 threads, max_memory 16000 MB; 70 atoms, 344 electrons, 1916 AOs; wB97M-V/def2-tzvpd in SMD water, RIJCOSX (aug_etb), two-level SCF; resident 0.1 GB, peak since the last line 0.1 GB
+>>> [    10 s] solvent surface: 9.8 s, 14934 points, 1.78 GB for each [n,n] matrix; resident 1.8 GB, peak since the last line 2.2 GB
+
+
+******** <class 'pyscf.solvent._attach_solvent.SMDSGXRKS'> ********
+method = SMDSGXRKS
+initial guess = minao
+damping factor = 0
+level_shift factor = 0
+DIIS = <class 'pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 8
+diis_damp = 0
+SCF conv_tol = 1e-09
+SCF conv_tol_grad = None
+SCF max_cycles = 50
+direct_scf = True
+direct_scf_tol = 1e-13
+semi_direct = True
+two_level = True
+chkfile to save SCF result = /tmp/tmpg9_2i04m
+max_memory 16000 MB (current use 1907 MB)
+XC library pyscf.dft.libxc version 7.1.2
+    S. Lehtola, C. Steigemann, M. J. T. Oliveira, and M. A. L. Marques,  SoftwareX 7, 1–5 (2018)
+XC functionals = wb97m-v
+    N. Mardirossian and M. Head-Gordon,  J. Chem. Phys. 144, 214110 (2016)
+radial grids: 
+    Treutler-Ahlrichs [JCP 102, 346 (1995); DOI:10.1063/1.469408] (M4) radial grids
+    
+becke partition: Becke, JCP 88, 2547 (1988); DOI:10.1063/1.454033
+pruning grids: <function nwchem_prune at 0x739a8f8ffd80>
+grids dens level: 3
+symmetrized grids: False
+atomic radii adjust function: <function treutler_atomic_radii_adjust at 0x739a8d7102c0>
+User specified grid scheme (99, 590)
+** Following is NLC and NLC Grids **
+NLC functional = wb97m-v
+radial grids: 
+    Treutler-Ahlrichs [JCP 102, 346 (1995); DOI:10.1063/1.469408] (M4) radial grids
+    
+becke partition: Becke, JCP 88, 2547 (1988); DOI:10.1063/1.454033
+pruning grids: <function nwchem_prune at 0x739a8f8ffd80>
+grids dens level: 3
+symmetrized grids: False
+atomic radii adjust function: <function treutler_atomic_radii_adjust at 0x739a8d7102c0>
+User specified grid scheme (50, 194)
+small_rho_cutoff = 0
+******** <class 'pyscf.solvent.smd.SMD'> ********
+sasa_ng = 590
+eps = 78.3553
+eps_optical = None
+frozen = False
+---------- SMD solvent descriptors -------
+n     = 1.3328
+alpha = 0.82
+beta  = 0.35
+gamma = -1.0
+phi   = -1.0
+psi   = -1.0
+--------------------- end ----------------
+equilibrium_solvation = False
+tot grids = 55480
+Set gradient conv threshold to 3.16228e-05
+
+
+******** <class 'pyscf.solvent._attach_solvent.SMDSGXRKS'> ********
+method = SMDSGXRKS
+initial guess = minao
+damping factor = 0
+level_shift factor = 0
+DIIS = <class 'pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 8
+diis_damp = 0
+SCF conv_tol = 1e-07
+SCF conv_tol_grad = None
+SCF max_cycles = 50
+direct_scf = True
+direct_scf_tol = 1e-13
+semi_direct = True
+max_memory 16000 MB (current use 1968 MB)
+XC library pyscf.dft.libxc version 7.1.2
+    S. Lehtola, C. Steigemann, M. J. T. Oliveira, and M. A. L. Marques,  SoftwareX 7, 1–5 (2018)
+XC functionals = wb97m-v
+    N. Mardirossian and M. Head-Gordon,  J. Chem. Phys. 144, 214110 (2016)
+radial grids: 
+    Treutler-Ahlrichs [JCP 102, 346 (1995); DOI:10.1063/1.469408] (M4) radial grids
+    
+becke partition: Becke, JCP 88, 2547 (1988); DOI:10.1063/1.454033
+pruning grids: <function nwchem_prune at 0x739a8f8ffd80>
+grids dens level: 1
+symmetrized grids: False
+atomic radii adjust function: <function treutler_atomic_radii_adjust at 0x739a8d7102c0>
+** Following is NLC and NLC Grids **
+NLC functional = wb97m-v
+radial grids: 
+    Treutler-Ahlrichs [JCP 102, 346 (1995); DOI:10.1063/1.469408] (M4) radial grids
+    
+becke partition: Becke, JCP 88, 2547 (1988); DOI:10.1063/1.454033
+pruning grids: <function nwchem_prune at 0x739a8f8ffd80>
+grids dens level: 0
+symmetrized grids: False
+atomic radii adjust function: <function treutler_atomic_radii_adjust at 0x739a8d7102c0>
+small_rho_cutoff = 0
+******** <class 'pyscf.solvent.smd.SMD'> ********
+sasa_ng = 590
+eps = 78.3553
+eps_optical = None
+frozen = False
+---------- SMD solvent descriptors -------
+n     = 1.3328
+alpha = 0.82
+beta  = 0.35
+gamma = -1.0
+phi   = -1.0
+psi   = -1.0
+--------------------- end ----------------
+equilibrium_solvation = False
+tot grids = 55480
+Set gradient conv threshold to 0.000316228
+Initial guess from minao.
+SMD E_diel = -0.00364096686328336
+tot grids = 294240
+    CPU time for setting up grids      2.88 sec, wall time      0.31 sec
+tot grids = 64816
+    CPU time for setting up nlc grids      1.70 sec, wall time      0.17 sec
+    CPU time for vxc     74.54 sec, wall time      7.81 sec
+    CPU time for df-vj (J-engine)     74.95 sec, wall time      7.91 sec
+Create RSH-SGX object <pyscf.sgx.sgx.SGX object at 0x739a8d698fe0> for omega=0.3
+    CPU time for vk    228.52 sec, wall time     23.44 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.00364096686328336
+init E= -2946.14427169368
+
+WARN: 8 small eigenvectors of overlap matrix removed because of linear dependency between AOs.
+
+
+    CPU time for initialize scf    730.81 sec, wall time     78.29 sec
+  HOMO = -0.210088012012463  LUMO = -0.0602813172999754  gap/eV = 4.07645
+SMD E_diel = -0.352104926492251
+    CPU time for vxc     70.12 sec, wall time      7.31 sec
+    CPU time for df-vj (J-engine)     68.64 sec, wall time      7.04 sec
+    CPU time for vk    234.22 sec, wall time     23.60 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.352104926492251
+cycle= 1 E= -2934.59313696886  delta_E= 11.6  |g|=  2.5  |ddm|= 14.8
+    CPU time for cycle= 1    472.00 sec, wall time     48.45 sec
+  HOMO = -0.234646516402238  LUMO = -0.0724821126226673  gap/eV = 4.41272
+SMD E_diel = -0.225439381121844
+    CPU time for vxc     71.68 sec, wall time      7.50 sec
+    CPU time for df-vj (J-engine)     72.13 sec, wall time      7.39 sec
+    CPU time for vk    241.93 sec, wall time     24.36 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.225439381121844
+cycle= 2 E= -2934.39095414944  delta_E= 0.202  |g|=  2.9  |ddm|= 12.1
+    CPU time for cycle= 2    494.29 sec, wall time     50.70 sec
+  HOMO = -0.321116812395725  LUMO = -0.0263701677709456  gap/eV = 8.02046
+SMD E_diel = -0.268333973207444
+    CPU time for vxc     73.32 sec, wall time      7.68 sec
+    CPU time for df-vj (J-engine)     74.48 sec, wall time      7.62 sec
+    CPU time for vk    237.58 sec, wall time     24.00 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.268333973207444
+cycle= 3 E= -2935.77804786793  delta_E= -1.39  |g|= 0.217  |ddm|= 6.42
+    CPU time for cycle= 3    500.38 sec, wall time     51.41 sec
+  HOMO = -0.317230186110041  LUMO = -0.0145777152941752  gap/eV = 8.23559
+SMD E_diel = -0.264757136068951
+    CPU time for vxc     73.15 sec, wall time      7.62 sec
+    CPU time for df-vj (J-engine)     71.79 sec, wall time      7.36 sec
+    CPU time for vk    215.15 sec, wall time     21.73 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.264757136068951
+cycle= 4 E= -2935.78461565109  delta_E= -0.00657  |g|= 0.139  |ddm|= 0.855
+    CPU time for cycle= 4    475.41 sec, wall time     48.81 sec
+  HOMO = -0.317669341721195  LUMO = -0.0133580927936217  gap/eV = 8.28073
+SMD E_diel = -0.267035328496934
+    CPU time for vxc     73.77 sec, wall time      7.69 sec
+    CPU time for df-vj (J-engine)     77.25 sec, wall time      7.90 sec
+    CPU time for vk    253.08 sec, wall time     25.55 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267035328496934
+cycle= 5 E= -2935.78799004931  delta_E= -0.00337  |g|= 0.0231  |ddm|= 0.345
+    CPU time for cycle= 5    518.91 sec, wall time     53.27 sec
+  HOMO = -0.318673647086266  LUMO = -0.014367505083846  gap/eV = 8.28059
+SMD E_diel = -0.266828316901795
+    CPU time for vxc     73.23 sec, wall time      7.65 sec
+    CPU time for df-vj (J-engine)     68.36 sec, wall time      7.01 sec
+    CPU time for vk    188.10 sec, wall time     18.99 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.266828316901795
+cycle= 6 E= -2935.7881247703  delta_E= -0.000135  |g|= 0.00995  |ddm|= 0.122
+    CPU time for cycle= 6    444.45 sec, wall time     45.75 sec
+  HOMO = -0.31859454024809  LUMO = -0.0141454202237548  gap/eV = 8.28448
+SMD E_diel = -0.267048851053376
+    CPU time for vxc     72.91 sec, wall time      7.62 sec
+    CPU time for df-vj (J-engine)     66.31 sec, wall time      6.81 sec
+    CPU time for vk    170.13 sec, wall time     17.18 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267048851053376
+cycle= 7 E= -2935.78814760149  delta_E= -2.28e-05  |g|= 0.00319  |ddm|= 0.0384
+    CPU time for cycle= 7    423.99 sec, wall time     43.76 sec
+  HOMO = -0.318532991419384  LUMO = -0.0139895975685953  gap/eV = 8.28705
+SMD E_diel = -0.267051582238399
+    CPU time for vxc     73.35 sec, wall time      7.64 sec
+tot grids = 104592
+    CPU time for df-vj (J-engine)     77.46 sec, wall time      7.92 sec
+    CPU time for vk    490.65 sec, wall time     49.59 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267051582238399
+cycle= 8 E= -2935.78368978769  delta_E= 0.00446  |g|= 0.0111  |ddm|= 0.0247
+    CPU time for cycle= 8    761.48 sec, wall time     77.91 sec
+  HOMO = -0.318534192425976  LUMO = -0.0139917780224207  gap/eV = 8.28702
+SMD E_diel = -0.267054132784138
+    CPU time for vxc     73.46 sec, wall time      7.64 sec
+    CPU time for df-vj (J-engine)     64.24 sec, wall time      6.60 sec
+    CPU time for vk    294.05 sec, wall time     29.52 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267054132784138
+cycle= 9 E= -2935.78369191479  delta_E= -2.13e-06  |g|= 0.0108  |ddm|= 0.0445
+    CPU time for cycle= 9    546.57 sec, wall time     55.87 sec
+  HOMO = -0.318514731810067  LUMO = -0.0139507555998053  gap/eV = 8.28761
+SMD E_diel = -0.267090155327109
+    CPU time for vxc     73.02 sec, wall time      7.61 sec
+    CPU time for df-vj (J-engine)     77.20 sec, wall time      7.89 sec
+    CPU time for vk    462.54 sec, wall time     46.47 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267090155327109
+cycle= 10 E= -2935.78372219346  delta_E= -3.03e-05  |g|= 0.00334  |ddm|= 0.959
+    CPU time for cycle= 10    727.37 sec, wall time     74.05 sec
+  HOMO = -0.318515094418045  LUMO = -0.0139668316696335  gap/eV = 8.28718
+SMD E_diel = -0.267103342720441
+    CPU time for vxc     73.19 sec, wall time      7.65 sec
+    CPU time for df-vj (J-engine)     77.05 sec, wall time      7.88 sec
+    CPU time for vk    462.14 sec, wall time     46.43 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267103342720441
+cycle= 11 E= -2935.78372551762  delta_E= -3.32e-06  |g|= 0.000587  |ddm|= 0.347
+    CPU time for cycle= 11    727.39 sec, wall time     74.15 sec
+  HOMO = -0.318521563238835  LUMO = -0.0139615637038449  gap/eV = 8.28750
+SMD E_diel = -0.267104340631097
+    CPU time for vxc     72.78 sec, wall time      7.58 sec
+    CPU time for df-vj (J-engine)     77.09 sec, wall time      7.88 sec
+    CPU time for vk    461.74 sec, wall time     46.42 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267104340631097
+cycle= 12 E= -2935.78372563817  delta_E= -1.21e-07  |g|= 0.000217  |ddm|= 0.0939
+    CPU time for cycle= 12    726.61 sec, wall time     74.00 sec
+  HOMO = -0.318523366468428  LUMO = -0.0139633436036135  gap/eV = 8.28750
+SMD E_diel = -0.267101033998178
+    CPU time for vxc     73.24 sec, wall time      7.64 sec
+    CPU time for df-vj (J-engine)     76.94 sec, wall time      7.86 sec
+    CPU time for vk    461.37 sec, wall time     46.38 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267101033998178
+cycle= 13 E= -2935.78372565091  delta_E= -1.27e-08  |g|= 9.91e-05  |ddm|= 0.057
+    CPU time for cycle= 13    726.35 sec, wall time     74.00 sec
+    CPU time for scf_cycle   8276.01 sec, wall time    850.42 sec
+    CPU time for SCF   8278.92 sec, wall time    850.77 sec
+converged SCF energy = -2935.78372565091
+    CPU time for two-level SCF: the cheap model, 13 cycles   8278.98 sec, wall time    850.78 sec
+
+WARN: 8 small eigenvectors of overlap matrix removed because of linear dependency between AOs.
+
+
+SMD E_diel = -0.267101033998178
+tot grids = 2231808
+    CPU time for setting up grids     19.38 sec, wall time      2.15 sec
+tot grids = 457720
+    CPU time for setting up nlc grids      5.02 sec, wall time      0.54 sec
+    CPU time for vxc    667.08 sec, wall time     68.23 sec
+    CPU time for df-vj (J-engine)     77.01 sec, wall time      7.88 sec
+    CPU time for vk    461.55 sec, wall time     46.39 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267101033998178
+reference 1  E= -2935.7840461294  |g|= 0.00359  (2 |g|^2/gap= 8.47e-05)
+    CPU time for reference 1   1343.19 sec, wall time    137.00 sec
+SMD E_diel = -0.267101033998178
+    CPU time for vxc     72.13 sec, wall time      7.44 sec
+    CPU time for df-vj (J-engine)      2.48 sec, wall time      0.41 sec
+    CPU time for vk     24.33 sec, wall time      2.47 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267101033998178
+  HOMO = -0.318547292553374  LUMO = -0.0139865072889351  gap/eV = 8.28752
+SMD E_diel = -0.267086138311526
+    CPU time for vxc     72.31 sec, wall time      7.48 sec
+    CPU time for df-vj (J-engine)     77.35 sec, wall time      7.90 sec
+    CPU time for vk    462.15 sec, wall time     46.50 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267086138311526
+  HOMO = -0.318492069520226  LUMO = -0.0139345253983336  gap/eV = 8.28743
+SMD E_diel = -0.267093109815254
+    CPU time for vxc     73.40 sec, wall time      7.64 sec
+    CPU time for df-vj (J-engine)     77.43 sec, wall time      7.93 sec
+    CPU time for vk    462.53 sec, wall time     46.51 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267093109815254
+  HOMO = -0.318510047711397  LUMO = -0.0139533653510728  gap/eV = 8.28741
+SMD E_diel = -0.267086290858759
+    CPU time for vxc     73.53 sec, wall time      7.69 sec
+    CPU time for df-vj (J-engine)     77.40 sec, wall time      7.93 sec
+    CPU time for vk    462.21 sec, wall time     46.47 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267086290858759
+  HOMO = -0.318514289394457  LUMO = -0.0139571513586416  gap/eV = 8.28742
+SMD E_diel = -0.267087081687679
+    CPU time for vxc     73.60 sec, wall time      7.68 sec
+    CPU time for df-vj (J-engine)     77.25 sec, wall time      7.90 sec
+    CPU time for vk    462.26 sec, wall time     46.47 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267087081687679
+  HOMO = -0.318512460551836  LUMO = -0.0139555438301633  gap/eV = 8.28742
+SMD E_diel = -0.26708667664413
+    CPU time for vxc     72.70 sec, wall time      7.57 sec
+    CPU time for df-vj (J-engine)     77.40 sec, wall time      7.92 sec
+    CPU time for vk    461.26 sec, wall time     46.36 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.26708667664413
+  HOMO = -0.31851210369527  LUMO = -0.0139551265503393  gap/eV = 8.28742
+SMD E_diel = -0.267086657165825
+    CPU time for vxc     73.02 sec, wall time      7.61 sec
+    CPU time for df-vj (J-engine)     77.22 sec, wall time      7.90 sec
+    CPU time for vk    462.58 sec, wall time     46.45 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267086657165825
+    CPU time for micro cycles of reference 1   4570.57 sec, wall time    465.98 sec
+SMD E_diel = -0.267086657165825
+    CPU time for vxc    678.75 sec, wall time     70.07 sec
+    CPU time for df-vj (J-engine)     77.30 sec, wall time      7.90 sec
+    CPU time for vk    462.13 sec, wall time     46.45 sec
+CDS correction = 0.017963294698928
+Solvent Energy = -0.267086657165825
+reference 2  E= -2935.78404797339  E - predicted= -8.04e-10  |g|= 7.36e-06  (2 |g|^2/gap= 3.56e-10, 7 cheap builds)
+    CPU time for reference 2   1327.21 sec, wall time    135.70 sec
+  HOMO = -0.318512317034654  LUMO = -0.0139553765445335  gap/eV = 8.28742
+two-level SCF: 2 Fock builds of the model, 7 of the cheap one after its SCF of 13 cycles
+    CPU time for two-level scf_cycle  15523.57 sec, wall time   1590.13 sec
+    CPU time for SCF  15526.51 sec, wall time   1590.49 sec
+converged SCF energy = -2935.78404797339
+tot grids = 236552
+    CPU time for vk   1044.07 sec, wall time    105.43 sec
+SGX energy on grid level 2 (205152 points): -2935.78388934588 (on level 1: -2935.78404797339, change 0.000159)
+    CPU time for SGX energy on the larger grid   1053.68 sec, wall time    106.71 sec
+>>> [  1707 s] SCF: 1697.2 s, 2 Fock builds of the model, converged True, E = -2935.7838893459 Eh; XC grid 2231808 points, VV10 grid 457720 points; resident 7.1 GB, peak since the last line 13.0 GB
+
+
+******** <class 'pyscf.solvent.grad.pcm.SMDGradients'> for <class 'pyscf.solvent._attach_solvent.SMDSGXRKS'> ********
+unit = Eh/Bohr
+max_memory 16000 MB (current use 7614 MB)
+grid_response = False
+    CPU time for vxc    655.65 sec, wall time     66.33 sec
+    CPU time for vxc    655.68 sec, wall time     66.33 sec
+    CPU time for df vj (J-engine)    364.40 sec, wall time     37.03 sec
+    CPU time for vk   2799.22 sec, wall time    285.35 sec
+    CPU time for gradients of 2e part   3819.53 sec, wall time    388.76 sec
+    CPU time for SCF gradients   3850.96 sec, wall time    393.16 sec
+Cavitation, Dispersion and Solvent structure contribution [[-5.15408490e-04  3.51087043e-04 -6.80071181e-04]
+ [-1.89272946e-04  1.64405470e-03  1.51697464e-03]
+ [ 4.12553497e-04 -9.45619838e-04 -5.59324057e-04]
+ [-3.17377060e-05 -2.49989256e-04 -4.28000222e-04]
+ [ 3.16615243e-04 -3.84505033e-06  1.13331975e-04]
+ [ 4.97220622e-04 -2.71234008e-04 -1.12601948e-04]
+ [-3.11666689e-04  6.30488678e-04 -2.89459977e-04]
+ [-6.43839617e-04 -1.37730006e-03  6.75141838e-04]
+ [-3.58713359e-04  3.35109724e-04 -6.89723103e-04]
+ [ 6.86711143e-04  1.00323654e-03 -2.36759004e-04]
+ [-1.88517059e-04 -1.22829603e-04  1.43597025e-04]
+ [ 1.36614824e-04  1.33630767e-04 -9.89080145e-05]
+ [-6.52718917e-04 -4.43414084e-04  1.02506561e-03]
+ [ 7.36888341e-04  3.67640092e-04 -1.41154168e-04]
+ [ 8.67249900e-05 -1.38452510e-05 -2.58575228e-04]
+ [-3.01585003e-05  2.62592436e-04  3.56225198e-04]
+ [ 3.59450919e-04  1.20277598e-04  1.08122136e-04]
+ [-4.00958775e-05 -2.16039974e-04  1.39046125e-04]
+ [ 1.04059427e-04  3.89200367e-05  1.07632060e-04]
+ [-1.68460300e-04 -1.35347085e-04 -2.46708423e-04]
+ [-2.04843067e-04 -1.67230247e-04 -1.79138898e-04]
+ [ 9.77540972e-05 -8.02067184e-05 -8.51238196e-06]
+ [-1.92405507e-04 -2.47130881e-04 -8.22170822e-04]
+ [-2.09411626e-05  2.21147446e-04  3.11334050e-05]
+ [-2.39414285e-04  9.07895272e-05 -2.62964339e-04]
+ [ 9.06103848e-05  3.98971772e-04 -1.32394658e-04]
+ [-3.77010712e-04 -2.94103816e-04  2.01138301e-04]
+ [-1.73760181e-04  1.94976792e-04 -3.33561809e-04]
+ [-8.79869024e-06  2.79487678e-05  1.10281464e-04]
+ [-1.52573079e-04  2.41061387e-06 -3.42008068e-04]
+ [ 5.33668104e-04 -8.47396912e-04  1.72350035e-05]
+ [-7.55626662e-04  1.26761213e-03  6.16308497e-04]
+ [ 2.72803500e-04 -1.15812534e-03 -8.48156384e-04]
+ [-9.35384596e-05  1.38619852e-03  1.17863764e-03]
+ [-8.27426772e-04 -2.90413517e-04 -1.51191179e-03]
+ [ 1.10855996e-04 -1.20536138e-04  4.57916257e-05]
+ [ 1.00392620e-04  7.70364648e-04  9.10199094e-04]
+ [ 4.34103066e-04 -1.67080731e-03 -1.22260775e-03]
+ [ 1.34051341e-04  1.02776697e-03  1.19221257e-03]
+ [ 1.28134576e-03 -5.64462175e-04  2.41760562e-04]
+ [-3.99943840e-05 -3.09235489e-05 -7.11699083e-05]
+ [ 2.34651569e-04  2.33333685e-05  2.73687650e-04]
+ [-1.58006064e-04 -3.62043222e-04 -4.43090617e-05]
+ [ 1.06445525e-04  2.30657976e-04  1.26673906e-04]
+ [ 5.24947691e-04 -2.86845947e-04  3.91925740e-04]
+ [ 3.38626580e-04 -4.84066323e-04  4.75726829e-04]
+ [ 1.48900762e-04  3.96487922e-05  8.75162540e-05]
+ [ 1.01792924e-04 -1.19624152e-04 -1.47390972e-04]
+ [-3.74975600e-04  3.30445843e-05  2.06105999e-05]
+ [-4.98677242e-05  1.15250458e-04 -5.47650466e-05]
+ [-1.06192017e-04 -9.14707680e-05 -3.16877676e-04]
+ [-1.87748810e-05 -4.39971187e-05 -2.93712563e-05]
+ [ 8.53633582e-05 -1.46210794e-04 -2.26131091e-04]
+ [-1.36528745e-04  2.14876660e-04 -1.48867539e-04]
+ [-5.35882425e-04  7.52370632e-05  5.57765846e-05]
+ [ 1.90079369e-04  8.32667977e-05  1.56641606e-04]
+ [-2.98092156e-05 -3.92103922e-05  7.99973795e-05]
+ [ 8.61556187e-05  5.42346556e-05  2.61974304e-04]
+ [-2.18616031e-04 -1.21135391e-04 -3.64498514e-04]
+ [-2.79290967e-05 -3.40317218e-05  4.91664942e-04]
+ [-2.22223187e-06  7.33351671e-08 -2.60651401e-05]
+ [-1.02844742e-05  8.37143293e-05  2.00151244e-04]
+ [ 4.97203809e-04  1.80161843e-04  5.86908007e-04]
+ [-4.69530395e-04  5.26092856e-04  2.91620931e-04]
+ [-5.64665010e-04 -1.32019935e-04 -3.72091727e-04]
+ [ 1.73286893e-04 -6.47414353e-04 -4.89916246e-04]
+ [-1.52812660e-05  1.85321767e-04  1.08475414e-06]
+ [-1.29728005e-05  3.36523688e-05 -2.66221312e-04]
+ [ 2.38186417e-04 -1.17650373e-04  1.01205799e-04]
+ [-1.69603994e-04 -2.77270358e-04 -3.70613578e-04]]
+--------------- SMDSGXRKS (+SMD) gradients ---------------
+         x                y                z
+0 N     0.0107626863    -0.0087427812     0.0019597928
+1 C    -0.0162392919     0.0151041515    -0.0193865449
+2 O     0.0026137467    -0.0103473207    -0.0025109465
+3 C     0.0101143580     0.0033384189     0.0171465015
+4 C     0.0048732302    -0.0010135905     0.0027764080
+5 C     0.0090085091    -0.0029492650     0.0000885172
+6 C    -0.0088776646     0.0040255446    -0.0007842476
+7 N    -0.0183573481    -0.0092527487    -0.0123028143
+8 C    -0.0042503170     0.0067433827     0.0034850155
+9 C    -0.0049538557    -0.0095159078    -0.0036218886
+10 O    -0.0019698830     0.0230934734     0.0098487641
+11 C     0.0009904421     0.0021265297    -0.0048960369
+12 C    -0.0250263845    -0.0050897975    -0.0017247531
+13 O     0.0158687225    -0.0034762028     0.0007184566
+14 P    -0.0179469685    -0.0241591065    -0.0200503260
+15 O     0.0101113793     0.0137170598    -0.0068692876
+16 O    -0.0044658488     0.0031877111     0.0151138499
+17 O     0.0051690212     0.0007030156    -0.0080777703
+18 P     0.0081311586     0.0285151440     0.0318510990
+19 O     0.0061732564    -0.0230047458     0.0004792646
+20 O     0.0138329194    -0.0010216954    -0.0149296825
+21 O    -0.0151223427     0.0085281733    -0.0047246164
+22 C     0.0114750313    -0.0125817214     0.0097236927
+23 C    -0.0049300383    -0.0000106210     0.0023153465
+24 O     0.0047343001     0.0188703864    -0.0095424322
+25 C     0.0001643201    -0.0133250179     0.0063185222
+26 C    -0.0000738402     0.0016355175    -0.0132476113
+27 O    -0.0116539309    -0.0023707749     0.0070238908
+28 C    -0.0049801664    -0.0038838675    -0.0099150750
+29 O    -0.0081248518     0.0039788827     0.0129001705
+30 N    -0.0108094472    -0.0015432367    -0.0116722639
+31 C     0.0132579399     0.0039305790     0.0153366341
+32 N    -0.0093744481    -0.0047474124    -0.0098678254
+33 C     0.0047454779     0.0022145743     0.0082511487
+34 C     0.0148997310     0.0039885733     0.0039220103
+35 N    -0.0300419111     0.0132648779    -0.0098485228
+36 N    -0.0111680510    -0.0059963431    -0.0096735084
+37 C    -0.0019622757    -0.0102165196    -0.0112998224
+38 N     0.0147237197    -0.0003479166     0.0137099372
+39 C     0.0022173412     0.0028161274     0.0044315511
+40 C     0.0011637506    -0.0058892762     0.0151965117
+41 O     0.0046628126    -0.0016591313    -0.0095716650
+42 C     0.0005741454     0.0071822952     0.0113928739
+43 O     0.0176842787    -0.0082509896    -0.0052545987
+44 H     0.0011542086     0.0006227229     0.0046732325
+45 H     0.0021609020    -0.0029576270     0.0036567472
+46 H     0.0039475123    -0.0011218036    -0.0005589289
+47 H     0.0045643456    -0.0036921117    -0.0026286766
+48 H    -0.0012683486    -0.0038756920    -0.0053430929
+49 H    -0.0016491203     0.0037956947     0.0054958951
+50 H    -0.0001808769     0.0071847845    -0.0035095787
+51 H    -0.0002593444     0.0043762559    -0.0026086036
+52 H     0.0039533266     0.0017388311     0.0042834048
+53 H     0.0013356307     0.0009316442     0.0049355630
+54 H    -0.0009774817     0.0013334353    -0.0060445456
+55 H    -0.0013464149    -0.0003167806    -0.0041940598
+56 H     0.0029772006     0.0021105485    -0.0015336216
+57 H     0.0052926616     0.0048671461     0.0006421774
+58 H    -0.0005024134    -0.0052753984    -0.0010247041
+59 H     0.0108027413     0.0002908513     0.0050328072
+60 H     0.0004943378    -0.0032835062     0.0080167806
+61 H     0.0101260346    -0.0022090679    -0.0018601728
+62 H    -0.0002372280     0.0029201943     0.0024128868
+63 H     0.0049333384     0.0017510609     0.0058632923
+64 H     0.0045551394    -0.0048207616    -0.0012240381
+65 H     0.0015183019    -0.0019103878    -0.0015234030
+66 H     0.0002590738    -0.0031800908    -0.0059701588
+67 H    -0.0103854938     0.0064708262     0.0005103176
+68 H    -0.0020437098    -0.0048829045     0.0016206542
+69 H    -0.0168269587     0.0015393450    -0.0033035243
+----------------------------------------------
+>>> [  2161 s] gradient: 453.6 s, max |g| 3.185e-02, rms 9.006e-03 Eh/Bohr, sum over atoms 3.4e-05; resident 8.0 GB, peak since the last line 17.9 GB
+>>> summary: SCF 1697 s, gradient 454 s, total 2161 s; peak resident memory by phase: solvent surface 2.2 GB, SCF 13.0 GB, gradient 17.9 GB
+guard: peak RSS about 16 GB

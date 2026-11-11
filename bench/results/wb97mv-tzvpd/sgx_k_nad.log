@@ -1,0 +1,13 @@
+10 threads, sgx_tol_pair 1e-09, optk True
+Create RSH-SGX object <pyscf.sgx.sgx.SGX object at 0x7d6dd5e48b60> for omega=0.3
+    CPU time for sgX initialization      0.00 sec, wall time      0.00 sec
+    CPU time for sgX J/K builder    448.57 sec, wall time     45.57 sec
+(CPU, wall) time for integrals (382.27, 38.54); for tensor contraction (66.31, 7.03)
+    CPU time for vk    448.64 sec, wall time     45.58 sec
+>>> level 1, 93168 points, build 1: 45.6 s, tr(K D) 380.54142136
+    CPU time for sgX initialization      0.00 sec, wall time      0.00 sec
+    CPU time for sgX J/K builder    428.80 sec, wall time     43.19 sec
+(CPU, wall) time for integrals (389.28, 39.20); for tensor contraction (39.52, 3.99)
+    CPU time for vk    428.88 sec, wall time     43.20 sec
+>>> level 1, 93168 points, build 2: 43.2 s, tr(K D) 380.54142136
+guard: peak RSS about 4 GB

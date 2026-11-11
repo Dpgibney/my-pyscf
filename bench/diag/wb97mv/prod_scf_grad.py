@@ -61,15 +61,15 @@ say(f'pyscf {pyscf.__file__}, {lib.num_threads()} threads, max_memory {mf.max_me
 
 t = time.perf_counter()
 mf.with_solvent.build()
-surface = mf.with_solvent._intermediates['K']
+surface = mf.with_solvent._intermediates['D']
 n = surface.shape[0]
-say(f'solvent surface: {time.perf_counter() - t:.1f} s, {n} points, {n * n * 8 / 1e9:.2f} GB for each of its matrices',
+say(f'solvent surface: {time.perf_counter() - t:.1f} s, {n} points, {n * n * 8 / 1e9:.2f} GB for each [n,n] matrix',
     'solvent surface')
 
 t = time.perf_counter()
 e = mf.kernel(dm0=numpy.load(a.dm0) if a.dm0 else None)
 t_scf = time.perf_counter() - t
-assert mf.with_solvent._intermediates['K'] is surface, 'the SCF built the solvent surface again'
+assert mf.with_solvent._intermediates['D'] is surface, 'the SCF built the solvent surface again'
 say(f'SCF: {t_scf:.1f} s, {mf.cycles} {"cycles" if a.plain else "Fock builds of the model"}, converged {mf.converged}, '
     f'E = {e:.10f} Eh; XC grid {mf.grids.weights.size} points, VV10 grid {mf.nlcgrids.weights.size} points', 'SCF')
 if a.save:

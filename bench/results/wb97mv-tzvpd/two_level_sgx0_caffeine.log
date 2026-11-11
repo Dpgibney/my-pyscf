@@ -1,0 +1,18 @@
+[  108 s] rijcosx, cheap SGX-K level 0 only: 107.8 s, conv True, E -680.3497815049; two-level SCF: 3 Fock builds of the model, 12 of the cheap one after its SCF of 8 cycles
+        reference 1  E= -680.349786750609  |g|= 0.00478  (2 |g|^2/gap= 0.000132)
+        reference 2  E= -680.349793882351  E - predicted= 5.18e-08  |g|= 4.28e-05  (2 |g|^2/gap= 1.06e-08, 9 cheap builds)
+        reference 3  E= -680.349793883505  E - predicted= 2.22e-11  |g|= 4.86e-06  (2 |g|^2/gap= 1.36e-10, 12 cheap builds)
+[  217 s] rijcosx, cheap SGX-K levels 0 then 1: 109.4 s, conv True, E -680.3497815047; two-level SCF: 2 Fock builds of the model, 9 of the cheap one after its SCF of 8 cycles
+        reference 1  E= -680.349789584439  |g|= 0.00298  (2 |g|^2/gap= 5.12e-05)
+        reference 2  E= -680.3497938835  E - predicted= -9.4e-10  |g|= 3.95e-06  (2 |g|^2/gap= 8.98e-11, 9 cheap builds)
+guard: peak RSS about 3 GB
+        reference 1  E= -680.350692673302  |g|= 0.00219  (2 |g|^2/gap= 2.75e-05)
+        reference 2  E= -680.350694069483  E - predicted= -6.58e-11  |g|= 7.36e-06  (2 |g|^2/gap= 3.12e-10, 8 cheap builds)
+[  226 s] exact, cheap SGX-K levels 0 then 1: 150.4 s, conv True, E -680.3497717995; two-level SCF: 2 Fock builds of the model, 9 of the cheap one after its SCF of 8 cycles
+        reference 1  E= -680.349767397073  |g|= 0.00301  (2 |g|^2/gap= 5.23e-05)
+        reference 2  E= -680.349771799525  E - predicted= -5.39e-10  |g|= 4.48e-06  (2 |g|^2/gap= 1.16e-10, 9 cheap builds)
+[  416 s] exact, cheap SGX-K level 0 only: 190.0 s, conv True, E -680.3497717995; two-level SCF: 3 Fock builds of the model, 12 of the cheap one after its SCF of 8 cycles
+        reference 1  E= -680.349764564253  |g|= 0.00479  (2 |g|^2/gap= 0.000132)
+        reference 2  E= -680.349771798334  E - predicted= 5.45e-08  |g|= 4.35e-05  (2 |g|^2/gap= 1.09e-08, 9 cheap builds)
+        reference 3  E= -680.349771799531  E - predicted= 2.41e-11  |g|= 4.92e-06  (2 |g|^2/gap= 1.39e-10, 12 cheap builds)
+guard: peak RSS about 10 GB

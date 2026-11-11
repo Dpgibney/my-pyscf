@@ -8844,6 +8844,49 @@ bc3b9543f. Logs: `bench/results/wb97mv-tzvpd/nad_scf_grad.log`, `nad_smd_grad_te
   passes; SGX-K is 1048 s of the RIJCOSX SCF's 1807 s (two of its calls, 105 s each, were the larger-grid
   energies), XC + VV10 319 s, RI-J 168 s; the surface build holds 8 [n,n] arrays at its peak.
 
+### The three things left open there, 2026-11-11 (pyscf fc3467392, 7d83eef21, de29d15f2; tag and pin `perf-2026-11-11`, pushed)
+The user: "Could you look into those?" (the silent exact gradient, SGX-K's 58% of the RIJCOSX SCF, the surface build's
+memory). NAD+ as above; logs `nad_rijcosx_scf_grad_3.log`, `nad_scf_grad_2.log`.
+
+| | exact, before | exact, now | RIJCOSX, before | RIJCOSX, now |
+|---|---|---|---|---|
+| SCF | 4666 s, 3 builds | **3540 s, 2 builds** | 1707 s | 1697 s |
+| gradient | about 4330 s (not completed) | 4366 s | 448 s | 454 s |
+| solvent matrices kept | 8.6 GB | 3.5 GB (1.8 GB until K is factorized) | 8.6 GB | 3.5 GB |
+| peak, SCF / gradient | 14.4 GB / - | 11.5 / 7.7 GB | 14.3 / 16.4 GB | 13.0 / 17.9 GB |
+
+E exact -2935.7838459589 (1e-10 from the first run), RIJCOSX the same to 1.3e-11. **RIJCOSX against the exact model, now
+that there is an exact gradient: -4.34e-5 Eh, gradient max 9.8e-5, rms 1.8e-5 Eh/Bohr.**
+- **A reference build spent on a prediction (`two_level.SECOND_ORDER_TEST`).** The exact run's reference 2 had the
+  energy of reference 3 to 14 digits and its own orbital gradient at 7.3e-6, but missed the predicted energy by 2.3e-9
+  (conv_tol 1e-9): a third Fock build (948 s) and 297 s of micro cycles. The reference build gives the model's own
+  energy and gradient, so a reference is also converged when 2 |g|^2 / gap < conv_tol (`_energy_left`; no bound without
+  a gap: ROHF open shells, fractional occupations). Ten small models (`check_two.py`): 2 builds, within 1.9e-11 Eh.
+- **Progress of the two-electron passes (`_vhf.oe_progress`, `CVHFoe_progress`).** The orbit engine counts its chunks of
+  shell pairs; a thread logs every 10% once a pass has run 30 s (gradients and the Hessians' second derivatives).
+  Here: J and K 2236 s, long-range K 1996 s, 10 lines each; the percentages are linear in time within a few percent.
+- **The surface matrices (`pcm._SurfaceMatrices`).** S, D, K, R and K's factors were kept (5 [n,n], 8 at the peak of
+  `build`). The charges need two solves and two products with R = -f (1 - D A / 2 pi): D and the factors of K, the
+  latter made in K's memory (LU of K^T in place). S, K and R are made on request (S in the gradients, all in the
+  Hessians). `smd_grad_terms.py` at 14,934 points: surface 9.8 s (27), the reaction field with the K build 37 s (16),
+  same numbers to 1.3e-15. SGX's K gradient sizes its blocks by the memory left under `max_memory`, so the RIJCOSX
+  gradient's peak did not fall (17.9 GB with `max_memory` 16000).
+- **SGX-K.** One build at level 1 (`sgx_k_nad.py`): 43-45 s, 39 s of it `int1e_grids`, CPU/wall 9.9: the kernel's rate.
+  Tried on the number and cost of the builds (`two_level_conv.py`, `two_level_sgx0.py`, caffeine; then NAD+):
+  - the cheap model with the J and K of its model (a RIJCOSX model: the same SGX object) takes them from the reference
+    build (`_veff_at_reference`, an incremental build with no change of the density): 47 -> 3 s per reference but the
+    last. Kept.
+  - a looser SCF of the cheap model (1e-5 for 1e-7): caffeine 8 + 9 cheap builds for 11 + 7, NAD+ 11 + 8 for 13 + 7,
+    and its level-0 K builds 26 s for 17-24 (SGX stops its incremental builds 1000 conv_tol from convergence). No
+    gain; not kept.
+  - SGX level 0 only for the cheap model's K: a third reference build with either model (caffeine: exact 190 s for
+    150, RIJCOSX 108 for 109). Not kept.
+  - two_level now puts a shared SGX object on its final grid after the cheap SCF, which that SCF's thresholds did not
+    guarantee.
+- Tests: `test_two_level_second_order`, `test_surface_matrices`, `test_oe_progress`, more of `test_two_level_rijcosx`;
+  dft scf df grad hessian tdscf solvent sgx eph: 1112 passed, the 5 known failures. `validate.py` quick and hessian
+  suites: all pass (21 Hessian cases).
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
