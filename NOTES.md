@@ -8773,6 +8773,77 @@ The user, asked whether to run the full suite first: "Sure validate and then pus
   that. No need to run verification for a fix that straighforward": pushed after a check that the coarse grids of a
   model with an output file have that file as `stdout`; no suite, tests or fresh clone on perf-2026-11-10b.
 
+## A production-size energy and gradient: NAD+ in SMD water, 1916 basis functions, 2026-11-10
+The user: "perform an SCF and gradient calculation on an ~2000 orbital system with wB97M-V as a production use case
+example ... 10 cores and 24 gb of memory", then "SMD(water) as well and have it be verbose=4". NAD+ (C21H26N7O14P2-, 70
+atoms, 344 electrons, charge -1; an extended conformer from RDKit ETKDG + MMFF94, `bench/diag/wb97mv/nad+_mmff.xyz`),
+wB97M-V/def2-TZVPD, grids (99,590) and (50,194): 1916 basis functions (8 overlap eigenvectors below 1e-6), 2,231,808 XC
+and 457,720 VV10 points, 14,934 surface points. `prod_scf_grad.py` (verbose 4 with `logger.TIMER_LEVEL = 4`, a line per
+phase with the resident memory and its peak), the laptop, 10 threads, `max_memory` 16000 MB (2/3 of 24 GB, as
+`pyscf-env.sh` sets it in a 24 GB Slurm job), balanced profile, pyscf a72443310 + the SMD fix below; the last column
+bc3b9543f. Logs: `bench/results/wb97mv-tzvpd/nad_scf_grad.log`, `nad_smd_grad_terms.log`, `nad_rijcosx_scf_grad.log`,
+`nad_rijcosx_scf_grad_2.log`.
+
+| | exact J and K, `two_level` | `mf.RIJCOSX(auxbasis=df.aug_etb(mol))`, `two_level` | the same after the two fixes below (bc3b9543f) |
+|---|---|---|---|
+| solvent surface | 27 s, peak 11.8 GB, 6.8 GB resident after (8.6 GB with the factorization of K) | the same | the same |
+| SCF | 4666 s: 3 Fock builds of the model, 14 of the cheap one after its SCF of 13 cycles | 1807 s: 2 builds, 7 cheap ones after 13 cycles | 1707 s, the same builds |
+| - the cheap model's SCF | 763 s | 897 s (107 s of it its energy on the larger SGX grid, which nothing uses) | 802 s |
+| - a Fock build of the model | about 950 s: J + K 488-500, long-range K 373-384, XC + VV10 75 | 142 s: XC + VV10 75, K 47, J 8 | 142, 140 s |
+| - cheap builds between them | 743 + 297 s | 520 s | 517 s |
+| - energy on the larger SGX grid | | 106 s | 105 s |
+| E | -2935.7838459590 | -2935.7838893459 (-4.3e-5 Eh) | the same to 4e-11 |
+| gradient | XC 69 s, two-electron derivative integrals 4220 s, then stopped (below); solvent terms 43 s measured separately: about 4330 s | 681 s: K 286, RI-J 265, XC 69, solvent terms and the rest 61 | 448 s: K 282, RI-J 37, XC 69, the rest 60; the same to 8e-11 Eh/Bohr |
+| total with the surface | about 9020 s | 2516 s | 2183 s |
+| peak resident memory | 14.4 GB in the SCF | 14.2 GB in the SCF, 16.6 GB in the gradient | 14.3 GB, 16.4 GB |
+
+- **The exact run did not finish.** About a minute into the solvent terms of the gradient, 2 h 30 min in, Claude Code
+  stopped it because the laptop was critically low on memory; the gradient array was lost (the density had been
+  saved). The process was at 11.5 GB three minutes before. `solvent/grad/smd.py` has its own `grad_solver`, upstream's,
+  which calls `get_dD_dS` for the full [n,n,3] derivatives of S and D: with their temporaries about 26 [n,n] arrays, 45
+  GB at 14,934 points (20 GB at 10,000). Only PCM's `grad_solver` had been rewritten (ad53ed420). And the watchdog
+  was set to 24 GiB with 23 GB free.
+- **Fix (db33e18a8):** `smd.grad_solver` as PCM's IEF-PCM branch, by blocks of rows
+  (`_d1_antisym`) with the factorization of K the SCF keeps; and `vK_1_DA = vK_1_D * A` instead of the [n,n] product D*A
+  in both. `check_smd_grad_solver.py`: equal to the old one to 1.3e-17 (H2PO4-, glycine; water, toluene), PCM gradients
+  against finite differences 9e-8; `pyscf/solvent` tests 175 passed, `test_grad_solvent` failing as before.
+- **The solvent terms alone from the saved density** (`smd_grad_terms.py`, `nad_smd_grad_terms.log`): the reaction field
+  16 s, `grad_qv` 28.5 s (peak 10.0 GB), `grad_solver` 13.9 s (9.8 GB, 1.2 GB above what is resident), `grad_nuc` and
+  CDS 0.1 s. The surface build is the memory peak of the solvent code now: S, D, K, R and K's factors are 5 [n,n]
+  arrays kept (8.6 GB here), 8 alive in `build`.
+- **RIJCOSX + SMD + `two_level` + gradient** had not been run together before: H2PO4- first, -5.5e-6 Eh and at most
+  5.8e-5 Eh/Bohr from the exact model. For NAD+ there is no exact gradient to compare with.
+- **Scaling from caffeine (614 functions):** an exact Fock build 34 -> 862 s (25x, N^2.8), the two-electron part of the
+  exact gradient 138 -> 4220 s (31x, N^3.0). My estimate before the run (one to two hours for both) assumed N^2.5 and
+  two Fock builds. A plain exact SCF of 13-15 cycles would be about 4 hours here (estimate: 15 builds of 950 s).
+- **The user, on what the logs showed: "Let's fix the 2 inefficiencies first and then commit and push".**
+  - **The RI-J gradient by the J-engine (4e8484239).** `df.grad.rhf.get_j` made three passes over libcint's
+    three-center integrals as arrays ((ij|P), `int3c2e_ip1`, `int3c2e_ip2`), and held (d/dX P|Q) whole (2.4 GB here):
+    265 s of the 681 s gradient, where the J of an SCF cycle takes 8 s. The engine has no derivative integrals and
+    needed none: the derivative of a Cartesian AO is a combination of the functions of two shells, of l+1 (coefficients
+    -2 e c) and l-1, so (d/dX i j|P) rho_P is the engine's J matrix between those shells and the shells of the molecule
+    (pass 2 on these pairs, their Schwarz weights from libcint); a spherical auxiliary function is S_lm(d/dC) of a
+    Gaussian, so its derivative with its center has the Hermite components of order l+1 that the engine's pass 1
+    already forms for a shell of l+1, given a table in place of c2s (three passes, x, y, z). No C changed.
+    `check_rij_grad.py`: the derivative J matrices within 2.5e-11 and the auxiliary terms within 6e-11 of the libcint
+    path (H2PO4-, glycine; def2-SVP, TZVPD, QZVP; def2-universal-jfit, `aug_etb`; RKS and UKS), whole RIJCOSX gradients
+    within 1.3e-12. NAD+ from the saved density (`rij_grad_nad.py`, `rij_grad_nad.log`): **232.5 -> 31 s, peak 8.3 ->
+    1.9 GB**, the J gradient per atom within 8.0e-11 (the largest 46.6), single elements of the derivative J matrix
+    within 2.0e-8 (the largest 300). With a random matrix as the density the auxiliary terms of the two paths differ by
+    1e-8 in `aug_etb`: two terms that cancel, of a fit in a nearly dependent basis.
+  - **No energy on the larger SGX grid for the cheap model (bc3b9543f):** `two_level.kernel` takes
+    `grids_level_energy` off the shared SGX object while the cheap model's SCF runs.
+  - NAD+ again end to end (`nad_rijcosx_scf_grad_2.log`): the last column of the table, 2183 s against 2516 s.
+  - Tests: `test_get_j_engine`, `test_two_level_rijcosx`, `test_grad_solver_blocks`; dft scf df grad hessian tdscf
+    solvent sgx eph: 1109 passed, 5 failed (the four of `test_tdrks` and `test_smd_grad`'s `test_grad_solvent`, as
+    before). The two `test_dm_screening` failures are gone: the translational invariance of the SGX gradient with
+    RI-J, 7.08e-12 against 5e-12 with qcint's `int3c2e_ip1/ip2` since It6, holds with the engine's J gradient.
+    `validate.py --suite quick` and `hess_water_svp_b3lyp_df`: all pass.
+  - **Pushed:** PySCF `perf` a72443310..bc3b9543f with the annotated tag `perf-2026-11-10c`; pin and README moved.
+- **Still as it was:** the exact gradient prints nothing for 70 minutes between its XC part and the end of its two
+  passes; SGX-K is 1048 s of the RIJCOSX SCF's 1807 s (two of its calls, 105 s each, were the larger-grid
+  energies), XC + VV10 319 s, RI-J 168 s; the surface build holds 8 [n,n] arrays at its peak.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

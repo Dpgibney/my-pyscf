@@ -1,0 +1,10 @@
+pyscf /home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py, 10 threads; 70 atoms, 1916 AOs, tr(DS) 344.000000
+>>> [   27 s] surface: 26.9 s; resident 6.8 GB, peak in this step 11.8 GB
+    14934 surface points, 1.78 GB for each [n,n] matrix
+>>> [   43 s] reaction field of the density (potential on the surface, factorization of K): 16.4 s; resident 8.6 GB, peak in this step 8.6 GB
+>>> [   72 s] grad_qv (derivative integrals with the surface charges): 28.5 s; resident 8.7 GB, peak in this step 10.0 GB
+>>> [   86 s] grad_solver (derivatives of the surface matrices): 13.9 s; resident 9.3 GB, peak in this step 9.8 GB
+>>> [   86 s] grad_nuc: 0.1 s; resident 9.4 GB, peak in this step 9.4 GB
+>>> [   86 s] CDS term: 0.0 s; resident 9.4 GB, peak in this step 9.4 GB
+>>> solvent gradient: max |g| 8.644e-02 Eh/Bohr; by term: qv 1.01e+00, solver 5.04e-03, nuc 9.55e-01, CDS 1.67e-03; total 86 s
+guard: peak RSS about 11 GB
