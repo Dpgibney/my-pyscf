@@ -9112,7 +9112,7 @@ rebuilt.
 - **Data:** `bench/results/node1/p37_cosx.txt`; the production-like job's parts in `p37_parts.jsonl`
   (`p37_parts_micro_left_0.1.jsonl`: with `MICRO_LEFT` 0.1).
 - **Commits:** gpu4pyscf `perf` 1e9803a8 (the `only_dfj` J), 5266c71a (`sgx`), 5d7e69ea (the two-level SCF),
-  merged into `exp/prim-screen` 79c4a633; local, not pushed.
+  merged into `exp/prim-screen` 79c4a633; pushed on 2026-11-22 as tag `perf-2026-11-22b`.
 
 ### What it is
 K[mu,nu] = sum_g X[mu,g] G[nu,g] with G[nu,g] = sum_sigma A[nu,sigma](g) F[sigma,g] and F[sigma,g] = w_g sum_lambda
