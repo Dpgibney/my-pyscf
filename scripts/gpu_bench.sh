@@ -7,6 +7,8 @@
 # After the overview comes the production-like job of bench/gpu/prod_parts.py (caffeine, wB97M-V, XC grid (99,590),
 # VV10 grid (50,194), SMD water; every part of the SCF and of the gradient timed) for v1.9.0, the modified tree, and
 # the modified tree's two-level SCF, on def2-SVP, def2-TZVP and def2-TZVPD: prod_parts.jsonl and prod_log.txt.
+# From part 37 on the two-level SCF iterates with a seminumerical K (gpu4pyscf.sgx); it is run three ways: with the
+# model's own K in its cheap model (part 36's), with the seminumerical K (the default), and with a fitted J as well.
 #     bash scripts/gpu_bench.sh [--quick] [--no-tests] [--large]
 #   --quick      caffeine def2-SVP B3LYP only, and the production-like job on def2-SVP only
 #   --no-tests   skip the unit tests
@@ -50,6 +52,7 @@ if [ $TESTS = 1 ]; then
     (
         cd "$R"
         for f in scf/tests/test_scf_jk.py scf/tests/test_jk_one_pass.py scf/tests/test_two_level.py \
+                 sgx/tests/test_sgx.py \
                  dft/tests/test_rks.py dft/tests/test_uks.py \
                  grad/tests/test_rks_grad.py grad/tests/test_uks_grad.py grad/tests/test_scf_reuse.py \
                  grad/tests/test_tdrks_grad.py \
@@ -96,13 +99,28 @@ prod() {  # basis: v1.9.0, the modified tree compared with it, and the modified 
     echo "== production-like job, caffeine $1: the modified tree"
     PYTHONPATH="$WS/gpu4pyscf" python -W ignore "$P" --label current --basis $1 --compare "$R/prod_$1_base" --out "$J"
     [ $TWO_LEVEL = 1 ] || return 0
-    echo "== production-like job, caffeine $1: the modified tree, two-level SCF"
+    if [ $SGX = 0 ]; then
+        echo "== production-like job, caffeine $1: the modified tree, two-level SCF"
+        PYTHONPATH="$WS/gpu4pyscf" python -W ignore "$P" --label two_level --basis $1 --set two_level=True \
+            --compare "$R/prod_$1_base" --out "$J"
+        return 0
+    fi
+    echo "== production-like job, caffeine $1: two-level SCF, the model's K in the cheap model"
+    PYTHONPATH="$WS/gpu4pyscf" python -W ignore "$P" --label two_level_exact_k --basis $1 --tasks scf \
+        --set two_level=True --set two_level_sgx_level=None --compare "$R/prod_$1_base" --out "$J"
+    echo "== production-like job, caffeine $1: two-level SCF, seminumerical K in the cheap model"
     PYTHONPATH="$WS/gpu4pyscf" python -W ignore "$P" --label two_level --basis $1 --set two_level=True \
         --compare "$R/prod_$1_base" --out "$J"
+    echo "== production-like job, caffeine $1: two-level SCF, seminumerical K and fitted J in the cheap model"
+    PYTHONPATH="$WS/gpu4pyscf" python -W ignore "$P" --label two_level_etb --basis $1 --tasks scf \
+        --set two_level=True --set two_level_auxbasis=aug_etb --compare "$R/prod_$1_base" --out "$J"
 }
-# mf.two_level exists from part 36 on (a tree at an older pin would silently run the plain SCF)
+# mf.two_level exists from part 36 on (a tree at an older pin would silently run the plain SCF), the seminumerical
+# K of its cheap model from part 37 on
 TWO_LEVEL=0
 [ -f "$WS/gpu4pyscf/gpu4pyscf/scf/two_level.py" ] && TWO_LEVEL=1
+SGX=0
+[ -f "$WS/gpu4pyscf/gpu4pyscf/sgx/sgx.py" ] && SGX=1
 {
     prod def2-svp
     if [ $QUICK = 0 ]; then
@@ -115,6 +133,12 @@ TWO_LEVEL=0
         PYTHONPATH="$WS/gpu4pyscf" python -W ignore "$WS/bench/gpu/prod_parts.py" --label nad_two_level --mol "$NAD" \
             --charge 1 --basis def2-tzvpd --conv-tol 1e-9 --set two_level=True --save "$R/prod_nad" \
             --out "$R/prod_parts.jsonl"
+        if [ $SGX = 1 ]; then
+            echo "== production size, NAD+ def2-TZVPD: two-level SCF with a fitted J in the cheap model too"
+            PYTHONPATH="$WS/gpu4pyscf" python -W ignore "$WS/bench/gpu/prod_parts.py" --label nad_two_level_etb \
+                --mol "$NAD" --charge 1 --basis def2-tzvpd --conv-tol 1e-9 --tasks scf --set two_level=True \
+                --set two_level_auxbasis=aug_etb --compare "$R/prod_nad" --out "$R/prod_parts.jsonl"
+        fi
         echo "== production size, NAD+ def2-TZVPD: the modified tree, plain SCF"
         PYTHONPATH="$WS/gpu4pyscf" python -W ignore "$WS/bench/gpu/prod_parts.py" --label nad_plain --mol "$NAD" \
             --charge 1 --basis def2-tzvpd --conv-tol 1e-9 --compare "$R/prod_nad" --out "$R/prod_parts.jsonl"

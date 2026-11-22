@@ -144,6 +144,13 @@ def instrument(mf, g):
         parts.wrap(type(mf._numint), name, 'numint.' + name,
                    keyfn=lambda ni, mol, grids, *a, **kw: '[%d]' % grids.size)
     parts.wrap(numint, '_vv10nlc', 'numint._vv10nlc')
+    try:   # the seminumerical K of a two-level SCF's cheap model (mf.two_level_sgx_level)
+        from gpu4pyscf.sgx import sgx, sgx_jk
+        parts.wrap(sgx.SGX, 'build', 'sgx.build')
+        parts.wrap(sgx.SGX, 'get_k', 'sgx.get_k')
+        parts.wrap(sgx_jk, 'contract', 'sgx.contract')
+    except ImportError:
+        pass
     if getattr(mf, 'with_solvent', None) is not None:
         for name in ('build', '_get_vind', '_get_v', '_get_vmat', 'left_solve_K', 'left_multiply_R'):
             parts.wrap(type(mf.with_solvent), name, 'solvent.' + name)

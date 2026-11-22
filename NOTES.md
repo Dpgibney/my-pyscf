@@ -8920,7 +8920,7 @@ gradient path of the production settings; the Hessian items stay open (the user 
 - The def2-TZVP gradient died in the SMD solver term: its [3,n,n] derivative arrays of D and S (1.46 GB) next to the
   SCF's dense S, D and LU factors (0.73 GB), on a 4 GB card.
 
-### The changes (gpu4pyscf `perf` 15160e0, c5b7c09, c219fa7, 8a50179, 24e1808, merged into `exp/prim-screen` 22ab82f; local, not pushed)
+### The changes (gpu4pyscf `perf` 15160e0, c5b7c09, c219fa7, 8a50179, 24e1808, merged into `exp/prim-screen` 22ab82f; pushed on 2026-11-22 as tag `perf-2026-11-22`)
 1. **The gradient reuses what the last SCF cycle evaluated** (exact).
    - `solvent/pcm.py`: `_get_vind` records the density of its charges (`_intermediates['dm']`); the gradient and
      Hessian functions asked for that key at 7 places and nothing ever set it, upstream included, so each of
@@ -9091,6 +9091,217 @@ gradient path of the production settings; the Hessian items stay open (the user 
 - Nothing here has run on a datacenter card or at the production size. `scripts/gpu_bench.sh` now runs
   `prod_parts.py` (v1.9.0, the modified tree, its two-level SCF; def2-SVP to def2-TZVPD; `--large` adds NAD+ on
   def2-TZVPD) and the new tests for that day; it sees part 36 once a tag of it is pushed and the pin moved.
+
+## GPU4PySCF, part 37: a seminumerical exchange for the GPU, and the two-level SCF on it (node1), 2026-11-22
+The user, after part 36 (exact K was 64-70% of its two-level SCF; the CPU tree's cheap model has RI-J and a
+seminumerical K, the GPU had neither): "Please push and then work on COSX". Part 36 went out first (gpu4pyscf tag
+`perf-2026-11-22`, pins and README). Upstream GPU4PySCF has no seminumerical exchange (checked at origin/master
+4d8962fe, v1.9.1-30), so this is new code: a package `gpu4pyscf/sgx`, Python only (its CUDA kernels are generated and
+compiled at run time through `cupy.RawKernel`, as `lib/cupy_helper.py` and `hessian/rks.py` do theirs), so nothing is
+rebuilt.
+- **Workload:** as part 36: caffeine, wB97M-V, XC grid (99,590), VV10 grid (50,194), SMD water (5525 surface points),
+  def2-SVP (246 functions), def2-TZVP (494), def2-TZVPD (614), conv_tol 1e-10; also gas-phase B3LYP and wB97X on the
+  default grids, H2PO4- in def2-TZVPD, NAD+ in def2-SVP (71 atoms, 754 functions). The GTX 1650 Super at 1815-1920
+  MHz: everything a 1650 Super number. It is a consumer card, bound by its double-precision rate in the integral
+  kernels (part 34); the kernels of this part run 8-10 times faster in single precision, which decides several
+  things below and need not carry over to a card with fast FP64.
+- **Tools:** `bench/gpu/cosx_kernel_check.py` (the kernels against `int1e_grids`), `cosx_kernel_time.py` (by class),
+  `cosx_k_check.py` (the driver against a dense reference, PySCF's sgx and the exact K), `cosx_k_time.py` (the steps of
+  a K build), `two_level_cosx.py` (plain / two-level variants side by side), `prod_parts.py` (the production-like job,
+  every part timed; now also the SGX parts); node1 `scratch/p37_{a,b,c,d,e,f}.sh`.
+- **Data:** `bench/results/node1/p37_cosx.txt`; the production-like job's parts in `p37_parts.jsonl`
+  (`p37_parts_micro_left_0.1.jsonl`: with `MICRO_LEFT` 0.1).
+- **Commits:** gpu4pyscf `perf` 1e9803a8 (the `only_dfj` J), 5266c71a (`sgx`), 5d7e69ea (the two-level SCF),
+  merged into `exp/prim-screen` 79c4a633; local, not pushed.
+
+### What it is
+K[mu,nu] = sum_g X[mu,g] G[nu,g] with G[nu,g] = sum_sigma A[nu,sigma](g) F[sigma,g] and F[sigma,g] = w_g sum_lambda
+D[lambda,sigma] X[lambda,g]: X the AO values on a grid, A[nu,sigma](g) the potential of an AO pair at a grid point.
+- **Grid and fit: PySCF's.** The grid is `pyscf.sgx`'s (the ORCA-like one, level 1 by default: 32,256 points for
+  caffeine), made on the CPU (0.3 s), sorted by box so that a block of 128 points is compact; the overlap fit is PySCF's
+  symmetric one. K equals PySCF 2.14's sgx K to 3.6e-14, and a dense numpy evaluation of the formula to 3.7e-14.
+- **The kernels** (`sgx/kernels.py`, one per class of shell pairs (li, lj), per operator and precision): one thread
+  takes one grid point and goes through the shell pairs, so the threads of a warp are on the same pair, read its data
+  with one load each, and read F and add to G in their own, adjacent columns: no atomics, no stored integrals.
+  - Obara-Saika with Boys functions, not Rys roots: the base values of erf(omega r)/r are those of 1/r at theta T
+    scaled by theta^(m+1/2), so the operator of a range-separated hybrid, c/r + c' erf(omega r)/r, costs a second
+    set of Boys functions and one recurrence (2n Rys roots would double the recurrence). Measured: the mixed kernel
+    takes 1.4 times the full-range one in double precision, 1.08 times in single.
+  - Boys functions from a table (step 1/8, a 7-term Taylor series for the highest order, downward recursion with
+    exp(-T) from the same row; asymptotic form beyond T = 30 + 4 L).
+  - The vertical recurrence only, to [e|0] at the center of shell i, summed over the primitive pairs; the horizontal
+    one is folded into the contraction: (a|b) = sum_k w(b,k) [a+k|0] with w from the binomial expansion of x_B = x_A +
+    AB, so sum_b (a|b) F[b] = sum_k T[k] [a+k|0] with T made from F[b] once per pair and point, and the other side
+    likewise. (ff): 164 terms of the vertical recurrence and 400 multiply-adds of the contraction; no integral is
+    formed.
+  - Generated straight-line code per class (the (ff) kernel is 560 lines), through g functions; primitive pairs and
+    shell pairs below 1e-15 / 1e-13 in a bound of their integrals are left out of the lists.
+- **The driver** (`sgx/sgx.py`, `SGX.get_k`): F = w D X and K = X G as matrix products in the AO basis, F and G
+  through the sorted mol's transformations (`apply_C_dot`, `apply_CT_dot`) to the Cartesian functions the kernels
+  work in; in batches of grid points sized by the free memory. `kernel_dtype = 'float'` runs the kernels and the two
+  matrix products in single precision.
+- **`mf.COSX()`** (`sgx.cosx`): the approximate model, K seminumerical and J unchanged (the J engine, or density
+  fitting below it). Energies only: gradients and Hessians raise.
+
+### The kernels and the K build, measured
+- **Against libcint** (CH2O, 400 points at and near the nuclei and far, random F): 3.1e-13 relative through f
+  functions, 2.8e-13 through g, for 1/r, erf(omega r)/r and the mix; single precision 6e-7 to 7e-6.
+- **By class** (caffeine def2-TZVP, 32,256 points, every pair on every block; seconds):
+
+  | | (ss) | (ps) | (pp) | (ds) | (dp) | (dd) | (fs) | (fp) | (fd) | (ff) | all |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | shell pairs / primitive pairs | 4066 / 10605 | 4480 / 11387 | 1255 / 3198 | 2379 / 4207 | 1324 / 2174 | 375 | 1162 / 1965 | 648 / 1047 | 356 | 93 | 16138 / 35407 |
+  | double, 1/r | 0.097 | 0.190 | 0.121 | 0.137 | 0.168 | 0.071 | 0.115 | 0.136 | 0.108 | 0.052 | 1.196 |
+  | double, mixed | 0.176 | 0.346 | 0.175 | 0.207 | 0.210 | 0.080 | 0.154 | 0.160 | 0.117 | 0.055 | 1.678 |
+  | single, 1/r | 0.013 | 0.021 | 0.013 | 0.020 | 0.024 | 0.009 | 0.025 | 0.015 | 0.013 | 0.004 | 0.155 |
+  | single, mixed | 0.017 | 0.025 | 0.013 | 0.020 | 0.024 | 0.009 | 0.025 | 0.016 | 0.013 | 0.004 | 0.167 |
+
+  In double precision a primitive pair on a point costs 0.29 ns for (ss) to 17 ns for (ff), roughly what the
+  operation counts of the formulas give at the FP64 rate this card showed in part 34 (59 GFLOP/s at 1530 MHz). Single
+  precision is 7.7 times faster (1/r) and 10 times (mixed).
+- **A K build** (converged densities; SGX level 1; the exact K is a full build of GPU4PySCF's Rys kernels):
+
+  | | points | seminumerical, double | single | exact K | error of K, of the exchange energy |
+  |---|---|---|---|---|---|
+  | caffeine def2-TZVP, B3LYP | 32,256 | 1.47 s (kernels 1.21, the two products 0.24) | 0.21 s | 8.70 s | 5.7e-05, +1.1e-05 Eh |
+  | caffeine def2-TZVP, wB97X (mixed operator) | 32,256 | 1.95 s | 0.22 s | 14.83 s | 4.5e-05, +5.7e-06 |
+  | the same on level 2 | 71,205 | 4.33 s | | 14.82 s | 7.2e-06, +1.4e-06 |
+  | caffeine def2-TZVPD, wB97X | 32,358 | 3.07 s | 0.39 s | 32.8 s | 4.4e-05, -8.8e-06 |
+  | NAD+ def2-SVP (71 atoms, 754 functions), wB97X | 92,314 | 8.3 s | 0.97 s | 18.6 s | 5.4e-05, +1.1e-05 |
+
+  - Against the exact K: 6-11 times faster in double precision for caffeine, 40-84 times in single.
+  - NAD+ shows the limit of evaluating every pair on every block: the exact K screens its quartets by the density
+    and grows more slowly with the molecule, so the double-precision build is only 2.2 times faster there (single:
+    19 times). A screening that is safe for the potential (below) is what a larger molecule would need.
+  - Grid on the CPU and overlap fit: 0.3 s for caffeine, 1.5 s for NAD+, once per SCF.
+- **Accuracy by grid level** (CH2O def2-TZVP, PBE0 density; exchange energy against the exact K): level 0 -5.4e-05
+  Eh, level 1 +1.5e-05, level 2 +2.3e-06, level 3 -4.1e-07; for wB97M-V's operator -1.8e-05, +1.2e-06, +4.4e-07,
+  -7.3e-08. Single precision changes these by 2e-07 to 8e-07.
+- **`mf.COSX()` alone** (caffeine def2-SVP B3LYP, 15 cycles as the exact SCF): level 1 +1.25e-05 Eh in 15.5 s
+  against 20.1 s; level 2 -1.2e-06 Eh in 23.2 s; level 1 in single precision +1.9e-05 Eh in 10.6 s (its first build
+  is of the whole density, whose rounding stays in the energy).
+
+### Density screening: measured, unsafe, removed
+The CPU tree screens each shell pair on each batch of points by a bound of the exchange energy it carries there,
+q_ij f_i f_j with f the weighted norms of F of the two shells (for a change of the density, q_ij (f_i F_j + F_i f_j)
+with the norms F of the full density). Built here first (`block_lists`, per block of 128 points).
+- **What it saved** (caffeine def2-TZVP, double precision, 1.46 s unscreened): at a tolerance of 1e-11, 81% of the
+  pairs on blocks kept in a full build (1.32 s) and 47-65% in the late incremental ones (0.91-1.13 s), with 1e-11 to
+  3e-10 Eh left out in all (the tolerance is per pair and block: 10 to 25 of them add up).
+- **What broke:** the production-like job took 46 cheap builds where 16 do, and `mf.COSX()` alone converged to an
+  energy 7e-2 Eh off. The initial-guess density has no d components, so the norms of F of the d shells are zero, the
+  energy bound of every pair with a d shell is zero, and its part of G (sum_s (d s|g) F[s,g], not small: 3e-2) never
+  enters the Fock matrix, and the incremental builds never bring it back. An energy bound cannot screen a potential:
+  the Fock matrix needs the elements the current density does not weight. (Two wrong turns first: "the screening's
+  noise stalls the micro cycles", then the norms of the full density being kept per batch of grid points while the
+  batches follow the free memory, which was a real defect and whose repair changed nothing. The d shells showed
+  when the screened and unscreened builds were compared outside the SCF, density by density and class by class.)
+- **Why it was dropped rather than repaired:** the safe form is a bound of the matrix elements (q_ij times the
+  larger of the two norms), which has one small factor where the energy bound has two and would keep far more (not
+  built, not measured); and in single precision the kernels are 0.2-0.3 s of a cheap cycle of 5-9 s. The kernels
+  still take per-block pair lists (`contract(..., lists=)`, tested); nothing makes any.
+
+### The two-level SCF with it
+`scf/two_level.py`. Part 36's cheap model built the model's own J and K in every cycle; now, for a hybrid,
+- **K of the cheap model is the seminumerical one** (`two_level_sgx_level` = 1, on by default; `None` for part
+  36's), in single precision (`two_level_sgx_dtype` = 'float'). Single precision is safe here by construction: every
+  build after the first is of the change of the density (`get_veff`'s incremental path), so its rounding falls with
+  the change, and what the first build's rounding leaves in the cheap potential cancels in V_cheap[D] -
+  V_cheap[D_ref].
+- **A reference builds the model's own K**, as the change from its K of the last reference density (`_own_jk`). J
+  stays shared: `rks.get_veff` and `uks.get_veff` now tag the exchange part of their potential (`vk`) next to `vj`,
+  so that J = vj + vk comes out of the cheap potential to rounding, however the seminumerical K was accumulated.
+- **Micro cycles until the second-order bound** (`MICRO_LEFT` = 0.5): where a reference builds J or K it costs far
+  more than a micro cycle, and the references that failed did so by little (def2-SVP with a fitted J: 2 |g|^2/gap
+  = 1.08e-10 against conv_tol 1e-10 and E - predicted = -2.7e-10: a third reference; without the fit it passed by the
+  prediction alone, with 1.12e-10 left). The micro cycles now go on until the energy left in their gradient is below
+  half of conv_tol. A tenth was measured too: a micro cycle more (3% of the SCF), the same references and energies.
+- **Optionally a fitted J** (`two_level_auxbasis`, off by default): `_FittedJ` puts `df_jk.get_j` (the 3-center J
+  engine, no stored tensor) under `rks.get_veff`'s incremental builds (`density_fit()` replaces `get_veff` by one
+  that builds the whole potential every cycle and tags nothing); a reference then builds the model's J too, also as
+  a change. The fit has to be good: with PySCF's even-tempered `aug_etb` 2 references, with def2-universal-jfit a
+  third at def2-SVP and def2-TZVP, with def2-universal-jkfit a third at def2-TZVP.
+- **Fixed on the way:** `df_jk._DFHF.get_jk` called `with_df.get_jk(mol, dm, hermi, with_k=False)` for `only_dfj`
+  (mol in the place of dm; the audit's open item, upstream #1004).
+
+### Results (GTX 1650 Super; `bench/results/node1/p37_cosx.txt`)
+- **The production-like job, SCF** (caffeine, wB97M-V, (99,590)/(50,194), SMD water, conv_tol 1e-10; the plain SCF
+  and part 36's two-level SCF from part 36's tables):
+
+  | SCF | plain | two-level, part 36 | two-level, seminumerical K | and a fitted J (`aug_etb`) |
+  |---|---|---|---|---|
+  | def2-SVP | 131.1 s | 53.3 s | 42.5 s | 41.2 s |
+  | def2-TZVP | 382.1 s | 272.5 s | 129.6 s | 111.7 s |
+  | def2-TZVPD | 727.1 s | 584.0 s | 246.1 s | 192.1 s |
+  | H2PO4- def2-TZVPD (221 functions) | 72.9 s | 62.0 s | 19.4 s | 18.2 s |
+  | cheap builds, references (def2-TZVP) | 14 cycles | 16, 2 | 16, 2 | 16, 2 |
+  | E - E(plain), def2-SVP / TZVP / TZVPD / H2PO4- | | -2e-12 / -5e-12 / +3.8e-11 / +7.6e-12 | -2.2e-11 / +8.7e-11 / +1.66e-10 / -3.1e-11 | -1.2e-10 / +5.4e-11 / +1.1e-10 / +1.5e-11 |
+  | largest change of the gradient (Eh/Bohr) | | 8.8e-07 / 8.9e-07 / 7.9e-07 / 1.4e-07 | 9.1e-07 / 8.7e-07 / 3.2e-08 from part 36's two-level run / 2.1e-07 | |
+
+  - Against the plain SCF of caffeine: 3 times with the seminumerical K, 3.2 to 3.8 with the fitted J too. Against
+    part 36's two-level SCF: 1.3 times at def2-SVP, 2.1-2.4 at def2-TZVP and def2-TZVPD, 2.4-3.0 with the fitted J.
+  - The energies are within 1.7e-10 Eh of the plain SCF's at conv_tol 1e-10 (def2-TZVPD the largest; the tests at a
+    reference accept up to conv_tol of energy left, and the plain SCF has its own remainder). The gradients differ as
+    those of two SCFs at the same thresholds do. The gradient itself is unchanged: 7.4, 46.8 and 107.3 s.
+- **Gas phase, default grids** (caffeine def2-TZVP; plain, seminumerical K, and the fitted J too): B3LYP 151.0 s,
+  60.2 s, 39.1 s (2 references, E within 2e-11); wB97X 217.5 s, 80.5 s, 61.7 s (3 references, E within 8e-11).
+  - wB97X takes a third reference with part 36's cheap model as well (223.9 s there): on the level-1 XC grid the
+    cheap model's energy is 5e-4 Eh from the model's, the first reference finds |g| = 4.4e-3, and the second, after
+    micro cycles converged to 6e-7, finds 1.4e-5 with the energy 2.5e-8 from its prediction. The XC grids' difference,
+    not the K.
+- **Where the def2-TZVPD SCF is now** (two-level, 16 cheap builds, 2 references; seconds):
+
+  | part | seminumerical K: 246.1 | with the fitted J: 192.1 |
+  |---|---|---|
+  | J | 76.1 (16 builds of the J engine) | 22.2 (16 fitted, 10.4; the model's own at the 2 references, 11.8) |
+  | the model's own K at the 2 references | 62.2 | 62.3 |
+  | XC on the cheap grid (16) / on (99,590) (2) | 24.8 / 21.1 | 24.8 / 21.1 |
+  | solvent: the two surface integrals per cycle, R, the surface | 16.1 + 18.0 + 2.1 + 3.5 | the same |
+  | VV10: pair sums / the rest | 9.9 / 3.7 | the same |
+  | seminumerical K (16 builds) | 6.9 | 7.0 |
+  | diagonalization, DIIS, the rest | 1.5 | 1.5 |
+
+  - The cheap model's K went from 409 s (70% of part 36's SCF) to 6.9 s. What it left: the model's own K at the two
+    references (62 s together, where one full build takes 32.8 s for wB97X in the gas phase: building the second
+    as a change of the density gains little from the Rys kernels' screening), XC, the solvent's surface
+    integrals, J.
+- **Memory:** pool peak 576 MiB at def2-TZVPD (563 MiB for the plain SCF), 761 MiB with the fitted J.
+
+### Unit tests (node1, the final files)
+All pass, 367 tests in 25 files (4 skipped): `test_sgx` (18, new: the kernels against libcint through g functions,
+K against a dense evaluation, PySCF's sgx and the exact K, batches and pair lists, `mf.COSX()` for RHF, RKS, UKS,
+wB97X, a solvent and a fitted J), `test_two_level` (48: part 36's 19, its 14 models with the old cheap model set by
+hand; the seminumerical K for 9 models in both precisions, the fitted J for 7, the models the options apply to, a
+gradient), and the suites of
+what was touched: `dft` test_rks, test_uks, test_rks_lowmem; `grad` test_rks_grad, test_uks_grad, test_scf_reuse;
+`solvent` test_pcm, test_smd, test_pcm_grad, test_smd_grad; `df` test_df_jk, test_df_rks, test_df_uks, test_df_rhf,
+test_df_rks_grad; `scf` test_addons, test_rhf, test_uhf, test_scf_jk, test_jk_one_pass, test_scf_j_engine; `hessian`
+test_rks_hessian, test_uks_hessian.
+
+### Not done
+- **A gradient for `mf.COSX()`**, and its energy on a larger grid after the SCF (the CPU tree's
+  `grids_level_energy`): the exact gradient is untouched by this part, and with the SCF at 192-246 s it is the next
+  wall of an optimization step at def2-TZVPD (107 s, 91% of it the two-electron derivatives). A seminumerical K
+  gradient would be an approximation (the CPU tree's: 1e-4 Eh/Bohr).
+- **The second reference's K without the Rys kernels.** E[D2] needs K[D2] only through tr(D2 K[D2]) = tr(D1 K[D1]) +
+  2 tr(dD K[D1]) + tr(dD K[dD]): with the exact K[D1] kept, only the last term, second order in the change of the
+  density, takes K[dD], and a seminumerical K[dD] is off by a fraction of 1e-4 of it. The orbital gradient at D2
+  would be known to that fraction of K[dD] as well, which its test can live with. One build of the Rys kernels per
+  SCF instead of two: about 30 of the 192 s at def2-TZVPD. Not measured, and it puts an approximation, however
+  small, into the model's own energy: not taken without asking.
+- **The solvent's surface integrals through kernels of this kind** (potential of the density at the surface points,
+  matrix of the surface charges: the J-type contractions of the same integrals, with a Gaussian exponent per point):
+  each of the two takes 1.0-1.1 s per cycle at def2-TZVPD for 5525 points (34 of the 192 s), about twice the cost
+  per point of the K kernels here in double precision, which also contract.
+- **Screening for larger molecules:** every pair on every block is right for caffeine and loses to the exact K's
+  density screening with size (NAD+ def2-SVP: 8.3 s against 18.6 s in double precision). A bound of the matrix
+  elements, per block, is the safe form.
+- **Other cards:** one thread per grid point gives 32,000 threads for caffeine, enough for this card's 20 SMs; a
+  card with many more may want several threads per point, which needs atomics on G or a split of the pair lists.
+  And where single precision gains less than here, the double-precision cost per pair matters more (not tried:
+  pairs grouped by their first shell, to halve the reads and writes of G).
+- **The XC grid of the cheap model for functionals that need a finer one** (wB97X's third reference above).
+- NAD+ at the production size: still not on a 4 GB card.
 
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
