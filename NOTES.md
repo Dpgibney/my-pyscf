@@ -8887,6 +8887,211 @@ that there is an exact gradient: -4.34e-5 Eh, gradient max 9.8e-5, rms 1.8e-5 Eh
   dft scf df grad hessian tdscf solvent sgx eph: 1112 passed, the 5 known failures. `validate.py` quick and hessian
   suites: all pass (21 Hessian cases).
 
+## GPU4PySCF, part 36: what the CPU tree gained since perf-2026-11-03, on the GPU (node1), 2026-11-21/22
+The user, after the read-only audit of 2026-11-21 (gpu4pyscf had not moved since part 35; the CPU tree had gained the
+two-level SCF, the solvent rewrites, the residual CPHF solver, RIJCOSX): "The GPU on node1 is now available so we can
+begin modifying the GPU4PySCF with what you found wasn't yet ported from the CPU code". This part does the energy and
+gradient path of the production settings; the Hessian items stay open (the user avoids Hessians for now).
+- **Workload:** caffeine, wB97M-V, XC grid (99,590), VV10 grid (50,194), SMD water (5525 surface points), def2-SVP
+  (246 functions), def2-TZVP (494) and, at the end, def2-TZVPD (614), conv_tol 1e-10; the GTX 1650 Super at
+  1860-1905 MHz (it boosts these days), everything a 1650 Super number. The production size (NAD+, 1916 functions,
+  14,934 surface points) does not fit the 4 GB card: K's factors alone need 3.6 GB while they are made.
+- **Tools:** `bench/gpu/prod_parts.py` (the job with every part timed between device synchronizations, inclusive and
+  exclusive; `--set two_level=True`), `rsh_grad_passes.py`, `two_level_check.py`, `rsh_hess_ejk.py`,
+  `pcm_grad_proto.py`, `pcm_int_proto.py`; node1 `scratch/p36_{base,a,b,c,d,e,f,tests}.sh`, baseline tree
+  `scratch/tree_p35`.
+- **Data:** `bench/results/node1/p36_ports.txt`.
+
+### Where the time went before (part 35's build)
+| | def2-SVP | def2-TZVP |
+|---|---|---|
+| SCF, 14 cycles (15 Fock builds) | 127.0 s | 379.7 s |
+| - VV10 on (50,194): pair sums / the rest | 60.0 / 2.9 s | 62.2 / 7.1 s |
+| - XC on (99,590) | 32.9 s | 92.1 s |
+| - K (one pass of 2n roots) | 16.0 s | 164.3 s |
+| - J | 3.2 s | 26.8 s |
+| - solvent (surface build 3.4 s, the two integrals per cycle) | 11.6 s | 26.3 s |
+| gradient | 15.4 s | out of memory after 76 s |
+| - two-electron derivatives (two passes) | 5.29 s | 58.2 s |
+| - VV10 pair sums, again / XC | 4.04 / 1.89 s | 4.15 / 3.19 s |
+| - solvent: integrals, solver term, and three repeats of the SCF's charges | 2.21 + 1.66 s | 6.41 + 4.6 s |
+
+- With the production grids the grid terms are 3/4 of a def2-SVP cycle and still 42% at def2-TZVP, where K is 43%.
+- The def2-TZVP gradient died in the SMD solver term: its [3,n,n] derivative arrays of D and S (1.46 GB) next to the
+  SCF's dense S, D and LU factors (0.73 GB), on a 4 GB card.
+
+### The changes (gpu4pyscf `perf` 15160e0, c5b7c09, c219fa7, 8a50179, 24e1808, merged into `exp/prim-screen` 22ab82f; local, not pushed)
+1. **The gradient reuses what the last SCF cycle evaluated** (exact).
+   - `solvent/pcm.py`: `_get_vind` records the density of its charges (`_intermediates['dm']`); the gradient and
+     Hessian functions asked for that key at 7 places and nothing ever set it, upstream included, so each of
+     `grad_qv`, `grad_solver`, `grad_nuc` evaluated the potential and the charges again. `has_intermediates_for`
+     replaces the 7 copies of the test. `_get_vind` itself returns its kept energy and potential for the density of
+     its last call.
+   - `dft/numint.py` `_vv10nlc(..., memo=ni)`: the last result is kept on the NumInt object (7 numbers per VV10 grid
+     point) and returned for the same points, weights, parameters and bit-identical density; the gradient's density
+     on the VV10 grid is that of the SCF's last cycle bit for bit.
+2. **The solvent's memory.** `_factorized_K` assembles K with three n x n arrays at most (six before) and only its LU
+   factors stay (S and D were kept too: 3 n^2 -> n^2). D and S act on vectors from the surface data
+   (`left_multiply_D`, `left_multiply_S`); `_Intermediates` builds both on the first read of `['D']` or `['S']`
+   (the Hessian, the TDDFT A/B matrices, R applied to many vectors). The solver term of the gradient uses the
+   on-the-fly products for dD and dS in every mode: no [3,n,n] arrays. At the NAD+ surface (14,934 points) that is
+   1.8 GB kept instead of 5.4, and no 10.7 GB in the gradient.
+   - Cost on this card: R on a vector takes 66 ms instead of 5 (D applied from the surface, 2 per cycle: +2 s per
+     SCF), the solver term 0.69 s instead of 0.25 s.
+3. **Range-separated hybrids' gradients: two passes of n roots** (exact). `grad/rks.py` `_jk_energy_per_atom`:
+   J + hyb K of the full range, then (alpha - hyb) K_LR, instead of J + alpha K and then (hyb - alpha) K_SR with 2n
+   roots; for functionals with one range alone, J by itself (the J engine) and one pass of that range. The same in
+   the Hessian's second-derivative term (`hessian/rks.py`, `uks.py`).
+   `jk_energy_per_atom` now takes `lr_factor`/`sr_factor` (the kernels always did): the shared-memory scheme follows
+   the kernel's omega instead of the molecule's, and a mixed pass screens with the full-range bounds.
+4. **Two-level SCF** (`scf/two_level.py`, `mf.two_level = True`, off by default), the CPU tree's scheme with the
+   cheap model that exists on a GPU: the same J, K and solvent terms, XC and VV10 on grids of levels 1 and 0.
+   - A reference therefore costs the XC and VV10 terms on the model's grids only: `get_veff` with an unchanged
+     density takes J and K from the last potential and launches nothing.
+   - Every cycle still builds J and K, so the cycle count is what matters. The first reference comes when the cheap
+     model is converged to `two_level_conv_tol` = 1e-5 only, and the DIIS history continues across references
+     (`_KeepsDensities.add_to_fock`: the constant correction is added to the stored Fock matrices and their error
+     vectors follow exactly, each density being kept next to its Fock matrix); the micro cycles stop at the SCF's own
+     thresholds.
+   - For plain RKS and UKS, with density fitting and solvents; other variants run the plain SCF. `max_cycle`
+     bounds the cheap model's cycles and the micro cycles together.
+5. **The solvent gradient's integral term in one pass** (exact). `grad_qv` took the derivatives of the surface
+   charges' integrals from two passes of the int3c1e (gint) kernels, the first through a [3,nao,nao] matrix. For a
+   symmetric density it now calls the kernel of the density-fitted Coulomb gradient (`sum_ejk_int3c2e_ip1`) with
+   the charges as the auxiliary vector, one center each; the charges' own derivatives come from translational
+   invariance. The TDDFT gradient's non-symmetric densities keep the old path.
+
+### Measured
+- **Pass structures of a range-separated gradient** (`rsh_grad_passes.py`, wB97X, caffeine, at the converged
+  density, best of 2 after a warm call; NAD+ once, no warm call):
+
+  | pass | caffeine def2-SVP | caffeine def2-TZVP | NAD+ def2-SVP (754 functions) |
+  |---|---|---|---|
+  | J + alpha K, full range (Rys) | 1.889 s | 20.99 s | 24.57 s |
+  | J + hyb K, full range | 1.887 s | 20.98 s | 24.50 s |
+  | K alone, full range | 1.848 s | 20.34 s | 19.21 s |
+  | J alone, the J engine | 0.459 s | 4.09 s | 6.50 s |
+  | K_SR, 2n roots | 3.371 s | 37.65 s | 25.60 s |
+  | K_LR, n roots | 1.784 s | 19.01 s | 17.84 s |
+  | K of alpha erf + hyb erfc in one pass, 2n roots | 3.467 s | 38.53 s | 36.58 s |
+  | **A** (before): (J + alpha K) + K_SR | 5.260 s | 58.64 s | 50.17 s |
+  | **B** (now): (J + hyb K) + K_LR | 3.671 s (0.70) | 39.99 s (0.68) | 42.34 s (0.84) |
+  | **C**: J engine + the one-pass K | 3.926 s (0.75) | 42.62 s (0.73) | 43.08 s (0.86) |
+  | D: J engine + hyb K + K_LR | 4.091 s | 43.45 s | 43.56 s |
+  | E: J engine + alpha K + K_SR | 5.678 s | 62.08 s | 51.31 s |
+
+  - For caffeine J rides along free in a Rys J + K pass (1.89 against 1.85 s), so the J engine's 0.46 s is extra
+    wherever a full-range K pass exists; the one-pass mixed kernel costs 1.88 full-range passes, two n-root passes
+    1.97, and the difference does not pay for the J engine.
+  - At NAD+ the short-range pass is 1.33 K passes instead of 1.82: its distance screening starts to remove
+    quartets, and J in the Rys pass costs 5.3 s. B is still ahead (0.84); the old structure would win only where
+    K_SR falls below K_LR, well beyond this size.
+  - The sums agree with A's to 6e-11 (B) and 2.6e-10 (those with the J engine, whose J is the more accurate one),
+    def2-TZVP 1.4e-10 and 9e-10, values up to 31.
+
+- **End to end** (caffeine, wB97M-V, (99,590)/(50,194), SMD water; one run each, 1860-1905 MHz; "exact changes"
+  is everything but `two_level`):
+
+  | | def2-SVP before | exact changes | + two_level | def2-TZVP before | exact changes | + two_level |
+  |---|---|---|---|---|---|---|
+  | SCF | 127.0 s | 131.1 s | **53.3 s** | 379.7 s | 382.1 s | **272.5 s** |
+  | - cycles / references | 14 | 14 | 14 / 2 | 14 | 14 | 15 / 2 |
+  | - K | 16.0 | 16.3 | 16.2 | 164.3 | 164.5 | 173.5 |
+  | - J | 3.2 | 3.2 | 3.2 | 26.8 | 26.9 | 28.3 |
+  | - XC: model's grid / coarse | 32.9 | 33.4 | 4.6 / 4.9 | 92.1 | 92.2 | 12.5 / 15.2 |
+  | - VV10: model's grid / coarse | 62.9 | 64.1 | 8.5 / 1.8 | 69.3 | 69.4 | 9.3 / 2.9 |
+  | - solvent | 11.6 | 13.7 | 13.6 | 26.3 | 28.2 | 29.8 |
+  | gradient | 15.44 s | **7.42 s** | 7.37 s | out of memory (> 76 s) | **47.1 s** | 47.1 s |
+  | - two-electron derivatives | 5.29 | 3.70 | 3.67 | 58.2 | 39.8 | 39.8 |
+  | - VV10 / XC | 4.33 / 1.89 | 0.30 / 1.90 | 0.29 / 1.89 | 4.66 / 3.19 | 0.51 / 3.19 | 0.51 / 3.19 |
+  | - solvent | 3.85 | 1.45 | 1.45 | (9.6 until it failed) | 3.42 | 3.42 |
+  | SCF + gradient | 142.4 s | 138.5 s | **60.7 s** | | 429.2 s | **319.6 s** |
+  | GPU memory pool, peak | 425 MiB | 430 MiB | 408 MiB | 588 MiB at the failure | 565 MiB | 452 MiB |
+
+  - The plain SCF is 2-4 s slower than before: D applied from the surface data (2 s) and the clock.
+  - The two-level SCF takes the plain SCF's cycles (one more at def2-TZVP) and two evaluations on the model's
+    grids; its def2-TZVP gain is smaller because K, which it does not touch, is 43% of the plain cycle there.
+  - The def2-TZVP gradient of the "exact changes" column is the two-level run's (the same code and density to
+    9e-7); the plain run of that column was timed before item 5 (50.7 s with the old integral term).
+
+- **Two-level convergence** (def2-SVP; the plain SCF takes 14 cycles):
+
+  | first reference when the cheap model is at | micro thresholds (energy, gradient) | cycles | references | SCF |
+  |---|---|---|---|---|
+  | 1e-6 | 0.1, 0.3 | 9 + 7 | 2 | 57.7 s |
+  | 1e-6 | 1, 0.7 | 9 + 6 | 2 | 55.7 s |
+  | 1e-5 | 1, 0.7 | 8 + 6 | 2 | 53.6 s |
+  | 1e-4 | 1, 0.7 | 6 + 8 | 2 (the second passes at 9.97e-11 of 1e-10) | 53.6 s |
+
+  With the reference at 1e-6 the correction (an orbital gradient of 7.6e-4, twice the cheap model's own at that
+  point) sets the iterations back by one; at 1e-4 the energy predicted for the second reference is 6.6e-10 off.
+- **Exactness.** The exact changes: E to 2.3e-13 Eh, gradient to 6.8e-11 Eh/Bohr (def2-SVP). Two-level against the
+  plain SCF: E within 1.2e-11 (def2-SVP) and 5.9e-12 Eh (def2-TZVP); gradients within 8.8e-7 Eh/Bohr, two SCFs
+  converged to the same thresholds by different paths. `two_level_check.py`, 16 cases on water (RKS/UKS, pure to
+  range-separated, VV10, DF, C-PCM, IEF-PCM, SMD, level shift): |dE| <= 7.4e-13, gradients within 1.5e-7, 2
+  references each; 5 on benzene: |dE| <= 3.3e-11, gradients within 8.4e-7 (wB97M-V in SMD on the default grids
+  37.0 -> 13.4 s, the UKS cation 52.7 -> 16.6 s: GPU4PySCF's default VV10 grid is level 3).
+- **Unit tests** (the modified tree; `p36_tests.sh`): test_two_level (new, 19), test_scf_reuse (new, 8), and
+  upstream's test_pcm, test_pcm_grad, test_smd, test_smd_grad, test_pcm_lowmem, test_pcm_lowmem_grad, test_pcm_tdscf,
+  test_pcm_tdscf_grad, test_pcm_hessian, test_smd_hessian, test_rks_grad, test_uks_grad, test_rhf_grad,
+  test_uhf_grad, test_vv10_grid, test_grid_response, test_level_shift_grad, test_lowmem_grad, test_geomopt, test_rks,
+  test_uks, test_numint, test_rks_lowmem, test_rhf, test_uhf, test_scf_jk, test_jk_one_pass, test_rks_hessian and
+  test_uks_hessian all pass.
+  - test_scf_reuse first failed for UKS: its SCF evaluated the VV10 density from the density matrix (get_veff
+    stripped the orbitals) and the gradient from the orbitals, so the two were not bit-identical and the potential
+    was evaluated again. `dft/uks.py` now passes the orbitals on.
+- **The solvent gradient's integral term** (`pcm_grad_proto.py`): 1.95 -> 0.64 s (def2-SVP), 6.35 -> 2.54 s
+  (def2-TZVP), plus 0.11-0.14 s of set-up; -2 times the kernel's two outputs equals the old term to 2.8e-14.
+- **The Hessian's second-derivative J/K term** (`rsh_hess_ejk.py`, benzene def2-SVP): wB97X 8.12 -> 5.57 s (UKS
+  8.03 -> 5.51 s), CAM-B3LYP 8.12 -> 5.58 s; within 3.1e-10 of the old passes (values up to 5.5).
+- **The production basis, def2-TZVPD** (caffeine, 614 functions; the final code, one run each):
+
+  | | plain SCF | two_level |
+  |---|---|---|
+  | SCF | 727.1 s, 14 cycles | **584.0 s**, 15 cycles, 2 references |
+  | - K | 385.4 s (53%) | 408.9 s (70%) |
+  | - J | 70.1 s | 74.3 s |
+  | - XC: model's grid / coarse | 157.7 s | 21.2 / 24.7 s |
+  | - VV10: model's grid / coarse | 75.1 s | 10.1 / 3.5 s |
+  | - solvent | 37.6 s | 39.8 s |
+  | gradient | 107.8 s | 107.8 s |
+  | - two-electron derivatives | 98.1 s (91%) | 98.2 s |
+  | GPU memory pool, peak | 642 MiB | 530 MiB |
+
+  - E within 3.8e-11 Eh, gradients within 7.9e-7 Eh/Bohr. A K build is 25.6 s against 11 s on def2-TZVP, and J
+    4.6 s against 1.8 s: the diffuse functions. The two-level SCF gains 1.25x here.
+  - The CPU tree on the laptop (10 threads; "Caffeine in SMD water end to end" above) takes 180 s for its two-level
+    SCF of the same job and 174 s for the gradient: its cheap model has RI-J and seminumerical K, this one 16 exact
+    K builds.
+- **An anion with diffuse functions** (H2PO4-, def2-TZVPD, 221 functions, same grids and SMD): the plain SCF takes
+  72.9 s, 52.7 s of it K (72%; 4.4 s per build, four times caffeine/def2-SVP's at about the same size), the
+  two-level SCF 62.0 s with the same 12 builds and 2 references, E within 7.6e-12 Eh. The gradient takes 15.2 s.
+- **Surface integrals of the SCF through the 3-center J engine** (`pcm_int_proto.py`, not built): the potential at
+  the charges 1.05-1.09x, the Fock matrix of the charges 1.5-1.6x faster than `int1e_grids`, equal to 8e-14; 2% of
+  the two-level def2-TZVP SCF.
+- **NAD+ needs 40 SCF cycles** in the pass timings (wB97X/def2-SVP, gas phase, MMFF geometry): CPU PySCF takes 41
+  for the same case, so it is the case and not the GPU code (in SMD water with def2-TZVPD the CPU run took 13).
+
+### What is left of the time
+- def2-TZVPD two-level SCF, 584 s: K 409 s (70%), J 74 s, XC 46 s, solvent 40 s, VV10 14 s. Gradient 108 s: the
+  two-electron derivatives 98 s (91%).
+- def2-TZVP two-level SCF, 273 s: K 174 s (64%), solvent 33 s, J 28 s, XC 28 s, VV10 11 s. Gradient 47 s: the
+  two-electron derivatives 40 s (85%), XC 3.2 s, the solvent 3.4 s.
+- def2-SVP two-level SCF, 53 s: K 16 s, solvent 17 s (the surface build 3.4 s is an n^3 product and an LU on this
+  card's FP64), VV10 on the model's grid at the 2 references 8.5 s, XC 9.5 s.
+- So exact K is what remains for hybrids beyond double zeta: the cheap model has none on a GPU (no seminumerical
+  exchange; density-fitted K keeps a tensor of 117 GB at NAD+ size).
+
+### Not done
+- The Hessian side of the audit: the response build after the CPHF's Krylov solve, the residual solver, the
+  solvated CPHF's per-density passes, a coarser VV10 grid for the response.
+- `init_guess='pre_scf'`: the two-level SCF's cheap phase is that guess for the grids; a fitted K for it does not
+  scale to the production sizes.
+- A GPU seminumerical exchange (COSX), the step that would take K out of the cheap cycles.
+- Nothing here has run on a datacenter card or at the production size. `scripts/gpu_bench.sh` now runs
+  `prod_parts.py` (v1.9.0, the modified tree, its two-level SCF; def2-SVP to def2-TZVPD; `--large` adds NAD+ on
+  def2-TZVPD) and the new tests for that day; it sees part 36 once a tag of it is pushed and the pin moved.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

@@ -1,0 +1,587 @@
+GPU4PySCF part 36 (node1, GTX 1650 Super, 2026-11-21/22): ports from the CPU tree for the production settings.
+Caffeine unless noted; wB97M-V, XC grid (99,590), VV10 grid (50,194), SMD water; conv_tol 1e-10.
+Baseline: gpu4pyscf exp/prim-screen e5e3551 (part 35), scratch/tree_p35. Tables: bench/gpu/prod_parts.py
+(calls, inclusive s, exclusive s between device synchronizations; SM clock min/median/max in MHz).
+
+== 1. Baseline (part 35), def2-SVP [p36_base.log]
+base: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947650  converged=True  cycles=14  pool peak 425 MiB
+--- scf: 127.00 s, SM clock [1890.0, 1905.0, 1935.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks                         15     32.86     32.86
+    numint._vv10nlc                       15     60.04     60.04
+    numint.nr_nlc_vxc                     15     62.96      2.92
+    scf.get_j                             15      3.15      3.15
+    scf.get_k                             15     15.97     15.97
+    solvent.build                          1      3.34      3.34
+    solvent._get_v                        15      3.99      3.99
+    solvent.left_multiply_R               30      0.17      0.17
+    solvent.left_solve_K                  30      0.10      0.10
+    solvent._get_vmat                     15      3.99      3.99
+    solvent._get_vind                     15     11.61      0.00
+    scf.get_veff                          15    126.73      0.18
+    scf.get_hcore                          1      0.02      0.02
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.03      0.03
+    scf.eig                               14      0.14      0.14
+    (not in any timed part)                                 0.04
+--- grad: 15.44 s, SM clock [1890.0, 1890.0, 1890.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.01      0.01
+    grad.get_exc                           1      1.89      1.89
+    numint._vv10nlc                        1      4.04      4.04
+    grad.get_nlc_exc                       1      4.33      0.29
+    grad.jk_energy_per_atom                2      5.29      5.29
+    grad.grad_nuc                          1      0.00      0.00
+    solvent._get_v                         3      0.81      0.81
+    solvent.left_multiply_R                6      0.03      0.03
+    solvent.left_solve_K                   7      0.02      0.02
+    solvent._get_vmat                      3      0.81      0.81
+    solvent._get_vind                      3      1.66      0.00
+    solvent.grad_qv                        1      2.49      1.93
+    solvent.grad_solver                    1      0.80      0.25
+    solvent.grad_nuc                       1      0.56      0.01
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.06
+
+== 1b. Baseline (part 35), def2-TZVP: the gradient runs out of the card's memory in grad_solver [p36_a.log]
+base: caffeine def2-tzvp wb97m-v solvent=smd nao=494 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/scratch/tree_p35/gpu4pyscf
+E = -680.368622100339  converged=True  cycles=14  pool peak 525 MiB
+--- scf: 379.67 s, SM clock [1875.0, 1875.0, 1890.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.04      0.04
+    numint.nr_rks                         15     92.06     92.06
+    numint._vv10nlc                       15     62.22     62.22
+    numint.nr_nlc_vxc                     15     69.28      7.06
+    scf.get_j                             15     26.82     26.82
+    scf.get_k                             15    164.30    164.30
+    solvent.build                          1      3.43      3.43
+    solvent._get_v                        15     10.63     10.63
+    solvent.left_multiply_R               30      0.15      0.15
+    solvent.left_solve_K                  30      0.10      0.10
+    solvent._get_vmat                     15     11.99     11.99
+    solvent._get_vind                     15     26.30      0.00
+    scf.get_veff                          15    378.96      0.19
+    scf.get_hcore                          1      0.04      0.04
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.13      0.13
+    scf.eig                               14      0.44      0.44
+    (not in any timed part)                                 0.06
+pool peak 588 MiB
+--- grad: 75.80 s, SM clock [1860.0, 1875.0, 1875.0]  FAILED: CUDARuntimeError: cudaErrorMemoryAllocation: out of memory
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.02      0.02
+    grad.get_exc                           1      3.19      3.19
+    numint._vv10nlc                        1      4.15      4.15
+    grad.get_nlc_exc                       1      4.66      0.51
+    grad.jk_energy_per_atom                2     58.17     58.17
+    grad.grad_nuc                          1      0.00      0.00
+    solvent._get_v                         2      1.43      1.43
+    solvent.left_multiply_R                4      0.02      0.02
+    solvent.left_solve_K                   5      0.02      0.02
+    solvent._get_vmat                      2      1.61      1.61
+    solvent._get_vind                      2      3.07      0.00
+    solvent.grad_qv                        1      7.95      6.41
+    solvent.grad_solver                    1      1.68      0.14
+    (not in any timed part)                                 0.13
+
+== 2. The exact changes of the first batch (solvent charges and VV10 potential reused, solver gradient
+      without derivative matrices) [p36_a.log]
+new: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947650  converged=True  cycles=14  pool peak 341 MiB
+--- scf: 127.63 s, SM clock [1890.0, 1905.0, 1920.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks                         15     33.02     33.02
+    numint._vv10nlc                       15     60.34     60.34
+    numint.nr_nlc_vxc                     15     63.26      2.92
+    scf.get_j                             15      3.15      3.15
+    scf.get_k                             15     16.06     16.06
+    solvent.build                          1      3.40      3.40
+    solvent._get_v                        15      4.01      4.01
+    solvent.left_multiply_R               30      0.16      0.16
+    solvent.left_solve_K                  30      0.10      0.10
+    solvent._get_vmat                     15      4.01      4.01
+    solvent._get_vind                     15     11.68      0.00
+    scf.get_veff                          15    127.36      0.18
+    scf.get_hcore                          1      0.02      0.02
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.03      0.03
+    scf.eig                               14      0.14      0.14
+    (not in any timed part)                                 0.03
+pool peak 443 MiB
+--- grad: 10.07 s, SM clock [1890.0, 1890.0, 1890.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.01      0.01
+    grad.get_exc                           1      1.89      1.89
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.29      0.29
+    grad.jk_energy_per_atom                2      5.29      5.29
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      1.93      1.93
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.59      0.58
+    solvent.grad_nuc                       1      0.01      0.01
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.07
+vs scratch/p36_base_def2-svp: dE = 4.547e-13, max |dgrad| = 3.283e-13 (max |grad| 1.601e-01)
+new: caffeine def2-tzvp wb97m-v solvent=smd nao=494 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.368622100339  converged=True  cycles=14  pool peak 514 MiB
+--- scf: 380.25 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks                         15     92.20     92.20
+    numint._vv10nlc                       15     62.33     62.33
+    numint.nr_nlc_vxc                     15     69.40      7.07
+    scf.get_j                             15     26.86     26.86
+    scf.get_k                             15    164.54    164.54
+    solvent.build                          1      3.45      3.45
+    solvent._get_v                        15     10.64     10.64
+    solvent.left_multiply_R               30      0.17      0.17
+    solvent.left_solve_K                  30      0.10      0.10
+    solvent._get_vmat                     15     11.98     11.98
+    solvent._get_vind                     15     26.36      0.01
+    scf.get_veff                          15    379.54      0.19
+    scf.get_hcore                          1      0.04      0.04
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.13      0.13
+    scf.eig                               14      0.44      0.44
+    (not in any timed part)                                 0.06
+pool peak 577 MiB
+--- grad: 69.01 s, SM clock [1860.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.02      0.02
+    grad.get_exc                           1      3.19      3.19
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.50      0.50
+    grad.jk_energy_per_atom                2     58.17     58.17
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      6.40      6.40
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.60      0.59
+    solvent.grad_nuc                       1      0.01      0.01
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.12
+
+== 3. Pass structures of a range-separated gradient (bench/gpu/rsh_grad_passes.py) [p36_b.log, p36_c.log]
+caffeine def2-svp wb97x: nao=246 natm=24 omega=0.3 alpha=1.0 hyb=0.157706 SCF 25.5 s, 14 cycles, SM clock [1875.0, 1875.0, 1875.0]
+passes (best of 2, s): J+aK 1.889  J+hK 1.887  Jeng 0.459  aK 1.848  hK 1.848  K_SR 3.371  K_LR 1.784  K_mix 3.467
+  A: J+aK + K_SR               5.260 s    1.00 of A   max |d| from A 0.00e+00
+  B: J+hK + K_LR               3.671 s    0.70 of A   max |d| from A 6.02e-11
+  C: Jeng + K_mix              3.926 s    0.75 of A   max |d| from A 2.64e-10
+  D: Jeng + hK + K_LR          4.091 s    0.78 of A   max |d| from A 2.70e-10
+  E: Jeng + aK + K_SR          5.678 s    1.08 of A   max |d| from A 2.55e-10
+  (largest gradient component of the two-electron part: 3.092e+01)
+caffeine def2-tzvp wb97x: nao=494 natm=24 omega=0.3 alpha=1.0 hyb=0.157706 SCF 217.5 s, 15 cycles, SM clock [1860.0, 1860.0, 1860.0]
+passes (best of 2, s): J+aK 20.988  J+hK 20.979  Jeng 4.090  aK 20.339  hK 20.344  K_SR 37.652  K_LR 19.012  K_mix 38.531
+  A: J+aK + K_SR              58.640 s    1.00 of A   max |d| from A 0.00e+00
+  B: J+hK + K_LR              39.991 s    0.68 of A   max |d| from A 1.36e-10
+  C: Jeng + K_mix             42.620 s    0.73 of A   max |d| from A 8.25e-10
+  D: Jeng + hK + K_LR         43.446 s    0.74 of A   max |d| from A 9.24e-10
+  E: Jeng + aK + K_SR         62.081 s    1.06 of A   max |d| from A 8.06e-10
+  (largest gradient component of the two-electron part: 2.760e+01)
+nad def2-svp wb97x: nao=754 natm=70 omega=0.3 alpha=1.0 hyb=0.157706 SCF 758.1 s, 40 cycles, SM clock [1875.0, 1875.0, 1875.0]
+passes (best of 1, s): J+aK 24.572  J+hK 24.500  Jeng 6.503  aK 19.207  hK 19.225  K_SR 25.595  K_LR 17.836  K_mix 36.579
+  A: J+aK + K_SR              50.168 s    1.00 of A   max |d| from A 0.00e+00
+  B: J+hK + K_LR              42.336 s    0.84 of A   max |d| from A 1.27e-10
+  C: Jeng + K_mix             43.082 s    0.86 of A   max |d| from A 1.34e-09
+  D: Jeng + hK + K_LR         43.564 s    0.87 of A   max |d| from A 1.44e-09
+  E: Jeng + aK + K_SR         51.305 s    1.02 of A   max |d| from A 1.33e-09
+  (largest gradient component of the two-electron part: 5.389e+01)
+NAD+ SCF: 40 cycles on the GPU; CPU PySCF (perf tree, laptop) takes 41 for the same case.
+
+== 4. Surface integrals through df.j_engine_3c2e (bench/gpu/pcm_int_proto.py; not built) [p36_b.log]
+caffeine def2-svp: nao=246 surface points=5525
+potential at the charges: gint 0.273 s, md 0.250 s (1.09x), max |d| 4.62e-14 of 2.14e+01
+Fock matrix of the charges: gint 0.273 s, md 0.182 s (1.50x), max |d| 6.87e-15 of 6.60e-02
+md set-up (once per surface): 0.105 s
+q.v: gint -0.438298999450, md -0.438298999450, difference -1.15e-14; D.V: gint -0.438298999450, md -0.438298999450
+caffeine def2-tzvp: nao=494 surface points=5525
+potential at the charges: gint 0.715 s, md 0.678 s (1.05x), max |d| 8.17e-14 of 2.14e+01
+Fock matrix of the charges: gint 0.804 s, md 0.498 s (1.61x), max |d| 8.83e-15 of 6.65e-02
+md set-up (once per surface): 0.129 s
+q.v: gint -0.682655826076, md -0.682655826076, difference -6.66e-15; D.V: gint -0.682655826076, md -0.682655826076
+
+== 5. Two-level convergence, def2-SVP (the plain SCF: 14 cycles, 130.2 s in that session)
+first reference at two_level_conv_tol, micro thresholds (energy, gradient fractions)   cycles   refs   SCF
+1e-6, (0.1, 0.3)    9 + 7    2    57.7 s   reference 2: E - predicted 2.5e-12, |g| 1.01e-06
+1e-6, (1, 0.7)      9 + 6    2    55.7 s   reference 2: E - predicted 2.39e-12, |g| 2.04e-06
+1e-5, (1, 0.7)      8 + 6    2    53.6 s   reference 2: E - predicted -1.88e-11, |g| 4.25e-06, 2|g|^2/gap 1.01e-10
+1e-4, (1, 0.7)      6 + 8    2    53.6 s   reference 2: E - predicted -6.55e-10, |g| 4.23e-06, 2|g|^2/gap 9.97e-11
+1e-3, (1, 0.7)      6 + 8    2    54.0 s   (the cheap SCF stops at the same cycle as with 1e-4)
+plain SCF, |g| by cycle 9..14: 3.7e-4 1.1e-4 5.2e-5 2.1e-5 7.8e-6 3.8e-6
+two-level (1e-6, 0.1/0.3): reference 1 |g| 7.63e-4, micro 1..7: 2.64e-4 9.95e-5 3.51e-5 1.61e-5 7.66e-6 2.03e-6 9.71e-7
+
+== 6. End to end with the final code [p36_e.log; plain def2-TZVP from p36_c.log]
+final2_two_level: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947652  converged=True  cycles=2  pool peak 307 MiB
+--- scf: 53.29 s, SM clock [1890.0, 1890.0, 1890.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[97024]                  15      4.88      4.88
+    numint._vv10nlc                       17      9.35      9.35
+    numint.nr_nlc_vxc[21504]              15      1.82      0.55
+    scf.get_j                             15      3.17      3.17
+    scf.get_k                             15     16.18     16.18
+    solvent.build                          1      3.42      3.42
+    solvent._get_v                        15      4.03      4.03
+    solvent.left_multiply_R               30      1.97      1.97
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15      4.03      4.03
+    solvent._get_vind                     17     13.55      0.01
+    scf.get_veff                          17     52.97      0.21
+    scf.get_hcore                          2      0.05      0.05
+    scf.get_ovlp                           2      0.01      0.01
+    scf.get_fock                          30      0.03      0.03
+    scf.eig                               14      0.14      0.14
+    numint.nr_rks[767488]                  2      4.62      4.62
+    numint.nr_nlc_vxc[157440]              2      8.52      0.44
+    (not in any timed part)                                 0.06
+pool peak 408 MiB
+--- grad: 7.37 s, SM clock [1890.0, 1890.0, 1890.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.01      0.01
+    grad.get_exc                           1      1.89      1.89
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.29      0.29
+    grad.jk_energy_per_atom                2      3.67      3.67
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      0.75      0.75
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.69      0.69
+    solvent.grad_nuc                       1      0.01      0.01
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.06
+vs scratch/p36_c1_def2-svp: dE = -1.592e-12, max |dgrad| = 8.806e-07 (max |grad| 1.601e-01)
+final2_two_level: caffeine def2-tzvp wb97m-v solvent=smd nao=494 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.368622100345  converged=True  cycles=2  pool peak 389 MiB
+--- scf: 272.54 s, SM clock [1875.0, 1875.0, 1890.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[97024]                  16     15.19     15.19
+    numint._vv10nlc                       18      9.69      9.69
+    numint.nr_nlc_vxc[21504]              16      2.85      1.47
+    scf.get_j                             16     28.28     28.28
+    scf.get_k                             16    173.48    173.48
+    solvent.build                          1      3.43      3.43
+    solvent._get_v                        16     11.34     11.34
+    solvent.left_multiply_R               32      2.12      2.12
+    solvent.left_solve_K                  32      0.10      0.10
+    solvent._get_vmat                     16     12.78     12.78
+    solvent._get_vind                     18     29.78      0.01
+    scf.get_veff                          18    271.64      0.22
+    scf.get_hcore                          2      0.08      0.08
+    scf.get_ovlp                           2      0.02      0.02
+    scf.get_fock                          32      0.14      0.14
+    scf.eig                               15      0.47      0.47
+    numint.nr_rks[767488]                  2     12.52     12.52
+    numint.nr_nlc_vxc[157440]              2      9.31      1.01
+    (not in any timed part)                                 0.15
+pool peak 452 MiB
+--- grad: 47.07 s, SM clock [1860.0, 1860.0, 1875.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.02      0.02
+    grad.get_exc                           1      3.19      3.19
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.51      0.51
+    grad.jk_energy_per_atom                2     39.81     39.81
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      2.71      2.71
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.70      0.70
+    solvent.grad_nuc                       1      0.01      0.01
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.12
+vs scratch/p36_c1_def2-tzvp: dE = -5.457e-12, max |dgrad| = 8.931e-07 (max |grad| 1.520e-01)
+final2_plain: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947651  converged=True  cycles=14  pool peak 329 MiB
+--- scf: 131.10 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.04      0.04
+    numint.nr_rks[767488]                 15     33.42     33.42
+    numint._vv10nlc                       15     61.14     61.14
+    numint.nr_nlc_vxc[157440]             15     64.10      2.96
+    scf.get_j                             15      3.21      3.21
+    scf.get_k                             15     16.26     16.26
+    solvent.build                          1      3.44      3.44
+    solvent._get_v                        15      4.06      4.06
+    solvent.left_multiply_R               30      1.99      1.99
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15      4.06      4.06
+    solvent._get_vind                     15     13.65      0.01
+    scf.get_veff                          15    130.83      0.19
+    scf.get_hcore                          1      0.02      0.02
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.03      0.03
+    scf.eig                               14      0.14      0.14
+    (not in any timed part)                                 0.04
+pool peak 430 MiB
+--- grad: 7.42 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.01      0.01
+    grad.get_exc                           1      1.90      1.90
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.30      0.29
+    grad.jk_energy_per_atom                2      3.70      3.70
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      0.75      0.75
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.69      0.69
+    solvent.grad_nuc                       1      0.01      0.01
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.06
+vs scratch/p36_base_def2-svp: dE = -2.274e-13, max |dgrad| = 6.755e-11 (max |grad| 1.601e-01)
+final_plain: caffeine def2-tzvp wb97m-v solvent=smd nao=494 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.368622100339  converged=True  cycles=14  pool peak 501 MiB
+--- scf: 382.07 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[767488]                 15     92.22     92.22
+    numint._vv10nlc                       15     62.33     62.33
+    numint.nr_nlc_vxc[157440]             15     69.40      7.07
+    scf.get_j                             15     26.86     26.86
+    scf.get_k                             15    164.52    164.52
+    solvent.build                          1      3.46      3.46
+    solvent._get_v                        15     10.65     10.65
+    solvent.left_multiply_R               30      1.99      1.99
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15     11.98     11.98
+    solvent._get_vind                     15     28.17      0.01
+    scf.get_veff                          15    381.37      0.19
+    scf.get_hcore                          1      0.04      0.04
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.13      0.13
+    scf.eig                               14      0.44      0.44
+    (not in any timed part)                                 0.06
+pool peak 565 MiB
+--- grad: 50.73 s, SM clock [1860.0, 1860.0, 1875.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.02      0.02
+    grad.get_exc                           1      3.19      3.19
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.50      0.50
+    grad.jk_energy_per_atom                2     39.79     39.79
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      6.40      6.40
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.70      0.70
+    solvent.grad_nuc                       1      0.01      0.01
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.12
+vs scratch/p36_base_def2-tzvp: dE = -2.274e-13
+
+== 7. Two-level SCF against the plain SCF, small cases (bench/gpu/two_level_check.py) [p36_d.log, p36_e.log]
+== two-level SCF against the plain SCF, water (final defaults)
+tree ~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf, water def2-svp, conv_tol 1e-10
+case                                E plain  dE two-level  max |dgrad| cycles refs  t plain    t two
+rks_pbe                      -76.2720009617     -2.70e-13     3.06e-09      8    2     0.57     0.23
+rks_b3lyp                    -76.3581418310     -7.11e-14     7.74e-08      7    2     1.71     1.72
+rks_r2scan                   -76.3173067335      7.39e-13     1.50e-07      7    2     0.24     0.25
+rks_wb97x                    -76.3376867733     -1.28e-13     1.98e-08      9    2     2.12     2.13
+rks_wb97mv                   -76.3254579834     -2.98e-13     8.07e-09      9    2     4.22     2.62
+rks_wb97mv_prodgrids         -76.3254576689     -2.27e-13     8.23e-09      9    2     3.13     2.41
+rks_wb97mv_smd               -76.3371340668     -2.98e-13     9.85e-08      8    2     4.04     2.62
+rks_b3lyp_cpcm               -76.3673618906     -4.26e-14     4.36e-08      7    2     1.81     1.82
+rks_b3lyp_iefpcm             -76.3673035891      1.42e-14     4.37e-08      7    2     1.81     1.84
+rks_b3lyp_df                 -76.3581519824     -1.99e-13     7.75e-08      7    2     0.20     0.21
+rks_wb97mv_df_smd            -76.3371491767     -2.13e-13     9.75e-08      8    2     2.37     1.00
+rks_b3lyp_levelshift         -76.3581418310     -5.54e-13     2.35e-08     11    2     2.73     2.73
+uks_b3lyp_cation             -75.9018848853      1.42e-14     2.42e-09      9    2     2.18     2.18
+uks_wb97mv_cation_smd        -76.0367608072     -2.13e-13     4.35e-09      9    2     4.47     2.91
+uks_pbe_cation               -75.8170251800     -2.70e-13     3.31e-09      9    2     0.28     0.28
+uks_wb97mv_closed            -76.3254579834     -2.70e-13     8.07e-09      9    2     4.31     2.69
+largest |dE| 7.39e-13, largest |dgrad| 1.50e-07, failed or unconverged: none
+== two-level SCF against the plain SCF, benzene
+tree ~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf, benzene def2-svp, conv_tol 1e-10
+case                                E plain  dE two-level  max |dgrad| cycles refs  t plain    t two
+rks_pbe                     -231.7730867994      2.71e-11     2.12e-07      8    2     1.59     1.06
+rks_b3lyp                   -232.0846729354      3.92e-12     8.40e-07      7    2     2.66     2.73
+rks_wb97mv_smd              -231.9732490936      3.01e-12     1.43e-07      8    2    37.01    13.40
+uks_wb97mv_cation_smd       -231.7213954420     -3.34e-11     2.53e-08     11    2    52.73    16.56
+rks_b3lyp_df                -232.0847232048      4.77e-12     8.42e-07      7    2     1.03     0.90
+largest |dE| 3.34e-11, largest |dgrad| 8.42e-07, failed or unconverged: none
+== UKS two-level and plain, water cation and closed shell, wB97M-V
+tree ~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf, water def2-svp, conv_tol 1e-10
+case                                E plain  dE two-level  max |dgrad| cycles refs  t plain    t two
+uks_wb97mv_cation_smd        -76.0367608072     -1.71e-13     4.35e-09      9    2     5.01     2.96
+uks_wb97mv_closed            -76.3254579834     -2.27e-13     8.07e-09      9    2     4.42     2.73
+uks_b3lyp_cation             -75.9018848853     -2.84e-14     2.42e-09      9    2     2.19     2.20
+uks_pbe_cation               -75.8170251800     -2.70e-13     3.31e-09      9    2     0.28     0.28
+largest |dE| 2.70e-13, largest |dgrad| 8.07e-09, failed or unconverged: none
+
+== 8. The Hessian's second-derivative J/K term of a range-separated hybrid (bench/gpu/rsh_hess_ejk.py) [p36_d.log]
+benzene def2-svp wb97x: partial_hess_elec without XC 8.12 s, tree ~/Chemistry/my-pyscf/scratch/tree_p35/gpu4pyscf
+benzene def2-svp wb97x: partial_hess_elec without XC 5.57 s, tree ~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf, max |d| from scratch/p36_hess_ejk.npy 8.27e-11 (values up to 5.45e+00)
+benzene def2-svp wb97x UKS: partial_hess_elec without XC 8.03 s, tree ~/Chemistry/my-pyscf/scratch/tree_p35/gpu4pyscf
+benzene def2-svp wb97x UKS: partial_hess_elec without XC 5.51 s, tree ~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf, max |d| from scratch/p36_hess_ejk--uks.npy 3.08e-10 (values up to 5.45e+00)
+benzene def2-svp camb3lyp: partial_hess_elec without XC 8.12 s, tree ~/Chemistry/my-pyscf/scratch/tree_p35/gpu4pyscf
+benzene def2-svp camb3lyp: partial_hess_elec without XC 5.58 s, tree ~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf, max |d| from scratch/p36_hess_ejk_cam.npy 6.46e-11 (values up to 5.42e+00)
+
+== 9. The solvent gradient's integral term through the Rys 3-center kernel (bench/gpu/pcm_grad_proto.py) [p36_d.log]
+water def2-svp: nao=24 surface points=1090
+grad_qv 0.028 s; Rys 3-center kernel 0.008 s (3.67x), set-up once 0.062 s
+fitted factors: -2.000000000000 (functions), -2.000000000000 (charges); max |d| after the fit 3.82e-16 of 7.93e-02
+with factors [-2. -2.]: max |d| 1.25e-15
+caffeine def2-svp: nao=246 surface points=5525
+grad_qv 1.945 s; Rys 3-center kernel 0.638 s (3.05x), set-up once 0.111 s
+fitted factors: -2.000000000000 (functions), -2.000000000000 (charges); max |d| after the fit 9.83e-15 of 3.20e-01
+with factors [-2. -2.]: max |d| 9.49e-15
+caffeine def2-tzvp: nao=494 surface points=5525
+grad_qv 6.352 s; Rys 3-center kernel 2.543 s (2.50x), set-up once 0.136 s
+fitted factors: -2.000000000000 (functions), -2.000000000000 (charges); max |d| after the fit 1.65e-14 of 3.20e-01
+with factors [-2. -2.]: max |d| 2.80e-14
+
+== 10. An anion with diffuse functions: H2PO4-, def2-TZVPD, plain and two-level [p36_d.log]
+h2po4_plain: bench/diag/wb97mv/h2po4_opt.xyz def2-tzvpd wb97m-v solvent=smd nao=221 grid=221184 nlcgrid=45568 surface=2122 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -643.834066720498  converged=True  cycles=11  pool peak 270 MiB
+--- scf: 72.90 s, SM clock [1875.0, 1875.0, 1875.0]
+    numint.nr_rks[221184]                 12      9.40      9.40
+    numint._vv10nlc                       12      4.81      4.81
+    numint.nr_nlc_vxc[45568]              12      5.58      0.77
+    scf.get_j                             12      2.36      2.36
+    scf.get_k                             12     52.68     52.68
+--- grad: 15.21 s, SM clock [1875.0, 1875.0, 1875.0]
+    numint._vv10nlc                        1      0.00      0.00
+h2po4_two_level: bench/diag/wb97mv/h2po4_opt.xyz def2-tzvpd wb97m-v solvent=smd nao=221 grid=221184 nlcgrid=45568 surface=2122 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -643.834066720490  converged=True  cycles=2  pool peak 297 MiB
+--- scf: 61.99 s, SM clock [1890.0, 1890.0, 1890.0]
+    numint.nr_rks[32256]                  12      1.46      1.46
+    numint._vv10nlc                       14      0.94      0.94
+    numint.nr_nlc_vxc[7424]               12      0.29      0.15
+    scf.get_j                             12      2.35      2.35
+    scf.get_k                             12     52.41     52.41
+    numint.nr_rks[221184]                  2      1.61      1.61
+    numint.nr_nlc_vxc[45568]               2      0.94      0.15
+--- grad: 15.13 s, SM clock [1890.0, 1890.0, 1890.0]
+    numint._vv10nlc                        1      0.00      0.00
+vs scratch/p36_h2po4: dE = 7.617e-12, max |dgrad| = 1.388e-07 (max |grad| 3.250e-02)
+
+== 10b. The production basis: caffeine def2-TZVPD (614 functions), final code, two-level and plain [p36_f.log]
+== def2-TZVPD, two-level
+tzvpd_two_level: caffeine def2-tzvpd wb97m-v solvent=smd nao=614 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.371613150653  converged=True  cycles=2  pool peak 451 MiB
+--- scf: 584.00 s, SM clock [1875.0, 1875.0, 1890.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[97024]                  16     24.74     24.74
+    numint._vv10nlc                       18      9.92      9.92
+    numint.nr_nlc_vxc[21504]              16      3.53      2.13
+    scf.get_j                             16     74.33     74.33
+    scf.get_k                             16    408.89    408.89
+    solvent.build                          1      3.43      3.43
+    solvent._get_v                        16     16.13     16.13
+    solvent.left_multiply_R               32      2.12      2.12
+    solvent.left_solve_K                  32      0.10      0.10
+    solvent._get_vmat                     16     17.99     17.99
+    solvent._get_vind                     18     39.78      0.01
+    scf.get_veff                          18    582.69      0.22
+    scf.get_hcore                          2      0.09      0.09
+    scf.get_ovlp                           2      0.02      0.02
+    scf.get_fock                          32      0.22      0.22
+    scf.eig                               15      0.73      0.73
+    numint.nr_rks[767488]                  2     21.15     21.15
+    numint.nr_nlc_vxc[157440]              2     10.06      1.53
+    (not in any timed part)                                 0.22
+pool peak 530 MiB
+--- grad: 107.83 s, SM clock [1860.0, 1860.0, 1875.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.02      0.02
+    grad.get_exc                           1      4.26      4.26
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.66      0.66
+    grad.jk_energy_per_atom                2     98.16     98.16
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      3.88      3.88
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.70      0.69
+    solvent.grad_nuc                       1      0.01      0.01
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.14
+== def2-TZVPD, plain SCF
+tzvpd_plain: caffeine def2-tzvpd wb97m-v solvent=smd nao=614 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.371613150691  converged=True  cycles=14  pool peak 563 MiB
+--- scf: 727.14 s, SM clock [1860.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[767488]                 15    157.69    157.69
+    numint._vv10nlc                       15     64.04     64.04
+    numint.nr_nlc_vxc[157440]             15     75.14     11.10
+    scf.get_j                             15     70.08     70.08
+    scf.get_k                             15    385.37    385.37
+    solvent.build                          1      3.48      3.48
+    solvent._get_v                        15     15.15     15.15
+    solvent.left_multiply_R               30      1.99      1.99
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15     16.90     16.90
+    solvent._get_vind                     15     37.63      0.01
+    scf.get_veff                          15    726.10      0.19
+    scf.get_hcore                          1      0.05      0.05
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.20      0.20
+    scf.eig                               14      0.68      0.68
+    (not in any timed part)                                 0.08
+pool peak 642 MiB
+--- grad: 107.81 s, SM clock [1860.0, 1860.0, 1875.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.02      0.02
+    grad.get_exc                           1      4.26      4.26
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.66      0.66
+    grad.jk_energy_per_atom                2     98.13     98.13
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      3.88      3.88
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.70      0.70
+    solvent.grad_nuc                       1      0.01      0.01
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.14
+vs scratch/p36_f2: dE = -3.797e-11, max |dgrad| = 7.949e-07 (max |grad| 1.516e-01)
+
+== 11. Unit tests of the modified tree [p36_tests.log; the files touched after it again in p36_e.log]
+scf/tests/test_two_level.py: rc=0 18 passed in 142.10s (0:02:22) [143 s]
+grad/tests/test_scf_reuse.py: rc=1 1 failed, 7 passed in 34.50s [35 s]
+solvent/tests/test_pcm.py: rc=0 26 passed in 13.06s [13 s]
+solvent/tests/test_pcm_grad.py: rc=0 11 passed in 9.07s [10 s]
+solvent/tests/test_smd.py: rc=0 26 passed in 39.60s [40 s]
+solvent/tests/test_smd_grad.py: rc=0 14 passed in 8.95s [9 s]
+solvent/tests/test_pcm_lowmem.py: rc=0 6 passed in 10.45s [11 s]
+solvent/tests/test_pcm_lowmem_grad.py: rc=0 7 passed in 25.57s [26 s]
+grad/tests/test_rks_grad.py: rc=0 15 passed in 80.84s (0:01:20) [81 s]
+grad/tests/test_uks_grad.py: rc=0 12 passed in 84.60s (0:01:24) [85 s]
+grad/tests/test_rhf_grad.py: rc=0 7 passed in 18.13s [18 s]
+grad/tests/test_uhf_grad.py: rc=0 6 passed in 25.59s [26 s]
+grad/tests/test_vv10_grid.py: rc=0 20 passed in 295.05s (0:04:55) [296 s]
+grad/tests/test_grid_response.py: rc=0 7 passed in 48.91s [49 s]
+grad/tests/test_level_shift_grad.py: rc=0 6 passed in 10.63s [11 s]
+grad/tests/test_lowmem_grad.py: rc=0 4 passed in 16.47s [17 s]
+grad/tests/test_geomopt.py: rc=0 4 passed in 75.00s (0:01:14) [75 s]
+dft/tests/test_rks.py: rc=0 17 passed, 1 skipped in 72.40s (0:01:12) [73 s]
+dft/tests/test_uks.py: rc=0 10 passed in 47.54s [48 s]
+dft/tests/test_numint.py: rc=0 24 passed in 4.71s [5 s]
+dft/tests/test_rks_lowmem.py: rc=0 4 passed in 25.85s [26 s]
+scf/tests/test_rhf.py: rc=0 17 passed in 23.93s [24 s]
+scf/tests/test_uhf.py: rc=0 13 passed, 3 skipped in 42.93s [43 s]
+scf/tests/test_scf_jk.py: rc=0 11 passed in 19.57s [20 s]
+scf/tests/test_jk_one_pass.py: rc=0 9 passed in 53.99s [55 s]
+solvent/tests/test_pcm_tdscf.py: rc=0 6 passed in 31.58s [32 s]
+solvent/tests/test_pcm_tdscf_grad.py: rc=0 11 passed, 1 skipped in 121.15s (0:02:01) [121 s]
+solvent/tests/test_pcm_hessian.py: rc=0 20 passed in 195.21s (0:03:15) [196 s]
+solvent/tests/test_smd_hessian.py: rc=0 15 passed in 16.10s [16 s]
+hessian/tests/test_rks_hessian.py: rc=0 12 passed in 34.98s [35 s]
+hessian/tests/test_uks_hessian.py: rc=0 12 passed in 27.20s [28 s]
+-- (test_scf_reuse: the UKS case failed there; dft/uks.py then passed the orbitals to the VV10 density)
+-- with the final code (after the UKS VV10 change, the cycle limit of two_level and grad_qv):
+grad/tests/test_scf_reuse.py: rc=0 8 passed in 34.84s [35 s]
+dft/tests/test_uks.py: rc=0 10 passed in 47.22s [48 s]
+grad/tests/test_uks_grad.py: rc=0 12 passed in 84.34s (0:01:24) [85 s]
+scf/tests/test_two_level.py: rc=0 19 passed in 141.90s (0:02:21) [142 s]
+solvent/tests/test_pcm_grad.py: rc=0 11 passed in 8.87s [9 s]
+solvent/tests/test_smd_grad.py: rc=0 14 passed in 9.09s [10 s]
+solvent/tests/test_pcm_lowmem_grad.py: rc=0 7 passed in 26.75s [27 s]
+solvent/tests/test_pcm_tdscf_grad.py: rc=0 11 passed, 1 skipped in 123.01s (0:02:03) [123 s]
+solvent/tests/test_pcm_hessian.py: rc=0 20 passed in 195.37s (0:03:15) [196 s]
+solvent/tests/test_smd_hessian.py: rc=0 15 passed in 16.03s [16 s]
+grad/tests/test_vv10_grid.py: rc=0 20 passed in 289.86s (0:04:49) [290 s]
+dft/tests/test_rks.py: rc=0 17 passed, 1 skipped in 72.42s (0:01:12) [73 s]
+grad/tests/test_geomopt.py: rc=0 4 passed in 75.03s (0:01:15) [75 s]
