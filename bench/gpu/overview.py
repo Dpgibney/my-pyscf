@@ -4,10 +4,12 @@ the same converged SCF, with the GPU clocks (gpu_monitor). A warm-up on water wi
 runs first, so that neither tree is charged for loading its CUDA modules or for first-call setup. The tasks' results
 (E, gradient, Hessian, excitation energies) go to PREFIX_*.npy with --save; --compare PREFIX prints and records their
 largest differences from another tree's. --df runs it with density fitting (def2-universal-jkfit), --one-pass with
-SCF.jk_one_pass = True (opt-in, the current tree only). Appends a JSON line to --out. Run it with PYTHONPATH set to the
-tree.
+SCF.jk_one_pass = True (opt-in, the current tree only), --upstream-energy with SCF.second_order_energy = False (the
+energy traced with the summed potential as v1.9.0 does, for a comparison of the code with it: the current tree's
+default differs from that by up to 1e-10 Eh, NOTES part 39). Appends a JSON line to --out. Run it with PYTHONPATH set
+to the tree.
 Usage: overview.py --label base|current [--mol caffeine|benzene] [--basis def2-svp] [--xc b3lyp] [--df] [--one-pass]
-                   [--tasks scf,grad,hess,tddft] [--save PREFIX] [--compare PREFIX] [--out FILE]"""
+                   [--upstream-energy] [--tasks scf,grad,hess,tddft] [--save PREFIX] [--compare PREFIX] [--out FILE]"""
 import argparse
 import json
 import os
@@ -30,6 +32,7 @@ ap.add_argument('--basis', default='def2-svp')
 ap.add_argument('--xc', default='b3lyp')
 ap.add_argument('--df', action='store_true')
 ap.add_argument('--one-pass', action='store_true')
+ap.add_argument('--upstream-energy', action='store_true')
 ap.add_argument('--tasks', default='scf,grad,hess')
 ap.add_argument('--save', default=None)
 ap.add_argument('--compare', default=None)
@@ -59,6 +62,8 @@ def run(atom):
         mf = mf.density_fit(auxbasis='def2-universal-jkfit')
     if args.one_pass:
         mf.jk_one_pass = True
+    if args.upstream_energy:
+        mf.second_order_energy = False
     mf.conv_tol = 1e-10
     times, results, clocks = {}, {}, {}
     times['scf'], e, clocks['scf'] = timed(mf.kernel)

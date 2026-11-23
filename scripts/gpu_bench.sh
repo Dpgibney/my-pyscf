@@ -73,8 +73,10 @@ run() {  # mol basis xc tasks [--df]: v1.9.0, then the modified tree compared wi
     echo "== $1 $2 $3 ${5:-} ($4)"
     PYTHONPATH="$WS/gpu4pyscf-base" python -W ignore "$WS/bench/gpu/overview.py" --label base --mol $1 --basis $2 \
         --xc $3 --tasks $4 ${5:-} --save "$R/${tag}_base" --out "$OUT" 2>&1 | tail -n 1 | cut -c1-300
+    # --upstream-energy: the energy traced as v1.9.0 does (second_order_energy off, from part 39 on), so that the
+    # difference is the code's and not what the SCF cycles' builds leave out of the energy
     PYTHONPATH="$WS/gpu4pyscf" python -W ignore "$WS/bench/gpu/overview.py" --label current --mol $1 --basis $2 \
-        --xc $3 --tasks $4 ${5:-} --save "$R/${tag}_cur" --compare "$R/${tag}_base" --out "$OUT" 2>&1 \
+        --xc $3 --tasks $4 ${5:-} --upstream-energy --save "$R/${tag}_cur" --compare "$R/${tag}_base" --out "$OUT" 2>&1 \
         | tail -n 1 | cut -c1-300
 }
 {

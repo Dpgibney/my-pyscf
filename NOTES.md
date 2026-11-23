@@ -9522,7 +9522,8 @@ every plain SCF energy moving in the tenth decimal with respect to upstream; on 
 - **Tools:** `bench/gpu/two_level_energy_check.py` (runs with ":off" for the upstream form; the column J is now the
   energy the SCF takes for J), `prod_parts.py`; node1 `scratch/p39_{a,b,c}.sh`.
 - **Data:** `bench/results/node1/p39_second_order_energy.txt`, `p39_parts.jsonl`.
-- **Commits:** gpu4pyscf `perf` 02f92312, merged into `exp/prim-screen` 8c6a42fa; local, not pushed.
+- **Commits:** gpu4pyscf `perf` 02f92312, merged into `exp/prim-screen` 8c6a42fa; pushed on 2026-11-22 as tag
+  `perf-2026-11-22d`.
 
 ### What it is
 A direct SCF builds J and K for the change dD of the density of each cycle and adds them to those of the cycle
