@@ -9319,7 +9319,7 @@ change of the density, with the energy in a form that takes it at second order).
   one build of the potential of its final density, by terms), `prod_parts.py`; node1 `scratch/p38_{a..i}.sh`.
 - **Data:** `bench/results/node1/p38_solvent_refk.txt`, `p38_parts.jsonl`, `p38_ref_parts.jsonl`.
 - **Commits:** gpu4pyscf `perf` 749e4f2a (the solvent's integrals) and 33e04727 (the two-level SCF's references),
-  merged into `exp/prim-screen` 90118c61 and 064243b4; local, not pushed.
+  merged into `exp/prim-screen` 90118c61 and 064243b4; pushed on 2026-11-22 as tag `perf-2026-11-22c`.
 
 ### The solvent's surface integrals
 Every SCF cycle of a PCM or SMD model contracts the integrals of the AO pairs with the surface charges twice: with
