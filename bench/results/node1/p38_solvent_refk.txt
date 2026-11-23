@@ -1,0 +1,810 @@
+GPU4PySCF part 38 (node1, GTX 1650 Super at 1800-1890 MHz, 2026-11-22): the solvent's two surface integrals on
+kernels of gpu4pyscf.sgx; the model's K at the later references of the two-level SCF (the second-order form of
+the energy of a part built as a change, and the option two_level_sgx_ref_level); what an SCF's energy is against
+one build of the potential of its final density. Caffeine unless noted. Production-like job: wB97M-V, XC grid
+(99,590), VV10 grid (50,194), SMD water, conv_tol 1e-10 (bench/gpu/prod_parts.py: calls, inclusive s, exclusive s
+between device synchronizations). Earlier numbers: p36_ports.txt (plain SCFs), p37_cosx.txt.
+In the tables of bench/gpu/two_level_energy_check.py a +nan under "- one build" means that build, the one at the
+model's own direct_scf_tol, was skipped (--no-loose).
+
+== 1. The solvent's integrals, final files: unit tests, the two contractions against libcint and int3c1e, their
+==    time on caffeine's SMD surface, the production-like job [p38_b.log]
+== unit tests
+solvent/tests/test_pcm.py: 26 passed in 12.82s
+solvent/tests/test_smd.py: 26 passed in 37.94s
+solvent/tests/test_pcm_grad.py: 11 passed in 9.18s
+solvent/tests/test_smd_grad.py: 14 passed in 9.00s
+solvent/tests/test_pcm_lowmem.py: 6 passed in 10.36s
+solvent/tests/test_pcm_lowmem_grad.py: 7 passed in 31.93s
+solvent/tests/test_pcm_tdscf.py: 6 passed in 30.28s
+solvent/tests/test_pcm_tdscf_grad.py: 11 passed, 1 skipped in 121.33s (0:02:01)
+solvent/tests/test_pcm_tdscf_nac.py: 1 failed, 27 passed, 1 skipped in 214.95s (0:03:34)
+solvent/tests/test_pcm_hessian.py: 20 passed in 183.01s (0:03:03)
+solvent/tests/test_smd_hessian.py: 15 passed in 15.77s
+grad/tests/test_scf_reuse.py: 8 passed in 34.22s
+sgx/tests/test_sgx.py: 18 passed in 23.50s
+sgx/tests/test_int1e_grids.py: 8 passed in 16.87s
+scf/tests/test_two_level.py: 48 passed in 271.57s (0:04:31)
+== the two contractions against libcint and int3c1e, through f and through g functions
+O 0 0 0.12; C 0.05 0.1 -1.08; H 0.3 0.94 -1.62; H -0.2 -0.94 -1.66  def2-tzvp  nao 74  ngrids 300
+point charges: max |v| 58.09, max |V| 41.30; int3c1e against libcint: v 6.9e-12, V 1.9e-12
+   double against libcint: v 9.7e-13, V 3.7e-13   against int3c1e: v 5.9e-12, V 1.7e-12   ok
+   float  against libcint: v 4.9e-05, V 5.8e-05   against int3c1e: v 4.9e-05, V 5.8e-05   ok
+Gaussian charges: max |v| 54.15, max |V| 22.25; int3c1e against libcint: v 9.3e-12, V 3.1e-12
+   double against libcint: v 6.5e-13, V 3.1e-13   against int3c1e: v 8.9e-12, V 2.8e-12   ok
+   float  against libcint: v 5.4e-05, V 5.8e-05   against int3c1e: v 5.4e-05, V 5.8e-05   ok
+O 0 0 0.12; C 0.05 0.1 -1.08; H 0.3 0.94 -1.62; H -0.2 -0.94 -1.66  def2-qzvp  nao 174  ngrids 200
+point charges: max |v| 71.49, max |V| 61.34; int3c1e against libcint: v 1.3e-11, V 1.5e-12
+   double against libcint: v 1.9e-12, V 6.6e-13   against int3c1e: v 1.3e-11, V 1.5e-12   ok
+   float  against libcint: v 1.1e-04, V 1.4e-04   against int3c1e: v 1.1e-04, V 1.4e-04   ok
+Gaussian charges: max |v| 62.28, max |V| 46.22; int3c1e against libcint: v 1.1e-11, V 2.1e-12
+   double against libcint: v 1.7e-12, V 6.0e-13   against int3c1e: v 1.0e-11, V 2.0e-12   ok
+   float  against libcint: v 8.2e-05, V 2.7e-04   against int3c1e: v 8.2e-05, V 2.7e-04   ok
+== their time on caffeine's SMD surface
+caffeine def2-svp: 246 AOs, 5525 surface points; pair data 0.01 s: 5930 shell pairs, 15386 primitive pairs
+int3c1e:        potential of the density 0.268 s, matrix of the charges 0.268 s
+these, double:  potential of the density 0.071 s, matrix of the charges 0.080 s;  max |v - v_int3c1e| 3.6e-14 (max |v| 21.4), max |V - V_int3c1e| 7.4e-15 (max |V| 1.00e-01)
+these, float :  potential of the density 0.004 s, matrix of the charges 0.003 s;  max |v - v_int3c1e| 6.4e-06 (max |v| 21.4), max |V - V_int3c1e| 1.2e-07 (max |V| 1.00e-01)
+caffeine def2-tzvp: 494 AOs, 5525 surface points; pair data 0.04 s: 16591 shell pairs, 36797 primitive pairs
+int3c1e:        potential of the density 0.703 s, matrix of the charges 0.793 s
+these, double:  potential of the density 0.221 s, matrix of the charges 0.250 s;  max |v - v_int3c1e| 2.8e-14 (max |v| 21.4), max |V - V_int3c1e| 1.2e-14 (max |V| 1.00e-01)
+these, float :  potential of the density 0.010 s, matrix of the charges 0.010 s;  max |v - v_int3c1e| 7.1e-06 (max |v| 21.4), max |V - V_int3c1e| 5.5e-07 (max |V| 1.00e-01)
+caffeine def2-tzvpd: 614 AOs, 5525 surface points; pair data 0.05 s: 25171 shell pairs, 51217 primitive pairs
+int3c1e:        potential of the density 0.999 s, matrix of the charges 1.117 s
+these, double:  potential of the density 0.318 s, matrix of the charges 0.360 s;  max |v - v_int3c1e| 2.8e-14 (max |v| 21.4), max |V - V_int3c1e| 2.6e-14 (max |V| 1.00e-01)
+these, float :  potential of the density 0.014 s, matrix of the charges 0.014 s;  max |v - v_int3c1e| 8.2e-06 (max |v| 21.4), max |V - V_int3c1e| 1.2e-06 (max |V| 1.00e-01)
+== production-like job, def2-svp, plain SCF and gradient, against part 36's
+p38_plain: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947651  converged=True  cycles=14  pool peak 329 MiB
+--- scf: 124.70 s, SM clock [1875.0, 1890.0, 1890.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.04      0.04
+    numint.nr_rks[767488]                 15     33.26     33.26
+    numint._vv10nlc                       15     60.85     60.85
+    numint.nr_nlc_vxc[157440]             15     63.79      2.94
+    scf.get_j                             15      3.20      3.20
+    scf.get_k                             15     16.19     16.19
+    solvent.build                          1      3.43      3.43
+    solvent._get_v                        15      1.08      1.08
+    solvent.left_multiply_R               30      1.98      1.98
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15      1.21      1.21
+    solvent._get_vind                     15      7.80      0.01
+    scf.get_veff                          15    124.42      0.19
+    scf.get_hcore                          1      0.02      0.02
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.03      0.03
+    scf.eig                               14      0.14      0.14
+    (not in any timed part)                                 0.03
+pool peak 430 MiB
+--- grad: 7.43 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.01      0.01
+    grad.get_exc                           1      1.90      1.90
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.30      0.30
+    grad.jk_energy_per_atom                2      3.71      3.71
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      0.75      0.75
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.69      0.69
+    solvent.grad_nuc                       1      0.01      0.01
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.07
+vs scratch/p36_c1_def2-svp: dE = -2.274e-13, max |dgrad| = 3.672e-13 (max |grad| 1.601e-01)
+== production-like job, def2-tzvp, plain SCF, against part 36's
+p38_plain: caffeine def2-tzvp wb97m-v solvent=smd nao=494 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.368622100339  converged=True  cycles=14  pool peak 498 MiB
+--- scf: 366.61 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[767488]                 15     92.21     92.21
+    numint._vv10nlc                       15     62.33     62.33
+    numint.nr_nlc_vxc[157440]             15     69.40      7.07
+    scf.get_j                             15     26.87     26.87
+    scf.get_k                             15    164.53    164.53
+    solvent.build                          1      3.46      3.46
+    solvent._get_v                        15      3.39      3.39
+    solvent.left_multiply_R               30      1.99      1.99
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15      3.77      3.77
+    solvent._get_vind                     15     12.70      0.01
+    scf.get_veff                          15    365.90      0.19
+    scf.get_hcore                          1      0.04      0.04
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.13      0.13
+    scf.eig                               14      0.44      0.44
+    (not in any timed part)                                 0.06
+vs scratch/p36_c1_def2-tzvp: dE = 0.000e+00
+== production-like job, def2-svp, two-level (seminumerical K in the cheap model)
+p38_two_level: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947673  converged=True  cycles=2  pool peak 420 MiB
+--- scf: 36.48 s, SM clock [1845.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[97024]                  16      5.24      5.24
+    numint._vv10nlc                       18      9.51      9.51
+    numint.nr_nlc_vxc[21504]              16      1.96      0.59
+    scf.get_j                             16      3.34      3.34
+    sgx.build                              1      0.13      0.13
+    sgx.contract                          16      1.05      1.05
+    sgx.get_k                             16      1.43      0.25
+    solvent.build                          1      3.45      3.45
+    solvent._get_v                        16      1.17      1.17
+    solvent.left_multiply_R               32      2.13      2.13
+    solvent.left_solve_K                  32      0.10      0.10
+    solvent._get_vmat                     16      1.30      1.30
+    solvent._get_vind                     18      8.15      0.01
+    scf.get_veff                          18     33.58      0.22
+    scf.get_hcore                          2      0.05      0.05
+    scf.get_ovlp                           2      0.01      0.01
+    scf.get_fock                          32      0.03      0.03
+    scf.eig                               15      0.15      0.15
+    scf.get_k                              2      2.56      2.56
+    numint.nr_rks[767488]                  2      4.66      4.66
+    numint.nr_nlc_vxc[157440]              2      8.59      0.44
+    (not in any timed part)                                 0.06
+vs scratch/p36_c1_def2-svp: dE = -2.206e-11
+== production-like job, def2-tzvp, two-level (seminumerical K in the cheap model)
+p38_two_level: caffeine def2-tzvp wb97m-v solvent=smd nao=494 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.368622100247  converged=True  cycles=2  pool peak 597 MiB
+--- scf: 113.32 s, SM clock [1815.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.04      0.04
+    numint.nr_rks[97024]                  16     15.23     15.23
+    numint._vv10nlc                       18      9.69      9.69
+    numint.nr_nlc_vxc[21504]              16      2.86      1.47
+    scf.get_j                             16     28.47     28.47
+    sgx.build                              1      0.29      0.29
+    sgx.contract                          32      2.82      2.82
+    sgx.get_k                             16      3.81      0.70
+    solvent.build                          1      3.47      3.47
+    solvent._get_v                        16      3.60      3.60
+    solvent.left_multiply_R               32      2.12      2.12
+    solvent.left_solve_K                  32      0.10      0.10
+    solvent._get_vmat                     16      4.02      4.02
+    solvent._get_vind                     18     13.32      0.01
+    scf.get_veff                          18     85.73      0.22
+    scf.get_hcore                          2      0.08      0.08
+    scf.get_ovlp                           2      0.02      0.02
+    scf.get_fock                          32      0.14      0.14
+    scf.eig                               15      0.47      0.47
+    scf.get_k                              2     26.69     26.69
+    numint.nr_rks[767488]                  2     12.52     12.52
+    numint.nr_nlc_vxc[157440]              2      9.31      1.01
+    (not in any timed part)                                 0.15
+vs scratch/p36_c1_def2-tzvp: dE = 9.186e-11
+== production-like job, def2-tzvpd, two-level; compared with part 36's two-level run (the plain SCF is 3.8e-11 below it)
+p38_two_level: caffeine def2-tzvpd wb97m-v solvent=smd nao=614 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.371613150540  converged=True  cycles=2  pool peak 653 MiB
+--- scf: 223.06 s, SM clock [1800.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[97024]                  16     24.74     24.74
+    numint._vv10nlc                       18      9.92      9.92
+    numint.nr_nlc_vxc[21504]              16      3.53      2.13
+    scf.get_j                             16     76.15     76.15
+    sgx.build                              1      0.36      0.36
+    sgx.contract                          32      5.35      5.35
+    sgx.get_k                             16      6.93      1.23
+    solvent.build                          1      3.48      3.48
+    solvent._get_v                        16      5.21      5.21
+    solvent.left_multiply_R               32      2.12      2.12
+    solvent.left_solve_K                  32      0.10      0.10
+    solvent._get_vmat                     16      5.82      5.82
+    solvent._get_vind                     18     16.73      0.01
+    scf.get_veff                          18    159.51      0.22
+    scf.get_hcore                          2      0.09      0.09
+    scf.get_ovlp                           2      0.02      0.02
+    scf.get_fock                          32      0.22      0.22
+    scf.eig                               15      0.73      0.73
+    scf.get_k                              2     62.23     62.23
+    numint.nr_rks[767488]                  2     21.15     21.15
+    numint.nr_nlc_vxc[157440]              2     10.06      1.53
+    (not in any timed part)                                 0.22
+vs scratch/p36_f2: dE = 1.128e-10
+== production-like job, def2-tzvpd, two-level with the fitted J too
+p38_two_level_etb: caffeine def2-tzvpd wb97m-v solvent=smd nao=614 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.371613150579  converged=True  cycles=2  pool peak 730 MiB
+--- scf: 168.83 s, SM clock [1800.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[97024]                  16     24.76     24.76
+    numint._vv10nlc                       18      9.92      9.92
+    numint.nr_nlc_vxc[21504]              16      3.53      2.13
+    sgx.build                              1      0.36      0.36
+    sgx.contract                          32      5.40      5.40
+    sgx.get_k                             16      6.91      1.16
+    solvent.build                          1      3.46      3.46
+    solvent._get_v                        16      5.21      5.21
+    solvent.left_multiply_R               32      2.12      2.12
+    solvent.left_solve_K                  32      0.10      0.10
+    solvent._get_vmat                     16      5.81      5.81
+    solvent._get_vind                     18     16.71      0.01
+    scf.get_veff                          18     93.52     10.42
+    scf.get_hcore                          2      0.09      0.09
+    scf.get_ovlp                           2      0.02      0.02
+    scf.get_fock                          32      0.22      0.22
+    scf.eig                               15      0.73      0.73
+    scf.get_j                              2     11.79     11.79
+    scf.get_k                              2     62.19     62.19
+    numint.nr_rks[767488]                  2     21.14     21.14
+    numint.nr_nlc_vxc[157440]              2     10.06      1.53
+    (not in any timed part)                                 0.23
+vs scratch/p36_f2: dE = 7.412e-11
+
+== 2. The one failing test of section 1, solvent/tests/test_pcm_tdscf_nac.py::test_nac_tda_singlet_ee_ref_IEFPCM
+assert abs(np.abs(nac1.de_scaled) - np.abs(ref_scaled)).max() < 1.0E-6, the test alone:
+with the solvent's integrals through int3c1e (PCM._grid_integrals returning None)   1.0604745983577857e-06
+with them through sgx/int1e_grids.py                                                 1.0604749678400083e-06
+the tree as it was at part 35 (before parts 36-38)                                   1.0604744082876039e-06
+
+== 3. K at the later references of the two-level SCF, measured on the SCF as it was (bench/gpu/two_level_k_identity.py):
+==    the kernel's K[D1] + K[dD] and the second-order form against one build of K with direct_scf_tol 1e-16, and a
+==    seminumerical K[dD] in that form [p38_f.log, p38_g.log]
+== K at the second reference: caffeine def2-SVP, production settings
+caffeine def2-svp wb97m-v SMD water: 246 AOs; two-level SCF 36.8 s, 2 references, E = -679.604486947672
+reference 1: -tr(D1 K[D1])/4 with K[D1] of one build at direct_scf_tol 1e-13 against 1e-16 (1.6 s): +7.15e-13
+reference 1 -> 2: max |dD| 5.5e-04, |g| at the reference 1.94e-06; the second-order term -tr(dD K[dD])/4 = -7.214e-07 Eh; the Rys kernels on dD: 1.13 s
+   -tr(D K)/4 at reference 2 against the tight build: the kernel's K[D1] + K[dD] -1.79e-12, the same matrices in the second-order form +7.18e-13
+   SGX level, precision    points   s      second-order form: against the tight build   against the kernel's K[dD]   plain replacement   error of |g|
+   1 double              32069   0.57   +5.77e-12                                    +5.05e-12                    +2.09e-08           1.01e-07
+   1 float               32069   0.08   +5.79e-12                                    +5.07e-12                    +2.09e-08           1.01e-07
+   2 double              70921   1.27   +1.56e-13                                    -5.63e-13                    +1.88e-09           1.44e-08
+   2 float               70921   0.14   +4.44e-13                                    -2.75e-13                    +1.81e-09           1.66e-08
+   3 double             141001   2.49   +8.35e-13                                    +1.17e-13                    +4.39e-10           3.30e-09
+   3 float              141001   0.27   +1.25e-12                                    +5.33e-13                    +4.32e-10           5.32e-09
+== K at the second reference: caffeine def2-TZVP, production settings
+caffeine def2-tzvp wb97m-v SMD water: 494 AOs; two-level SCF 113.6 s, 2 references, E = -680.368622100248
+reference 1: -tr(D1 K[D1])/4 with K[D1] of one build at direct_scf_tol 1e-13 against 1e-16 (17.4 s): +1.98e-12
+reference 1 -> 2: max |dD| 1.1e-02, |g| at the reference 2.47e-06; the second-order term -tr(dD K[dD])/4 = -9.674e-07 Eh; the Rys kernels on dD: 11.83 s
+   -tr(D K)/4 at reference 2 against the tight build: the kernel's K[D1] + K[dD] +1.57e-11, the same matrices in the second-order form +1.97e-12
+   SGX level, precision    points   s      second-order form: against the tight build   against the kernel's K[dD]   plain replacement   error of |g|
+   1 double              32256   2.06   -1.93e-11                                    -2.12e-11                    +3.21e-08           3.14e-07
+   1 float               32256   0.22   -1.92e-11                                    -2.11e-11                    +3.18e-08           3.17e-07
+   2 double              71205   4.41   +5.44e-13                                    -1.43e-12                    +1.06e-09           6.44e-08
+   2 float               71205   0.55   +6.04e-14                                    -1.91e-12                    +9.28e-10           7.29e-08
+   3 double             141637   8.39   +2.20e-12                                    +2.31e-13                    +3.59e-10           9.79e-09
+   3 float              141637   0.97   +1.79e-12                                    -1.84e-13                    +3.35e-10           2.51e-08
+== K at the second reference: H2PO4-, def2-TZVPD, production settings
+bench/diag/wb97mv/h2po4_opt.xyz def2-tzvpd wb97m-v SMD water: 221 AOs; two-level SCF 18.2 s, 2 references, E = -643.834066720528
+reference 1: -tr(D1 K[D1])/4 with K[D1] of one build at direct_scf_tol 1e-13 against 1e-16 (4.9 s): -5.09e-13
+reference 1 -> 2: max |dD| 6.8e-04, |g| at the reference 2.34e-06; the second-order term -tr(dD K[dD])/4 = -5.616e-08 Eh; the Rys kernels on dD: 4.59 s
+   -tr(D K)/4 at reference 2 against the tight build: the kernel's K[D1] + K[dD] +1.35e-11, the same matrices in the second-order form -5.04e-13
+   SGX level, precision    points   s      second-order form: against the tight build   against the kernel's K[dD]   plain replacement   error of |g|
+   1 double              10296   0.15   +2.47e-13                                    +7.52e-13                    +3.47e-08           2.73e-07
+   1 float               10296   0.02   +1.81e-13                                    +6.85e-13                    +3.47e-08           2.73e-07
+   2 double              23048   0.32   -1.24e-12                                    -7.35e-13                    +1.55e-09           3.31e-08
+   2 float               23048   0.05   -1.31e-12                                    -8.04e-13                    +1.56e-09           3.32e-08
+   3 double              45580   0.62   -4.49e-13                                    +5.55e-14                    +1.35e-10           4.62e-09
+   3 float               45580   0.09   -5.28e-13                                    -2.30e-14                    +1.69e-10           5.30e-09
+== K at the later references: caffeine def2-TZVP, wB97X, gas phase, default grids (three references)
+caffeine def2-tzvp wb97x: 494 AOs; two-level SCF 81.1 s, 3 references, E = -680.394345012506
+reference 1: -tr(D1 K[D1])/4 with K[D1] of one build at direct_scf_tol 1e-13 against 1e-16 (17.4 s): +2.28e-12
+reference 1 -> 2: max |dD| 1.7e-02, |g| at the reference 1.39e-05; the second-order term -tr(dD K[dD])/4 = -1.169e-06 Eh; the Rys kernels on dD: 12.12 s
+   -tr(D K)/4 at reference 2 against the tight build: the kernel's K[D1] + K[dD] +8.83e-12, the same matrices in the second-order form +2.31e-12
+   SGX level, precision    points   s      second-order form: against the tight build   against the kernel's K[dD]   plain replacement   error of |g|
+   1 double              32256   2.06   -1.97e-11                                    -2.20e-11                    +3.08e-08           3.75e-07
+   1 float               32256   0.23   -2.12e-11                                    -2.35e-11                    +3.08e-08           3.78e-07
+   2 double              71205   4.20   +1.54e-12                                    -7.67e-13                    +1.06e-09           6.75e-08
+   2 float               71205   0.52   -1.88e-13                                    -2.50e-12                    +1.00e-09           7.48e-08
+   3 double             141637   8.36   +1.99e-12                                    -3.17e-13                    +1.22e-10           1.07e-08
+   3 float              141637   0.95   +4.51e-13                                    -1.85e-12                    +1.96e-10           3.08e-08
+reference 1 -> 3: max |dD| 1.7e-02, |g| at the reference 1.38e-06; the second-order term -tr(dD K[dD])/4 = -1.170e-06 Eh; the Rys kernels on dD: 12.12 s
+   -tr(D K)/4 at reference 3 against the tight build: the kernel's K[D1] + K[dD] +3.35e-11, the same matrices in the second-order form +2.30e-12
+   SGX level, precision    points   s      second-order form: against the tight build   against the kernel's K[dD]   plain replacement   error of |g|
+   1 double              32256   1.96   -1.95e-11                                    -2.18e-11                    +3.08e-08           3.75e-07
+   1 float               32256   0.22   -2.11e-11                                    -2.34e-11                    +3.06e-08           3.78e-07
+   2 double              71205   4.20   +1.54e-12                                    -7.63e-13                    +1.04e-09           6.76e-08
+   2 float               71205   0.52   -2.03e-13                                    -2.50e-12                    +1.11e-09           7.48e-08
+   3 double             141637   8.36   +1.99e-12                                    -3.17e-13                    +9.71e-11           1.07e-08
+   3 float              141637   0.95   +7.25e-13                                    -1.58e-12                    +1.92e-10           2.93e-08
+== K at the second reference: caffeine def2-TZVPD, production settings
+caffeine def2-tzvpd wb97m-v SMD water: 614 AOs; two-level SCF 223.2 s, 2 references, E = -680.371613150539
+reference 1: -tr(D1 K[D1])/4 with K[D1] of one build at direct_scf_tol 1e-13 against 1e-16 (36.7 s): +2.76e-12
+reference 1 -> 2: max |dD| 5.1e-02, |g| at the reference 3.35e-06; the second-order term -tr(dD K[dD])/4 = -1.084e-06 Eh; the Rys kernels on dD: 29.42 s
+   -tr(D K)/4 at reference 2 against the tight build: the kernel's K[D1] + K[dD] -9.77e-13, the same matrices in the second-order form +2.80e-12
+   SGX level, precision    points   s      second-order form: against the tight build   against the kernel's K[dD]   plain replacement   error of |g|
+   1 double              32358   2.90   -1.86e-10                                    -1.88e-10                    +9.88e-08           1.51e-06
+   1 float               32358   0.39   -3.81e-10                                    -3.84e-10                    +9.90e-08           1.83e-06
+   2 double              71540   6.22   -2.81e-11                                    -3.09e-11                    +3.92e-09           3.50e-07
+   2 float               71540   0.76   -2.33e-10                                    -2.35e-10                    +5.54e-09           1.13e-06
+   3 double             142563  12.38   +5.33e-13                                    -2.27e-12                    +2.15e-10           5.63e-08
+   3 float              142563   1.57   -2.08e-10                                    -2.11e-10                    +1.78e-09           1.07e-06
+
+== 4. Single precision at def2-TZVPD: the kernels in single precision with the two matrix products in double
+==    (scratch script), and with more terms of the Taylor series of their Boys functions (BOYS_ORDER['float'],
+==    3 in the tree) [mixed_k.log, float_order.log]
+caffeine def2-tzvpd: 614 AOs, two-level SCF 221.4 s, 2 references, E = -680.371613150538
+level  kernel  F=wDX   K=XG     s      error of E, second-order form   plain replacement   error of |g|
+2      float   float   float    0.79   -2.30e-10                      +6.22e-09           1.12e-06
+2      float   double  float    1.13   -2.29e-10                      +6.02e-09           1.11e-06
+2      float   float   double   1.10   -2.30e-10                      +6.29e-09           1.11e-06
+2      float   double  double   1.47   -2.29e-10                      +6.06e-09           1.11e-06
+2      double  double  double   6.22   -3.09e-11                      +3.93e-09           3.50e-07
+3      float   float   float    1.57   -2.05e-10                      +1.20e-09           1.05e-06
+3      float   double  float    2.31   -2.06e-10                      +2.51e-09           1.05e-06
+3      float   float   double   2.27   -2.06e-10                      +1.10e-09           1.06e-06
+3      float   double  double   2.99   -2.07e-10                      +2.42e-09           1.06e-06
+3      double  double  double  12.38   -2.27e-12                      +2.15e-10           5.63e-08
+caffeine def2-tzvpd: two-level SCF 223.2 s, 2 references, E = -680.371613150539
+caffeine def2-tzvpd, Taylor order 3 of the single-precision kernels
+level  precision   s      second-order form against the kernel's K[dD]   plain replacement   error of |g|   max |K - K double|
+2      double     6.55   -3.10e-11                                       +3.93e-09           3.50e-07       0.00e+00
+2      float      0.82   -2.28e-10                                       +5.91e-09           1.12e-06       1.51e-09
+3      double    12.83   -2.27e-12                                       +2.15e-10           5.63e-08       0.00e+00
+3      float      1.60   -2.09e-10                                       +2.49e-09           1.07e-06       1.31e-09
+caffeine def2-tzvpd, Taylor order 4 of the single-precision kernels
+level  precision   s      second-order form against the kernel's K[dD]   plain replacement   error of |g|   max |K - K double|
+2      double     6.54   -3.10e-11                                       +3.93e-09           3.50e-07       0.00e+00
+2      float      0.84   -1.44e-10                                       +4.27e-09           8.90e-07       1.28e-09
+3      double    12.87   -2.27e-12                                       +2.15e-10           5.63e-08       0.00e+00
+3      float      1.64   -1.26e-10                                       +8.83e-10           8.38e-07       1.09e-09
+caffeine def2-tzvpd, Taylor order 5 of the single-precision kernels
+level  precision   s      second-order form against the kernel's K[dD]   plain replacement   error of |g|   max |K - K double|
+2      double     6.55   -3.10e-11                                       +3.93e-09           3.50e-07       0.00e+00
+2      float      0.86   -1.45e-10                                       +4.27e-09           8.91e-07       1.26e-09
+3      double    12.87   -2.27e-12                                       +2.15e-10           5.63e-08       0.00e+00
+3      float      1.66   -1.27e-10                                       +8.77e-10           8.40e-07       1.11e-09
+caffeine def2-tzvpd, Taylor order 6 of the single-precision kernels
+level  precision   s      second-order form against the kernel's K[dD]   plain replacement   error of |g|   max |K - K double|
+2      double     6.55   -3.10e-11                                       +3.93e-09           3.50e-07       0.00e+00
+2      float      0.96   -1.45e-10                                       +4.27e-09           8.91e-07       1.26e-09
+3      double    12.87   -2.27e-12                                       +2.15e-10           5.63e-08       0.00e+00
+3      float      1.86   -1.27e-10                                       +8.78e-10           8.40e-07       1.11e-09
+
+== 5. The option's first form (single precision only; the model's K of the change still traced as before), the
+==    production-like job with every part timed [p38_c.log]. Its unit-test line, 3 failed, was the trace over
+==    the spins of a UKS density (an einsum without an ellipsis in its output) and one assertion of the new test
+==    itself; both fixed before the final files of section 7.
+== two-level tests
+3 failed, 50 passed in 279.96s (0:04:39)
+== production-like job, def2-svp, two-level, the change of K at the second reference from SGX level 2
+p38_ref2: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947670  converged=True  cycles=2  pool peak 631 MiB
+--- scf: 35.52 s, SM clock [1860.0, 1890.0, 1890.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.04      0.04
+    numint.nr_rks[97024]                  16      5.20      5.20
+    numint._vv10nlc                       18      9.44      9.44
+    numint.nr_nlc_vxc[21504]              16      1.94      0.59
+    scf.get_j                             16      3.34      3.34
+    sgx.build                              2      0.34      0.34
+    sgx.contract                          18      1.16      1.16
+    sgx.get_k                             17      1.80      0.30
+    solvent.build                          1      3.44      3.44
+    solvent._get_v                        16      1.16      1.16
+    solvent.left_multiply_R               32      2.12      2.12
+    solvent.left_solve_K                  32      0.10      0.10
+    solvent._get_vmat                     16      1.29      1.29
+    solvent._get_vind                     18      8.11      0.01
+    scf.get_veff                          18     33.38      0.21
+    scf.get_hcore                          2      0.05      0.05
+    scf.get_ovlp                           2      0.01      0.01
+    scf.get_fock                          32      0.03      0.03
+    scf.eig                               15      0.15      0.15
+    scf.get_k                              1      1.42      1.42
+    numint.nr_rks[767488]                  2      4.63      4.63
+    numint.nr_nlc_vxc[157440]              2      8.52      0.44
+    (not in any timed part)                                 0.06
+pool peak 631 MiB
+--- grad: 7.37 s, SM clock [1890.0, 1890.0, 1890.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.01      0.01
+    grad.get_exc                           1      1.89      1.89
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.29      0.29
+    grad.jk_energy_per_atom                2      3.67      3.67
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      0.74      0.74
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.69      0.69
+    solvent.grad_nuc                       1      0.01      0.01
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.06
+vs scratch/p36_c1_def2-svp: dE = -1.955e-11, max |dgrad| = 9.123e-07 (max |grad| 1.601e-01)
+== production-like job, def2-tzvp, two-level, the change of K at the second reference from SGX level 2
+p38_ref2: caffeine def2-tzvp wb97m-v solvent=smd nao=494 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.368622100264  converged=True  cycles=2  pool peak 581 MiB
+--- scf: 102.53 s, SM clock [1830.0, 1875.0, 1890.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[97024]                  16     15.22     15.22
+    numint._vv10nlc                       18      9.69      9.69
+    numint.nr_nlc_vxc[21504]              16      2.85      1.47
+    scf.get_j                             16     28.44     28.44
+    sgx.build                              2      0.85      0.85
+    sgx.contract                          36      3.26      3.26
+    sgx.get_k                             17      4.93      0.81
+    solvent.build                          1      3.43      3.43
+    solvent._get_v                        16      3.60      3.60
+    solvent.left_multiply_R               32      2.12      2.12
+    solvent.left_solve_K                  32      0.10      0.10
+    solvent._get_vmat                     16      4.02      4.02
+    solvent._get_vind                     18     13.28      0.01
+    scf.get_veff                          18     85.67      0.22
+    scf.get_hcore                          2      0.08      0.08
+    scf.get_ovlp                           2      0.02      0.02
+    scf.get_fock                          32      0.14      0.14
+    scf.eig                               15      0.47      0.47
+    scf.get_k                              1     14.85     14.85
+    numint.nr_rks[767488]                  2     12.52     12.52
+    numint.nr_nlc_vxc[157440]              2      9.32      1.01
+    (not in any timed part)                                 0.15
+pool peak 581 MiB
+--- grad: 46.90 s, SM clock [1860.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.02      0.02
+    grad.get_exc                           1      3.19      3.19
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.50      0.50
+    grad.jk_energy_per_atom                2     39.66     39.66
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      2.70      2.70
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.70      0.70
+    solvent.grad_nuc                       1      0.01      0.01
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.12
+vs scratch/p36_c1_def2-tzvp: dE = 7.503e-11, max |dgrad| = 8.750e-07 (max |grad| 1.520e-01)
+== an anion with diffuse functions: H2PO4-, def2-TZVPD
+p38_ref2_h2po4: bench/diag/wb97mv/h2po4_opt.xyz def2-tzvpd wb97m-v solvent=smd nao=221 grid=221184 nlcgrid=45568 surface=2122 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -643.834066720543  converged=True  cycles=2  pool peak 417 MiB
+--- scf: 13.45 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.02      0.02
+    numint.nr_rks[32256]                  12      1.47      1.47
+    numint._vv10nlc                       14      0.94      0.94
+    numint.nr_nlc_vxc[7424]               12      0.29      0.15
+    scf.get_j                             12      2.38      2.38
+    sgx.build                              2      0.12      0.12
+    sgx.contract                          13      0.21      0.21
+    sgx.get_k                             13      0.42      0.10
+    solvent.build                          1      0.27      0.27
+    solvent._get_v                        12      0.27      0.27
+    solvent.left_multiply_R               24      0.27      0.27
+    solvent.left_solve_K                  24      0.02      0.02
+    solvent._get_vmat                     12      0.29      0.29
+    solvent._get_vind                     14      1.13      0.01
+    scf.get_veff                          14      8.16      0.03
+    scf.get_hcore                          2      0.07      0.07
+    scf.get_ovlp                           2      0.03      0.03
+    scf.get_fock                          24      0.02      0.02
+    scf.eig                               11      0.11      0.11
+    scf.get_k                              1      4.86      4.86
+    numint.nr_rks[221184]                  2      1.62      1.62
+    numint.nr_nlc_vxc[45568]               2      0.95      0.15
+    (not in any timed part)                                 0.05
+pool peak 485 MiB
+--- grad: 14.93 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.03      0.03
+    grad.get_exc                           1      0.45      0.45
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.08      0.08
+    grad.jk_energy_per_atom                2     13.73     13.73
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      0.38      0.38
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.13      0.13
+    solvent.grad_nuc                       1      0.00      0.00
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.13
+vs scratch/p36_h2po4: dE = -4.559e-11, max |dgrad| = 2.119e-07 (max |grad| 3.250e-02)
+== production-like job, def2-tzvpd; compared with part 36's two-level run (the plain SCF is 3.8e-11 below it)
+p38_ref2: caffeine def2-tzvpd wb97m-v solvent=smd nao=614 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.371613150793  converged=True  cycles=2  pool peak 673 MiB
+--- scf: 195.21 s, SM clock [1815.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.04      0.04
+    numint.nr_rks[97024]                  16     24.75     24.75
+    numint._vv10nlc                       18      9.92      9.92
+    numint.nr_nlc_vxc[21504]              16      3.53      2.13
+    scf.get_j                             16     76.14     76.14
+    sgx.build                              2      1.11      1.11
+    sgx.contract                          36      6.12      6.12
+    sgx.get_k                             17      8.53      1.31
+    solvent.build                          1      3.45      3.45
+    solvent._get_v                        16      5.21      5.21
+    solvent.left_multiply_R               32      2.12      2.12
+    solvent.left_solve_K                  32      0.10      0.10
+    solvent._get_vmat                     16      5.82      5.82
+    solvent._get_vind                     18     16.71      0.01
+    scf.get_veff                          18    159.49      0.22
+    scf.get_hcore                          2      0.09      0.09
+    scf.get_ovlp                           2      0.02      0.02
+    scf.get_fock                          32      0.22      0.22
+    scf.eig                               15      0.73      0.73
+    scf.get_k                              1     32.81     32.81
+    numint.nr_rks[767488]                  2     21.14     21.14
+    numint.nr_nlc_vxc[157440]              2     10.06      1.53
+    (not in any timed part)                                 0.22
+pool peak 673 MiB
+--- grad: 107.82 s, SM clock [1860.0, 1860.0, 1875.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.02      0.02
+    grad.get_exc                           1      4.26      4.26
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.66      0.66
+    grad.jk_energy_per_atom                2     98.14     98.14
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      3.88      3.88
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.70      0.69
+    solvent.grad_nuc                       1      0.01      0.01
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.15
+vs scratch/p36_f2: dE = -1.401e-10, max |dgrad| = 3.048e-08 (max |grad| 1.516e-01)
+== production-like job, def2-tzvpd, with the fitted J too
+p38_ref2_etb: caffeine def2-tzvpd wb97m-v solvent=smd nao=614 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.371613150854  converged=True  cycles=2  pool peak 917 MiB
+--- scf: 142.01 s, SM clock [1815.0, 1860.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.04      0.04
+    numint.nr_rks[97024]                  16     24.95     24.95
+    numint._vv10nlc                       18      9.97      9.97
+    numint.nr_nlc_vxc[21504]              16      3.56      2.15
+    sgx.build                              2      1.11      1.11
+    sgx.contract                          36      6.09      6.09
+    sgx.get_k                             17      8.51      1.31
+    solvent.build                          1      3.49      3.49
+    solvent._get_v                        16      5.24      5.24
+    solvent.left_multiply_R               32      2.14      2.14
+    solvent.left_solve_K                  32      0.10      0.10
+    solvent._get_vmat                     16      5.86      5.86
+    solvent._get_vind                     18     16.84      0.01
+    scf.get_veff                          18     94.11     10.52
+    scf.get_hcore                          2      0.09      0.09
+    scf.get_ovlp                           2      0.02      0.02
+    scf.get_fock                          32      0.22      0.22
+    scf.eig                               15      0.74      0.74
+    scf.get_j                              2     11.89     11.89
+    scf.get_k                              1     33.07     33.07
+    numint.nr_rks[767488]                  2     21.23     21.23
+    numint.nr_nlc_vxc[157440]              2     10.10      1.54
+    (not in any timed part)                                 0.23
+vs scratch/p36_f2: dE = -2.012e-10
+== the same on SGX level 1 (the cheap model's own grid) and level 3, def2-tzvp
+E = -680.368622100284  converged=True  cycles=2  pool peak 597 MiB
+--- scf: 101.64 s, SM clock [1830.0, 1875.0, 1875.0]
+    sgx.get_k                             17      4.01      0.73
+    scf.get_k                              1     14.86     14.86
+vs scratch/p36_c1_def2-tzvp: dE = 5.502e-11
+E = -680.368622100262  converged=True  cycles=2  pool peak 688 MiB
+--- scf: 103.65 s, SM clock [1800.0, 1875.0, 1875.0]
+    sgx.get_k                             17      6.01      0.89
+    scf.get_k                              1     14.85     14.85
+vs scratch/p36_c1_def2-tzvp: dE = 7.753e-11
+
+== 6. What the energy of an SCF is against one build of the potential of its final density, by terms
+==    (bench/gpu/two_level_energy_check.py), before the second-order form was applied to the model's own K and J
+==    at the references [p38_f.log, p38_g.log]
+== the energy of the SCF against one build: caffeine def2-SVP, production settings
+caffeine def2-svp wb97m-v SMD water: 246 AOs; one build of the potential with direct_scf_tol 1e-16 (the model: 1e-13)
+   plain          E = -679.604486947650  14 cycles  125.6 s
+   two_level      E = -679.604486947672  2 cycles  36.4 s
+   two_level+etb  E = -679.604486947770  2 cycles  35.2 s
+   ref2f          E = -679.604486947670  2 cycles  35.6 s
+   ref2           E = -679.604486947671  2 cycles  36.8 s
+   ref3           E = -679.604486947670  2 cycles  38.2 s
+run             SCF s    E of the SCF        - one build   - tight build:  in all        J     K and XC      solvent   |g| of the tight build   tight build - that of the first run
+plain           125.6   -679.604486947650   +1.13e-10                    +1.07e-10  +1.02e-10  +4.77e-12  +0.00e+00   3.81e-06                 +0.00e+00
+two_level        36.4   -679.604486947672   +9.71e-11                    +9.16e-11  +9.35e-11  -1.82e-12  +0.00e+00   1.94e-06                 -6.59e-12
+two_level+etb    35.2   -679.604486947770   -4.55e-13                    -5.91e-12  -6.59e-12  +6.82e-13  +0.00e+00   1.92e-06                 -6.37e-12
+ref2f            35.6   -679.604486947670   +9.98e-11                    +9.44e-11  +9.35e-11  +9.09e-13  +0.00e+00   1.94e-06                 -6.59e-12
+ref2             36.8   -679.604486947671   +9.89e-11                    +9.35e-11  +9.35e-11  +0.00e+00  +0.00e+00   1.94e-06                 -6.59e-12
+ref3             38.2   -679.604486947670   +1.00e-10                    +9.41e-11  +9.32e-11  +9.09e-13  +0.00e+00   1.94e-06                 -6.82e-12
+== the energy of the SCF against one build: caffeine def2-TZVP, production settings, the plain SCF
+caffeine def2-tzvp wb97m-v SMD water: 494 AOs; one build of the potential with direct_scf_tol 1e-16 (the model: 1e-13)
+   plain          E = -680.368622100339  14 cycles  366.9 s
+run             SCF s    E of the SCF        - one build   - tight build:  in all        J     K and XC      solvent   |g| of the tight build   tight build - that of the first run
+plain           366.9   -680.368622100339   -6.43e-11                    -7.16e-11  +4.14e-11  -1.13e-10  +0.00e+00   5.60e-06                 +0.00e+00
+   tr(D (J - K/2))/2 of this SCF against the tight build: with the potential summed up over the cycles -7.16e-11, in the second-order form through the cycles -1.25e-11
+
+== 7. The final files: unit tests; the energy against one build, by terms; the production-like job with
+==    two_level_sgx_ref_level = 3 [p38_h.log]
+== unit tests
+scf/tests/test_two_level.py: 54 passed in 282.21s (0:04:42)
+sgx/tests/test_sgx.py: 18 passed in 23.75s
+sgx/tests/test_int1e_grids.py: 8 passed in 16.97s
+grad/tests/test_scf_reuse.py: 8 passed in 34.58s
+solvent/tests/test_pcm.py: 26 passed in 12.90s
+solvent/tests/test_smd.py: 26 passed in 38.34s
+dft/tests/test_rks.py: 17 passed, 1 skipped in 72.05s (0:01:12)
+dft/tests/test_uks.py: 10 passed in 47.40s
+== the energy of the SCF against one build: caffeine def2-SVP, production settings
+caffeine def2-svp wb97m-v SMD water: 246 AOs; one build of the potential with direct_scf_tol 1e-16 (the model: 1e-13)
+   two_level      E = -679.604486947669  2 cycles  36.5 s
+   two_level+etb  E = -679.604486947770  2 cycles  34.9 s
+   ref2           E = -679.604486947670  2 cycles  36.6 s
+   ref3           E = -679.604486947670  2 cycles  38.1 s
+   ref2f          E = -679.604486947670  2 cycles  35.6 s
+run             SCF s    E of the SCF        - one build   - tight build:  in all        J     K and XC      solvent   |g| of the tight build   tight build - that of the first run
+two_level        36.5   -679.604486947669   +nan                    +9.41e-11  +9.35e-11  +6.82e-13  +0.00e+00   1.94e-06                 +0.00e+00
+two_level+etb    34.9   -679.604486947770   +nan                    -5.68e-12  -6.37e-12  +6.82e-13  +0.00e+00   1.92e-06                 -4.55e-13
+ref2             36.6   -679.604486947670   +nan                    +9.35e-11  +9.35e-11  +0.00e+00  +0.00e+00   1.94e-06                 +0.00e+00
+ref3             38.1   -679.604486947670   +nan                    +9.41e-11  +9.32e-11  +9.09e-13  +0.00e+00   1.94e-06                 -2.27e-13
+ref2f            35.6   -679.604486947670   +nan                    +9.39e-11  +9.32e-11  +6.82e-13  +0.00e+00   1.94e-06                 -6.82e-13
+== the energy of the SCF against one build: H2PO4-, def2-TZVPD, production settings
+bench/diag/wb97mv/h2po4_opt.xyz def2-tzvpd wb97m-v SMD water: 221 AOs; one build of the potential with direct_scf_tol 1e-16 (the model: 1e-13)
+   plain          E = -643.834066720498  11 cycles  71.4 s
+   two_level      E = -643.834066720542  2 cycles  17.8 s
+   ref2           E = -643.834066720543  2 cycles  13.6 s
+   ref3           E = -643.834066720542  2 cycles  14.0 s
+   ref2f          E = -643.834066720543  2 cycles  13.3 s
+run             SCF s    E of the SCF        - one build   - tight build:  in all        J     K and XC      solvent   |g| of the tight build   tight build - that of the first run
+plain            71.4   -643.834066720498   +nan                    -1.36e-12  -8.74e-11  +8.61e-11  +0.00e+00   7.27e-07                 +0.00e+00
+   tr(D (J - K/2))/2 of this SCF against the tight build: with the potential summed up over the cycles -1.36e-12, in the second-order form through the cycles -7.05e-12
+two_level        17.8   -643.834066720542   +nan                    -4.93e-11  -4.87e-11  -6.82e-13  +0.00e+00   2.34e-06                 +3.52e-12
+ref2             13.6   -643.834066720543   +nan                    -4.98e-11  -4.87e-11  -1.14e-12  +0.00e+00   2.34e-06                 +3.64e-12
+ref3             14.0   -643.834066720542   +nan                    -4.92e-11  -4.88e-11  -4.55e-13  +0.00e+00   2.34e-06                 +3.52e-12
+ref2f            13.3   -643.834066720543   +nan                    -4.97e-11  -4.84e-11  -1.25e-12  +0.00e+00   2.34e-06                 +3.52e-12
+== the energy of the SCF against one build: caffeine def2-TZVP, production settings
+caffeine def2-tzvp wb97m-v SMD water: 494 AOs; one build of the potential with direct_scf_tol 1e-16 (the model: 1e-13)
+   two_level      E = -680.368622100261  2 cycles  113.5 s
+   two_level+etb  E = -680.368622100289  2 cycles  95.1 s
+   ref2           E = -680.368622100265  2 cycles  106.3 s
+   ref3           E = -680.368622100263  2 cycles  111.2 s
+   ref2f          E = -680.368622100266  2 cycles  102.5 s
+run             SCF s    E of the SCF        - one build   - tight build:  in all        J     K and XC      solvent   |g| of the tight build   tight build - that of the first run
+two_level       113.5   -680.368622100261   +nan                    +2.00e-11  +1.84e-11  +1.59e-12  +0.00e+00   2.47e-06                 +0.00e+00
+two_level+etb    95.1   -680.368622100289   +nan                    -7.28e-12  -2.05e-11  +1.32e-11  +0.00e+00   2.47e-06                 -4.55e-13
+ref2            106.3   -680.368622100265   +nan                    +1.59e-11  +1.52e-11  +6.82e-13  +0.00e+00   2.47e-06                 -2.27e-13
+ref3            111.2   -680.368622100263   +nan                    +1.86e-11  +1.66e-11  +2.05e-12  +0.00e+00   2.47e-06                 -4.55e-13
+ref2f           102.5   -680.368622100266   +nan                    +1.64e-11  +1.66e-11  -2.27e-13  +0.00e+00   2.47e-06                 -1.14e-12
+== the energy of the SCF against one build: caffeine def2-TZVPD, production settings
+caffeine def2-tzvpd wb97m-v SMD water: 614 AOs; one build of the potential with direct_scf_tol 1e-16 (the model: 1e-13)
+   two_level      E = -680.371613150534  2 cycles  223.2 s
+   two_level+etb  E = -680.371613150582  2 cycles  168.7 s
+   ref2           E = -680.371613150564  2 cycles  200.8 s
+   ref3           E = -680.371613150534  2 cycles  208.3 s
+   ref3+etb       E = -680.371613150584  2 cycles  154.3 s
+run             SCF s    E of the SCF        - one build   - tight build:  in all        J     K and XC      solvent   |g| of the tight build   tight build - that of the first run
+two_level       223.2   -680.371613150534   +nan                    +4.46e-11  +4.16e-11  +2.96e-12  +0.00e+00   3.34e-06                 +0.00e+00
+two_level+etb   168.7   -680.371613150582   +nan                    -2.27e-12  -3.18e-12  +9.09e-13  +0.00e+00   3.34e-06                 -2.27e-13
+ref2            200.8   -680.371613150564   +nan                    +1.48e-11  +4.46e-11  -2.98e-11  +0.00e+00   3.34e-06                 -2.27e-13
+ref3            208.3   -680.371613150534   +nan                    +4.46e-11  +4.39e-11  +6.82e-13  +0.00e+00   3.33e-06                 +0.00e+00
+ref3+etb        154.3   -680.371613150584   +nan                    -5.91e-12  -4.32e-12  -1.59e-12  +0.00e+00   3.41e-06                 +9.09e-13
+== the energy of the SCF against one build: caffeine def2-TZVP, wB97X, gas phase, default grids (three references)
+caffeine def2-tzvp wb97x: 494 AOs; one build of the potential with direct_scf_tol 1e-16 (the model: 1e-13)
+   plain          E = -680.394345012587  15 cycles  217.4 s
+   two_level      E = -680.394345012542  3 cycles  80.6 s
+   ref2           E = -680.394345012542  3 cycles  69.1 s
+   ref3           E = -680.394345012543  3 cycles  78.3 s
+run             SCF s    E of the SCF        - one build   - tight build:  in all        J     K and XC      solvent   |g| of the tight build   tight build - that of the first run
+plain           217.4   -680.394345012587   +nan                    -2.27e-11  +4.68e-11  -6.96e-11  +0.00e+00   3.25e-06                 +0.00e+00
+   tr(D (J - K/2))/2 of this SCF against the tight build: with the potential summed up over the cycles -2.27e-11, in the second-order form through the cycles -1.07e-11
+two_level        80.6   -680.394345012542   +nan                    +2.61e-11  +2.41e-11  +2.05e-12  +0.00e+00   1.38e-06                 -3.64e-12
+ref2             69.1   -680.394345012542   +nan                    +2.59e-11  +2.43e-11  +1.59e-12  +0.00e+00   1.38e-06                 -3.64e-12
+ref3             78.3   -680.394345012543   +nan                    +2.50e-11  +2.27e-11  +2.27e-12  +0.00e+00   1.38e-06                 -4.09e-12
+== production-like job, def2-svp, two-level with two_level_sgx_ref_level 3, SCF and gradient, against part 36's plain SCF
+p38_ref3: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947670  converged=True  cycles=2  pool peak 729 MiB
+--- scf: 38.28 s, SM clock [1860.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.04      0.04
+    numint.nr_rks[97024]                  16      5.24      5.24
+    numint._vv10nlc                       18      9.51      9.51
+    numint.nr_nlc_vxc[21504]              16      1.96      0.59
+    scf.get_j                             16      3.34      3.34
+    sgx.build                              2      0.55      0.55
+    sgx.contract                          19      3.24      3.24
+    sgx.get_k                             17      4.35      0.56
+    solvent.build                          1      3.45      3.45
+    solvent._get_v                        16      1.17      1.17
+    solvent.left_multiply_R               32      2.13      2.13
+    solvent.left_solve_K                  32      0.10      0.10
+    solvent._get_vmat                     16      1.30      1.30
+    solvent._get_vind                     18      8.15      0.01
+    scf.get_veff                          18     33.60      0.22
+    scf.get_hcore                          2      0.05      0.05
+    scf.get_ovlp                           2      0.01      0.01
+    scf.get_fock                          32      0.03      0.03
+    scf.eig                               15      0.15      0.15
+    scf.get_k                              1      1.43      1.43
+    numint.nr_rks[767488]                  2      4.66      4.66
+    numint.nr_nlc_vxc[157440]              2      8.59      0.44
+    (not in any timed part)                                 0.06
+pool peak 729 MiB
+--- grad: 7.42 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.01      0.01
+    grad.get_exc                           1      1.90      1.90
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.29      0.29
+    grad.jk_energy_per_atom                2      3.71      3.71
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      0.75      0.75
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.69      0.69
+    solvent.grad_nuc                       1      0.01      0.01
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.06
+vs scratch/p36_c1_def2-svp: dE = -1.910e-11, max |dgrad| = 9.123e-07 (max |grad| 1.601e-01)
+== production-like job, def2-tzvp, the same
+p38_ref3: caffeine def2-tzvp wb97m-v solvent=smd nao=494 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.368622100261  converged=True  cycles=2  pool peak 781 MiB
+--- scf: 111.42 s, SM clock [1800.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[97024]                  16     15.23     15.23
+    numint._vv10nlc                       18      9.69      9.69
+    numint.nr_nlc_vxc[21504]              16      2.85      1.47
+    scf.get_j                             16     28.44     28.44
+    sgx.build                              2      1.46      1.46
+    sgx.contract                          38     10.52     10.52
+    sgx.get_k                             17     13.80      1.82
+    solvent.build                          1      3.45      3.45
+    solvent._get_v                        16      3.60      3.60
+    solvent.left_multiply_R               32      2.12      2.12
+    solvent.left_solve_K                  32      0.10      0.10
+    solvent._get_vmat                     16      4.02      4.02
+    solvent._get_vind                     18     13.30      0.01
+    scf.get_veff                          18     85.68      0.22
+    scf.get_hcore                          2      0.08      0.08
+    scf.get_ovlp                           2      0.02      0.02
+    scf.get_fock                          32      0.14      0.14
+    scf.eig                               15      0.47      0.47
+    scf.get_k                              1     14.86     14.86
+    numint.nr_rks[767488]                  2     12.52     12.52
+    numint.nr_nlc_vxc[157440]              2      9.31      1.00
+    (not in any timed part)                                 0.15
+pool peak 781 MiB
+--- grad: 46.86 s, SM clock [1860.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.02      0.02
+    grad.get_exc                           1      3.19      3.19
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.50      0.50
+    grad.jk_energy_per_atom                2     39.62     39.62
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      2.70      2.70
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.70      0.69
+    solvent.grad_nuc                       1      0.01      0.01
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.12
+vs scratch/p36_c1_def2-tzvp: dE = 7.776e-11, max |dgrad| = 8.750e-07 (max |grad| 1.520e-01)
+== production-like job, def2-tzvpd, two-level with the fitted J and two_level_sgx_ref_level 3; against part 36's two-level run
+p38_ref3_etb: caffeine def2-tzvpd wb97m-v solvent=smd nao=614 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.371613150584  converged=True  cycles=2  pool peak 1016 MiB
+--- scf: 154.34 s, SM clock [1770.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[97024]                  16     24.76     24.76
+    numint._vv10nlc                       18      9.92      9.92
+    numint.nr_nlc_vxc[21504]              16      3.53      2.13
+    sgx.build                              2      1.88      1.88
+    sgx.contract                          40     17.08     17.08
+    sgx.get_k                             17     21.75      2.80
+    solvent.build                          1      3.47      3.47
+    solvent._get_v                        16      5.21      5.21
+    solvent.left_multiply_R               32      2.12      2.12
+    solvent.left_solve_K                  32      0.10      0.10
+    solvent._get_vmat                     16      5.81      5.81
+    solvent._get_vind                     18     16.73      0.01
+    scf.get_veff                          18     93.57     10.42
+    scf.get_hcore                          2      0.09      0.09
+    scf.get_ovlp                           2      0.02      0.02
+    scf.get_fock                          32      0.22      0.22
+    scf.eig                               15      0.73      0.73
+    scf.get_j                              2     11.81     11.81
+    scf.get_k                              1     32.81     32.81
+    numint.nr_rks[767488]                  2     21.15     21.15
+    numint.nr_nlc_vxc[157440]              2     10.06      1.54
+    (not in any timed part)                                 0.23
+vs scratch/p36_f2: dE = 6.912e-11
+
+== 8. The plain SCF at def2-TZVPD by terms, and the two-level tests on the files as committed (the docstring of
+==    scf/two_level.py changed after section 7) [p38_i1.log, p38_i.log]
+==    In the tables of sections 6 to 8 the column J is tr(D J)/2 of the SCF's J matrix against the tight build's;
+==    for the runs with the fitted J (+etb) the part of the second-order form that belongs to J is in the next column.
+== the energy of the SCF against one build: caffeine def2-TZVPD, production settings, the plain SCF
+caffeine def2-tzvpd wb97m-v SMD water: 614 AOs; one build of the potential with direct_scf_tol 1e-16 (the model: 1e-13)
+   plain          E = -680.371613150692  14 cycles  703.6 s
+run             SCF s    E of the SCF        - one build   - tight build:  in all        J     K and XC      solvent   |g| of the tight build   tight build - that of the first run
+plain           703.6   -680.371613150692   +nan                    -1.26e-10  +4.64e-11  -1.73e-10  +0.00e+00   5.84e-06                 +0.00e+00
+   tr(D (J - K/2))/2 of this SCF against the tight build: with the potential summed up over the cycles -1.26e-10, in the second-order form through the cycles -7.96e-12
+== unit tests, the files as committed
+scf/tests/test_two_level.py: 54 passed in 283.75s (0:04:43)
+grad/tests/test_scf_reuse.py: 8 passed in 34.39s

@@ -9303,6 +9303,213 @@ test_rks_hessian, test_uks_hessian.
 - **The XC grid of the cheap model for functionals that need a finer one** (wB97X's third reference above).
 - NAD+ at the production size: still not on a 4 GB card.
 
+## GPU4PySCF, part 38: the solvent's surface integrals on the new kernels, and the K of the later references (node1), 2026-11-22
+The user, after part 37 (the def2-TZVPD two-level SCF at 192 s: the model's own K at the two references 62 s, XC 46 s,
+the solvent's surface integrals 40 s, J 22 s): "Please push and work on the next steps your recommended" (part 37 went
+out as gpu4pyscf tag `perf-2026-11-22b`; the recommendation was the solvent's integrals), then "Let's commit the
+solvent work and let's try that second reference idea" (the K of the second reference from a seminumerical K of the
+change of the density, with the energy in a form that takes it at second order).
+- **Workload:** as parts 36 and 37 (caffeine, wB97M-V, XC grid (99,590), VV10 grid (50,194), SMD water with 5525
+  surface points, def2-SVP / def2-TZVP / def2-TZVPD, conv_tol 1e-10; H2PO4- in def2-TZVPD; wB97X in the gas phase).
+  The GTX 1650 Super at 1800-1890 MHz; everything a 1650 Super number, and its double-precision rate decides the
+  second half of this part.
+- **Tools:** `bench/gpu/grid_int_check.py` (the two contractions against libcint and `int3c1e`, and their time on a
+  molecule's surface), `two_level_k_identity.py` (the K of a later reference: the kernel's, the second-order form,
+  a seminumerical K of the change, each against a tight build), `two_level_energy_check.py` (an SCF's energy against
+  one build of the potential of its final density, by terms), `prod_parts.py`; node1 `scratch/p38_{a..i}.sh`.
+- **Data:** `bench/results/node1/p38_solvent_refk.txt`, `p38_parts.jsonl`, `p38_ref_parts.jsonl`.
+- **Commits:** gpu4pyscf `perf` 749e4f2a (the solvent's integrals) and 33e04727 (the two-level SCF's references),
+  merged into `exp/prim-screen` 90118c61 and 064243b4; local, not pushed.
+
+### The solvent's surface integrals
+Every SCF cycle of a PCM or SMD model contracts the integrals of the AO pairs with the surface charges twice: with
+the density, for the potential at the surface points (`_get_v`), and with the charges, for their matrix
+(`_get_vmat`). Both went through `gto/int3c1e.py` (Rys roots, the gint kernels): 1.0 and 1.1 s per cycle at
+def2-TZVPD.
+- **Two kernels more from part 37's generator** (`sgx/kernels.py`, `sgx/int1e_grids.py`): the same Boys functions
+  and vertical recurrence to [e|0], with the horizontal recurrence folded into what is contracted.
+  - The potential of a density: the density block of each shell pair goes through the horizontal recurrence once,
+    before the kernel, into H[e]; a thread takes a grid point and a slice of the primitive pairs and adds
+    H[e] [e|0]: one multiply-add per power e.
+  - The matrix of charges: a thread takes a primitive pair and a slice of the grid points and sums c[g] [e|0]_g
+    into M[e], its data in registers for the whole loop; the primitive pairs of a shell pair are added and the
+    horizontal recurrence turns M into the pair's block.
+  - The other index is cut into slices (the second dimension of the launch) so that a launch has 32,768 threads or
+    more: 5525 surface points alone would leave this card idle.
+- **Gaussian charges:** the surface charges are normalized Gaussians of an exponent per point, erf(omega r)/r with
+  theta = zeta / (zeta + p): one reciprocal square root per primitive pair and point gives sqrt(theta), then the
+  long-range form of part 37.
+- **Accuracy:** these stand in for integrals in double precision, so their Boys functions take two terms more of
+  the Taylor series and the asymptotic form later than the seminumerical K's (1e-15 instead of 1e-12). The K
+  kernels' sources are unchanged (checked by hash).
+- **Where they are used:** `PCM._grid_integrals` (and SMD, which borrows PCM's methods) keeps the data per
+  molecule; beyond g functions `int3c1e` as before. The derivative integrals of the gradients and Hessians are not
+  touched.
+
+| caffeine, SMD surface, 5525 points | int3c1e, potential / matrix | these, double | these, single |
+|---|---|---|---|
+| def2-SVP | 0.268 / 0.268 s | 0.071 / 0.080 s | 0.004 / 0.003 s |
+| def2-TZVP | 0.703 / 0.793 s | 0.221 / 0.250 s | 0.010 / 0.010 s |
+| def2-TZVPD | 0.999 / 1.117 s | 0.318 / 0.360 s | 0.014 / 0.014 s |
+
+- **Against libcint** (CH2O, 300 random points, random density and charges; point charges against `int1e_grids`,
+  Gaussian charges against `int3c2e` with one s function per point): 1e-14 to 3e-14 relative through g functions;
+  the `int3c1e` contractions are off by 1e-13 to 2e-13. On caffeine's surface the two agree to 3e-14 (potentials of
+  21) and 3e-14 (matrix elements of 0.1).
+- **The plain SCF is unchanged:** def2-SVP -2.3e-13 Eh and 3.7e-13 in the gradient against part 36's run, def2-TZVP
+  the same energy to the last digit printed; 131.1 -> 124.7 s and 382.1 -> 366.6 s (the two integrals 8.6 -> 2.3 s
+  and 24.1 -> 7.2 s).
+- **The two-level SCF** (seminumerical K in the cheap model): def2-SVP 42.5 -> 36.5 s, def2-TZVP 129.6 -> 113.3 s,
+  def2-TZVPD 246.1 -> 223.1 s, and 192.1 -> 168.8 s with the fitted J; energies as in part 37.
+- **What is left of the solvent** at def2-TZVPD: 16.7 s, the two integrals 11.0 s, the surface's matrices 3.5 s
+  (`_factorized_K`: the n^3 product and the LU of 5525 points, 3.2 s of FP64 whatever the basis), R on the vectors
+  2.1 s.
+- **Single precision** (0.014 s) would need the cheap model to evaluate its reaction field from the changes of the
+  density, as its K, and a solvent object of its own: about 9 s of the 169 s. Not built.
+- **A test that fails with or without this:** `solvent/tests/test_pcm_tdscf_nac.py::test_nac_tda_singlet_ee_ref_IEFPCM`
+  misses its reference by 1.0605e-6 against a tolerance of 1e-6 on this machine: with the old integrals
+  (1.06047460e-6), with the new ones (1.06047497e-6), and with the tree as it was at part 35 (1.06047441e-6). The
+  file is not in `gpu_bench.sh`'s list; its 27 other tests pass.
+
+### The K of the later references
+At the second reference density D2 = D1 + dD the kernel built K[dD] with the Rys kernels and added it to the K[D1] of
+the first reference: 29 of the 62 s of K at def2-TZVPD, since the screening gains little from a small dD. The energy
+needs K[D2] only through
+    tr(D2 K[D2]) = tr(D1 K[D1]) + 2 tr(dD K[D1]) + tr(dD K[dD])
+(K is a symmetric bilinear form, so tr(D1 K[dD]) = tr(dD K[D1])): with the model's own K[D1] kept, a seminumerical
+K[dD] enters the energy at second order in dD, and the Fock matrix, whose orbital gradient is only tested, at first
+order.
+- **Measured first, on the SCF as it was** (`two_level_k_identity.py`: D1, D2 and the kernel's K taken from the
+  references, K[dD] rebuilt seminumerically; the error of the energy in the form above against the same form with
+  the kernel's K[dD], and the time of the build of K[dD]):
+
+| | max abs dD | -tr(dD K[dD])/4 | Rys kernels | SGX level 2, double | level 3, double | level 2, single |
+|---|---|---|---|---|---|---|
+| caffeine def2-SVP | 5.5e-4 | -7.2e-7 Eh | 1.13 s | 1.27 s, -5.6e-13 | 2.49 s, +1.2e-13 | 0.14 s, -2.8e-13 |
+| caffeine def2-TZVP | 1.1e-2 | -9.7e-7 | 11.83 s | 4.41 s, -1.4e-12 | 8.39 s, +2.3e-13 | 0.55 s, -1.9e-12 |
+| caffeine def2-TZVPD | 5.1e-2 | -1.08e-6 | 29.4 s | 6.22 s, -3.1e-11 | 12.38 s, -2.3e-12 | 0.76 s, -2.35e-10 |
+| H2PO4- def2-TZVPD | 6.8e-4 | -5.6e-8 | 4.59 s | 0.32 s, -7.4e-13 | 0.62 s, +5.6e-14 | 0.05 s, -8.0e-13 |
+| caffeine def2-TZVP, wB97X, gas phase | 1.7e-2 | -1.17e-6 | 12.12 s | 4.20 s, -7.7e-13 | 8.36 s, -3.2e-13 | 0.52 s, -2.5e-12 |
+
+  A plain replacement of K[dD] in the potential, without the form, would cost 1e-9 to 4e-9 Eh on level 2 (first
+  order); the orbital gradient is off by 1e-8 to 4e-7 (conv_tol_grad 1e-5).
+- **Single precision does not carry to diffuse functions:** 2e-10 Eh at def2-TZVPD on every grid (-3.8e-10, -2.3e-10,
+  -2.1e-10 on levels 1 to 3, the double-precision errors being -1.9e-10, -3.1e-11, -2.3e-12): a bias of the kernels,
+  not of the grid. The two matrix products in double precision change nothing (-2.29e-10); one more term in the
+  Taylor series of the single-precision Boys functions (order 3: a truncation of up to 6e-7 relative, of one sign)
+  takes it to -1.4e-10, more terms no further. What is left is single-precision arithmetic on K matrices whose
+  trace with dD cancels from 5e-4 per term to 4e-6: the same change of the density that the cheap model follows in
+  single precision without harm, because there the references correct it.
+- **What the test against a tight build showed** (one build of K at direct_scf_tol 1e-16; the exchange energy
+  -tr(D K)/4 of a later reference):
+
+| | K[D1], one build at 1e-13 | the kernel's K[D1] + K[dD], traced as tr(D2 K) | the same two matrices in the form |
+|---|---|---|---|
+| caffeine def2-SVP | +7.2e-13 Eh | -1.8e-12 | +7.2e-13 |
+| caffeine def2-TZVP | +2.0e-12 | +1.57e-11 | +2.0e-12 |
+| caffeine def2-TZVPD | +2.8e-12 | -9.8e-13 | +2.8e-12 |
+| H2PO4- def2-TZVPD | -5.1e-13 | +1.35e-11 | -5.0e-13 |
+| wB97X, reference 2 | +2.3e-12 | +8.8e-12 | +2.3e-12 |
+| wB97X, reference 3 | | +3.35e-11 | +2.3e-12 |
+
+  The Rys build of K[dD] is screened for dD, and what it leaves out, traced with the whole D1, is a first-order
+  error of up to 1.6e-11 Eh (3.4e-11 after two such builds); in the form it is traced with dD, and what remains is
+  the error of the one build of K[D1]. So the form is the better way to take the energy of the model's own K as
+  well, at the cost of two traces.
+- **Built** (`scf/two_level.py`):
+  - `_own_jk` puts the energy of every part a reference builds as a change (the model's K, and its J where the
+    cheap model's is fitted) into the form, through the tags of the potential (`e_shift`, `ecoul`); the K and J
+    matrices are as before.
+  - `two_level_sgx_ref_level` (None by default) with `two_level_sgx_ref_dtype` ('double'): with an SGX level, only
+    the first reference builds the model's own K; every later one takes K[D1] plus the seminumerical K of its change
+    from D1 on that grid (`_reference_k_change`; the cheap model's own SGX object where it is that level and
+    precision), in the same form.
+
+- **End to end** (the final files; `two_level_energy_check.py`: SCF seconds, and the K term of the reported energy
+  against a tight build of the same density, with the XC terms in it):
+
+| | the model's K at every reference | level 2, double | level 3, double | level 2, single |
+|---|---|---|---|---|
+| caffeine def2-SVP | 36.5 s, +7e-13 Eh | 36.6 s, 0 | 38.1 s, +9e-13 | 35.6 s, +7e-13 |
+| caffeine def2-TZVP | 113.5 s, +1.6e-12 | 106.3 s, +7e-13 | 111.2 s, +2.1e-12 | 102.5 s, -2e-13 |
+| caffeine def2-TZVPD | 223.2 s, +3.0e-12 | 200.8 s, -2.98e-11 | 208.3 s, +7e-13 | 195.2 s (the option's first form), -2.3e-10 |
+| the same with the fitted J | 168.7 s | | 154.3 s | 142.0 s (the first form) |
+| H2PO4- def2-TZVPD | 17.8 s, -7e-13 | 13.6 s, -1.1e-12 | 14.0 s, -5e-13 | 13.3 s, -1.3e-12 |
+| caffeine def2-TZVP, wB97X, gas phase (3 references) | 80.6 s, +2.1e-12 | 69.1 s, +1.6e-12 | 78.3 s, +2.3e-12 | |
+
+  The densities are the same in every column (their tight energies within 1.1e-12 Eh of each other), as are the
+  cycles (2 references; 3 for wB97X); the nuclear gradient is unchanged (def2-SVP 9.123e-7 from the plain SCF's with
+  or without the option, def2-TZVP 8.750e-7): the orbitals and their energies come from the micro cycles' Fock
+  matrix, not from the reference's.
+- **What it is worth on this card:** on level 3 in double precision, where the energy is that of the model's own K
+  to the error of one build everywhere measured, 2% at def2-TZVP, 7% at def2-TZVPD (9% with the fitted J), 21% for
+  the anion, and 4% the other way at def2-SVP, where the Rys kernels need 1.1 s for the change and the seminumerical
+  K in double precision 2.5 s. Level 2 in double precision: 6%, 10%, 24%, and 14% for wB97X's three references, at
+  3e-11 Eh for def2-TZVPD and 1e-12 otherwise. Single precision would give 10% and 13% (16% with the fitted J) but
+  costs 2e-10 Eh with diffuse functions. This card's kernels run 8-10 times slower in double precision than in
+  single (part 37), which is what the trade turns on here; not measured on a card with fast FP64. **Off by default.**
+
+### What an SCF's energy is against one build of the potential of its density
+`two_level_energy_check.py` evaluates the potential of an SCF's final density in one build with direct_scf_tol 1e-16
+and compares the terms of the energy with those the SCF reported (the solvent term agrees to the last digit; XC and
+VV10, evaluated the same way in both, are counted with K; a one-build potential at the model's 1e-13 is 6e-12 Eh from
+the tight one at def2-SVP).
+
+| the SCF's energy against a tight build of its density | in all | J | K, with the XC terms |
+|---|---|---|---|
+| def2-SVP, plain SCF | +1.07e-10 Eh | +1.02e-10 | +4.8e-12 |
+| def2-SVP, two-level | +9.4e-11 | +9.4e-11 | +7e-13 |
+| def2-SVP, two-level with the fitted J | -5.7e-12 | | |
+| def2-TZVP, plain SCF | -7.2e-11 | +4.1e-11 | -1.13e-10 |
+| def2-TZVP, two-level | +2.0e-11 | +1.8e-11 | +1.6e-12 |
+| def2-TZVP, two-level with the fitted J | -7.3e-12 | | |
+| def2-TZVPD, plain SCF (703.6 s) | -1.26e-10 | +4.6e-11 | -1.73e-10 |
+| def2-TZVPD, two-level | +4.5e-11 | +4.2e-11 | +3.0e-12 |
+| def2-TZVPD, two-level with the fitted J | -2.3e-12 | | |
+| H2PO4- def2-TZVPD, plain SCF | -1.4e-12 | -8.7e-11 | +8.6e-11 |
+| H2PO4- def2-TZVPD, two-level | -4.9e-11 | -4.9e-11 | -7e-13 |
+| def2-TZVP, wB97X, gas phase, plain SCF | -2.3e-11 | +4.7e-11 | -7.0e-11 |
+| def2-TZVP, wB97X, gas phase, two-level | +2.6e-11 | +2.4e-11 | +2.1e-12 |
+
+- **The plain SCF reports an energy up to 1e-10 Eh from that of its own density**, of either sign: J and K are
+  summed over the cycles' builds, each screened for the change of the density of its cycle, and what each leaves
+  out is traced with the whole density. It is upstream's scheme (v1.9.0 `rks.get_veff`: the potential summed over
+  the cycles, traced with the density), not something of this tree; at conv_tol 1e-10 it is as large as the
+  threshold, and where it is small (the anion) two terms of 9e-11 cancel. The differences between the plain and the
+  two-level SCF that parts 36 and 37 reported (2e-11 to 1.7e-10) are mostly this: the two densities themselves are
+  within 1.4e-11 Eh (their energies from tight builds).
+- **The two-level SCF** has the model's K right to the error of one build now (the K column), and its J too where
+  the cheap model's is fitted: -6e-12, -7e-12 and -2e-12 Eh in all, against +9.4e-11, +2.0e-11 and +4.5e-11 with the
+  shared J, which the cheap model sums over its cycles as the plain SCF does. (For J at def2-TZVP the form takes
+  -2.1e-11 to about -9e-12.)
+- **The same form through the cycles** (E2 += tr(dD V_last) + tr(dD dV)/2 in `get_veff`, in place of tr(D V)/2 with
+  the summed potential) was followed in the script for the plain SCF, from the first cycle it sees: def2-TZVP
+  -7.2e-11 -> -1.3e-11, wB97X -2.3e-11 -> -1.1e-11, the anion -1.4e-12 (the cancellation) -> -7.1e-12,
+  def2-TZVPD -1.26e-10 -> -8.0e-12. Not changed in the tree: it would move every plain SCF energy in the tenth
+  decimal.
+
+### Unit tests (node1, the final files)
+- The solvent's files as committed (`p38_b`): test_pcm 26, test_smd 26, test_pcm_grad 11, test_smd_grad 14,
+  test_pcm_lowmem 6, test_pcm_lowmem_grad 7, test_pcm_tdscf 6, test_pcm_tdscf_grad 11 (1 skipped),
+  test_pcm_hessian 20, test_smd_hessian 15, test_scf_reuse 8, test_sgx 18, test_int1e_grids 8 (new), test_two_level
+  48 passed; test_pcm_tdscf_nac 27 passed, 1 skipped, 1 failed (above).
+- The two-level files as committed (`p38_h`, `p38_i`): test_two_level 54 (6 new: the form at the level of
+  `_own_jk` with a K of the change that is off by a known factor, with the model's own K of a change, and for J;
+  the option for RKS and UKS, B3LYP and wB97M-V, in SMD, in both precisions: one build of the four-center K per
+  SCF and the energy of the plain SCF), test_sgx 18, test_int1e_grids 8, test_scf_reuse 8, test_pcm 26, test_smd 26,
+  test_rks 17 (1 skipped), test_uks 10 passed.
+
+### Not done
+- **The second-order form of the energy in `get_veff` itself** (above): the user's decision.
+- **Single precision for the change of K where the basis has diffuse functions:** would need the kernels' error in
+  the cancelling trace below 1e-11, which single precision does not give.
+- **The reaction field in single precision in the cheap model** (above): 9 s of 169 s.
+- **J at the later references from the fitted J**: the same form holds, with the fit's error at second order: not
+  measured; the model's own J costs 12 s of 169 s at def2-TZVPD.
+- From part 37, unchanged: a gradient for `mf.COSX()` (the exact gradient is 107 s at def2-TZVPD and is now the
+  larger half of an optimization step), a screening for larger molecules, other cards, the XC grid of the cheap
+  model for wB97X in the gas phase, NAD+ at the production size.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

@@ -52,10 +52,11 @@ if [ $TESTS = 1 ]; then
     (
         cd "$R"
         for f in scf/tests/test_scf_jk.py scf/tests/test_jk_one_pass.py scf/tests/test_two_level.py \
-                 sgx/tests/test_sgx.py \
+                 sgx/tests/test_sgx.py sgx/tests/test_int1e_grids.py \
                  dft/tests/test_rks.py dft/tests/test_uks.py \
                  grad/tests/test_rks_grad.py grad/tests/test_uks_grad.py grad/tests/test_scf_reuse.py \
                  grad/tests/test_tdrks_grad.py \
+                 solvent/tests/test_pcm.py solvent/tests/test_smd.py \
                  solvent/tests/test_pcm_grad.py solvent/tests/test_smd_grad.py solvent/tests/test_pcm_tdscf_grad.py \
                  hessian/tests/test_rks_hessian.py hessian/tests/test_uks_hessian.py \
                  solvent/tests/test_pcm_hessian.py solvent/tests/test_smd_hessian.py tdscf/tests/test_tdrks.py; do
@@ -114,6 +115,11 @@ prod() {  # basis: v1.9.0, the modified tree compared with it, and the modified 
     echo "== production-like job, caffeine $1: two-level SCF, seminumerical K and fitted J in the cheap model"
     PYTHONPATH="$WS/gpu4pyscf" python -W ignore "$P" --label two_level_etb --basis $1 --tasks scf \
         --set two_level=True --set two_level_auxbasis=aug_etb --compare "$R/prod_$1_base" --out "$J"
+    [ $REF_K = 1 ] || return 0
+    echo "== production-like job, caffeine $1: the same, K of the later references from the seminumerical K (level 3)"
+    PYTHONPATH="$WS/gpu4pyscf" python -W ignore "$P" --label two_level_etb_ref3 --basis $1 --tasks scf \
+        --set two_level=True --set two_level_auxbasis=aug_etb --set two_level_sgx_ref_level=3 \
+        --compare "$R/prod_$1_base" --out "$J"
 }
 # mf.two_level exists from part 36 on (a tree at an older pin would silently run the plain SCF), the seminumerical
 # K of its cheap model from part 37 on
@@ -121,6 +127,9 @@ TWO_LEVEL=0
 [ -f "$WS/gpu4pyscf/gpu4pyscf/scf/two_level.py" ] && TWO_LEVEL=1
 SGX=0
 [ -f "$WS/gpu4pyscf/gpu4pyscf/sgx/sgx.py" ] && SGX=1
+# two_level_sgx_ref_level from part 38 on (an older tree would take --set of an unknown attribute silently)
+REF_K=0
+grep -q two_level_sgx_ref_level "$WS/gpu4pyscf/gpu4pyscf/scf/hf.py" 2>/dev/null && REF_K=1
 {
     prod def2-svp
     if [ $QUICK = 0 ]; then
