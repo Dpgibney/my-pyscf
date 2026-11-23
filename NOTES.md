@@ -9510,6 +9510,97 @@ the tight one at def2-SVP).
   larger half of an optimization step), a screening for larger molecules, other cards, the XC grid of the cheap
   model for wB97X in the gas phase, NAD+ at the production size.
 
+## GPU4PySCF, part 39: the two-electron energy of a direct SCF at second order (node1), 2026-11-22
+Part 38 had measured that every SCF's energy, the plain SCF's included, is up to 1.3e-10 Eh from the energy of its own
+final density built in one piece, and that the second-order form it had given the two-level references would take that
+to about 1e-11 if it ran through the cycles. The user: "What is the benefit/trade off of the second order energy
+form?", and to the answer (the printed energy right to 1e-11 instead of 1e-10 and exactness comparisons sharp, against
+every plain SCF energy moving in the tenth decimal with respect to upstream; on by default with a switch back):
+"Sure do it".
+- **Workload:** as part 38 (caffeine, wB97M-V, XC grid (99,590), VV10 grid (50,194), SMD water, def2-SVP / def2-TZVP /
+  def2-TZVPD, conv_tol 1e-10, direct_scf_tol 1e-13; H2PO4- in def2-TZVPD; wB97X in the gas phase). A GTX 1650 Super.
+- **Tools:** `bench/gpu/two_level_energy_check.py` (runs with ":off" for the upstream form; the column J is now the
+  energy the SCF takes for J), `prod_parts.py`; node1 `scratch/p39_{a,b,c}.sh`.
+- **Data:** `bench/results/node1/p39_second_order_energy.txt`, `p39_parts.jsonl`.
+- **Commits:** gpu4pyscf `perf` 02f92312, merged into `exp/prim-screen` 8c6a42fa; local, not pushed.
+
+### What it is
+A direct SCF builds J and K for the change dD of the density of each cycle and adds them to those of the cycle
+before. The energy was tr(D V)/2 with the summed V = J - K/2 (`rks.get_veff`; without exact exchange, a Coulomb energy
+that traces each new J[dD] with the whole previous density, `hf._trace_ecoul`). A build for dD is screened for dD:
+what it leaves out is harmless in the Fock matrix, but traced with the whole density it stays in the energy, and
+every cycle adds its own. Now
+    tr(D V)/2 = E2_last + tr(dD V_last) + tr(dD dV)/2        (`hf._e2_of_change`),
+where the build dV of a change meets only that change (tr(D_last dV) = tr(dD V_last) for the integrals themselves).
+- **Where:** `get_veff` of RHF, UHF, RKS and UKS, and so of ROHF, ROKS, DFT+U, the SMD/PCM models and the Newton
+  solver. The potential carries the energy as a tag (`e2`, and `ecoul` for the part of J in the same form where the
+  last potential has J by itself); HF's `energy_elec`, which traces the potential with the density it is given,
+  gets `e2_shift`, what the form adds to that trace.
+- **What does not change:** the Fock matrices, so the orbitals, the densities of the cycles, the gradients; the
+  first build of an SCF (its error stays: that of one build, about 1e-11 Eh).
+- **The switch:** `mf.second_order_energy` (True; `scf_hf_SCF_second_order_energy` in the config). False is upstream's
+  energy to the last bit: the def2-SVP SCF is then within 4.5e-13 Eh of part 36's and its gradient within 3.8e-13,
+  as before this part. `gpu_bench.sh` compares with v1.9.0 that way.
+- **The two-level SCF:** `_own_jk` takes the energies of what it leaves to the cheap potential (J, where it is not
+  fitted; K, where only J is fitted) from that potential's tags, at second order through the cheap model's cycles;
+  its own parts keep part 38's form across the references. With the switch off the two-level SCF is part 38's.
+- **Not changed:** GHF/GKS, the lowmem classes and PBC have their own `get_veff`; density-fitted models build J and K
+  of the whole density in every cycle and have nothing to gain.
+
+### Measured
+The SCF's energy against one build of the potential of its final density with direct_scf_tol 1e-16
+(`two_level_energy_check.py`; in all, and the parts of J and of K with the XC terms):
+
+| | before (part 38) | now, in all | J | K, with the XC terms |
+|---|---|---|---|---|
+| def2-SVP, plain SCF | +1.07e-10 Eh | -6.8e-12 | -9.1e-12 | +2.3e-12 |
+| def2-SVP, two-level | +9.4e-11 | -8.4e-12 | -9.1e-12 | +7e-13 |
+| def2-SVP, two-level with the fitted J | -5.7e-12 | -5.7e-12 | -6.4e-12 | +7e-13 |
+| def2-TZVP, plain SCF | -7.2e-11 | -8.2e-12 | -9.6e-12 | +1.4e-12 |
+| def2-TZVP, two-level | +2.0e-11 | -8.4e-12 | -1.0e-11 | +1.8e-12 |
+| def2-TZVP, two-level with the fitted J | -7.3e-12 | -7.1e-12 | -9.1e-12 | +2.1e-12 |
+| def2-TZVPD, plain SCF | -1.26e-10 | -5.7e-12 | -9.1e-12 | +3.4e-12 |
+| def2-TZVPD, two-level | +4.5e-11 | -6.6e-12 | -9.3e-12 | +2.7e-12 |
+| def2-TZVPD, two-level with the fitted J | -2.3e-12 | -2.7e-12 | -5.5e-12 | +2.7e-12 |
+| H2PO4- def2-TZVPD, plain SCF | -1.4e-12 (J -8.7e-11, K +8.6e-11) | -1.8e-12 | -1.5e-12 | -3e-13 |
+| H2PO4- def2-TZVPD, two-level | -4.9e-11 | -1.6e-12 | -1.1e-12 | -5e-13 |
+| def2-TZVP, wB97X, gas phase, plain SCF | -2.3e-11 | -7.1e-12 | -1.1e-11 | +3.9e-12 |
+| def2-TZVP, wB97X, gas phase, two-level | +2.6e-11 | -8.6e-12 | -1.1e-11 | +2.1e-12 |
+
+- **The plain SCF:** from up to 1.3e-10 Eh to 2e-12 to 8e-12. With the switch off the same runs give the old numbers
+  (def2-SVP +1.07e-10; the anion's J -8.75e-11 and K +8.62e-11), and so does the script's own trace with the summed
+  potential of the runs with the switch on (def2-TZVPD -1.26e-10): the Fock matrices are the same.
+- **The two-level SCF:** from up to 9.4e-11 Eh to 2e-12 to 9e-12: the J it takes from the cheap potential now comes
+  with its energy at second order through the cheap model's cycles. With the fitted J nothing changed (that J was the
+  model's own, in the form since part 38). With the switch off, part 38's energy (def2-SVP +9.4e-11).
+- **What is left** is J's: -9e-12 Eh in every caffeine run with the J engine's builds through the cycles, -5e-12 to
+  -9e-12 with the model's own J at two references: the error of one build of J at direct_scf_tol 1e-13 (a one-build
+  potential at 1e-13 is 6e-12 Eh from the tight one at def2-SVP, part 38), which the first build of a chain carries.
+- **Cost and cycles:** two traces per cycle; def2-SVP 124.3 s either way, 14 cycles either way (11 for the anion);
+  against part 36's run the def2-SVP energy is -1.135e-10 Eh with the switch on and +4.5e-13 with it off, the
+  gradient within 4e-13 both ways.
+- **The plain and the two-level SCF** now differ by what their densities differ by: def2-SVP 8e-12 Eh in the printed
+  energies and 6.4e-12 between the tight builds, def2-TZVP 1.4e-11 and 1.36e-11, def2-TZVPD 1.4e-11 and 1.32e-11
+  (parts 36 to 38 printed 2e-11 to 1.7e-10).
+
+### Unit tests (node1, the final files)
+- The final files (`p39_c`): test_second_order_energy 22 (new: SCF energies with the form and without, and against
+  one build, for RHF, UHF, ROHF, RKS, UKS, ROKS, pure, global and range-separated hybrids, `jk_one_pass`; the tags of
+  a change against the formula; a K of the change that is off by a known factor, where the form is off at second
+  order and the trace with the sum at first), test_two_level 58 (4 new: the two-level SCF with the switch off; the
+  references' energies from the cheap potential's tags), test_rhf 17, test_uhf 13 (3 skipped), test_jk_one_pass 9,
+  test_soscf 14, test_rks 17 (1 skipped), test_uks 10, test_scf_reuse 8, test_rks_grad 15, test_smd 26 passed.
+- Before the last comments and docstrings (`p39_a`, `p39_b`), the same code: also test_scf 7, test_scf_jk 11,
+  test_pcm 26, test_sgx 18, test_dftu 2, test_ucdft 16, test_ghf 6, test_gks 4 (7 skipped), test_hf_lowmem 2,
+  test_rks_lowmem 4, test_fermi_smearing 3 passed. In the first run two cases of the new file failed on an assertion
+  of the test itself (how far apart the two forms are in the unrestricted cases: 73 and 75 times, 100 asked), which
+  was relaxed to 20.
+
+### Not done
+- **The error of one build of J** (the 9e-12 Eh above): a tighter threshold for the J engine alone, or for the
+  first build, should take it; not measured.
+- GHF/GKS, the lowmem classes, PBC.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

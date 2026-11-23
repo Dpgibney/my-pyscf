@@ -1,22 +1,23 @@
 '''The energy an SCF reports against the energy of its final density built from scratch.
 
-Every SCF here takes its energy from potentials that were put together from changes of the density: J and K
-of the cycles (and of the references of a two-level SCF), each screened for its own change. This script runs
-the SCF in several ways, then evaluates the model's potential of each final density in one build with no
-history, once with the model's direct_scf_tol and once with a tight one (--tol), and prints what the SCF's
-energy differs from them by, in all and by terms (J, as tr(D J)/2 of the SCF's J matrix; the rest of the
-two-electron energy: K together with the XC terms, which are evaluated the same way in both, and what the
-second-order form of a two-level reference adds for its K, and for its J where the cheap model's is fitted;
-the solvent), and the orbital gradient of the tight build. For the plain SCF it also
-follows the two-electron energy through the cycles in the form that takes each change of the potential at
-second order, E2 += tr(dD V_last) + tr(dD dV)/2, in place of tr(D V)/2 with the potential summed up.
+A direct SCF takes its two-electron energy from potentials that are put together from changes of the density:
+J and K of the cycles (and of the references of a two-level SCF), each screened for its own change. This
+script runs the SCF in several ways, then evaluates the model's potential of each final density in one build
+with no history, once with the model's direct_scf_tol and once with a tight one (--tol), and prints what the
+SCF's energy differs from them by, in all and by terms (J; the rest of the two-electron energy: K together with
+the XC terms, which are evaluated the same way in both; the solvent), and the orbital gradient of the tight
+build. J is the energy the SCF takes for it: the tag ecoul where the potential carries its energies at second
+order (SCF.second_order_energy, the default), tr(D J)/2 of the summed J otherwise. For the plain SCF the
+script also follows tr(D (J - K/2))/2 through the cycles itself, with the potential summed up and in the
+second-order form E2 += tr(dD V_last) + tr(dD dV)/2 from the first cycle it sees.
 
     python bench/gpu/two_level_energy_check.py [--mol caffeine] [--basis def2-tzvp] [--xc wb97m-v] [--smd]
-        [--grid 99,590] [--nlcgrid 50,194] [--runs plain,two_level,ref2,ref2f,ref3] [--tol 1e-16]
+        [--grid 99,590] [--nlcgrid 50,194] [--runs plain,plain:off,two_level,ref3] [--tol 1e-16]
 
 Runs: plain; two_level (the model's own K at every reference); refN / refNf (the change of K at the later
 references from the seminumerical K on SGX level N, in double / single precision: two_level_sgx_ref_level);
-"+etb" for the fitted J of the cheap model (two_level_auxbasis = 'aug_etb').
+"+etb" for the fitted J of the cheap model (two_level_auxbasis = 'aug_etb'); ":off" for
+second_order_energy = False (the energy as upstream takes it).
 '''
 import argparse
 import os
@@ -69,10 +70,11 @@ def terms(dm, vhf):
     '''(J, the other two-electron terms, solvent) of the energy in the tags of a potential'''
     e2 = float(vhf.ecoul) + float(vhf.exc)
     vk = getattr(vhf, 'vk', None)
-    if vk is None:
+    if vk is None or getattr(vhf, 'e2', None) is not None:
+        # J alone in the potential, or the energies at second order: ecoul is J's part of the energy
         e_j = float(vhf.ecoul)
     else:
-        # the tags of a hybrid's potential: vj holds J - K/2, vk the K/2
+        # a hybrid's potential traced with the density: vj holds J - K/2, vk the K/2
         e_j = .5 * float(cp.einsum('ij,ji', cp.asarray(dm), cp.asarray(vhf.vj) + cp.asarray(vk)).real)
     e_s = getattr(vhf, 'e_solvent', None)
     return np.array([e_j, e2 - e_j, 0. if e_s is None else float(e_s)])
@@ -96,7 +98,12 @@ print('%s %s %s%s: %d AOs; one build of the potential with direct_scf_tol %g (th
 results = []
 for run in args.runs.split(','):
     mf = model()
-    name, _, extra = run.partition('+')
+    name, _, form = run.partition(':')
+    name, _, extra = name.partition('+')
+    if form == 'off':
+        mf.second_order_energy = False
+    elif form:
+        raise SystemExit('unknown run ' + run)
     if name != 'plain':
         mf.two_level = True
         if name.startswith('ref'):

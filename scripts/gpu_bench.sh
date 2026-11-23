@@ -52,6 +52,7 @@ if [ $TESTS = 1 ]; then
     (
         cd "$R"
         for f in scf/tests/test_scf_jk.py scf/tests/test_jk_one_pass.py scf/tests/test_two_level.py \
+                 scf/tests/test_second_order_energy.py \
                  sgx/tests/test_sgx.py sgx/tests/test_int1e_grids.py \
                  dft/tests/test_rks.py dft/tests/test_uks.py \
                  grad/tests/test_rks_grad.py grad/tests/test_uks_grad.py grad/tests/test_scf_reuse.py \
@@ -97,8 +98,11 @@ prod() {  # basis: v1.9.0, the modified tree compared with it, and the modified 
     local P="$WS/bench/gpu/prod_parts.py" J="$R/prod_parts.jsonl"
     echo "== production-like job, caffeine $1: v1.9.0"
     PYTHONPATH="$WS/gpu4pyscf-base" python -W ignore "$P" --label base --basis $1 --save "$R/prod_$1_base" --out "$J"
-    echo "== production-like job, caffeine $1: the modified tree"
-    PYTHONPATH="$WS/gpu4pyscf" python -W ignore "$P" --label current --basis $1 --compare "$R/prod_$1_base" --out "$J"
+    # the energy in upstream's form (second_order_energy off, from part 39 on): the difference is then the code's,
+    # not what the SCF cycles' builds leave out of the energy (up to 1e-10 Eh, NOTES part 38)
+    echo "== production-like job, caffeine $1: the modified tree, the energy traced as v1.9.0 does"
+    PYTHONPATH="$WS/gpu4pyscf" python -W ignore "$P" --label current --basis $1 --set second_order_energy=False \
+        --compare "$R/prod_$1_base" --out "$J"
     [ $TWO_LEVEL = 1 ] || return 0
     if [ $SGX = 0 ]; then
         echo "== production-like job, caffeine $1: the modified tree, two-level SCF"
