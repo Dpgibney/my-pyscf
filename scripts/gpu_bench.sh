@@ -9,6 +9,9 @@
 # the modified tree's two-level SCF, on def2-SVP, def2-TZVP and def2-TZVPD: prod_parts.jsonl and prod_log.txt.
 # From part 37 on the two-level SCF iterates with a seminumerical K (gpu4pyscf.sgx); it is run three ways: with the
 # model's own K in its cheap model (part 36's), with the seminumerical K (the default), and with a fitted J as well.
+# From part 40 on the analytical Hessian of the same job follows (def2-SVP; def2-TZVP too without --quick): v1.9.0,
+# the modified tree with upstream's CPHF solver (what the rest of the code changes), and the modified tree as it is
+# (residual solver, two-level CPHF), each compared with v1.9.0's Hessian and frequencies.
 #     bash scripts/gpu_bench.sh [--quick] [--no-tests] [--large]
 #   --quick      caffeine def2-SVP B3LYP only, and the production-like job on def2-SVP only
 #   --no-tests   skip the unit tests
@@ -60,6 +63,8 @@ if [ $TESTS = 1 ]; then
                  solvent/tests/test_pcm.py solvent/tests/test_smd.py \
                  solvent/tests/test_pcm_grad.py solvent/tests/test_smd_grad.py solvent/tests/test_pcm_tdscf_grad.py \
                  hessian/tests/test_rks_hessian.py hessian/tests/test_uks_hessian.py \
+                 scf/tests/test_cphf.py hessian/tests/test_cphf_solvers.py hessian/tests/test_vv10_hessian.py \
+                 hessian/tests/test_level_shift_hessian.py lib/tests/test_cupy_helper.py \
                  solvent/tests/test_pcm_hessian.py solvent/tests/test_smd_hessian.py tdscf/tests/test_tdrks.py; do
             [ -f "$WS/gpu4pyscf/gpu4pyscf/$f" ] || { echo "$f: not in this tree (an older pin)"; continue; }
             PYTHONPATH="$WS/gpu4pyscf" timeout 3600 python -m pytest -q -p no:cacheprovider \
@@ -127,6 +132,24 @@ prod() {  # basis: v1.9.0, the modified tree compared with it, and the modified 
         --set two_level=True --set two_level_auxbasis=aug_etb --set two_level_sgx_ref_level=3 \
         --compare "$R/prod_$1_base" --out "$J"
 }
+hess() {  # basis: the production-like Hessian: v1.9.0, then the modified tree compared with it
+    local P="$WS/bench/gpu/prod_parts.py" J="$R/prod_parts.jsonl"
+    echo "== production-like Hessian, caffeine $1: v1.9.0"
+    PYTHONPATH="$WS/gpu4pyscf-base" python -W ignore "$P" --label base --basis $1 --tasks scf,hess \
+        --save "$R/hess_$1_base" --out "$J"
+    [ $HESS = 1 ] || return 0
+    # upstream's Krylov solver stops short of convergence (NOTES part 40): with it the difference is the rest of
+    # the code's, without it also what v1.9.0's CPHF solution was short of
+    echo "== production-like Hessian, caffeine $1: the modified tree with upstream's CPHF solver"
+    PYTHONPATH="$WS/gpu4pyscf" python -W ignore "$P" --label current_krylov --basis $1 --tasks scf,hess \
+        --set second_order_energy=False --hset cphf_residual_tol=None --compare "$R/hess_$1_base" --out "$J"
+    echo "== production-like Hessian, caffeine $1: the modified tree (residual solver, two-level CPHF)"
+    PYTHONPATH="$WS/gpu4pyscf" python -W ignore "$P" --label current --basis $1 --tasks scf,hess \
+        --save "$R/hess_$1_cur" --compare "$R/hess_$1_base" --out "$J"
+}
+# the residual and two-level CPHF solvers from part 40 on
+HESS=0
+grep -q cphf_two_level "$WS/gpu4pyscf/gpu4pyscf/hessian/rhf.py" 2>/dev/null && HESS=1
 # mf.two_level exists from part 36 on (a tree at an older pin would silently run the plain SCF), the seminumerical
 # K of its cheap model from part 37 on
 TWO_LEVEL=0
@@ -141,6 +164,10 @@ grep -q two_level_sgx_ref_level "$WS/gpu4pyscf/gpu4pyscf/scf/hf.py" 2>/dev/null 
     if [ $QUICK = 0 ]; then
         prod def2-tzvp
         prod def2-tzvpd
+    fi
+    hess def2-svp
+    if [ $QUICK = 0 ]; then
+        hess def2-tzvp
     fi
     if [ $LARGE = 1 ] && [ $TWO_LEVEL = 1 ]; then
         NAD="$WS/bench/diag/wb97mv/nad+_mmff.xyz"

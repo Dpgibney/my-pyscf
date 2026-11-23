@@ -1,16 +1,17 @@
 """Where a production-like GPU4PySCF job spends its time (node1): wB97M-V with the XC grid (99,590) and the VV10 grid
-(50,194), in SMD water, the SCF and then the nuclear gradient. Every part named below is timed between device
-synchronizations; the table gives its calls, its inclusive time and its exclusive time (inclusive minus the timed parts
-it called). A warm-up on water with the same settings runs first, untimed, so that loading the CUDA modules is not
-charged to the job. Run it with PYTHONPATH set to the tree (source scripts/node1-gpu-env.sh perf).
+(50,194), in SMD water, the SCF and then the nuclear gradient and/or the analytical Hessian. Every part named below is
+timed between device synchronizations; the table gives its calls, its inclusive time and its exclusive time (inclusive
+minus the timed parts it called). A warm-up on water with the same settings runs first, untimed, so that loading the
+CUDA modules is not charged to the job. Run it with PYTHONPATH set to the tree (source scripts/node1-gpu-env.sh perf).
 
 --set NAME=VALUE sets an attribute of the SCF object before it runs (dotted names reach into it:
---set nlcgrids.level=1), --gset NAME=VALUE one of the gradient object. --save PREFIX writes the energy and the gradient
-to PREFIX.npz, --compare PREFIX prints their largest differences from another run's. --out FILE appends a JSON line.
+--set nlcgrids.level=1), --gset NAME=VALUE one of the gradient object, --hset NAME=VALUE one of the Hessian object.
+--save PREFIX writes the energy, the gradient and the Hessian to PREFIX.npz, --compare PREFIX prints their largest
+differences from another run's (for the Hessian also that of the harmonic frequencies). --out FILE appends a JSON line.
 Usage: prod_parts.py [--mol caffeine|benzene|water|FILE.xyz] [--charge 0] [--basis def2-svp] [--xc wb97m-v] [--grid 99,590]
-                     [--nlcgrid 50,194] [--solvent smd|cpcm|iefpcm|none] [--tasks scf,grad] [--conv-tol 1e-10]
-                     [--set NAME=VALUE ...] [--gset NAME=VALUE ...] [--label L] [--save PREFIX] [--compare PREFIX]
-                     [--out FILE] [--verbose N]"""
+                     [--nlcgrid 50,194] [--solvent smd|cpcm|iefpcm|none] [--tasks scf,grad,hess] [--conv-tol 1e-10]
+                     [--set NAME=VALUE ...] [--gset NAME=VALUE ...] [--hset NAME=VALUE ...] [--label L] [--save PREFIX]
+                     [--compare PREFIX] [--out FILE] [--verbose N]"""
 import argparse
 import ast
 import collections
@@ -18,6 +19,7 @@ import json
 import os
 import sys
 import time
+import traceback
 import numpy
 here = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(here, '..'))
@@ -27,8 +29,14 @@ import cupy  # noqa: E402
 from pyscf import gto  # noqa: E402
 import gpu4pyscf  # noqa: E402
 from gpu4pyscf.dft import rks, numint  # noqa: E402
-from gpu4pyscf.grad import rks as rks_grad  # noqa: E402
+from gpu4pyscf.grad import rhf as rhf_grad, rks as rks_grad  # noqa: E402
+from gpu4pyscf.hessian import rhf as rhf_hess, rks as rks_hess  # noqa: E402
+try:
+    from gpu4pyscf.sgx import sgx as sgx_mod  # noqa: E402
+except ImportError:   # a tree before part 37 (v1.9.0)
+    sgx_mod = None
 from gpu4pyscf.solvent.grad import pcm as pcm_grad, smd as smd_grad  # noqa: E402
+from gpu4pyscf.solvent.hessian import pcm as pcm_hess, smd as smd_hess  # noqa: E402
 
 ap = argparse.ArgumentParser()
 ap.add_argument('--mol', default='caffeine', help='caffeine, benzene, water, or an xyz file')
@@ -42,6 +50,7 @@ ap.add_argument('--tasks', default='scf,grad')
 ap.add_argument('--conv-tol', type=float, default=1e-10)
 ap.add_argument('--set', action='append', default=[])
 ap.add_argument('--gset', action='append', default=[])
+ap.add_argument('--hset', action='append', default=[])
 ap.add_argument('--label', default='')
 ap.add_argument('--save', default=None)
 ap.add_argument('--compare', default=None)
@@ -164,6 +173,73 @@ def instrument(mf, g):
         parts.wrap(smd_grad, 'get_cds', 'solvent.grad_cds')
 
 
+class _TimedLib:
+    """A compiled library whose entries of a given prefix are timed as parts"""
+
+    def __init__(self, lib, prefix, label):
+        self._lib, self._prefix, self._label = lib, prefix, label
+        self._timed = {}
+
+    def __getattr__(self, name):
+        fn = getattr(self._lib, name)
+        if not name.startswith(self._prefix):
+            return fn
+        if name not in self._timed:
+            holder = type('entry', (), {'fn': staticmethod(fn)})
+            parts.wrap(holder, 'fn', self._label + name[len(self._prefix):], _cheap_suffix)
+            self._timed[name] = holder.fn
+        return self._timed[name]
+
+
+# whether the response being built is the cheap model's (the two-level CPHF): set where get_veff_resp_mo is entered
+_response = {'cheap': False}
+
+
+def _cheap_suffix(*args, **kwargs):
+    return ' (cheap)' if _response['cheap'] else ''
+
+
+def _veff_resp_suffix(hessobj, *args, **kwargs):
+    _response['cheap'] = getattr(hessobj, '_cheap_response', None) is not None
+    return _cheap_suffix()
+
+
+def instrument_hess(mf):
+    """The parts of the analytical Hessian: the second derivatives of the energy at fixed orbitals
+    (partial_hess_elec), the first-order Fock matrices (make_h1), the CPHF equations (solve_mo1, whose response of a
+    set of trial densities is veff_resp_mo), the solvent's terms."""
+    for name, label in (('hess_elec', 'hess.hess_elec'), ('partial_hess_elec', 'hess.partial_hess_elec'),
+                        ('make_h1', 'hess.make_h1')):
+        parts.wrap(rks_hess.Hessian, name, label)
+    # the response of a set of trial densities: the model's own, and the cheap model's of the two-level CPHF
+    parts.wrap(rks_hess.Hessian, 'get_veff_resp_mo', 'hess.veff_resp_mo', _veff_resp_suffix)
+    parts.wrap(rks_hess.Hessian, 'get_jk_mo', 'hess.jk_mo', _cheap_suffix)
+    parts.wrap(rhf_hess.HessianBase, 'solve_mo1', 'hess.solve_mo1')
+    for name in ('_partial_ejk_ip2', '_hcore_energy', '_get_jk_ip1', 'krylov', '_cheap_start_and_trials'):
+        parts.wrap(rhf_hess, name, 'hess.' + name.lstrip('_'))
+    for name in ('_get_exc_deriv2', '_get_enlc_deriv2', '_get_vxc_deriv1', '_get_vnlc_deriv1'):
+        parts.wrap(rks_hess, name, 'hess.' + name.lstrip('_'))
+    for name in ('nr_rks_fxc_mo', 'nr_rks_fnlc_mo', 'get_nlc_response_ground_state'):
+        parts.wrap(rks_hess, name, 'hess.' + name.lstrip('_'), _cheap_suffix)
+    if sgx_mod is not None:
+        parts.wrap(sgx_mod.SGX, 'get_k', 'sgx.get_k', _cheap_suffix)
+    parts.wrap(rhf_grad, 'get_grad_hcore', 'hess.grad_hcore')
+    # the compiled VV10 kernels of the Hessian (each N_grid^2 pairs; f_t once per set of trial densities)
+    if hasattr(rks_hess, 'libgdft') and not isinstance(rks_hess.libgdft, _TimedLib):
+        rks_hess.libgdft = _TimedLib(rks_hess.libgdft, 'VXC_vv10nlc_hess_eval_', 'vv10.')
+    with_solvent = getattr(mf, 'with_solvent', None)
+    if with_solvent is not None:
+        parts.wrap(type(with_solvent), 'hess', 'solvent.hess')
+        parts.wrap(type(with_solvent), '_B_dot_x', 'solvent._B_dot_x', _cheap_suffix)
+        # the same response from the integrals with the orbital products, and making those
+        parts.wrap(pcm_hess, '_response_from_mo_integrals', 'solvent.response_mo', _cheap_suffix)
+        parts.wrap(pcm_hess, 'surface_mo_integrals', 'solvent.mo_integrals')
+        parts.wrap(pcm_hess, 'get_dqsym_dx', 'solvent.get_dqsym_dx')
+        for name in ('analytical_hess_nuc', 'analytical_hess_qv', 'analytical_hess_solver', 'analytical_grad_vmat'):
+            parts.wrap(pcm_hess, name, 'solvent.' + name)
+        parts.wrap(smd_hess, 'get_cds', 'solvent.hess_cds')
+
+
 def report(task, out):
     """The table of one task, printed as soon as it ends (a later task may run out of memory)."""
     note = '  FAILED: ' + out['failed'][task] if task in out.get('failed', {}) else ''
@@ -182,8 +258,15 @@ def run(atom, timed, charge=0):
         g = mf.Gradients()
         for spec in args.gset:
             set_attr(g, spec)
+    h = None
+    if 'hess' in tasks:
+        h = mf.Hessian()
+        for spec in args.hset:
+            set_attr(h, spec)
     if timed:
         instrument(mf, g)
+        if h is not None:
+            instrument_hess(mf)
     out = {'times': {}, 'parts': {}, 'sm_mhz': {}, 'failed': {}}
     parts.on = timed
     sync()
@@ -219,6 +302,7 @@ def run(atom, timed, charge=0):
                     raise
                 parts.stack.clear()
                 out['failed']['grad'] = f'{type(err).__name__}: {str(err)[:80]}'
+                traceback.print_exc(file=sys.stdout)
             sync()
             out['times']['grad'] = time.perf_counter() - t0
         out['sm_mhz']['grad'] = mon.summary.get('sm_mhz')
@@ -226,6 +310,25 @@ def run(atom, timed, charge=0):
         if timed:
             print(f"pool peak {parts.pool_peak / 2**20:.0f} MiB")
             report('grad', out)
+    if h is not None:
+        with GpuMonitor() as mon:
+            t0 = time.perf_counter()
+            try:
+                hess = h.kernel()
+                out['hess'] = cupy.asnumpy(hess) if isinstance(hess, cupy.ndarray) else numpy.asarray(hess)
+            except Exception as err:   # e.g. out of memory: keep what was timed until then
+                if not timed:
+                    raise
+                parts.stack.clear()
+                out['failed']['hess'] = f'{type(err).__name__}: {str(err)[:80]}'
+                traceback.print_exc(file=sys.stdout)
+            sync()
+            out['times']['hess'] = time.perf_counter() - t0
+        out['sm_mhz']['hess'] = mon.summary.get('sm_mhz')
+        out['parts']['hess'] = parts.take()
+        if timed:
+            print(f"pool peak {parts.pool_peak / 2**20:.0f} MiB")
+            report('hess', out)
     parts.on = False
     return mf, out
 
@@ -237,14 +340,31 @@ ngrids, nlc, nsurf = out['ngrids'], out['nlcgrids'], out['nsurf']
 
 record = {'label': args.label, 'tree': os.path.dirname(gpu4pyscf.__file__), 'mol': args.mol, 'basis': args.basis,
           'xc': args.xc, 'solvent': args.solvent, 'grid': args.grid, 'nlcgrid': args.nlcgrid, 'nao': int(mf.mol.nao),
-          'ngrids': ngrids, 'nlcgrids': nlc, 'nsurf': nsurf, 'set': args.set, 'gset': args.gset, 'E': out['e'],
+          'ngrids': ngrids, 'nlcgrids': nlc, 'nsurf': nsurf, 'set': args.set, 'gset': args.gset, 'hset': args.hset,
+          'E': out['e'],
           'converged': out['converged'], 'cycles': out['cycles'], 'failed': out['failed'],
           'times': {k: round(v, 3) for k, v in out['times'].items()},
           'parts': {t: {k: [v[0], round(v[1], 3), round(v[2], 3)] for k, v in p.items()}
                     for t, p in out['parts'].items()},
           'sm_mhz': out['sm_mhz'], 'pool_peak_mib': round(parts.pool_peak / 2**20)}
+
+
+def frequencies(hess):
+    """Harmonic wavenumbers (cm^-1, imaginary ones negative) of a Hessian [natm,natm,3,3], rotations and translations
+    not projected out: for comparing two Hessians of the same structure."""
+    from pyscf.data import nist
+    mass = mf.mol.atom_mass_list(isotope_avg=True)
+    natm = len(mass)
+    h = hess.transpose(0, 2, 1, 3).reshape(natm * 3, natm * 3)
+    w = numpy.repeat(mass, 3) ** -.5
+    e = numpy.linalg.eigvalsh(h * w[:, None] * w)
+    au2hz = (nist.HARTREE2J / (nist.ATOMIC_MASS * nist.BOHR_SI ** 2)) ** .5 / (2 * numpy.pi)
+    return numpy.sign(e) * abs(e) ** .5 * au2hz / nist.LIGHT_SPEED_SI * 1e-2
+
+
 if args.save:
-    numpy.savez(args.save + '.npz', e=out['e'], grad=out.get('grad', numpy.zeros(0)))
+    numpy.savez(args.save + '.npz', e=out['e'], grad=out.get('grad', numpy.zeros(0)),
+                hess=out.get('hess', numpy.zeros(0)))
 if args.compare:
     ref = numpy.load(args.compare + '.npz')
     record['dE'] = out['e'] - float(ref['e'])
@@ -252,6 +372,12 @@ if args.compare:
     if 'grad' in out and ref['grad'].size:
         record['max_dgrad'] = float(abs(out['grad'] - ref['grad']).max())
         msg += f", max |dgrad| = {record['max_dgrad']:.3e} (max |grad| {abs(ref['grad']).max():.3e})"
+    if 'hess' in out and 'hess' in ref and ref['hess'].size:
+        record['max_dhess'] = float(abs(out['hess'] - ref['hess']).max())
+        f0, f1 = frequencies(ref['hess']), frequencies(out['hess'])
+        record['max_dfreq'] = float(abs(f1 - f0).max())
+        msg += (f", max |dhess| = {record['max_dhess']:.3e} (max |hess| {abs(ref['hess']).max():.3e}), "
+                f"max |dfreq| = {record['max_dfreq']:.3f} cm^-1")
     print(msg)
 if args.out:
     with open(args.out, 'a') as f:

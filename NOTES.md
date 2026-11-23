@@ -9602,6 +9602,201 @@ The SCF's energy against one build of the potential of its final density with di
   first build, should take it; not measured.
 - GHF/GKS, the lowmem classes, PBC.
 
+## GPU4PySCF, part 40: the analytical Hessian at production settings (node1), 2026-11-22/23
+The user: "Is the hessian optimized?" The CPU tree's was; the GPU tree's only up to part 35, the later CPU items
+(the CPHF solver, the solvent's terms) never ported because Hessians had been left alone. To the plan (profile a GPU
+Hessian at production settings, then port the CPU items in the order the profile gives): "Sounds good. Please
+proceed".
+- **Workload:** caffeine, wB97M-V, XC grid (99,590) = 767,488 points, VV10 grid (50,194) = 157,440 points, SMD water
+  (5525 surface points), conv_tol 1e-10, def2-SVP (246 functions; 72 nuclear perturbations) and def2-TZVP (494). A GTX
+  1650 Super (4 GB, FP64 at 1/32 of its FP32 rate).
+- **Tools:** `bench/gpu/prod_parts.py --tasks scf,hess` (the parts of the Hessian, the compiled VV10 kernels, the
+  solvent's terms; `--hset`; `--save/--compare` with the Hessian and the frequencies; prints the traceback of a task
+  that fails), `bench/gpu/cphf_bench.py` (the CPHF solvers on one saved SCF and right-hand side); node1
+  `scratch/p40_{a..i}.sh`.
+- **Data:** `bench/results/node1/p40_hessian.txt`, `p40_parts.jsonl`, `p40_cphf.jsonl`.
+- **Commits:** gpu4pyscf `perf` e13bec93 (allocator), 0e5c383a (solvent), 590cb496 (Hessian), merged into
+  `exp/prim-screen` 78142840, the kernel by atom b7c5b048 there; pushed on 2026-11-23 as tag `perf-2026-11-23` at
+  the user's word ("Could you push what we have?"), while the last two runs of `p40_i` (below) were still going.
+
+### The profile (tag perf-2026-11-22d)
+- **With SMD the Hessian did not run** on the 4 GB card: out of memory 520 s in, in the solvent's term of the
+  first-order Fock matrices. Not for lack of memory: gpu4pyscf's allocator sends every allocation above 100 MB
+  straight to the device (`lib/cupy_helper.py::set_conditional_mempool_malloc`, upstream's), and that path did not
+  give back the memory that the CuPy pool holds in blocks it no longer uses (2.5 GB after the XC and VV10 terms),
+  which `get_avail_mem` counts as available. The same job in the gas phase ran.
+- **Gas phase, 1464 s** (after an SCF of 124 s): second derivatives at fixed orbitals 193 s (VV10 119, XC 38, J/K
+  36), first-order Fock matrices 326 s (VV10 240, XC 69, J/K 17), CPHF 945 s: 7 responses of 72 trial densities (6
+  Krylov cycles and one after the solve), each VV10 116 s, XC 10 s, J/K 8 s. VV10 is 1180 of the 1464 s, nearly all
+  of it the all-pairs kernels in double precision, which this card runs at its FP64 rate (about 80 G operations/s):
+  one pass over the 157,440^2 pairs for 36 trial densities is about 50 s.
+
+### What was done
+1. **The allocator** frees the pool's unused blocks and tries again where the device refuses a large allocation,
+   and raises CuPy's OutOfMemoryError if that does not help (as the pool does for its own allocations).
+2. **The solvent's Hessian terms without the dense derivative matrices** (IEF-PCM, SMD): dD, dS [3,n,n] and d2D,
+   d2S [3,3,n,n] (0.7 and 2.2 GB each at 5525 points) are used only in products with vectors, which now come
+   from the surface data where the matrices do not fit (`solvent/hessian/pcm.py`: kernels for dD and d2D by atom,
+   `DENSE_DERIVATIVE_MEMORY_FRACTION`). The first-order charges are computed once for the three terms that take them.
+3. **The residual CPHF solver** (`scf/cphf.py::solve_residual`, `scf/ucphf.py`; the CPU tree's): one space of trial
+   vectors for all perturbations, converged on the true residual of each (`HessianBase.cphf_residual_tol` = 1e-4,
+   None for the Krylov solver), no response after the solve. IR and Raman, which are linear in the solution, ask
+   for 1e-6.
+4. **The second-order term**: the terms that `hess_elec` makes of the first-order orbitals are right to second
+   order in the residuals only if the residuals are orthogonal to x - x0 (x0 the uncoupled solution), which holds
+   for the plain solver on one block of atoms. `solve_mo1` now hands `hess_elec` the rest, -4 (x_A - x0_A) r_B (2
+   per spin for UHF): zero there, and what makes a start from another model's solution, or several blocks, as good.
+5. **Two-level CPHF** (`HessianBase.cphf_two_level`, on; `cphf_two_level_parts = ('nlc',)`): the equations of a
+   cheap model are solved first, then the model's own response is built for that solution; the perturbations whose
+   residual is then above the tolerance get a correction step: the preconditioned residuals as trial vectors where
+   they are within 4 times the tolerance (a step of the plain solver), the cheap model's solutions for the residuals
+   beyond. The default cheap model differs in one thing, the grid of the VV10 response (level 0): the all-pairs
+   kernel is 80% of a response at def2-SVP, and the coarse grid leaves the residuals below 1e-4 there, so the
+   model's own response is built once. Cheap XC grids ('xc') and the seminumerical K ('k') are options; each costs
+   a second response of the model. Without a VV10 term there is no cheap model by default, and the solver is the
+   plain one.
+6. **The dense all-pairs pass f_t is shared** between the VV10 energy second derivative and the VV10 Fock
+   derivative inside `hess_elec`: both need it for the orbital response of the density, the Fock derivative also for
+   the grid response, whose trial densities are nonzero on the displaced atom's points only: a new compiled kernel
+   over (point, atom) does those in one pass over the pairs (`VXC_vv10nlc_hess_eval_f_t_by_atom`).
+7. **The solvent's response from stored integrals**: (p i|g) for the surface charges g, all orbitals p and the
+   occupied ones i (`sgx/int1e_grids.py::orbital_contracted`, a kernel that returns the integrals of a batch of
+   points; `solvent/hessian/pcm.py::SurfaceMOIntegrals`, on the device or the host). The response to the 72
+   densities of a CPHF step and the 72 matrices of derivative charges become matrix products.
+8. **The VV10 response from the first-order orbitals** (as the XC response already was), and its batches of trial
+   densities in whole passes of the kernel.
+9. **Two switches for what is not exact, both off:** `hobj.nlc_fock_grid_response = False` leaves out the grid
+   response of the VV10 Fock derivative, which upstream always includes although all other terms follow
+   `grid_response` (off; its comment explains it with Hessians that changed by 1e-3 without it, "likely because the
+   CPHF converged to a different solution": the Krylov solver's stop). `hobj.cphf_nlcgrids_level` puts the VV10
+   response of the CPHF on coarser grids, as `mf.set_second_nlcgrids` does in the CPU tree (the XC response is on
+   upstream's `mf.cphf_grids` already).
+
+### Measured
+All on the GTX 1650 Super, caffeine, def2-SVP, after an SCF of 124 s; `prod_parts.py --tasks scf,hess`.
+
+**The Hessian in the gas phase** (the baseline runs only there):
+
+| | tag perf-2026-11-22d | now |
+|---|---|---|
+| second derivatives at fixed orbitals | 193.3 s | 196.4 s |
+| first-order Fock matrices | 326.2 s | 239.5 s |
+| CPHF | 944.9 s (7 responses) | 273.6 s (1 response, 6 of the cheap model) |
+| **Hessian** | **1464.3 s** | **709.6 s** |
+
+- **Against the baseline's Hessian:** max 4.8e-4 a.u., frequencies within 0.30 cm^-1: what the Krylov solver was
+  short of convergence (the two new solvers agree to 2.5e-8, below).
+- **CPHF:** the VV10 response was 812.9 of the 944.9 s. Now 126.9 s for the cheap model's solve (6 responses: XC
+  58.8, J/K 45.6, VV10 on the level-0 grid 21.3) and 146.7 s for the model's own response (VV10 116.4 + 8.1, XC
+  12.3, J/K 9.9).
+- **Fock derivative:** VV10 240.0 -> 153.3 s (the dense pass of 103 s replaced by the kernel by atom, 16.3 s).
+
+**With SMD** (water, 5525 surface points; the final files give 737.5 s and the Hessian of the fourth line to 1e-11):
+
+| | Hessian | CPHF | against the plain residual solver's Hessian |
+|---|---|---|---|
+| tag perf-2026-11-22d | out of memory after 520 s | | |
+| allocator, solvent terms without the dense matrices, residual solver | 1463.7 s | 894.2 s (6 responses) | |
+| + two-level CPHF, shared f_t, solvent integrals with the orbital products | 780.5 s | 319.1 s | 2.5e-8 a.u., 0.000 cm^-1 |
+| + VV10 response from the orbitals: **the defaults** | **737.7 s** | 276.6 s | 2.5e-8 a.u., 0.000 cm^-1 |
+| `nlc_fock_grid_response = False` | 621.3 s | 276.2 s | 1.1e-5 a.u., 0.030 cm^-1 |
+| `cphf_nlcgrids_level = 0` | 590.3 s | 129.0 s | 2.6e-5 a.u., 0.022 cm^-1 |
+
+- **The solvent's terms:** the response of a CPHF step 8.7 -> 0.7 s (72 densities: 144 passes of the surface
+  integrals -> two products with (p i|g), which take 1.1 s to make and 402 MB, here on the host); the solvent's
+  term of the Fock derivative 25.2 -> 6.0 s; the solvent's own Hessian terms 25.7 -> 19.2 s.
+- **The defaults, 737.7 s:** second derivatives 195.8 (VV10 122.0, XC 37.9, J/K 35.9), Fock derivative 238.9 + 7.1
+  (VV10 152.7, XC 68.7, J/K 17.2, solvent 7.1), CPHF 276.6, the solvent's Hessian 19.2. The VV10 all-pairs
+  kernels are 345 s of it: f_t 205.7 (two dense passes: the second derivative and the one response), the weight
+  derivatives 76.4, by atom 16.3 + 11.8, U/W 24.0, the cheap model's 11.0.
+- **The two options** are not exact and off: the grid response of the VV10 Fock derivative (116 s for 0.03 cm^-1
+  here), and the VV10 response of the CPHF on a coarse grid as the CPU tree's `set_second_nlcgrids` (148 s for 0.02
+  cm^-1 at level 0; the CPU tree's notes have 0.2 cm^-1 for a soft mode of H2PO4- at level 0).
+
+**The CPHF solvers on one right-hand side** (`cphf_bench.py`, SMD, with the solvent's response):
+
+| solver | responses of the model | of the cheap model | time |
+|---|---|---|---|
+| residual solver | 6 | | 793.5 s |
+| two-level, cheap VV10 grid (the default) | 1 | 6 | 325.2 s |
+
+and without the solvent's response in the equations (an earlier run of the script, VV10 batches of 30):
+
+| solver | responses of the model | of the cheap model | time |
+|---|---|---|---|
+| residual solver | 5 | | 829.6 s |
+| two-level, cheap VV10 grid | 1 | 5 | 327.1 s |
+| two-level, cheap VV10 and XC grids | 2 | 9 | 519.5 s |
+| two-level, cheap VV10 and XC grids, seminumerical K | 2 | 9 | 560.2 s |
+
+- **Why only VV10:** after the cheap model's solve the residual of the model itself is 5.5e-5 with the VV10 grid
+  alone (below the tolerance: one response) and 1.3e-3 with the level-0 XC grid (a correction: 4 more cheap
+  responses and a second response of the model). The cheap XC response saves 6.5 s a step, the seminumerical K
+  nothing at this size (J engine 8.3 s and seminumerical K 4.7 s for 72 densities, against 8.6 s for the exact
+  J and K, a pass for J with the full-range K and one for the long-range K).
+- **Second order:** the two solvers' first-order orbitals differ by 1.6e-5, the terms of the Hessian made of
+  them by 2.5e-8 with the second-order term (1.3e-5 for the part h1.mo1 alone).
+
+**def2-TZVP** (494 functions; SMD; after an SCF of 367 s):
+- **First run, 3418 s and then out of memory** in the last of the solvent's Hessian terms: the branch with the
+  dense dD and dS made a copy of dD for its transposed product, which the estimate of that branch did not count;
+  the product is now taken from dD as it is, and a branch whose matrices cannot be allocated falls back to the
+  surface data.
+- **Where the time goes there:** J and K. Second derivatives 1137.5 s (J/K 887.9, VV10 142.2, XC 107.1), Fock
+  derivative 625.3 + 17.2 s (J/K 306.2, VV10 185.4, XC 133.4, solvent 17.2), CPHF 1573.2 s, the solvent's Hessian
+  about 62 s. A response's J and K take about 100 s whatever the number of trial vectors (54 s a pass over the
+  integrals, two passes), where VV10 is 122 s for 72 and little for a few.
+- **The two-level CPHF there:** 11 responses of the cheap model and 2 of the model (J/K 1001.8 + 216.4 s): the
+  model's residual after the cheap solve was above the tolerance for some perturbations, and the correction went
+  through the cheap model again, five responses with the model's own J and K. A correction step now takes the
+  preconditioned residuals as trial vectors where the residuals are within 4 times the tolerance
+  (`hessian.rhf.TWO_LEVEL_PLAIN_STEP`): one response of the model for those vectors and none of the cheap model;
+  the cheap model's solve of the residuals, for larger ones, stops at a fifth of the tolerance.
+- **The rerun with these two changes** was still running when this was committed and pushed (section 9 of the
+  results file has what it had written); its numbers are to be added.
+
+### What changes in the numbers
+- **The CPHF tolerance.** Upstream's Krylov solver stops on the size of its vectors (conv_tol_cpscf times the atoms
+  of a block). On the molecule of `test_level_shift_hessian.py` (CH2O2, wB97X/6-31G) its frequencies are 1.7 cm^-1
+  (RKS) and 2.5 cm^-1 (UKS) from the converged ones, 0.001 and 0.06 cm^-1 for RHF and UHF; for caffeine 0.30 cm^-1.
+  The residual solver at 1e-4 is within 0.0002 cm^-1 on the small molecule. Hessians therefore move with respect to
+  upstream's defaults by what upstream was short of convergence; the references of that test were replaced by
+  converged values. A run of the gas-phase Hessian with upstream's solver on the new code, against the baseline's
+  Hessian (what everything but the solver changes), was queued behind the def2-TZVP rerun when this was pushed.
+- **The two-level CPHF** converges the same equations to the same tolerance: the production Hessian is within 2.5e-8
+  a.u. of the plain residual solver's (frequencies within 0.001 cm^-1).
+
+### Unit tests (node1, the final files)
+- The final files (`p40_i`), 32 test files, all passed: test_cphf_solvers 37 (new: the residual solver against a
+  residual of 1e-9 and against the Krylov solver for RHF, UHF, RKS, UKS, with SMD, with density fitting; the
+  two-level CPHF with all parts and with each; the default; the two kinds of correction steps; the second-order
+  term with and without; `cphf_nlcgrids_level`), test_cphf 5 (2 new), test_vv10_hessian 16 (2 new: the shared
+  pass for both grid-response settings of both terms, without the kernel by atom, for stale data; the response
+  from the orbitals, RKS and UKS), test_level_shift_hessian 4 (converged references), test_pcm_hessian 23 (3 new),
+  test_int1e_grids 12 (4 new), test_cupy_helper 18 (1 new), test_rhf_hessian 8, test_rks_hessian 12,
+  test_uhf_hessian 5, test_uks_hessian 12, test_rks_hessian_grid_response 17, test_uks_hessian_grid_response 16,
+  test_large_exponent 7, the density-fitted Hessians 8 + 5 + 8 + 4 and test_df_hessian 21, test_smd_hessian 15,
+  test_pcm 26, test_smd 26, test_pcm_grad 11, test_smd_grad 14, test_pcm_lowmem 6, test_pcm_lowmem_grad 7,
+  test_sgx 18, test_two_level 58, test_ir_intensity 2, test_raman_intensity 7, test_polarizability 7,
+  test_numint 24.
+- On the way: the first version of the allocator's fix read a constant that CuPy does not export (every import
+  failed; caught by the next batch within minutes); `eval_rho4` with xctype "NLC" returns five components where
+  its NLC branch fills four (the VV10 tests failed, the batch was stopped and rerun with "GGA").
+
+### Not done
+- **The remaining VV10 kernel passes** (the dense f_t of the energy second derivative, the model's own response
+  once, the weight-derivative sums of the Fock derivative): about 330 s of the def2-SVP Hessian on this card, bound
+  by its FP64 rate. The U/W sums are still made three times (24 s).
+- **J and K at def2-TZVP and beyond**: the second-derivative integrals (two passes for the range-separated hybrid),
+  the Fock derivative's, and about 100 s for each response of the CPHF. Ideas, none built: J with the mixed-range K
+  in one pass over the integrals; a seminumerical K that contracts many densities per pass (it takes one density at
+  a time: 4.7 s for 72 at def2-SVP, where the exact J and K take 8.6 s); J of many densities through the Rys
+  kernel (the J engine takes 8.3 s for 72 densities at def2-SVP, as long as J and K together, which also slows
+  the Hessians of pure functionals).
+- **Upstream's IR intensities with a solvent** solve their CPHF equations outside the solvent Hessian's kernel,
+  which is where the solvent's response is switched on (`equilibrium_solvation`): seen, not touched.
+- GHF/GKS, PBC; the solvent's terms of SS(V)PE keep their dense matrices.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

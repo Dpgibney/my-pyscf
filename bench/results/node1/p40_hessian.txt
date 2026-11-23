@@ -1,0 +1,1227 @@
+GPU4PySCF part 40 (node1, GTX 1650 Super, 2026-11-22/23): the analytical Hessian at production settings. Caffeine,
+wB97M-V, XC grid (99,590), VV10 grid (50,194), SMD water unless "solvent=none", conv_tol 1e-10; def2-SVP (72
+nuclear perturbations) unless noted. bench/gpu/prod_parts.py --tasks scf,hess times the parts of the Hessian
+(inclusive and exclusive seconds; vv10.* are the compiled all-pairs kernels; "(cheap)" marks what the cheap model
+of the two-level CPHF builds); "vs FILE" compares the Hessian with a saved one (max element, and frequencies
+without projecting out rotations and translations). bench/gpu/cphf_bench.py solves the CPHF equations of one
+saved SCF and right-hand side with several settings of the Hessian object. Sections in the order they ran; the
+code changed between them (NOTES.md, "GPU4PySCF, part 40").
+
+== 1. The tree as it was (tag perf-2026-11-22d), with SMD: out of memory in the solvent's term of the first-order
+==    Fock matrices [p40_a.log]
+== production-like Hessian, caffeine def2-svp, the tree as it is (tag perf-2026-11-22d)
+p40_base: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947765  converged=True  cycles=14  pool peak 353 MiB
+--- scf: 122.84 s, SM clock [1905.0, 1920.0, 1935.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[767488]                 15     32.81     32.81
+    numint._vv10nlc                       15     59.92     59.92
+    numint.nr_nlc_vxc[157440]             15     62.83      2.91
+    scf.get_j                             15      3.14      3.14
+    scf.get_k                             15     15.95     15.95
+    solvent.build                          1      3.37      3.37
+    solvent._get_v                        15      1.06      1.06
+    solvent.left_multiply_R               30      1.95      1.95
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15      1.19      1.19
+    solvent._get_vind                     15      7.67      0.01
+    scf.get_veff                          15    122.58      0.19
+    scf.get_hcore                          1      0.02      0.02
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.03      0.03
+    scf.eig                               14      0.14      0.14
+    (not in any timed part)                                 0.03
+pool peak 1532 MiB
+--- hess: 519.74 s, SM clock [1875.0, 1875.0, 1905.0]  FAILED: CUDARuntimeError: cudaErrorMemoryAllocation: out of memory
+    part                               calls    incl s    excl s
+    hess.partial_ejk_ip2                   2     35.68     35.68
+    hess.hcore_energy                      1      0.12      0.12
+    hess.get_exc_deriv2                    1     37.59     37.59
+    hess.get_enlc_deriv2                   1    118.61    118.61
+    hess.partial_hess_elec                 1    192.00      0.00
+    hess.get_vxc_deriv1                    1     68.73     68.73
+    hess.get_vnlc_deriv1                   1    239.22    239.22
+    hess.grad_hcore                        1      0.18      0.18
+    hess.get_jk_ip1                        2     17.24     17.24
+    hess.make_h1                           1    325.38      0.01
+    solvent.analytical_grad_vmat           1      2.36      2.36
+    hess.hess_elec                         1    519.74      0.00
+    (not in any timed part)                                 0.00
+
+== 2. The tree as it was, gas phase [p40_b.log]
+== production-like Hessian, caffeine def2-svp, gas phase, the tree as it is (tag perf-2026-11-22d)
+p40_base_gas: caffeine def2-svp wb97m-v solvent=none nao=246 grid=767488 nlcgrid=157440 surface=0 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.584273761965  converged=True  cycles=15  pool peak 296 MiB
+--- scf: 123.85 s, SM clock [1890.0, 1890.0, 1920.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[767488]                 16     35.27     35.27
+    numint._vv10nlc                       16     64.53     64.53
+    numint.nr_nlc_vxc[157440]             16     67.65      3.12
+    scf.get_j                             16      3.36      3.36
+    scf.get_k                             16     17.09     17.09
+    scf.get_veff                          16    123.57      0.20
+    scf.get_hcore                          1      0.02      0.02
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          30      0.03      0.03
+    scf.eig                               15      0.15      0.15
+    (not in any timed part)                                 0.03
+pool peak 1678 MiB
+--- hess: 1464.34 s, SM clock [1860.0, 1875.0, 1890.0]
+    part                               calls    incl s    excl s
+    hess.partial_ejk_ip2                   2     35.90     35.90
+    hess.hcore_energy                      1      0.12      0.12
+    hess.get_exc_deriv2                    1     37.86     37.86
+    hess.get_enlc_deriv2                   1    119.37    119.37
+    hess.partial_hess_elec                 1    193.25      0.00
+    hess.get_vxc_deriv1                    1     68.74     68.74
+    hess.get_vnlc_deriv1                   1    240.02    240.02
+    hess.grad_hcore                        1      0.18      0.18
+    hess.get_jk_ip1                        2     17.24     17.24
+    hess.make_h1                           1    326.19      0.02
+    hess.nr_rks_fxc_mo                     7     68.78     68.78
+    hess.get_nlc_response_ground_state     7      8.07      8.07
+    hess.nr_rks_fnlc_mo                    7    812.93    812.93
+    hess.jk_mo                            14     53.75     53.75
+    hess.veff_resp_mo                      7    944.35      0.82
+    hess.krylov                            1    785.76      0.46
+    hess.solve_mo1                         1    944.86      0.04
+    hess.hess_elec                         1   1464.34      0.04
+    (not in any timed part)                                 0.00
+
+== 3. With the residual CPHF solver and the solvent's Hessian terms without the dense derivative matrices: unit
+==    tests (the failures: tolerances and a storage mode of two new tests, both changed later; the level-shift
+==    references, section 5), then the SMD Hessian, which still ran out of memory [p40_c.log]
+== unit tests
+scf/tests/test_cphf.py: 5 passed in 1.16s
+solvent/tests/test_pcm_hessian.py: E       assert 1.2325917569326172e-17 < (1e-13 * 2.0165956423285667e-05)
+solvent/tests/test_pcm_hessian.py: E        +  where 1.2325917569326172e-17 = float(array(1.23259176e-17))
+solvent/tests/test_pcm_hessian.py: E        +    where array(1.23259176e-17) = <built-in method max of ndarray object at 0x7eaf4053a560>()
+solvent/tests/test_pcm_hessian.py: E        +      where <built-in method max of ndarray object at 0x7eaf4053a560> = array([[[[8.47032947e-22, 1.05879118e-22, 5.29395592e-23],\n         [5.29395592e-23, 2.11758237e-22, 4.23516474e-22],\n...2923063e-21, 1.
+solvent/tests/test_pcm_hessian.py: E        +        where array([[[[8.47032947e-22, 1.05879118e-22, 5.29395592e-23],\n         [5.29395592e-23, 2.11758237e-22, 4.23516474e-22],\n...2923063e-21, 1.40607469e-19],\n         [9.09501627e-20, 1.41454502e-19, 
+solvent/tests/test_pcm_hessian.py: E        +  and   2.0165956423285667e-05 = float(array(2.01659564e-05))
+solvent/tests/test_pcm_hessian.py: E        +    where array(2.01659564e-05) = <built-in method max of ndarray object at 0x7eaf40539510>()
+solvent/tests/test_pcm_hessian.py: E        +      where <built-in method max of ndarray object at 0x7eaf40539510> = array([[[[3.95569894e-07, 1.89462212e-07, 3.36151013e-07],\n         [1.89462212e-07, 9.71454869e-07, 6.48831503e-07],\n...3123507e-06, 2.
+solvent/tests/test_pcm_hessian.py: E        +        where array([[[[3.95569894e-07, 1.89462212e-07, 3.36151013e-07],\n         [1.89462212e-07, 9.71454869e-07, 6.48831503e-07],\n...3123507e-06, 2.86651356e-06],\n         [4.37881741e-07, 2.86651356e-06, 
+solvent/tests/test_pcm_hessian.py: E       AssertionError
+solvent/tests/test_pcm_hessian.py: 2 failed, 20 passed in 175.10s (0:02:55)
+solvent/tests/test_smd_hessian.py: 15 passed in 15.54s
+hessian/tests/test_rhf_hessian.py: 8 passed in 45.51s
+hessian/tests/test_rks_hessian.py: 12 passed in 27.10s
+hessian/tests/test_uhf_hessian.py: 5 passed in 17.11s
+hessian/tests/test_uks_hessian.py: 12 passed in 20.28s
+hessian/tests/test_level_shift_hessian.py: E       AssertionError: assert np.float64(1.6818567486917573) < 0.05
+hessian/tests/test_level_shift_hessian.py: E        +  where np.float64(1.6818567486917573) = <function max at 0x73aa195216b0>(array([1.68185675, 0.04172033, 0.01987255, 0.07121494, 0.00918693,\n       0.01856869, 0.00352471, 0.58587591, 0.31336238]))
+hessian/tests/test_level_shift_hessian.py: E        +    where <function max at 0x73aa195216b0> = np.max
+hessian/tests/test_level_shift_hessian.py: E        +    and   array([1.68185675, 0.04172033, 0.01987255, 0.07121494, 0.00918693,\n       0.01856869, 0.00352471, 0.58587591, 0.31336238]) = <ufunc 'absolute'>((array([-293.66467414,  653.62797628,  879.08408886, 11
+hessian/tests/test_level_shift_hessian.py: E        +      where <ufunc 'absolute'> = np.abs
+hessian/tests/test_level_shift_hessian.py: E       AssertionError: assert np.float64(2.5403685695392255) < 0.05
+hessian/tests/test_level_shift_hessian.py: E        +  where np.float64(2.5403685695392255) = <function max at 0x73aa195216b0>(array([2.54036857, 0.01804687, 0.77435468, 0.03240175, 0.31971975,\n       0.0763766 ]))
+hessian/tests/test_level_shift_hessian.py: E        +    where <function max at 0x73aa195216b0> = np.max
+hessian/tests/test_level_shift_hessian.py: E        +    and   array([2.54036857, 0.01804687, 0.77435468, 0.03240175, 0.31971975,\n       0.0763766 ]) = <ufunc 'absolute'>((array([ 290.18029306,  877.67771564, 1081.50114193, 1277.5463716 ,\n       1693.16420054, 
+hessian/tests/test_level_shift_hessian.py: E        +      where <ufunc 'absolute'> = np.abs
+hessian/tests/test_level_shift_hessian.py: 2 failed, 2 passed in 15.26s
+properties/tests/test_ir_intensity.py: 2 passed, 1 skipped in 5.45s
+properties/tests/test_raman_intensity.py: 7 passed, 1 skipped in 223.80s (0:03:43)
+== production-like Hessian, caffeine def2-svp, SMD: residual CPHF solver, solvent terms from the surface data
+p40_c: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947765  converged=True  cycles=14  pool peak 392 MiB
+--- scf: 124.94 s, SM clock [1875.0, 1875.0, 1890.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[767488]                 15     33.30     33.30
+    numint._vv10nlc                       15     60.98     60.98
+    numint.nr_nlc_vxc[157440]             15     63.92      2.95
+    scf.get_j                             15      3.21      3.21
+    scf.get_k                             15     16.25     16.25
+    solvent.build                          1      3.42      3.42
+    solvent._get_v                        15      1.08      1.08
+    solvent.left_multiply_R               30      1.98      1.98
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15      1.21      1.21
+    solvent._get_vind                     15      7.80      0.01
+    scf.get_veff                          15    124.68      0.20
+    scf.get_hcore                          1      0.02      0.02
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.03      0.03
+    scf.eig                               14      0.14      0.14
+    (not in any timed part)                                 0.03
+pool peak 1571 MiB
+--- hess: 520.93 s, SM clock [1875.0, 1875.0, 1875.0]  FAILED: CUDARuntimeError: cudaErrorMemoryAllocation: out of memory
+    part                               calls    incl s    excl s
+    hess.partial_ejk_ip2                   2     36.00     36.00
+    hess.hcore_energy                      1      0.12      0.12
+    hess.get_exc_deriv2                    1     37.86     37.86
+    vv10.omega_derivative                  2      0.00      0.00
+    vv10.UWABCE                            2     15.96     15.96
+    vv10.f_t                               2    205.50    205.50
+    hess.get_enlc_deriv2                   1    119.20      8.47
+    hess.partial_hess_elec                 1    193.18      0.00
+    hess.get_vxc_deriv1                    1     68.73     68.73
+    vv10.EUW_grid_response_offdiagonal     1     11.80     11.80
+    vv10.EUW_with_weight1                  1     76.36     76.36
+    hess.get_vnlc_deriv1                   1    239.22     40.33
+    hess.grad_hcore                        1      0.18      0.18
+    hess.get_jk_ip1                        2     17.24     17.24
+    hess.make_h1                           1    325.38      0.01
+    solvent.analytical_grad_vmat           1      2.36      2.36
+    hess.hess_elec                         1    520.93      0.00
+    (not in any timed part)                                 0.00
+
+== 4. Where the memory went: the solvent's terms alone, with an empty memory pool and with the pool holding the
+==    card's memory in unused blocks (scratch/p40_smd_mem.py); the two new solvent tests; the Krylov and the
+==    residual solver at several tolerances on the molecule of test_level_shift_hessian.py [p40_d.log]
+== solvent Hessian terms: memory
+SCF -679.6044869473 in 108.1 s, nao 246, surface 5525
+  [after the SCF] pool used 54 MiB, pool held 331 MiB, device free 2825 of 3693 MiB, pinned free blocks 0
+    get_dqsym_dx_fix_vgrids: 1.0 s
+    get_dqsym_dx_fix_K_R: 2.4 s
+    get_dqsym_dx: 3.4 s
+analytical_grad_vmat, empty pool: 26.3 s
+  [after analytical_grad_vmat, empty pool] pool used 62 MiB, pool held 374 MiB, device free 2261 of 3693 MiB, pinned free blocks 0
+    get_dqsym_dx_fix_vgrids: 0.9 s
+    get_dqsym_dx_fix_K_R: 2.4 s
+    get_dqsym_dx: 3.3 s
+    analytical_hess_nuc: 3.4 s
+    get_dqsym_dx_fix_vgrids: 0.9 s
+    get_dqsym_dx_fix_K_R: 2.4 s
+    get_dqsym_dx: 3.3 s
+    analytical_hess_qv: 18.4 s
+    analytical_hess_solver: 3.7 s
+solvent Hessian, empty pool: 25.6 s
+  [after solvent Hessian, empty pool] pool used 62 MiB, pool held 374 MiB, device free 2119 of 3693 MiB, pinned free blocks 0
+37 blocks of 64 MiB taken and released to the pool
+  [pool filled with free blocks] pool used 62 MiB, pool held 2472 MiB, device free 27 of 3693 MiB, pinned free blocks 0
+    get_dqsym_dx_fix_vgrids: 0.0 s
+    get_dqsym_dx: 0.0 s
+analytical_grad_vmat, pool of free blocks: FAILED after 2.3 s
+Traceback (most recent call last):
+  File "~/Chemistry/my-pyscf/scratch/p40_smd_mem.py", line 34, in attempt
+    out = fn()
+          ^^^^
+  File "~/Chemistry/my-pyscf/scratch/p40_smd_mem.py", line 98, in <lambda>
+    lambda: pcm_hess.analytical_grad_vmat(solvent, dm, mo_coeff, mo_occ))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/solvent/hessian/pcm.py", line 1547, in analytical_grad_vmat
+    dqdx = get_dqsym_dx(pcmobj, dm, atmlst, intopt_derivative)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/Chemistry/my-pyscf/scratch/p40_smd_mem.py", line 70, in timed
+    return _fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/solvent/hessian/pcm.py", line 1483, in get_dqsym_dx
+    return get_dqsym_dx_fix_vgrids(pcmobj, atmlst) + get_dqsym_dx_fix_K_R(pcmobj, dm, atmlst, intopt_derivative)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/Chemistry/my-pyscf/scratch/p40_smd_mem.py", line 70, in timed
+    return _fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/solvent/hessian/pcm.py", line 1303, in get_dqsym_dx_fix_vgrids
+    dS_dot, dD_dot, dDT_dot = _first_derivative_products(pcmobj, dSii, atmlst, gridslice)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/solvent/hessian/pcm.py", line 905, in _first_derivative_products
+    dD, dS = get_dD_dS(surface, with_D=True, with_S=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/solvent/grad/pcm.py", line 188, in get_dD_dS
+    dS = cupy.empty([3,n,n])
+         ^^^^^^^^^^^^^^^^^^^
+  File "~/Chemistry/my-pyscf/.venv-gpu/lib/python3.12/site-packages/cupy/_creation/basic.py", line 32, in empty
+    return cupy.ndarray(shape, dtype, order=order)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "cupy/_core/core.pyx", line 151, in cupy._core.core.ndarray.__new__
+  File "cupy/_core/core.pyx", line 239, in cupy._core.core._ndarray_base._init
+  File "cupy/cuda/memory.pyx", line 738, in cupy.cuda.memory.alloc
+  File "~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/lib/cupy_helper.py", line 1389, in malloc
+    return cuda_malloc(size)
+           ^^^^^^^^^^^^^^^^^
+  File "cupy/cuda/memory.pyx", line 633, in cupy.cuda.memory._malloc
+  File "cupy/cuda/memory.pyx", line 634, in cupy.cuda.memory._malloc
+  File "cupy/cuda/memory.pyx", line 101, in cupy.cuda.memory.Memory.__init__
+  File "cupy_backends/cuda/api/runtime.pyx", line 499, in cupy_backends.cuda.api.runtime.malloc
+  File "cupy_backends/cuda/api/runtime.pyx", line 146, in cupy_backends.cuda.api.runtime.check_status
+cupy_backends.cuda.api.runtime.CUDARuntimeError: cudaErrorMemoryAllocation: out of memory
+  [after analytical_grad_vmat, pool of free blocks] pool used 62 MiB, pool held 2472 MiB, device free 27 of 3693 MiB, pinned free blocks 0
+== the new solvent tests
+gpu4pyscf/gpu4pyscf/solvent/hessian/pcm.py:431: in analytical_hess_nuc
+    dqdx = get_dqsym_dx(pcmobj, dm, range(mol.natm), intopt_derivative)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+gpu4pyscf/gpu4pyscf/solvent/hessian/pcm.py:1483: in get_dqsym_dx
+    return get_dqsym_dx_fix_vgrids(pcmobj, atmlst) + get_dqsym_dx_fix_K_R(pcmobj, dm, atmlst, intopt_derivative)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+gpu4pyscf/gpu4pyscf/solvent/hessian/pcm.py:1320: in get_dqsym_dx_fix_vgrids
+    dqdx_fix_Vq = -einsum_ij_Adj_Adi_inverseK(pcmobj, dKdx_dot_q)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+gpu4pyscf/gpu4pyscf/solvent/hessian/pcm.py:566: in einsum_ij_Adj_Adi_inverseK
+    return pcmobj.left_solve_K(Adj_term.reshape(nA * nd, nj).T, K_transpose = K_transpose).T.reshape(nA, nd, nj)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+gpu4pyscf/gpu4pyscf/solvent/pcm.py:976: in left_solve_K
+    return left_solve_K_IEFPCM(self.surface, self._intermediates, right_vector, self.conv_tol, transpose = K_transpose)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+surface = {'ng': 110, 'gslice_by_atom': [[0, np.int64(78)], [np.int64(78), np.int64(156)], [np.int64(156), np.int64(215)], [np.i...2,
+       0.12183092, 0.12183092, 0.12183092, 0.12183092, 0.12183092,
+       0.12183092, 0.12183092, 0.12183092]), ...}
+_intermediates = {'K_LU': array([[1.70408280e+03, 4.90102860e-01, 6.43103770e-01, ...,
+        4.94498219e-01, 3.98570570e-01, 4.482496...e-01, 1.75562659e-01, 1.12891663e-01, ...,
+        2.00445913e-01, 4.19019420e-01, 1.36350398e+01]], shape=(298, 298))}
+right_vector = array([[ 1.25533611e+00, -1.46056685e-01, -6.23394933e-01, ...,
+        -1.67602147e-02, -1.04858945e-02,  1.43444974e...26957380e-03,  6.20847756e-03, ...,
+        -2.48847497e-02, -4.51204023e-02,  3.32851030e-04]],
+      shape=(298, 12))
+conv_tol = 1e-07, transpose = False, stream = None
+    def left_solve_K_IEFPCM(surface, _intermediates, right_vector, conv_tol = 1e-10, transpose = False, stream = None):
+        charge_exp  = surface['charge_exp']
+        switch_fun  = surface['switch_fun']
+        R_vdw       = surface['R_vdw']
+        f_epsilon = _intermediates['f_epsilon']
+        A = _intermediates['A']
+        n = charge_exp.shape[0]
+>       assert right_vector.size == n
+               ^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError
+gpu4pyscf/gpu4pyscf/solvent/pcm.py:395: AssertionError
+----------------------------- Captured stdout call -----------------------------
+output file: /dev/null
+gpu4pyscf/solvent/tests/test_pcm_hessian.py: 42 warnings
+=========================== short test summary info ============================
+1 failed, 4 passed, 17 deselected, 45 warnings in 31.97s
+== CPHF convergence on the level-shift test's molecule
+E = -189.525692832633
+Krylov, conv_tol_cpscf default   max |dH| 9.33e-04  max |df| 1.6598 cm^-1 against residual 1e-8;  max |df| 0.0225 against the test reference
+Krylov, 1e-8                     max |dH| 5.46e-05  max |df| 0.0376 cm^-1 against residual 1e-8;  max |df| 1.7008 against the test reference
+Krylov, 1e-10                    max |dH| 9.85e-07  max |df| 0.0010 cm^-1 against residual 1e-8;  max |df| 1.6814 against the test reference
+Krylov, 1e-12                    max |dH| 9.85e-07  max |df| 0.0010 cm^-1 against residual 1e-8;  max |df| 1.6814 against the test reference
+residual 1e-3                    max |dH| 5.06e-07  max |df| 0.0029 cm^-1 against residual 1e-8;  max |df| 1.6852 against the test reference
+residual 1e-4                    max |dH| 5.71e-09  max |df| 0.0002 cm^-1 against residual 1e-8;  max |df| 1.6825 against the test reference
+residual 1e-6                    max |dH| 3.81e-12  max |df| 0.0000 cm^-1 against residual 1e-8;  max |df| 1.6824 against the test reference
+residual 1e-8                    max |dH| 0.00e+00  max |df| 0.0000 cm^-1 against residual 1e-8;  max |df| 1.6824 against the test reference
+frequencies, residual 1e-8: [-293.6642  653.628   879.0849 1150.0848 1208.6959 1340.4443 1349.2761
+ 1761.905  1792.4882]
+
+== 5. With the allocator's fix: unit tests (the two failures of test_cphf_solvers: the Krylov solver's own
+==    floor of 3e-6 against a tolerance of 1e-6, and a two-level start without the second-order term, added
+==    after this); converged references for test_level_shift_hessian.py (frequencies in cm^-1; "krylov" is
+==    upstream's solver at its default tolerance); the SMD Hessian with the plain residual solver [p40_e.log]
+== unit tests
+lib/tests/test_cupy_helper.py: 18 passed, 1 warning in 2.40s
+solvent/tests/test_pcm_hessian.py: 22 passed in 172.95s (0:02:52)
+scf/tests/test_cphf.py: 5 passed in 1.06s
+== the CPHF solvers' tests
+...........F.......F                                                     [100%]
+=================================== FAILURES ===================================
+________________________ test_krylov_solver[uks_b3lyp] _________________________
+gpu4pyscf/gpu4pyscf/hessian/tests/test_cphf_solvers.py:98: in test_krylov_solver
+    assert abs(h - ref).max() < 1e-6
+E   assert np.float64(3.053366399580204e-06) < 1e-06
+E    +  where np.float64(3.053366399580204e-06) = <built-in method max of numpy.ndarray object at 0x7c74ebb6eb50>()
+E    +    where <built-in method max of numpy.ndarray object at 0x7c74ebb6eb50> = array([[[[1.03173471e-06, 5.87715562e-07, 8.01489365e-07],\n         [5.87715562e-07, 3.65835831e-07, 2.64578175e-07],
+E    +      where array([[[[1.03173471e-06, 5.87715562e-07, 8.01489365e-07],\n         [5.87715562e-07, 3.65835831e-07, 2.64578175e-07],\n...        [3.68371616e-07, 1.78482523e-06, 1.17342611e-06],\n
+________________________ test_two_level_follows_the_scf ________________________
+gpu4pyscf/gpu4pyscf/hessian/tests/test_cphf_solvers.py:145: in test_two_level_follows_the_scf
+    assert abs(h - _reference('rks_b3lyp')).max() < 1e-6
+E   AssertionError: assert np.float64(3.214488236036317e-06) < 1e-06
+E    +  where np.float64(3.214488236036317e-06) = <built-in method max of numpy.ndarray object at 0x7c74eb3647b0>()
+E    +    where <built-in method max of numpy.ndarray object at 0x7c74eb3647b0> = array([[[[3.09418072e-07, 3.43471087e-08, 9.58678089e-07],\n         [3.43471087e-08, 1.30359764e-06, 1.62037326e-06],
+E    +      where array([[[[3.09418072e-07, 3.43471087e-08, 9.58678089e-07],\n         [3.43471087e-08, 1.30359764e-06, 1.62037326e-06],\n...        [2.22824366e-06, 1.49574133e-06, 3.59947587e-07],\n
+E    +        where array([[[[ 6.73613500e-01, -1.67344987e-02,  1.02636479e-02],\n         [-1.67344987e-02,  4.18249799e-03, -7.86233913e...  [-1.48089401e-01,  2.31091111e-01,  1.42930600e-01],\n  
+gpu4pyscf/hessian/tests/test_cphf_solvers.py: 103 warnings
+gpu4pyscf/hessian/tests/test_cphf_solvers.py: 103 warnings
+gpu4pyscf/hessian/tests/test_cphf_solvers.py: 103 warnings
+gpu4pyscf/hessian/tests/test_cphf_solvers.py: 3462 warnings
+=========================== short test summary info ============================
+2 failed, 18 passed, 3771 warnings in 1090.86s (0:18:10)
+== converged references of the level-shift tests
+rks level_shift 0.0: E = -189.52569283263347
+rks level_shift 1.0: E = -189.52569283263301
+rks converged frequencies: [-293.6647  ,  653.627964,  879.084602, 1150.084798, 1208.695842, 1340.444446, 1349.276006, 1761.905008, 1792.488249]
+   level_shift 0 krylov         max |df| 1.659826 cm^-1
+   level_shift 0 residual 1e-4  max |df| 0.000182 cm^-1
+   level_shift 0 residual 1e-9  max |df| 0.000000 cm^-1
+   level_shift 1 krylov         max |df| 1.659987 cm^-1
+   level_shift 1 residual 1e-4  max |df| 0.000513 cm^-1
+   level_shift 1 residual 1e-9  max |df| 0.000518 cm^-1
+uks level_shift 0.0: E = -188.92925230032395
+uks level_shift 1.0: E = -188.92925230032063
+uks converged frequencies: [ 290.17636 ,  877.677068, 1081.500649, 1277.54542 , 1693.164015, 1759.986779]
+   level_shift 0 krylov         max |df| 2.530097 cm^-1
+   level_shift 0 residual 1e-4  max |df| 0.000034 cm^-1
+   level_shift 0 residual 1e-9  max |df| 0.000000 cm^-1
+   level_shift 1 krylov         max |df| 2.534625 cm^-1
+   level_shift 1 residual 1e-4  max |df| 0.003933 cm^-1
+   level_shift 1 residual 1e-9  max |df| 0.003899 cm^-1
+rhf level_shift 0.0: E = -188.53825152772595
+rhf level_shift 1.0: E = -188.53825152772581
+rhf converged frequencies: [-286.232322,  703.646173,  988.934769, 1234.535995, 1246.903379, 1391.310072, 1443.064264, 1774.960853, 1818.527194]
+   level_shift 0 krylov         max |df| 0.000813 cm^-1
+   level_shift 0 residual 1e-4  max |df| 0.000061 cm^-1
+   level_shift 0 residual 1e-9  max |df| 0.000000 cm^-1
+   level_shift 1 krylov         max |df| 0.000973 cm^-1
+   level_shift 1 residual 1e-4  max |df| 0.000548 cm^-1
+   level_shift 1 residual 1e-9  max |df| 0.000609 cm^-1
+uhf level_shift 0.0: E = -188.00032587095572
+uhf level_shift 1.0: E = -188.00032587094151
+uhf converged frequencies: [ 624.635893, 1030.204167, 1183.823855, 1362.457241, 1693.987845, 1797.99353 ]
+   level_shift 0 krylov         max |df| 0.063372 cm^-1
+   level_shift 0 residual 1e-4  max |df| 0.000019 cm^-1
+   level_shift 0 residual 1e-9  max |df| 0.000000 cm^-1
+   level_shift 1 krylov         max |df| 0.052894 cm^-1
+   level_shift 1 residual 1e-4  max |df| 0.019088 cm^-1
+   level_shift 1 residual 1e-9  max |df| 0.019093 cm^-1
+== production-like Hessian, caffeine def2-svp, SMD: residual CPHF solver
+p40_e_smd: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947764  converged=True  cycles=14  pool peak 392 MiB
+--- scf: 124.67 s, SM clock [1875.0, 1890.0, 1890.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[767488]                 15     33.25     33.25
+    numint._vv10nlc                       15     60.85     60.85
+    numint.nr_nlc_vxc[157440]             15     63.79      2.95
+    scf.get_j                             15      3.19      3.19
+    scf.get_k                             15     16.18     16.18
+    solvent.build                          1      3.43      3.43
+    solvent._get_v                        15      1.08      1.08
+    solvent.left_multiply_R               30      1.98      1.98
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15      1.21      1.21
+    solvent._get_vind                     15      7.80      0.01
+    scf.get_veff                          15    124.41      0.20
+    scf.get_hcore                          1      0.03      0.03
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.03      0.03
+    scf.eig                               14      0.14      0.14
+    (not in any timed part)                                 0.03
+pool peak 1570 MiB
+--- hess: 1463.68 s, SM clock [1860.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    hess.partial_ejk_ip2                   2     36.00     36.00
+    hess.hcore_energy                      1      0.12      0.12
+    hess.get_exc_deriv2                    1     37.84     37.84
+    vv10.omega_derivative                  3      0.00      0.00
+    vv10.UWABCE                            3     23.94     23.94
+    vv10.f_t                              17    776.24    776.24
+    hess.get_enlc_deriv2                   1    119.20      8.46
+    hess.partial_hess_elec                 1    193.16      0.00
+    hess.get_vxc_deriv1                    1     68.74     68.74
+    vv10.EUW_grid_response_offdiagonal     1     11.80     11.80
+    vv10.EUW_with_weight1                  1     76.36     76.36
+    hess.get_vnlc_deriv1                   1    239.20     40.31
+    hess.grad_hcore                        1      0.18      0.18
+    hess.get_jk_ip1                        2     17.25     17.25
+    hess.make_h1                           1    325.39      0.01
+    solvent.left_solve_K                  34      1.93      1.93
+    solvent.analytical_grad_vmat           1     25.17     24.81
+    hess.nr_rks_fxc_mo                     6     57.80     57.80
+    hess.get_nlc_response_ground_state     6      8.07      0.09
+    hess.nr_rks_fnlc_mo                    6    729.94    159.21
+    hess.jk_mo                            12     44.83     44.83
+    hess.veff_resp_mo                      6    841.36      0.72
+    solvent._get_v                         6     23.99     23.99
+    solvent.left_multiply_R               12      0.51      0.51
+    solvent._get_vmat                      6     27.34     27.34
+    solvent._B_dot_x                       6     52.48      0.00
+    hess.solve_mo1                         1    894.18      0.34
+    hess.hess_elec                         1   1437.93      0.05
+    solvent.analytical_hess_nuc            1      3.42      3.07
+    solvent.analytical_hess_qv             1     18.51     18.16
+    solvent.analytical_hess_solver         1      3.76      3.54
+    solvent.hess                           1     25.69      0.00
+    solvent.hess_cds                       1      0.06      0.06
+    (not in any timed part)                                 0.00
+
+== 6. The shared VV10 pass and the kernel by atom, the second-order term, the two-level CPHF: unit tests; the
+==    CPHF solvers on the SMD model, in this run without the solvent's response in the equations (the script
+==    solved outside the Hessian's kernel, which switches it on) and with VV10 batches of 30 trial densities:
+==    2l = cheap XC and VV10 grids and seminumerical K, 2l_nlc = cheap VV10 grid, 2l_nlc_xc = cheap VV10 and XC
+==    grids, residual = the plain solver [p40_f.log]
+== unit tests
+scf/tests/test_cphf.py: 5 passed in 1.22s
+hessian/tests/test_vv10_hessian.py: 15 passed in 352.45s (0:05:52)
+hessian/tests/test_level_shift_hessian.py: 4 passed in 15.27s
+== the CPHF solvers' tests
+...............................                                          [100%]
+gpu4pyscf/hessian/tests/test_cphf_solvers.py: 153 warnings
+gpu4pyscf/hessian/tests/test_cphf_solvers.py: 153 warnings
+gpu4pyscf/hessian/tests/test_cphf_solvers.py: 153 warnings
+gpu4pyscf/hessian/tests/test_cphf_solvers.py: 6870 warnings
+============================= slowest 8 durations ==============================
+31 passed, 7329 warnings in 301.86s (0:05:01)
+== CPHF solvers, caffeine def2-svp, SMD
+E = -679.604486947765: SCF 124.9 s, make_h1 351.8 s
+p40_f: caffeine def2-svp wb97m-v solvent=smd nao=246 natm=24 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+--- 2l: {'cphf_two_level': True}
+Solving CPHF equation for atoms [0:24]
+CPHF: the cheap model
+CPHF cycle 0: max residual 0.668458, 72 of 72 perturbations left
+CPHF cycle 1: max residual 0.0634447, 72 of 72 perturbations left
+CPHF cycle 2: max residual 0.0106814, 72 of 72 perturbations left
+CPHF cycle 3: max residual 0.00104511, 60 of 72 perturbations left
+CPHF cycle 4: max residual 9.98792e-05, 0 of 72 perturbations left
+CPHF: 4 cycles, 272 trial vectors, max residual 9.99e-05
+CPHF cycle 0: max residual 0.0012898, 72 of 72 perturbations left
+CPHF: the cheap model for 72 residuals of size 0.00129
+CPHF cycle 0: max residual 0.000514635, 72 of 72 perturbations left
+CPHF cycle 1: max residual 0.000129764, 64 of 72 perturbations left
+CPHF cycle 2: max residual 1.42929e-05, 1 of 72 perturbations left
+CPHF cycle 3: max residual 1.05281e-05, 0 of 72 perturbations left
+CPHF: 3 cycles, 135 trial vectors, max residual 1.05e-05
+CPHF cycle 1: max residual 5.46569e-06, 0 of 72 perturbations left
+CPHF: 1 cycles, 71 trial vectors, max residual 5.47e-06
+    2l: 560.2 s
+    part                                     calls    incl s    excl s
+    cache_xc_kernel (cheap)                      9      0.32      0.32
+    nr_rks_fxc_mo (cheap)                        9     28.59     28.59
+    get_nlc_response_ground_state (cheap)        9      0.21      0.21
+    nr_rks_fnlc_mo (cheap)                       9     62.98     62.98
+    jk_mo (cheap)                                9     74.50     74.50
+    sgx.get_k (cheap)                            9     42.32     42.32
+    veff_resp_mo (cheap)                         9    208.99      0.07
+    cheap_start_and_trials                       1    131.70      0.26
+    cache_xc_kernel                              2      0.26      0.26
+    nr_rks_fxc_mo                                2     24.30     24.30
+    get_nlc_response_ground_state                2      8.08      8.08
+    nr_rks_fnlc_mo                               2    299.91    299.91
+    jk_mo                                        4     18.23     18.23
+    veff_resp_mo                                 2    350.79      0.02
+--- 2l_nlc: {'cphf_two_level': True, 'cphf_two_level_parts': ('nlc',)}
+Solving CPHF equation for atoms [0:24]
+CPHF: the cheap model
+CPHF cycle 0: max residual 0.667665, 72 of 72 perturbations left
+CPHF cycle 1: max residual 0.0633542, 72 of 72 perturbations left
+CPHF cycle 2: max residual 0.0106641, 72 of 72 perturbations left
+CPHF cycle 3: max residual 0.00104327, 60 of 72 perturbations left
+CPHF cycle 4: max residual 9.98146e-05, 0 of 72 perturbations left
+CPHF: 4 cycles, 272 trial vectors, max residual 9.98e-05
+CPHF cycle 0: max residual 5.74864e-05, 0 of 72 perturbations left
+CPHF: 0 cycles, 0 trial vectors, max residual 5.75e-05
+    2l_nlc: 327.1 s
+    part                                     calls    incl s    excl s
+    cache_xc_kernel (cheap)                      5      0.54      0.54
+    nr_rks_fxc_mo (cheap)                        5     58.45     58.45
+    get_nlc_response_ground_state (cheap)        5      0.21      0.21
+    nr_rks_fnlc_mo (cheap)                       5     38.92     38.92
+    jk_mo (cheap)                               10     48.39     48.39
+    veff_resp_mo (cheap)                         5    146.53      0.01
+    cheap_start_and_trials                       1    146.78      0.26
+    cache_xc_kernel                              1      0.11      0.11
+    nr_rks_fxc_mo                                1     12.23     12.23
+    get_nlc_response_ground_state                1      8.08      8.08
+    nr_rks_fnlc_mo                               1    150.03    150.03
+    jk_mo                                        2      9.87      9.87
+    veff_resp_mo                                 1    180.32      0.00
+    vs 2l: max |dmo1| = 1.707e-05, max |dH| of the response term = 1.325e-05 (largest element 1.454)
+--- 2l_nlc_xc: {'cphf_two_level': True, 'cphf_two_level_parts': ('nlc', 'xc')}
+Solving CPHF equation for atoms [0:24]
+CPHF: the cheap model
+CPHF cycle 0: max residual 0.668457, 72 of 72 perturbations left
+CPHF cycle 1: max residual 0.0634343, 72 of 72 perturbations left
+CPHF cycle 2: max residual 0.0106911, 72 of 72 perturbations left
+CPHF cycle 3: max residual 0.00104653, 60 of 72 perturbations left
+CPHF cycle 4: max residual 9.9976e-05, 0 of 72 perturbations left
+CPHF: 4 cycles, 272 trial vectors, max residual 0.0001
+CPHF cycle 0: max residual 0.00129403, 72 of 72 perturbations left
+CPHF: the cheap model for 72 residuals of size 0.00129
+CPHF cycle 0: max residual 0.000511782, 72 of 72 perturbations left
+CPHF cycle 1: max residual 0.000128715, 64 of 72 perturbations left
+CPHF cycle 2: max residual 1.44487e-05, 1 of 72 perturbations left
+CPHF cycle 3: max residual 1.0587e-05, 0 of 72 perturbations left
+CPHF: 3 cycles, 133 trial vectors, max residual 1.06e-05
+CPHF cycle 1: max residual 5.40698e-06, 0 of 72 perturbations left
+CPHF: 1 cycles, 69 trial vectors, max residual 5.41e-06
+    2l_nlc_xc: 519.5 s
+    part                                     calls    incl s    excl s
+    cache_xc_kernel (cheap)                      9      0.32      0.32
+    nr_rks_fxc_mo (cheap)                        9     28.54     28.54
+    get_nlc_response_ground_state (cheap)        9      0.21      0.21
+    nr_rks_fnlc_mo (cheap)                       9     62.91     62.91
+    jk_mo (cheap)                               18     77.28     77.28
+    veff_resp_mo (cheap)                         9    169.27      0.02
+    cheap_start_and_trials                       1    106.01      0.26
+    cache_xc_kernel                              2      0.21      0.21
+    nr_rks_fxc_mo                                2     24.02     24.02
+    get_nlc_response_ground_state                2      8.08      8.08
+    nr_rks_fnlc_mo                               2    299.54    299.54
+    jk_mo                                        4     17.98     17.98
+    veff_resp_mo                                 2    349.84      0.00
+    vs 2l: max |dmo1| = 5.161e-08, max |dH| of the response term = 1.860e-07 (largest element 1.454)
+--- residual: {'cphf_two_level': False}
+Solving CPHF equation for atoms [0:24]
+CPHF cycle 0: max residual 0.66768, 72 of 72 perturbations left
+CPHF cycle 1: max residual 0.063361, 72 of 72 perturbations left
+CPHF cycle 2: max residual 0.0106654, 72 of 72 perturbations left
+CPHF cycle 3: max residual 0.00104343, 60 of 72 perturbations left
+CPHF cycle 4: max residual 9.98325e-05, 0 of 72 perturbations left
+CPHF: 4 cycles, 272 trial vectors, max residual 9.98e-05
+    residual: 829.6 s
+    part                                     calls    incl s    excl s
+    cache_xc_kernel                              5      0.54      0.54
+    nr_rks_fxc_mo                                5     58.47     58.47
+    get_nlc_response_ground_state                5      8.07      8.07
+    nr_rks_fnlc_mo                               5    717.84    717.84
+    jk_mo                                       10     44.35     44.35
+    veff_resp_mo                                 5    829.27      0.01
+    vs 2l: max |dmo1| = 9.706e-06, max |dH| of the response term = 1.634e-05 (largest element 1.454)
+
+== 7. The solvent's response from the integrals with the orbital products, the cheap VV10 grid as the default of
+==    the two-level CPHF, VV10 batches in whole passes: unit tests; the SMD Hessian against section 5's; the CPHF
+==    solvers with the solvent's response (default = two-level) [p40_g.log]
+== unit tests
+sgx/tests/test_int1e_grids.py: ............                                                             [100%]
+sgx/tests/test_int1e_grids.py: 12 passed, 390 warnings in 19.69s
+solvent/tests/test_pcm_hessian.py: .......................                                                  [100%]
+solvent/tests/test_pcm_hessian.py: 23 passed, 5468 warnings in 183.36s (0:03:03)
+hessian/tests/test_cphf_solvers.py: .................................                                        [100%]
+hessian/tests/test_cphf_solvers.py: 33 passed, 573 warnings in 311.51s (0:05:11)
+solvent/tests/test_smd_hessian.py: 15 passed in 14.81s
+hessian/tests/test_rks_hessian.py: 12 passed in 27.25s
+hessian/tests/test_uks_hessian.py: 12 passed in 20.62s
+hessian/tests/test_rhf_hessian.py: 8 passed in 41.58s
+hessian/tests/test_uhf_hessian.py: 5 passed in 17.12s
+== production-like Hessian, caffeine def2-svp, SMD, defaults
+p40_g_smd: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947764  converged=True  cycles=14  pool peak 376 MiB
+--- scf: 124.55 s, SM clock [1875.0, 1890.0, 1905.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[767488]                 15     33.21     33.21
+    numint._vv10nlc                       15     60.78     60.78
+    numint.nr_nlc_vxc[157440]             15     63.72      2.94
+    scf.get_j                             15      3.17      3.17
+    scf.get_k                             15     16.18     16.18
+    solvent.build                          1      3.44      3.44
+    solvent._get_v                        15      1.08      1.08
+    solvent.left_multiply_R               30      1.98      1.98
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15      1.21      1.21
+    solvent._get_vind                     15      7.80      0.01
+    scf.get_veff                          15    124.28      0.20
+    scf.get_hcore                          1      0.02      0.02
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.03      0.03
+    scf.eig                               14      0.14      0.14
+    (not in any timed part)                                 0.03
+pool peak 1510 MiB
+--- hess: 780.47 s, SM clock [1860.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    hess.partial_ejk_ip2                   2     36.01     36.01
+    hess.hcore_energy                      1      0.12      0.12
+    hess.get_exc_deriv2                    1     37.86     37.86
+    vv10.omega_derivative                  3      0.00      0.00
+    vv10.UWABCE                            3     23.94     23.94
+    vv10.f_t                               3    205.94    205.94
+    hess.get_enlc_deriv2                   1    122.21     11.26
+    hess.partial_hess_elec                 1    196.19      0.00
+    hess.get_vxc_deriv1                    1     68.74     68.74
+    vv10.f_t_by_atom                       1     16.28     16.28
+    vv10.EUW_grid_response_offdiagonal     1     11.80     11.80
+    vv10.EUW_with_weight1                  1     76.36     76.36
+    hess.get_vnlc_deriv1                   1    152.72     40.29
+    hess.grad_hcore                        1      0.18      0.18
+    hess.get_jk_ip1                        2     17.23     17.23
+    hess.make_h1                           1    238.88      0.01
+    solvent.mo_integrals                   1      1.14      1.14
+    solvent.left_solve_K                  24      1.36      1.36
+    solvent.get_dqsym_dx                   3      3.41      3.05
+    solvent.analytical_grad_vmat           1      5.94      2.54
+    hess.nr_rks_fxc_mo (cheap)             6     57.92     57.92
+    vv10.omega_derivative (cheap)          1      0.00      0.00
+    vv10.UWABCE (cheap)                    1      0.17      0.17
+    hess.get_nlc_response_ground_state (cheap)     6      0.21      0.05
+    vv10.f_t (cheap)                       6     11.01     11.01
+    hess.nr_rks_fnlc_mo (cheap)            6     38.92     27.91
+    hess.jk_mo (cheap)                    12     49.13     49.13
+    hess.veff_resp_mo (cheap)              6    146.90      0.72
+    solvent.left_multiply_R               14      0.62      0.62
+    solvent.response_mo (cheap)            6      3.97      2.80
+    hess.cheap_start_and_trials            1    151.13      0.27
+    hess.nr_rks_fxc_mo                     1     12.26     12.26
+    hess.get_nlc_response_ground_state     1      8.07      0.09
+    hess.nr_rks_fnlc_mo                    1    136.79     33.82
+    hess.jk_mo                             2      9.88      9.88
+    hess.veff_resp_mo                      1    167.10      0.11
+    solvent.response_mo                    1      0.79      0.54
+    hess.solve_mo1                         1    319.07      0.04
+    hess.hess_elec                         1    761.27      0.05
+    solvent.analytical_hess_nuc            1      0.12      0.12
+    solvent.analytical_hess_qv             1     15.16     15.16
+    solvent.analytical_hess_solver         1      3.85      3.64
+    solvent.hess                           1     19.14      0.00
+    solvent.hess_cds                       1      0.06      0.06
+    (not in any timed part)                                 0.00
+vs scratch/p40_e_smd_def2-svp: dE = -2.274e-13, max |dhess| = 2.538e-08 (max |hess| 9.734e-01), max |dfreq| = 0.000 cm^-1
+== CPHF solvers with the solvent's response, caffeine def2-svp, SMD
+orbitals and h1 from scratch/cphf_svp_smd.npz: E = -679.604486947765
+p40_g: caffeine def2-svp wb97m-v solvent=smd nao=246 natm=24 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+--- default: {}
+Solving CPHF equation for atoms [0:24]
+CPHF: the cheap model
+CPHF cycle 0: max residual 0.53573, 72 of 72 perturbations left
+CPHF cycle 1: max residual 0.0572362, 72 of 72 perturbations left
+CPHF cycle 2: max residual 0.00852238, 72 of 72 perturbations left
+CPHF cycle 3: max residual 0.00105499, 52 of 72 perturbations left
+CPHF cycle 4: max residual 0.000113228, 2 of 72 perturbations left
+CPHF cycle 5: max residual 6.76269e-05, 0 of 72 perturbations left
+CPHF: 5 cycles, 266 trial vectors, max residual 6.76e-05
+CPHF cycle 0: max residual 5.52776e-05, 0 of 72 perturbations left
+CPHF: 0 cycles, 0 trial vectors, max residual 5.53e-05
+    default: 325.2 s
+    available memory seen by the response routines: 2503 to 3308 MiB; pool now 55 MiB used, 837 MiB held; device free 1875 MiB
+    part                                     calls    incl s    excl s
+    cache_xc_kernel (cheap)                      6      0.75      0.75
+    nr_rks_fxc_mo (cheap)                        6     57.74     57.74
+    get_nlc_response_ground_state (cheap)        6      0.22      0.22
+    nr_rks_fnlc_mo (cheap)                       6     38.94     38.94
+    jk_mo (cheap)                               12     49.17     49.17
+    veff_resp_mo (cheap)                         6    146.87      0.05
+    solvent.mo_integrals                         1      4.59      4.59
+    solvent.response_mo (cheap)                  6      4.02      4.02
+    cheap_start_and_trials                       1    155.76      0.28
+    cache_xc_kernel                              1      0.11      0.11
+    nr_rks_fxc_mo                                1     12.23     12.23
+    get_nlc_response_ground_state                1      8.17      8.17
+    nr_rks_fnlc_mo                               1    136.79    136.79
+    jk_mo                                        2      9.88      9.88
+    veff_resp_mo                                 1    167.18      0.00
+    solvent.response_mo                          1      0.78      0.78
+--- residual: {'cphf_two_level': False}
+Solving CPHF equation for atoms [0:24]
+CPHF cycle 0: max residual 0.535747, 72 of 72 perturbations left
+CPHF cycle 1: max residual 0.057246, 72 of 72 perturbations left
+CPHF cycle 2: max residual 0.00852485, 72 of 72 perturbations left
+CPHF cycle 3: max residual 0.00105527, 52 of 72 perturbations left
+CPHF cycle 4: max residual 0.000113261, 2 of 72 perturbations left
+CPHF cycle 5: max residual 6.76434e-05, 0 of 72 perturbations left
+CPHF: 5 cycles, 266 trial vectors, max residual 6.76e-05
+    residual: 793.5 s
+    available memory seen by the response routines: 2467 to 2536 MiB; pool now 62 MiB used, 859 MiB held; device free 1851 MiB
+    part                                     calls    incl s    excl s
+    cache_xc_kernel                              6      0.64      0.64
+    nr_rks_fxc_mo                                6     57.65     57.65
+    get_nlc_response_ground_state                6      8.07      8.07
+    nr_rks_fnlc_mo                               6    677.08    677.08
+    jk_mo                                       12     44.77     44.77
+    veff_resp_mo                                 6    788.22      0.01
+    solvent.mo_integrals                         1      1.11      1.11
+    solvent.response_mo                          6      3.88      3.88
+    vs default: max |dmo1| = 1.597e-05, max |dH| of the response terms = 2.538e-08 (largest element 1.202; second-order term 2.186e-16)
+
+== 8. The VV10 response from the first-order orbitals; the switches nlc_fock_grid_response and
+==    cphf_nlcgrids_level: unit tests; the SMD Hessian with the defaults against section 5's; without the grid
+==    response of the VV10 Fock derivative, and with the VV10 response of the CPHF on the level-0 grid, each
+==    against the defaults'; the gas-phase Hessian against section 2's; def2-TZVP [p40_h.log]
+== unit tests
+hessian/tests/test_vv10_hessian.py: 16 passed in 265.54s (0:04:25)
+hessian/tests/test_cphf_solvers.py: ..............................rks_wb97mv_smd cphf_nlcgrids_level: max |dH| = 9.712481290891084e-07
+hessian/tests/test_cphf_solvers.py: .uks_wb97mv cphf_nlcgrids_level: max |dH| = 7.123533847241958e-07
+hessian/tests/test_cphf_solvers.py: 35 passed in 324.08s (0:05:24)
+hessian/tests/test_rks_hessian.py: 12 passed in 27.26s
+hessian/tests/test_uks_hessian.py: 12 passed in 20.24s
+solvent/tests/test_smd_hessian.py: 15 passed in 14.78s
+== production-like Hessian, caffeine def2-svp, SMD, defaults
+p40_h_smd: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947764  converged=True  cycles=14  pool peak 376 MiB
+--- scf: 124.21 s, SM clock [1890.0, 1890.0, 1905.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[767488]                 15     33.13     33.13
+    numint._vv10nlc                       15     60.62     60.62
+    numint.nr_nlc_vxc[157440]             15     63.56      2.94
+    scf.get_j                             15      3.17      3.17
+    scf.get_k                             15     16.14     16.14
+    solvent.build                          1      3.40      3.40
+    solvent._get_v                        15      1.08      1.08
+    solvent.left_multiply_R               30      1.97      1.97
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15      1.21      1.21
+    solvent._get_vind                     15      7.74      0.01
+    scf.get_veff                          15    123.95      0.20
+    scf.get_hcore                          1      0.02      0.02
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.03      0.03
+    scf.eig                               14      0.14      0.14
+    (not in any timed part)                                 0.03
+pool peak 1510 MiB
+--- hess: 737.68 s, SM clock [1860.0, 1875.0, 1890.0]
+    part                               calls    incl s    excl s
+    hess.partial_ejk_ip2                   2     35.88     35.88
+    hess.hcore_energy                      1      0.12      0.12
+    hess.get_exc_deriv2                    1     37.85     37.85
+    vv10.omega_derivative                  3      0.00      0.00
+    vv10.UWABCE                            3     23.95     23.95
+    vv10.f_t                               3    205.73    205.73
+    hess.get_enlc_deriv2                   1    121.99     11.26
+    hess.partial_hess_elec                 1    195.84      0.00
+    hess.get_vxc_deriv1                    1     68.72     68.72
+    vv10.f_t_by_atom                       1     16.28     16.28
+    vv10.EUW_grid_response_offdiagonal     1     11.80     11.80
+    vv10.EUW_with_weight1                  1     76.36     76.36
+    hess.get_vnlc_deriv1                   1    152.71     40.29
+    hess.grad_hcore                        1      0.18      0.18
+    hess.get_jk_ip1                        2     17.24     17.24
+    hess.make_h1                           1    238.86      0.01
+    solvent.mo_integrals                   1      1.12      1.12
+    solvent.left_solve_K                  24      1.36      1.36
+    solvent.get_dqsym_dx                   3      3.41      3.06
+    solvent.analytical_grad_vmat           1      5.96      2.55
+    hess.nr_rks_fxc_mo (cheap)             6     57.90     57.90
+    vv10.omega_derivative (cheap)          1      0.00      0.00
+    vv10.UWABCE (cheap)                    1      0.17      0.17
+    hess.get_nlc_response_ground_state (cheap)     6      0.21      0.05
+    vv10.f_t (cheap)                       6     11.01     11.01
+    hess.nr_rks_fnlc_mo (cheap)            6     21.12     10.11
+    hess.jk_mo (cheap)                    12     44.86     44.86
+    hess.veff_resp_mo (cheap)              6    124.80      0.71
+    solvent.left_multiply_R               14      0.61      0.61
+    solvent.response_mo (cheap)            6      3.97      2.81
+    hess.cheap_start_and_trials            1    129.05      0.27
+    hess.nr_rks_fxc_mo                     1     12.28     12.28
+    hess.get_nlc_response_ground_state     1      8.07      0.09
+    hess.nr_rks_fnlc_mo                    1    116.42     13.44
+    hess.jk_mo                             2      9.89      9.89
+    hess.veff_resp_mo                      1    146.76      0.11
+    solvent.response_mo                    1      0.79      0.55
+    hess.solve_mo1                         1    276.64      0.04
+    hess.hess_elec                         1    718.46      0.05
+    solvent.analytical_hess_nuc            1      0.13      0.13
+    solvent.analytical_hess_qv             1     15.25     15.25
+    solvent.analytical_hess_solver         1      3.77      3.56
+    solvent.hess                           1     19.15      0.00
+    solvent.hess_cds                       1      0.06      0.06
+    (not in any timed part)                                 0.00
+vs scratch/p40_e_smd_def2-svp: dE = 0.000e+00, max |dhess| = 2.538e-08 (max |hess| 9.734e-01), max |dfreq| = 0.000 cm^-1
+== the same without the grid response of the VV10 Fock derivative
+p40_h_smd_nogr: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947764  converged=True  cycles=14  pool peak 376 MiB
+--- scf: 125.28 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[767488]                 15     33.42     33.42
+    numint._vv10nlc                       15     61.14     61.14
+    numint.nr_nlc_vxc[157440]             15     64.10      2.96
+    scf.get_j                             15      3.19      3.19
+    scf.get_k                             15     16.28     16.28
+    solvent.build                          1      3.45      3.45
+    solvent._get_v                        15      1.09      1.09
+    solvent.left_multiply_R               30      1.99      1.99
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15      1.22      1.22
+    solvent._get_vind                     15      7.83      0.01
+    scf.get_veff                          15    125.02      0.20
+    scf.get_hcore                          1      0.02      0.02
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.03      0.03
+    scf.eig                               14      0.14      0.14
+    (not in any timed part)                                 0.03
+pool peak 1127 MiB
+--- hess: 621.28 s, SM clock [1860.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    hess.partial_ejk_ip2                   2     36.00     36.00
+    hess.hcore_energy                      1      0.12      0.12
+    hess.get_exc_deriv2                    1     37.87     37.87
+    vv10.omega_derivative                  3      0.00      0.00
+    vv10.UWABCE                            3     23.95     23.95
+    vv10.f_t                               3    205.73    205.73
+    hess.get_enlc_deriv2                   1    122.02     11.28
+    hess.partial_hess_elec                 1    196.01      0.00
+    hess.get_vxc_deriv1                    1     68.72     68.72
+    hess.get_vnlc_deriv1                   1     36.58     28.60
+    hess.grad_hcore                        1      0.18      0.18
+    hess.get_jk_ip1                        2     17.23     17.23
+    hess.make_h1                           1    122.72      0.01
+    solvent.mo_integrals                   1      1.14      1.14
+    solvent.left_solve_K                  24      1.37      1.37
+    solvent.get_dqsym_dx                   3      3.40      3.04
+    solvent.analytical_grad_vmat           1      5.94      2.54
+    hess.nr_rks_fxc_mo (cheap)             6     57.64     57.64
+    vv10.omega_derivative (cheap)          1      0.00      0.00
+    vv10.UWABCE (cheap)                    1      0.17      0.17
+    hess.get_nlc_response_ground_state (cheap)     6      0.21      0.05
+    vv10.f_t (cheap)                       6     11.02     11.02
+    hess.nr_rks_fnlc_mo (cheap)            6     21.10     10.08
+    hess.jk_mo (cheap)                    12     44.73     44.73
+    hess.veff_resp_mo (cheap)              6    124.40      0.72
+    solvent.left_multiply_R               14      0.62      0.62
+    solvent.response_mo (cheap)            6      4.05      2.89
+    hess.cheap_start_and_trials            1    128.71      0.27
+    hess.nr_rks_fxc_mo                     1     12.24     12.24
+    hess.get_nlc_response_ground_state     1      8.08      0.09
+    hess.nr_rks_fnlc_mo                    1    116.37     13.40
+    hess.jk_mo                             2      9.88      9.88
+    hess.veff_resp_mo                      1    146.68      0.11
+    solvent.response_mo                    1      0.80      0.55
+    hess.solve_mo1                         1    276.24      0.04
+    hess.hess_elec                         1    602.09      0.05
+    solvent.analytical_hess_nuc            1      0.13      0.13
+    solvent.analytical_hess_qv             1     15.21     15.21
+    solvent.analytical_hess_solver         1      3.79      3.57
+    solvent.hess                           1     19.13      0.00
+    solvent.hess_cds                       1      0.06      0.06
+    (not in any timed part)                                 0.00
+vs scratch/p40_h_smd_def2-svp: dE = 2.274e-13, max |dhess| = 1.094e-05 (max |hess| 9.734e-01), max |dfreq| = 0.030 cm^-1
+== the same (defaults) with the VV10 response of the CPHF on the level-0 grid
+p40_h_smd_nlc0: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947764  converged=True  cycles=14  pool peak 376 MiB
+--- scf: 125.29 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[767488]                 15     33.41     33.41
+    numint._vv10nlc                       15     61.14     61.14
+    numint.nr_nlc_vxc[157440]             15     64.10      2.96
+    scf.get_j                             15      3.19      3.19
+    scf.get_k                             15     16.29     16.29
+    solvent.build                          1      3.44      3.44
+    solvent._get_v                        15      1.08      1.08
+    solvent.left_multiply_R               30      1.99      1.99
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15      1.21      1.21
+    solvent._get_vind                     15      7.83      0.01
+    scf.get_veff                          15    125.02      0.20
+    scf.get_hcore                          1      0.02      0.02
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.03      0.03
+    scf.eig                               14      0.14      0.14
+    (not in any timed part)                                 0.03
+pool peak 1511 MiB
+--- hess: 590.29 s, SM clock [1860.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    hess.partial_ejk_ip2                   2     36.00     36.00
+    hess.hcore_energy                      1      0.12      0.12
+    hess.get_exc_deriv2                    1     37.87     37.87
+    vv10.omega_derivative                  3      0.00      0.00
+    vv10.UWABCE                            3     16.13     16.13
+    vv10.f_t                               7    113.77    113.77
+    hess.get_enlc_deriv2                   1    122.01     11.27
+    hess.partial_hess_elec                 1    196.00      0.00
+    hess.get_vxc_deriv1                    1     68.75     68.75
+    vv10.f_t_by_atom                       1     16.28     16.28
+    vv10.EUW_grid_response_offdiagonal     1     11.80     11.80
+    vv10.EUW_with_weight1                  1     76.36     76.36
+    hess.get_vnlc_deriv1                   1    152.73     40.30
+    hess.grad_hcore                        1      0.18      0.18
+    hess.get_jk_ip1                        2     17.24     17.24
+    hess.make_h1                           1    238.91      0.01
+    solvent.mo_integrals                   1      1.14      1.14
+    solvent.left_solve_K                  22      1.22      1.22
+    solvent.get_dqsym_dx                   3      3.41      3.05
+    solvent.analytical_grad_vmat           1      5.96      2.55
+    hess.nr_rks_fxc_mo                     6     57.86     57.86
+    hess.get_nlc_response_ground_state     6      0.21      0.05
+    hess.nr_rks_fnlc_mo                    6     21.13     10.11
+    hess.jk_mo                            12     44.84     44.84
+    hess.veff_resp_mo                      6    124.76      0.72
+    solvent.left_multiply_R               12      0.51      0.51
+    solvent.response_mo                    6      3.98      2.82
+    hess.solve_mo1                         1    129.04      0.30
+    hess.hess_elec                         1    571.09      0.05
+    solvent.analytical_hess_nuc            1      0.14      0.14
+    solvent.analytical_hess_qv             1     15.21     15.21
+    solvent.analytical_hess_solver         1      3.79      3.57
+    solvent.hess                           1     19.14      0.00
+    solvent.hess_cds                       1      0.06      0.06
+    (not in any timed part)                                 0.00
+vs scratch/p40_h_smd_def2-svp: dE = 2.274e-13, max |dhess| = 2.634e-05 (max |hess| 9.734e-01), max |dfreq| = 0.022 cm^-1
+== gas phase, defaults, against the baseline tag's Hessian
+p40_h_gas: caffeine def2-svp wb97m-v solvent=none nao=246 grid=767488 nlcgrid=157440 surface=0 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.584273761966  converged=True  cycles=15  pool peak 327 MiB
+--- scf: 125.13 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[767488]                 16     35.64     35.64
+    numint._vv10nlc                       16     65.21     65.21
+    numint.nr_nlc_vxc[157440]             16     68.37      3.15
+    scf.get_j                             16      3.39      3.39
+    scf.get_k                             16     17.26     17.26
+    scf.get_veff                          16    124.85      0.20
+    scf.get_hcore                          1      0.02      0.02
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          30      0.03      0.03
+    scf.eig                               15      0.15      0.15
+    (not in any timed part)                                 0.04
+pool peak 1693 MiB
+--- hess: 709.57 s, SM clock [1860.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    hess.partial_ejk_ip2                   2     36.02     36.02
+    hess.hcore_energy                      1      0.12      0.12
+    hess.get_exc_deriv2                    1     37.87     37.87
+    vv10.omega_derivative                  3      0.00      0.00
+    vv10.UWABCE                            3     23.95     23.95
+    vv10.f_t                               3    205.95    205.95
+    hess.get_enlc_deriv2                   1    122.37     11.42
+    hess.partial_hess_elec                 1    196.39      0.00
+    hess.get_vxc_deriv1                    1     68.75     68.75
+    vv10.f_t_by_atom                       1     16.29     16.29
+    vv10.EUW_grid_response_offdiagonal     1     11.80     11.80
+    vv10.EUW_with_weight1                  1     76.42     76.42
+    hess.get_vnlc_deriv1                   1    153.31     40.82
+    hess.grad_hcore                        1      0.18      0.18
+    hess.get_jk_ip1                        2     17.24     17.24
+    hess.make_h1                           1    239.49      0.01
+    hess.nr_rks_fxc_mo (cheap)             6     58.82     58.82
+    vv10.omega_derivative (cheap)          1      0.00      0.00
+    vv10.UWABCE (cheap)                    1      0.17      0.17
+    hess.get_nlc_response_ground_state (cheap)     6      0.21      0.05
+    vv10.f_t (cheap)                       6     10.97     10.97
+    hess.nr_rks_fnlc_mo (cheap)            6     21.28     10.30
+    hess.jk_mo (cheap)                    12     45.61     45.61
+    hess.veff_resp_mo (cheap)              6    126.64      0.72
+    hess.cheap_start_and_trials            1    126.91      0.28
+    hess.nr_rks_fxc_mo                     1     12.27     12.27
+    hess.get_nlc_response_ground_state     1      8.07      0.09
+    hess.nr_rks_fnlc_mo                    1    116.35     13.38
+    hess.jk_mo                             2      9.88      9.88
+    hess.veff_resp_mo                      1    146.68      0.11
+    hess.solve_mo1                         1    273.64      0.04
+    hess.hess_elec                         1    709.57      0.04
+    (not in any timed part)                                 0.00
+vs scratch/p40_base_gas_def2-svp: dE = -6.821e-13, max |dhess| = 4.755e-04 (max |hess| 1.012e+00), max |dfreq| = 0.303 cm^-1
+== def2-TZVP, SMD, defaults
+p40_h_smd: caffeine def2-tzvp wb97m-v solvent=smd nao=494 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.368622100276  converged=True  cycles=14  pool peak 465 MiB
+--- scf: 366.65 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[767488]                 15     92.22     92.22
+    numint._vv10nlc                       15     62.33     62.33
+    numint.nr_nlc_vxc[157440]             15     69.40      7.07
+    scf.get_j                             15     26.91     26.91
+    scf.get_k                             15    164.53    164.53
+    solvent.build                          1      3.45      3.45
+    solvent._get_v                        15      3.37      3.37
+    solvent.left_multiply_R               30      1.99      1.99
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15      3.77      3.77
+    solvent._get_vind                     15     12.69      0.01
+    scf.get_veff                          15    365.94      0.20
+    scf.get_hcore                          1      0.04      0.04
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.13      0.13
+    scf.eig                               14      0.44      0.44
+    (not in any timed part)                                 0.06
+Traceback (most recent call last):
+  File "~/Chemistry/my-pyscf/bench/gpu/prod_parts.py", line 312, in run
+    hess = h.kernel()
+           ^^^^^^^^^^
+  File "~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/solvent/hessian/smd.py", line 123, in kernel
+    self.de_solvent = self.base.with_solvent.hess(dm)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/Chemistry/my-pyscf/bench/gpu/prod_parts.py", line 90, in timed
+    return orig(*a, **kw)
+           ^^^^^^^^^^^^^^
+  File "~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/solvent/smd.py", line 344, in hess
+    de_solvent += analytical_hess_solver(self, dm, verbose=self.verbose)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/Chemistry/my-pyscf/bench/gpu/prod_parts.py", line 90, in timed
+    return orig(*a, **kw)
+           ^^^^^^^^^^^^^^
+  File "~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/solvent/hessian/pcm.py", line 1054, in analytical_hess_solver
+    vK_1_dot_dDdx = dDT_dot(vK_1)
+                    ^^^^^^^^^^^^^
+  File "~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/solvent/hessian/pcm.py", line 915, in dDT_dot
+    return get_dDT_dot_q(dD, x, atmlst, gridslice, ngrids)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/solvent/hessian/pcm.py", line 629, in get_dDT_dot_q
+    return get_dD_dot_q(-dD.transpose(0,2,1), q, atmlst, gridslice, ngrids)
+                        ^^^^^^^^^^^^^^^^^^^^
+  File "cupy/_core/core.pyx", line 1298, in cupy._core.core._ndarray_base.__neg__
+  File "cupy/_core/_kernel.pyx", line 1349, in cupy._core._kernel.ufunc.__call__
+  File "cupy/_core/_kernel.pyx", line 645, in cupy._core._kernel._get_out_args_from_optionals
+  File "cupy/_core/core.pyx", line 2884, in cupy._core.core._ndarray_init
+  File "cupy/_core/core.pyx", line 257, in cupy._core.core._ndarray_base._init_fast
+  File "cupy/cuda/memory.pyx", line 738, in cupy.cuda.memory.alloc
+  File "~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf/lib/cupy_helper.py", line 1410, in malloc
+    raise cupy.cuda.memory.OutOfMemoryError(size, mempool.total_bytes(), mempool.get_limit())
+cupy.cuda.memory.OutOfMemoryError: Out of memory allocating 732,615,000 bytes (allocated so far: 291,435,520 bytes, limit set to: 3,485,387,980 bytes).
+pool peak 1816 MiB
+--- hess: 3418.45 s, SM clock [1755.0, 1875.0, 1875.0]  FAILED: OutOfMemoryError: Out of memory allocating 732,615,000 bytes (allocated so far: 291,435,520 bytes,
+    part                               calls    incl s    excl s
+    hess.partial_ejk_ip2                   2    887.90    887.90
+    hess.hcore_energy                      1      0.32      0.32
+    hess.get_exc_deriv2                    1    107.13    107.13
+    vv10.omega_derivative                  3      0.00      0.00
+    vv10.UWABCE                            3     24.50     24.50
+    vv10.f_t                               4    232.22    232.22
+    hess.get_enlc_deriv2                   1    142.16     29.12
+    hess.partial_hess_elec                 1   1137.51      0.00
+    hess.get_vxc_deriv1                    1    133.37    133.37
+    vv10.f_t_by_atom                       1     16.60     16.60
+    vv10.EUW_grid_response_offdiagonal     1     12.03     12.03
+    vv10.EUW_with_weight1                  1     78.04     78.04
+    hess.get_vnlc_deriv1                   1    185.36     70.54
+    hess.grad_hcore                        1      0.38      0.38
+    hess.get_jk_ip1                        2    306.16    306.16
+    hess.make_h1                           1    625.31      0.05
+    solvent.mo_integrals                   1      7.06      7.06
+    solvent.left_solve_K                  34      1.29      1.29
+    solvent.get_dqsym_dx                   3      8.42      8.06
+    solvent.analytical_grad_vmat           1     17.17      8.76
+    hess.nr_rks_fxc_mo (cheap)            11    118.57    118.57
+    vv10.omega_derivative (cheap)          1      0.00      0.00
+    vv10.UWABCE (cheap)                    1      0.17      0.17
+    hess.get_nlc_response_ground_state (cheap)    11      0.24      0.08
+    vv10.f_t (cheap)                      11     13.72     13.72
+    hess.nr_rks_fnlc_mo (cheap)           11     35.48     21.76
+    hess.jk_mo (cheap)                    22   1001.75   1001.75
+    hess.veff_resp_mo (cheap)             11   1158.03      2.00
+    solvent.left_multiply_R               26      0.65      0.65
+    solvent.response_mo (cheap)           11     10.13      8.88
+    hess.cheap_start_and_trials            1   1098.73      0.70
+    hess.nr_rks_fxc_mo                     2     23.87     23.87
+    hess.get_nlc_response_ground_state     2      8.36      0.15
+    hess.nr_rks_fnlc_mo                    2    153.26     25.95
+    hess.jk_mo                             4    216.41    216.41
+    hess.veff_resp_mo                      2    402.24      0.34
+    solvent.response_mo                    2      1.98      1.72
+    hess.solve_mo1                         1   1573.23      0.14
+    hess.hess_elec                         1   3360.40      0.12
+    solvent.analytical_hess_nuc            1      0.14      0.14
+    solvent.analytical_hess_qv             1     57.48     57.48
+    solvent.analytical_hess_solver         1      0.43      0.36
+    solvent.hess                           1     58.04      0.00
+    (not in any timed part)                                 0.00
+
+== 9. The files as committed (two changes after section 8: the dense transposed product of the solvent's terms
+==    without its copy, and a plain correction step of the two-level CPHF for residuals near the tolerance):
+==    unit tests; the def2-SVP SMD Hessian against section 8's; def2-TZVP with the CPHF solver's log (first the
+==    warm-up molecule's); the gas-phase Hessian with upstream's Krylov solver against section 2's (what
+==    everything but the solver changes) [p40_i.log]
+==    (This batch was still running when the file was made: what follows is what it had written by then.)
+== unit tests, the files as committed
+lib/tests/test_cupy_helper.py: 18 passed, 1 warning in 2.20s
+scf/tests/test_cphf.py: 5 passed in 1.01s
+sgx/tests/test_int1e_grids.py: 12 passed in 17.73s
+sgx/tests/test_sgx.py: 18 passed in 23.37s
+solvent/tests/test_pcm_hessian.py: 23 passed in 180.14s (0:03:00)
+solvent/tests/test_smd_hessian.py: 15 passed in 14.59s
+solvent/tests/test_pcm.py: 26 passed in 12.75s
+solvent/tests/test_smd.py: 26 passed in 37.97s
+solvent/tests/test_pcm_grad.py: 11 passed in 8.16s
+solvent/tests/test_smd_grad.py: 14 passed in 9.07s
+solvent/tests/test_pcm_lowmem.py: 6 passed in 10.33s
+solvent/tests/test_pcm_lowmem_grad.py: 7 passed in 29.65s
+hessian/tests/test_cphf_solvers.py: 37 passed in 380.69s (0:06:20)
+hessian/tests/test_vv10_hessian.py: 16 passed in 265.41s (0:04:25)
+hessian/tests/test_level_shift_hessian.py: 4 passed in 15.16s
+hessian/tests/test_rhf_hessian.py: 8 passed in 41.26s
+hessian/tests/test_rks_hessian.py: 12 passed in 27.25s
+hessian/tests/test_uhf_hessian.py: 5 passed in 16.95s
+hessian/tests/test_uks_hessian.py: 12 passed in 20.57s
+hessian/tests/test_rks_hessian_grid_response.py: 17 passed in 46.63s
+hessian/tests/test_uks_hessian_grid_response.py: 16 passed in 45.61s
+hessian/tests/test_large_exponent.py: 7 passed, 1 skipped in 3.33s
+df/hessian/tests/test_df_rhf_hessian.py: 8 passed in 9.66s
+df/hessian/tests/test_df_rks_hessian.py: 5 passed in 334.56s (0:05:34)
+df/hessian/tests/test_df_uhf_hessian.py: 8 passed in 9.54s
+df/hessian/tests/test_df_uks_hessian.py: 4 passed in 4.52s
+df/tests/test_df_hessian.py: 21 passed in 117.24s (0:01:57)
+properties/tests/test_ir_intensity.py: 2 passed, 1 skipped in 5.38s
+properties/tests/test_raman_intensity.py: 7 passed, 1 skipped in 223.90s (0:03:43)
+properties/tests/test_polarizability.py: 7 passed, 1 skipped in 83.21s (0:01:23)
+scf/tests/test_two_level.py: 58 passed in 291.03s (0:04:51)
+dft/tests/test_numint.py: 24 passed in 4.57s
+== production-like Hessian, caffeine def2-svp, SMD, defaults (the files as committed)
+p40_i_smd: caffeine def2-svp wb97m-v solvent=smd nao=246 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -679.604486947764  converged=True  cycles=14  pool peak 348 MiB
+--- scf: 124.48 s, SM clock [1875.0, 1890.0, 1890.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[767488]                 15     33.21     33.21
+    numint._vv10nlc                       15     60.75     60.75
+    numint.nr_nlc_vxc[157440]             15     63.69      2.94
+    scf.get_j                             15      3.17      3.17
+    scf.get_k                             15     16.17     16.17
+    solvent.build                          1      3.43      3.43
+    solvent._get_v                        15      1.08      1.08
+    solvent.left_multiply_R               30      1.97      1.97
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15      1.21      1.21
+    solvent._get_vind                     15      7.79      0.01
+    scf.get_veff                          15    124.22      0.20
+    scf.get_hcore                          1      0.02      0.02
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.03      0.03
+    scf.eig                               14      0.14      0.14
+    (not in any timed part)                                 0.03
+pool peak 1483 MiB
+--- hess: 737.52 s, SM clock [1860.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    hess.partial_ejk_ip2                   2     35.99     35.99
+    hess.hcore_energy                      1      0.12      0.12
+    hess.get_exc_deriv2                    1     37.84     37.84
+    vv10.omega_derivative                  3      0.00      0.00
+    vv10.UWABCE                            3     23.95     23.95
+    vv10.f_t                               3    205.72    205.72
+    hess.get_enlc_deriv2                   1    122.01     11.28
+    hess.partial_hess_elec                 1    195.95      0.00
+    hess.get_vxc_deriv1                    1     68.75     68.75
+    vv10.f_t_by_atom                       1     16.29     16.29
+    vv10.EUW_grid_response_offdiagonal     1     11.80     11.80
+    vv10.EUW_with_weight1                  1     76.36     76.36
+    hess.get_vnlc_deriv1                   1    152.73     40.30
+    hess.grad_hcore                        1      0.18      0.18
+    hess.get_jk_ip1                        2     17.24     17.24
+    hess.make_h1                           1    238.91      0.01
+    solvent.mo_integrals                   1      1.13      1.13
+    solvent.left_solve_K                  24      1.36      1.36
+    solvent.get_dqsym_dx                   3      3.36      3.00
+    solvent.analytical_grad_vmat           1      5.89      2.54
+    hess.nr_rks_fxc_mo (cheap)             6     57.76     57.76
+    vv10.omega_derivative (cheap)          1      0.00      0.00
+    vv10.UWABCE (cheap)                    1      0.17      0.17
+    hess.get_nlc_response_ground_state (cheap)     6      0.21      0.05
+    vv10.f_t (cheap)                       6     11.01     11.01
+    hess.nr_rks_fnlc_mo (cheap)            6     21.13     10.12
+    hess.jk_mo (cheap)                    12     44.86     44.86
+    hess.veff_resp_mo (cheap)              6    124.68      0.72
+    solvent.left_multiply_R               14      0.61      0.61
+    solvent.response_mo (cheap)            6      3.98      2.82
+    hess.cheap_start_and_trials            1    128.93      0.27
+    hess.nr_rks_fxc_mo                     1     12.29     12.29
+    hess.get_nlc_response_ground_state     1      8.07      0.09
+    hess.nr_rks_fnlc_mo                    1    116.38     13.40
+    hess.jk_mo                             2      9.87      9.87
+    hess.veff_resp_mo                      1    146.72      0.11
+    solvent.response_mo                    1      0.79      0.54
+    hess.solve_mo1                         1    276.49      0.05
+    hess.hess_elec                         1    718.43      0.05
+    solvent.analytical_hess_nuc            1      0.13      0.13
+    solvent.analytical_hess_qv             1     15.20     15.20
+    solvent.analytical_hess_solver         1      3.71      3.49
+    solvent.hess                           1     19.04      0.00
+    solvent.hess_cds                       1      0.06      0.06
+    (not in any timed part)                                 0.00
+vs scratch/p40_h_smd_def2-svp: dE = -2.274e-13, max |dhess| = 1.087e-11 (max |hess| 9.734e-01), max |dfreq| = 0.000 cm^-1
+== def2-TZVP, SMD, defaults, with the CPHF solver's log
+******** <class 'gpu4pyscf.solvent.hessian.smd.SMDHessian'> for <class 'gpu4pyscf.solvent._attach_solvent.SMDRKS'> ********
+Max_memory 4000 MB (current use 1548 MB)
+Solving CPHF equation for atoms [0:3]
+CPHF: the cheap model
+CPHF cycle 0: max residual 0.0702343, 9 of 9 perturbations left
+CPHF cycle 1: max residual 0.0132434, 9 of 9 perturbations left
+CPHF cycle 2: max residual 0.00225494, 9 of 9 perturbations left
+CPHF cycle 3: max residual 0.000312878, 6 of 9 perturbations left
+CPHF cycle 4: max residual 3.16455e-05, 0 of 9 perturbations left
+CPHF: 4 cycles, 23 trial vectors, max residual 3.16e-05
+CPHF cycle 0: max residual 7.70879e-06, 0 of 9 perturbations left
+CPHF: 0 cycles, 0 trial vectors, max residual 7.71e-06
+p40_i_smd: caffeine def2-tzvp wb97m-v solvent=smd nao=494 grid=767488 nlcgrid=157440 surface=5525 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -680.368622100276  converged=True  cycles=14  pool peak 438 MiB
+--- scf: 366.64 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_rks[767488]                 15     92.24     92.24
+    numint._vv10nlc                       15     62.33     62.33
+    numint.nr_nlc_vxc[157440]             15     69.40      7.07
+    scf.get_j                             15     26.89     26.89
+    scf.get_k                             15    164.52    164.52
+    solvent.build                          1      3.45      3.45
+    solvent._get_v                        15      3.37      3.37
+    solvent.left_multiply_R               30      1.99      1.99
+    solvent.left_solve_K                  30      0.09      0.09
+    solvent._get_vmat                     15      3.77      3.77
+    solvent._get_vind                     15     12.68      0.01
+    scf.get_veff                          15    365.93      0.20
+    scf.get_hcore                          1      0.04      0.04
+    scf.get_ovlp                           1      0.01      0.01
+    scf.get_fock                          28      0.13      0.13
+    scf.eig                               14      0.44      0.44
+    (not in any timed part)                                 0.06
+******** <class 'gpu4pyscf.solvent.hessian.smd.SMDHessian'> for <class 'gpu4pyscf.solvent._attach_solvent.SMDRKS'> ********
+Max_memory 4000 MB (current use 1941 MB)
