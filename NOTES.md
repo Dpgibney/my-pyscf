@@ -9031,6 +9031,34 @@ RSH and VV10. The Hessian is then the second derivative of the energy as compute
   - The GPU tree: gpu4pyscf already had the grid response.
   - Pair pruning in the Becke kernel: O(natm^2) per point, unmeasured at NAD+ size.
 
+### The radial grid with the grid response, and a transition-state example (2026-11-24; pyscf fcef7f8ff, tag and pin `perf-2026-11-24b`, pushed)
+The user: "Yes" (to the H2PO4- check), "also ... create a new example which shows the standard production
+wB97M-V/def2-TZVP setup for transition state geometry optimizations".
+- **The radial grid** (`hess_gridconv.py --grid-response`, gas phase, uniform grids, VV10 (50,194);
+  `bench/results/wb97mv-tzvpd/gridconv_grid_response.log`). Largest change of a harmonic frequency, 99 radial points
+  against 150 and 250:
+
+  | molecule | without grid response | with it |
+  |---|---|---|
+  | H2PO4- (P) | 2.14 cm-1 (`gridconv2_h2po4.log`) | 0.08 cm-1 |
+  | H2S (S) | 0.008 cm-1 | 0.009 cm-1 |
+  | CH3Cl (Cl) | 4.04 cm-1 | 0.03 cm-1 |
+
+  The 150 radial points on P, S and Cl made up for the missing grid response. `examples/wb97mv_hessian.py` now uses
+  (99,590) on every atom, with `grid_response = True`.
+- **`geometric_solver.kernel(..., hessian=array)`** (pyscf `geomopt/geometric_solver.py`). The start Hessian could
+  only be `method.Hessian().kernel()` with its defaults: `hessian='file:path'` recomputed it into that path. An array
+  ([natm,natm,3,3] or [3N,3N], Eh/Bohr^2) is now written to geomeTRIC's file as given: a Hessian with grid response, or
+  an exact one for a RIJCOSX search. Test `test_optimize_with_hessian_array`; the file's 4 tests pass (geomeTRIC
+  1.1.1 from the scratch directory).
+- **`examples/wb97mv_ts.py`**: one model for the search, the start Hessian and the frequencies (wB97M-V/def2-TZVP,
+  (99,590)/(50,194), two-level SCF, response grids 2/1). Analytical start Hessian with grid response, geomeTRIC
+  `transition=True`, then a new SCF, gradient and Hessian at the saddle point, and the count of imaginary modes.
+  `RIJCOSX = True` runs the search on RIJCOSX (aug_etb) gradients, with the exact start Hessian and frequencies.
+  HCN <-> HNC, laptop, 10 threads:
+  - exact: 30 s, 14 steps, -1114.6 / 2110.5 / 2664.7 cm-1, max |g| 1.2e-5 Eh/Bohr at the end;
+  - RIJCOSX: 27 s, 10 steps, -1114.5 / 2110.5 / 2664.6 cm-1, exact max |g| 5.2e-5 there; bonds within 2e-4 A.
+
 ## GPU4PySCF, part 36: what the CPU tree gained since perf-2026-11-03, on the GPU (node1), 2026-11-21/22
 The user, after the read-only audit of 2026-11-21 (gpu4pyscf had not moved since part 35; the CPU tree had gained the
 two-level SCF, the solvent rewrites, the residual CPHF solver, RIJCOSX): "The GPU on node1 is now available so we can

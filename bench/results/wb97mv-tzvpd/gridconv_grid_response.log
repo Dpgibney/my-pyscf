@@ -1,0 +1,39 @@
+# The radial grid of the analytical wB97M-V/def2-TZVPD Hessian with and without its grid response (hess_gridconv.py, gas phase,
+# uniform grids, VV10 (50,194), CPHF residual 1e-6), pyscf perf 7f992f952, laptop, 10 threads, 2026-11-24. Frequencies against the
+# first grid of each run. H2PO4-: bench/diag/wb97mv/h2po4_opt.xyz (without grid response: gridconv2_h2po4.log, 2.14 cm-1).
+# H2S: S 0 0 0.1030; H 0 +-0.9616 -0.8239. CH3Cl: C 0 0 -1.1180; Cl 0 0 0.6730; H at z -1.4600, 1.027 A off the axis (not optimized).
+
+## h2po4_gr
+XC   99,590 ( 221064 pts)  VV10  50,194 ( 45464 pts)  E -643.724212525  max|g| 6.7e-05   105.3 s
+   frequencies: 201.99 321.27 324.30 389.66 433.12 499.72 506.77 787.48 813.39 1042.19 1061.92 1110.73 1330.05 3856.21 3857.10
+XC  150,590 ( 333184 pts)  VV10  50,194 ( 45464 pts)  E -643.724212887  max|g| 7.1e-05   148.1 s  max|dH| 6.7e-05  max|df| 0.080 at 813  mean|df| 0.021  max|df| f>200 0.080
+XC  250,590 ( 555920 pts)  VV10  50,194 ( 45464 pts)  E -643.724212886  max|g| 7.1e-05   170.0 s  max|dH| 5.4e-05  max|df| 0.064 at 813  mean|df| 0.017  max|df| f>200 0.064
+guard: peak RSS about 4 GB
+
+## h2s
+XC   99,590 (  96296 pts)  VV10  50,194 ( 19672 pts)  E -399.373579572  max|g| 1.9e-03     5.3 s
+   frequencies: 1205.47 2750.03 2761.18
+XC  150,590 ( 144976 pts)  VV10  50,194 ( 19672 pts)  E -399.373579583  max|g| 1.9e-03     5.8 s  max|dH| 7.5e-04  max|df| 0.008 at 1205  mean|df| 0.006  max|df| f>200 0.008
+XC  250,590 ( 241336 pts)  VV10  50,194 ( 19672 pts)  E -399.373579581  max|g| 1.9e-03     7.4 s  max|dH| 7.5e-04  max|df| 0.008 at 1205  mean|df| 0.006  max|df| f>200 0.008
+guard: peak RSS about 0 GB
+
+## h2s_gr
+XC   99,590 (  96296 pts)  VV10  50,194 ( 19672 pts)  E -399.373579572  max|g| 1.9e-03     8.0 s
+   frequencies: 1205.38 2750.02 2761.18
+XC  150,590 ( 144976 pts)  VV10  50,194 ( 19672 pts)  E -399.373579583  max|g| 1.9e-03     9.9 s  max|dH| 1.8e-06  max|df| 0.008 at 2750  mean|df| 0.006  max|df| f>200 0.008
+XC  250,590 ( 241336 pts)  VV10  50,194 ( 19672 pts)  E -399.373579581  max|g| 1.9e-03    13.5 s  max|dH| 1.8e-06  max|df| 0.009 at 2750  mean|df| 0.006  max|df| f>200 0.009
+guard: peak RSS about 2 GB
+
+## ch3cl
+XC   99,590 ( 160848 pts)  VV10  50,194 ( 32856 pts)  E -500.085665690  max|g| 4.6e-03    18.3 s
+   frequencies: 738.67 1015.75 1015.76 1370.30 1471.25 1471.26 3117.57 3216.85 3216.89
+XC  150,590 ( 242272 pts)  VV10  50,194 ( 32856 pts)  E -500.085665676  max|g| 4.6e-03    21.2 s  max|dH| 2.7e-02  max|df| 4.042 at 739  mean|df| 0.484  max|df| f>200 4.042
+XC  250,590 ( 403352 pts)  VV10  50,194 ( 32856 pts)  E -500.085665674  max|g| 4.6e-03    26.6 s  max|dH| 2.7e-02  max|df| 4.042 at 739  mean|df| 0.484  max|df| f>200 4.042
+guard: peak RSS about 2 GB
+
+## ch3cl_gr
+XC   99,590 ( 160848 pts)  VV10  50,194 ( 32856 pts)  E -500.085665690  max|g| 4.6e-03    25.1 s
+   frequencies: 734.88 1015.64 1015.65 1370.30 1471.24 1471.26 3117.57 3216.85 3216.89
+XC  150,590 ( 242272 pts)  VV10  50,194 ( 32856 pts)  E -500.085665676  max|g| 4.6e-03    30.3 s  max|dH| 1.8e-05  max|df| 0.031 at 735  mean|df| 0.005  max|df| f>200 0.031
+XC  250,590 ( 403352 pts)  VV10  50,194 ( 32856 pts)  E -500.085665674  max|g| 4.6e-03    42.1 s  max|dH| 2.0e-05  max|df| 0.033 at 735  mean|df| 0.005  max|df| f>200 0.033
+guard: peak RSS about 3 GB

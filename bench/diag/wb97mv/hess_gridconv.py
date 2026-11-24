@@ -1,7 +1,9 @@
 '''How far the "exact" wB97M-V Hessian is converged with its own grids: SCF + Hessian (exact response, CPHF to 1e-6) at
 one geometry for several XC grids and VV10 grids, each calculation consistent (the same grids in the SCF and in every
-Hessian term). The CPU Hessian has no grid-weight derivatives for the XC terms. Frequencies against the first setting.
-Usage: hess_gridconv.py XYZ [--charge 0] [--settings 'xc;nlc|xc;nlc|...']  (a grid: a level, or nrad,nang)'''
+Hessian term). Without --grid-response the Hessian has no grid-weight derivatives (PySCF's default). Frequencies
+against the first setting.
+Usage: hess_gridconv.py XYZ [--charge 0] [--grid-response] [--settings 'xc;nlc|xc;nlc|...']  (a grid: a level, or
+nrad,nang; XYZ a file or an atom string)'''
 import argparse
 import time
 import numpy
@@ -13,9 +15,10 @@ ap = argparse.ArgumentParser()
 ap.add_argument('mol')
 ap.add_argument('--basis', default='def2-tzvpd')
 ap.add_argument('--charge', type=int, default=0)
+ap.add_argument('--grid-response', action='store_true')
 ap.add_argument('--settings', default='99,590;50,194|99,590;1|99,590;3|99,590;99,590|4;50,194|5;50,194|150,974;50,194')
 args = ap.parse_args()
-print('pyscf', pyscf.__file__, 'threads', lib.num_threads(), flush=True)
+print('pyscf', pyscf.__file__, 'threads', lib.num_threads(), 'grid_response', args.grid_response, flush=True)
 mol = gto.M(atom=args.mol, basis=args.basis, charge=args.charge, verbose=0)
 
 
@@ -38,6 +41,7 @@ for s in args.settings.split('|'):
     g = mf.Gradients().kernel()
     hobj = mf.Hessian()
     hobj.cphf_residual_tol = 1e-6
+    hobj.grid_response = args.grid_response
     h = hobj.kernel()
     dt = time.perf_counter() - t
     f = numpy.asarray(thermo.harmonic_analysis(mol, h, imaginary_freq=False)['freq_wavenumber'])
