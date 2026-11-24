@@ -27,9 +27,9 @@ mol = gto.M(
 
 mf = dft.RKS(mol, xc='wb97m-v')     # exact J and K; dft.UKS for open shells (same options below)
 
-# XC grid. The analytical Hessian has no grid-weight derivatives, so it converges more slowly with the
-# radial grid than the energy does: second-row elements need 150 radial points (H2PO4-: 2 cm^-1 between 99
-# and 150 points on phosphorus, nothing between 150 and 250).
+# XC grid. Measured without the grid response (hobj.grid_response below), second-row elements needed 150
+# radial points (H2PO4-: 2 cm^-1 between 99 and 150 points on phosphorus, nothing between 150 and 250). With it
+# the Hessian is the derivative of this grid's energy; 99 points on P, S and Cl have not been measured with it.
 mf.grids.atom_grid = {'default': (99, 590), 'P': (150, 590), 'S': (150, 590), 'Cl': (150, 590)}
 # VV10 grid of the energy, the gradient and the Hessian's VV10 derivative terms
 mf.nlcgrids.atom_grid = (50, 194)
@@ -54,6 +54,11 @@ mf.kernel()
 gradient = mf.Gradients().kernel()  # Eh/Bohr, one row per atom
 
 hobj = mf.Hessian()
+# The grid response: the derivatives of the grid points and Becke weights, which PySCF leaves out by default.
+# Without it, at (99,590): HCl's Cl force constant 8% too stiff, CH3Cl's C-Cl stretch 3.7 cm^-1 high, an SN2
+# saddle point's soft modes up to 41 cm^-1 off; water, methanol, H2S, PH3 0.3 cm^-1 or less. About +17% of the
+# Hessian (paracetamol/def2-SVP).
+hobj.grid_response = True
 # The CPHF equations are solved until their true residuals are below hobj.cphf_residual_tol = 1e-4, the
 # default of this build (1e-8 in the Hessian). PySCF's own Krylov solver stops short of that for DFT, by up
 # to 1 cm^-1 for open shells; hobj.cphf_residual_tol = None brings it back.
