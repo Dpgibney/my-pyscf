@@ -1,0 +1,34 @@
+== rijcosx 14:50:24
+   exit 0, wall 5191.9 s
+peak PSS 5.64 GB, peak RSS sum 8.15 GB, up to 11 processes, 5192 s
+Number of basis functions                   ...   1916
+Total number of grid points                  ...   881182
+Total number of grid points                  ...   192327
+Total number of grid points                  ...   108112
+Total number of grid points                  ...   237875
+Total number of grid points                  ...   431105
+Cavity surface points                             ...         4967
+               *           SCF CONVERGED AFTER  13 CYCLES          *
+Total SCF time: 0 days 1 hours 10 min 53 sec 
+FINAL SINGLE POINT ENERGY     -2935.785440306211
+Norm of the Cartesian gradient     ...    0.1305926470
+Number of basis functions               ...   1916
+SCF iterations                   ...     4260.357 sec (=  71.006 min)  82.1 %
+SCF Gradient evaluation          ...      907.664 sec (=  15.128 min)  17.5 %
+TOTAL RUN TIME: 0 days 1 hours 26 minutes 30 seconds 280 msec
+== exact 16:16:56
+   exit 0, wall 23560.2 s
+peak PSS 11.45 GB, peak RSS sum 14.04 GB, up to 11 processes, 23560 s
+Number of basis functions                   ...   1916
+Total number of grid points                  ...   881182
+Total number of grid points                  ...   192327
+Cavity surface points                             ...         4967
+               *           SCF CONVERGED AFTER  13 CYCLES          *
+Total SCF time: 0 days 5 hours 9 min 29 sec 
+FINAL SINGLE POINT ENERGY     -2935.783603191684
+Norm of the Cartesian gradient     ...    0.1305429538
+Number of basis functions               ...   1916
+SCF iterations                   ...    18577.958 sec (= 309.633 min)  78.9 %
+SCF Gradient evaluation          ...     4964.764 sec (=  82.746 min)  21.1 %
+TOTAL RUN TIME: 0 days 6 hours 32 minutes 40 seconds 113 msec
+LAPTOP ORCA DONE 22:49

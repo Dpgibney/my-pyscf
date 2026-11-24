@@ -1,0 +1,70 @@
+# Transition-state searches with geomeTRIC 1.1.1 (transition=True, hessian=True), wB97M-V/def2-TZVPD, grids (99,590)/(50,194), two-level SCF, SMD water;
+# bench/diag/wb97mv/ts_rijcosx.py and ts_hess_rows.py, pyscf perf de29d15f2, laptop, 10 threads, 2026-11-23. The '>>>' lines of each run; gradient-per-step lines counted.
+
+## hcn_rijcosx (27 gradients in the search)
+>>> [     0 s] pyscf /home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py, geomeTRIC 1.1.1, 10 threads; hcn: 3 atoms, 83 AOs, charge 0; wB97M-V/def2-tzvpd, RIJCOSX (aug_etb), two-level SCF, solvent water; start N1-C0 1.1900, H2-C0 1.1498, H2-N1 1.2575
+>>> [    42 s] TS optimization: converged True, 41 s, method.mol unchanged; N1-C0 1.1769, H2-C0 1.1901, H2-N1 1.4423
+>>> [    43 s] fresh calculation at the saddle point: E = -93.3605658469 (scanner -93.3605658469, difference -1.3e-11); max |g| 3.12e-05 Eh/Bohr, gradient difference from the scanner 4.6e-07
+>>> [    54 s] finite-difference Hessian: atom 1 of 3 done
+>>> [    64 s] finite-difference Hessian: atom 2 of 3 done
+>>> [    74 s] finite-difference Hessian: atom 3 of 3 done
+>>> [    74 s] finite-difference Hessian: 31 s, largest asymmetry 2.5e-05 Eh/Bohr^2
+>>> [    74 s] RIJCOSX finite-difference Hessian at the RIJCOSX saddle point: 1 imaginary mode(s); wavenumbers (cm-1) -1115.9 2073.2 2576.3; lowest mode by atom (|displacement|) C0 0.08 N1 0.07 H2 0.92
+>>> [    82 s] exact-J/K analytical Hessian at the RIJCOSX saddle point: 8 s; exact max |g| there 2.76e-05; largest difference from the RIJCOSX Hessian 2.5e-04 Eh/Bohr^2
+>>> [    82 s] exact-J/K analytical Hessian at the RIJCOSX saddle point: 1 imaginary mode(s); wavenumbers (cm-1) -1115.7 2073.0 2576.4; lowest mode by atom (|displacement|) C0 0.08 N1 0.07 H2 0.92
+>>> [    82 s] total 82 s
+
+## hcn_exact (8 gradients in the search)
+>>> [     0 s] pyscf /home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py, geomeTRIC 1.1.1, 10 threads; hcn: 3 atoms, 83 AOs, charge 0; wB97M-V/def2-tzvpd, exact J and K, two-level SCF, solvent water; start N1-C0 1.1900, H2-C0 1.1498, H2-N1 1.2575
+>>> [    20 s] TS optimization: converged True, 20 s, method.mol unchanged; N1-C0 1.1769, H2-C0 1.1902, H2-N1 1.4422
+>>> [    21 s] fresh calculation at the saddle point: E = -93.3605646102 (scanner -93.3605646102, difference 5.7e-13); max |g| 6.62e-06 Eh/Bohr, gradient difference from the scanner 7.3e-07
+>>> [    27 s] analytical Hessian: 6 s
+>>> [    27 s] exact-J/K analytical Hessian at the exact saddle point: 1 imaginary mode(s); wavenumbers (cm-1) -1110.6 2073.1 2576.5; lowest mode by atom (|displacement|) C0 0.08 N1 0.07 H2 0.92
+>>> [    27 s] total 27 s
+
+## sn2_rijcosx (42 gradients in the search)
+>>> [     0 s] pyscf /home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py, geomeTRIC 1.1.1, 10 threads; sn2: 6 atoms, 156 AOs, charge -1; wB97M-V/def2-tzvpd, RIJCOSX (aug_etb), two-level SCF, solvent water; start Cl1-C0 2.2200, Cl2-C0 2.4200, H3-C0 1.0700, H3-Cl1 2.4644, H4-C0 1.0703, H4-Cl1 2.4645, H4-H3 1.8535, H5-C0 1.0703, H5-Cl1 2.4645, H5-H3 1.8535, H5-H4 1.8540
+>>> [   185 s] TS optimization: converged True, 185 s, method.mol unchanged; Cl1-C0 2.3181, Cl2-C0 2.3183, H3-C0 1.0719, H3-Cl1 2.5545, H3-Cl2 2.5547, H4-C0 1.0718, H4-Cl1 2.5539, H4-Cl2 2.5536, H4-H3 1.8565, H5-C0 1.0719, H5-Cl1 2.5539, H5-Cl2 2.5536, H5-H3 1.8565, H5-H4 1.8566
+>>> [   190 s] fresh calculation at the saddle point: E = -960.4189046044 (scanner -960.4189046044, difference -1.8e-12); max |g| 2.01e-05 Eh/Bohr, gradient difference from the scanner 2.6e-07
+>>> [   222 s] finite-difference Hessian: atom 1 of 6 done
+>>> [   255 s] finite-difference Hessian: atom 2 of 6 done
+>>> [   289 s] finite-difference Hessian: atom 3 of 6 done
+>>> [   323 s] finite-difference Hessian: atom 4 of 6 done
+>>> [   357 s] finite-difference Hessian: atom 5 of 6 done
+>>> [   393 s] finite-difference Hessian: atom 6 of 6 done
+>>> [   393 s] finite-difference Hessian: 203 s, largest asymmetry 2.7e-05 Eh/Bohr^2
+>>> [   393 s] RIJCOSX finite-difference Hessian at the RIJCOSX saddle point: 1 imaginary mode(s); wavenumbers (cm-1) -546.3 197.2 197.8 217.0 977.3 977.7 1108.8 1369.1 1370.4 3194.2 3393.5 3393.9; lowest mode by atom (|displacement|) C0 0.27 Cl1 0.05 Cl2 0.05 H3 0.01 H4 0.01 H5 0.01
+>>> [   430 s] exact-J/K analytical Hessian at the RIJCOSX saddle point: 37 s; exact max |g| there 4.04e-05; largest difference from the RIJCOSX Hessian 2.6e-02 Eh/Bohr^2
+>>> [   430 s] exact-J/K analytical Hessian at the RIJCOSX saddle point: 1 imaginary mode(s); wavenumbers (cm-1) -543.7 205.9 206.5 258.2 977.4 978.0 1109.2 1369.4 1370.5 3194.2 3393.3 3394.0; lowest mode by atom (|displacement|) C0 0.27 Cl1 0.05 Cl2 0.05 H3 0.01 H4 0.01 H5 0.01
+>>> [   430 s] total 430 s
+
+## sn2_exact (8 gradients in the search)
+>>> [     0 s] pyscf /home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py, geomeTRIC 1.1.1, 10 threads; sn2: 6 atoms, 156 AOs, charge -1; wB97M-V/def2-tzvpd, exact J and K, two-level SCF, solvent water; start Cl1-C0 2.2200, Cl2-C0 2.4200, H3-C0 1.0700, H3-Cl1 2.4644, H4-C0 1.0703, H4-Cl1 2.4645, H4-H3 1.8535, H5-C0 1.0703, H5-Cl1 2.4645, H5-H3 1.8535, H5-H4 1.8540
+>>> [    76 s] TS optimization: converged True, 76 s, method.mol unchanged; Cl1-C0 2.3182, Cl2-C0 2.3182, H3-C0 1.0719, H3-Cl1 2.5541, H3-Cl2 2.5541, H4-C0 1.0719, H4-Cl1 2.5540, H4-Cl2 2.5539, H4-H3 1.8565, H5-C0 1.0719, H5-Cl1 2.5540, H5-Cl2 2.5540, H5-H3 1.8565, H5-H4 1.8566
+>>> [    82 s] fresh calculation at the saddle point: E = -960.4188960405 (scanner -960.4188960405, difference 1.1e-12); max |g| 1.25e-05 Eh/Bohr, gradient difference from the scanner 8.7e-08
+>>> [   113 s] analytical Hessian: 32 s
+>>> [   113 s] exact-J/K analytical Hessian at the exact saddle point: 1 imaginary mode(s); wavenumbers (cm-1) -543.9 204.5 204.5 257.9 975.1 976.5 1107.5 1368.5 1369.0 3194.0 3393.4 3393.5; lowest mode by atom (|displacement|) C0 0.27 Cl1 0.05 Cl2 0.05 H3 0.01 H4 0.01 H5 0.01
+>>> [   113 s] total 113 s
+
+## sn2: Hessian rows at the RIJCOSX saddle point (ts_hess_rows.py --gas)
+>>> [    37 s] water: analytical Hessian 32 s
+>>> [    48 s] water row C0z: max |analytical - FD(exact)| 5.7e-05, diagonal analytical -0.110238 FD(exact) -0.110181 FD(RIJCOSX) -0.110213; max |FD(exact) - FD(RIJCOSX)| 5.8e-05
+>>> [    60 s] water row Cl1z: max |analytical - FD(exact)| 2.6e-02, diagonal analytical 0.051189 FD(exact) 0.024930 FD(RIJCOSX) 0.024971; max |FD(exact) - FD(RIJCOSX)| 4.6e-05
+>>> [    71 s] water row Cl1x: max |analytical - FD(exact)| 2.6e-02, diagonal analytical 0.033999 FD(exact) 0.007651 FD(RIJCOSX) 0.007679; max |FD(exact) - FD(RIJCOSX)| 4.2e-05
+>>> [    82 s] water row H3x: max |analytical - FD(exact)| 1.4e-05, diagonal analytical 0.389518 FD(exact) 0.389520 FD(RIJCOSX) 0.389581; max |FD(exact) - FD(RIJCOSX)| 6.0e-05
+>>> [   115 s] gas: analytical Hessian 29 s
+>>> [   124 s] gas row C0z: max |analytical - FD(exact)| 3.8e-05, diagonal analytical -0.077016 FD(exact) -0.076978
+>>> [   133 s] gas row Cl1z: max |analytical - FD(exact)| 2.6e-02, diagonal analytical 0.061003 FD(exact) 0.034768
+>>> [   144 s] gas row Cl1x: max |analytical - FD(exact)| 2.6e-02, diagonal analytical 0.034215 FD(exact) 0.007867
+>>> [   154 s] gas row H3x: max |analytical - FD(exact)| 1.9e-06, diagonal analytical 0.388891 FD(exact) 0.388893
+>>> [   154 s] total 154 s
+
+## HCl/def2-TZVPD, H[Cl z, Cl z], this tree and stock PySCF (pyscf-base): analytical vs central differences of the gradient (1e-3 Bohr)
+pyscf:      hf       analytical 0.339027  FD 0.339028  diff -8.69e-07; translational sum -1.2e-12
+pyscf:      b3lyp    analytical 0.321314  FD 0.325432  diff -4.12e-03; translational sum -4.1e-03
+pyscf:      wb97m-v  analytical 0.355399  FD 0.329172  diff +2.62e-02; translational sum +2.6e-02
+pyscf-base: hf       analytical 0.339027  FD 0.339029  diff -1.83e-06
+pyscf-base: b3lyp    analytical 0.321300  FD 0.325432  diff -4.13e-03
+pyscf-base: wb97m-v  analytical 0.355399  FD 0.329180  diff +2.62e-02
+grid_response=True on the Hessian: NotImplementedError (CPU RKS) in both trees.
+wB97M-V energy second difference: h 5e-3 0.329178, h 1e-2 0.329194; FD of the gradient with grid_response=True (h 5e-3) 0.329184.

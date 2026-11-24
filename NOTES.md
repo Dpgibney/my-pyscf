@@ -8887,6 +8887,150 @@ that there is an exact gradient: -4.34e-5 Eh, gradient max 9.8e-5, rms 1.8e-5 Eh
   dft scf df grad hessian tdscf solvent sgx eph: 1112 passed, the 5 known failures. `validate.py` quick and hessian
   suites: all pass (21 Hessian cases).
 
+### One pass for the exact exchange of a range-separated hybrid: looked at, not built (2026-11-11)
+The user, after the comparison of one and two passes: "let's work on this next". Before any integral code, what it
+could save (`sr_lr_split.py`, caffeine/def2-TZVPD, minao density, 10 threads, no semi-direct cache):
+full-range J + K 12.5 s, long-range K 11.0 s (the two passes of a Fock build now), long-range J + K 15.5 s,
+short-range J + K (omega < 0) 40.9 s; J_sr + J_lr = J to 5.8e-12.
+- A pass over 1/r = erf/r + erfc/r (long-range J + K for all quartets, short-range J + K where it survives the
+  screening) is slower as the code stands: the short-range integrals take 3 times a full-range pass.
+- One loop with both operators needs both integrals of each quartet (J takes 1/r, K the mix), so the roots, the 2D
+  recurrences, the assembly, the transform and the contraction are done twice in it as well; what is shared is the
+  pair set-up and the screening. By the profile of It-A (CINT2e_loop 21%, env 3% of a pass, before the batched
+  kernels took most of the per-quartet overhead) that is at most a quarter of the second pass, about a tenth of the
+  two, for dual-output versions of every batched kernel. perf is not usable here (perf_event_paranoid 4).
+
+### Approximations of the integrals: two measurements, nothing built (2026-11-11)
+The user: "Are there approximations to the integrals themselves that may be worthwhile exploring?", then "Sure run those
+measurements".
+- **Quartets small enough for single precision** (`small_integrals.py`: a pass with `direct_scf_tol` at a bound leaves
+  the quartets below it out; converged densities, 10 threads, no semi-direct cache). Share of the time in quartets
+  whose density-weighted Schwarz bound is below the bound:
+
+  | | J + K pass | long-range K pass | both | energy of what is below |
+  |---|---|---|---|---|
+  | caffeine, below 1e-8 / 1e-6 / 1e-4 | 9 / 34 / 68% of 12.9 s | 26 / 57 / 90% of 11.7 s | - / 45 / 79% | 2.9e-7 / 3.6e-6 / 2.0e-4 Eh |
+  | NAD+, below 1e-6 / 1e-4 | 62 / 85% of 436 s | 82 / 97% of 383 s | 71 / 90% | 1.3e-4 / 5.3e-2 Eh |
+
+  Single precision (6e-8 relative) on the quartets below 1e-6 would be an error near 1e-11 Eh for NAD+; if the kernels ran
+  1.7 times faster there (an assumption), an exact Fock build of NAD+ would take 0.71 of its time (1.4x). Below 1e-4 the
+  error would be near 3e-9 Eh. Not built: single-precision versions of the batched kernels and a dispatch by bound.
+- **RI-J against the even-tempered basis** (`rij_aux_beta.py`, caffeine, fixed density, exact J 12.3 s): E_J error
+  -5.6e-4 Eh (def2-universal-jfit, 796 functions), `df.aug_etb(mol, beta)`: 2.3 -3.4e-5 (2652), 2.0 -1.0e-5 (3142, 0.42
+  s), 1.8 -1.2e-5, 1.6 -6.0e-6, 1.5 -3.8e-6 (5222, 0.70 s), 1.3 -2.8e-6 (7900, 3.1 s, the metric no longer positive
+  definite for Cholesky), 1.2 -2.7e-6. It levels off near 3e-6: beta 1.5 is a third of the error of the default for
+  1.7 times the functions.
+
+### ORCA 6.1.1 on the same NAD+ workflow, the laptop (2026-11-11)
+The user: "There should be a copy of orca on this laptop somewhere" (after the estimate from the node2 comparisons).
+ORCA 6.1.1 in `~/Chemistry/Orca/orca_6_1_1/`, 10 MPI ranks on the system OpenMPI 5.0.10 (`OMPI_MCA_osc=^ucx` for a
+harmless UCX warning), `%maxcore 1600`; `bench/orca/nad/nad_{rijcosx,exact}.inp`, `scripts/laptop_orca.sh` (with
+`rss_watch.py` on ORCA's own executables only: a prefix of /usr/bin would have put every process of the user under the
+watchdog), summary `bench/results/wb97mv-tzvpd/orca_nad.log`; raw outputs in `scratch/orca/` (not in git, EULA 3c/3d).
+Matched: wB97M-V/def2-TZVPD, charge -1, SMD water, VV10 self-consistent (SCNL), energy and gradient. Not matched: the
+grids (ORCA DefGrid3: 881,182 XC points and 192,327 NL points against 2,231,808 and 457,720; ORCA enlarges its COSX grids
+for a diffuse basis, 108k/238k/431k against PySCF's SGX 55k/105k and 237k for the final energy), the fitting basis of
+RIJCOSX (def2/J, 2,446 functions, against `aug_etb`, 9,944), the cavity (4,967 points against 14,934), TightSCF against
+conv_tol 1e-9. Single runs.
+
+| NAD+, 10 cores | ORCA RIJCOSX | PySCF RIJCOSX | ORCA exact | PySCF exact (`two_level`) |
+|---|---|---|---|---|
+| SCF | 4260 s, 13 cycles (COSX 2961, XC 1148, RI-J 62, CPCM 59) | 1697 s | 18578 s, 13 cycles (~1000-1230 s each) | 3540 s |
+| gradient | 908 s (COSX 718, XC 80, CPCM 16) | 454 s | 4965 s (two-electron 4796) | 4366 s (4232) |
+| total | 5192 s | 2161 s | 23560 s | 7915 s |
+| peak memory | 5.6 GB (PSS) | 17.9 GB | 11.5 GB (PSS) | 11.5 GB |
+| E (Eh) | -2935.785440306 | -2935.783889346 | -2935.783603192 | -2935.783845959 |
+| against the same code's exact | -1.84 mEh; gradient max 1.2e-4, rms 3.3e-5 | -0.043 mEh; 9.8e-5, 1.8e-5 | | |
+
+- The exact energies differ by 0.24 mEh (the dielectric term by 0.13 mEh: the cavities; the SMD CDS term the same to
+  1e-8 Eh), the exact gradients by up to 3.0e-4 Eh/Bohr (rms 7.5e-5): between the codes the grids and the cavity weigh
+  more than either code's RIJCOSX. ORCA's RIJCOSX error in the energy is its def2/J fit (`AutoAux` not tried).
+- PySCF 2.4x faster with RIJCOSX (its K on fewer points, its XC 3.6x faster on 2.5x the points), 3.0x with exact
+  J/K: the exact SCF 5.2x (2 exact builds against 13 cycles at about the same cost per build), the exact gradient 1.14x.
+  PySCF's RIJCOSX takes 3.2x ORCA's memory.
+
+### Transition-state searches with RIJCOSX and geomeTRIC: they work; the analytical DFT Hessian has no grid response (2026-11-23)
+The user: "validate that transition state optimization works with the RIJCOSX workflow ... on a smaller system".
+`bench/diag/wb97mv/ts_rijcosx.py`: geomeTRIC 1.1.1 (in a scratch directory, not in the venv), `transition=True,
+hessian=True`, wB97M-V/def2-TZVPD, grids (99,590)/(50,194), two-level SCF, SMD water; pyscf `perf` de29d15f2, 10
+threads. `bench/results/wb97mv-tzvpd/ts_geometric.log`.
+- RIJCOSX has no analytical Hessian. `hessian=True` hits `NotImplementedError`, PySCF warns, and geomeTRIC computes
+  its finite-difference Hessian (2 x 3N gradients, step 1e-3 Bohr) at the first step: no code change was needed.
+- **HCN <-> HNC** (83 AOs): RIJCOSX 41 s, 27 gradients (18 of them the Hessian); exact 20 s, 8 gradients plus the
+  analytical Hessian. Same saddle point within 1e-4 A, energy -1.2e-6 Eh RIJCOSX - exact, one imaginary mode each
+  (-1115.9 / -1110.6 cm-1, the H between C and N).
+- **Cl- + CH3Cl, charge -1** (156 AOs, off-centre start): both reach the D3h saddle point (C-Cl 2.3181/2.3183 and
+  2.3182 A); RIJCOSX 185 s, 42 gradients (36 the Hessian); exact 76 s, 8. Energy -8.6e-6 Eh; one imaginary mode,
+  -546.3 / -543.9 cm-1.
+- The scanner's state carries over correctly: a new SCF object at each saddle point reproduces the last scanner
+  energy to 1e-11 Eh and its gradient to 5e-7 Eh/Bohr.
+- RIJCOSX's finite-difference Hessian agrees with finite differences of the exact gradient to 6e-5 Eh/Bohr^2 on every
+  row tested (asymmetry 2.7e-5).
+- **Found on the way, upstream as well** (implemented since: next section): the analytical RKS Hessian leaves out the grid response
+  (`grid_response=True` raises NotImplementedError on CPU). At the SN2 saddle point its Cl diagonal is +0.026
+  Eh/Bohr^2 off, in gas phase and SMD alike, so its low modes read 206/207/258 cm-1 against the true 197/198/217.
+  On HCl/def2-TZVPD with the same grids, H[Cl z, Cl z]:
+  - HF analytical equals FD to 1e-6.
+  - B3LYP is -4.1e-3.
+  - wB97M-V is +2.62e-2: 0.355399 against 0.329178 from the energy's second difference, 8% too stiff.
+  Stock PySCF (`pyscf-base`) gives the same values. The translational sum rule is broken by the same amount.
+  Hydrogens and C/N/O were only slightly affected here: 2.5e-4 on HCN.
+- For large molecules the start Hessian is what costs: 6N gradients (420 for NAD+). Options: `hessian='file:...'`
+  from a cheaper level, or geomeTRIC's work queue.
+
+### The grid response of the analytical DFT Hessian, implemented (2026-11-23; pyscf 7f992f952, tag and pin `perf-2026-11-24`, pushed)
+The user: "Implement the grid response for the analytical Hessian". `Hessian.grid_response = True` was
+NotImplementedError on the CPU (RKS, UKS, and their density-fitted versions). It now works for LDA, GGA, meta-GGA, hybrids,
+RSH and VV10. The Hessian is then the second derivative of the energy as computed, i.e. of the gradient with
+`grid_response = True`. The default stays False, as upstream. `bench/results/wb97mv-tzvpd/hessian_grid_response.log`.
+- **What it adds** (`hessian/rks.py`):
+  - The points of each atom's grid move with it, and the Becke weights depend on all atoms. A point's own atom
+    follows from translational invariance: its motion changes the density by nabla rho, minus the sum of the
+    orbital responses, and every derivative of a weight sums to zero over the atoms.
+  - Energy, `_get_exc_deriv2_grid_response`: d2w eps, dw x vxc drho + transpose, w fxc (full minus orbital
+    drho drho), and w vxc times the motion applied to the orbital response. The existing orbital-only functions
+    are unchanged. The same function serves UKS, given the spin density matrices.
+  - Fock derivative, inside `_get_vxc_deriv1` (RKS and UKS): the potentials of the 3*natm perturbations get
+    `wv[owner] -= sum_B wv[B]` and `-dw vxc`. Each owner atom's points add the AO-derivative matrix of the
+    ground-state potential (`_grid_motion_vmat_`). No extra potential builds.
+  - VV10: the density responses of `_get_enlc_deriv2` get the motion of the points, and
+    `_vv10_grid_response_terms` adds Liang et al.'s Eqs. 32-37 (as gpu4pyscf). The VV10 Fock derivative already had
+    its grid response.
+- **C kernels:**
+  - `VXCbecke_weight_derivs` (grid_basis.c): first derivatives of the Becke weights and the contraction
+    sum_g eps d2w. It visits only the atoms that shape a point's partition. It replaces upstream's O(natm^3)-per-point
+    first-derivative kernel behind `get_dweight_dA`: same values to 2e-14 relative.
+  - `VXCgrid_d2rho_dot`: the d2rho point-motion terms; 40 s of numpy -> 4.5 s on paracetamol.
+  - `VXC_vv10nlc_hessian_grid_response_sorted` (nr_numint.c): one pass over the pairs, points sorted by atom, giving
+    E/U/W of the motion of the other point together with the double-motion term (gpu4pyscf's D_B). It replaces the old
+    scalar `EUW_grid_response` call in the VV10 Fock derivative too, with or without grid response (equal to 1e-15).
+  - The energy terms hand the VV10 pair results (weights and motion) to the Fock derivative when 6 x natm*3 x VV10
+    points doubles fit in half the free `max_memory`.
+- **Validation** (`hess_grid_response_fd.py`): against Richardson-extrapolated central differences of the
+  grid-response gradient on coarse grids (30,110)/(20,50), def2-SVP.
+  - RKS HOCl, SVWN/PBE/B3LYP/TPSS/M06-L/wB97X/r2SCAN/wB97M-V/B97M-V: 1e-8 to 3e-8 (FD noise about 1e-6).
+    Without grid response, 1 to 1600 at these grids.
+  - UKS CH2Cl radical, SVWN/B3LYP/M06-L/wB97M-V: 3e-8 to 7e-8.
+  - The translational sum rule holds to 1e-10.
+- **Production settings**, wB97M-V/def2-TZVPD (99,590)/(50,194):
+  - HCl: H[Cl z, Cl z] 0.329173 against the energy's second difference 0.329178. It was 0.355399.
+  - The SN2 saddle point in SMD water, exact J/K: -546.3, 197.2, 197.8, 217.0 cm-1, the RIJCOSX FD values to 0.1
+    cm-1. They were 205.9/206.5/258.2.
+  - At optimized geometries, the shift from leaving the grid response out is at most 0.3 cm-1 for water, methanol,
+    H2S and PH3, and 3.7 cm-1 for CH3Cl's C-Cl stretch. The missing terms matter for soft modes of heavier atoms.
+- **Cost**, paracetamol/def2-SVP: about +60 s on a ~350 s Hessian (XC energy terms 28 s, VV10 energy +50 s, make_h1
+  -18 s when the VV10 pair terms are handed over). Not measured on NAD+.
+- **Tests:**
+  - `test_rks.py`: `test_grid_response` (LDA, GGA with DF, meta-GGA, VV10) and `test_becke_weight_derivs`.
+  - `test_uks.py`: `test_grid_response` (B3LYP, M06-L with DF, wB97M-V).
+  - `test_unsupported_grid_response` removed.
+  - dft scf df grad hessian tdscf solvent sgx eph: 1114 passed, the 5 known failures.
+- **Not done:**
+  - Becke schemes other than original Becke with Treutler/Becke radii: NotImplementedError.
+  - Grids with symmetry: not tested.
+  - The GPU tree: gpu4pyscf already had the grid response.
+  - Pair pruning in the Becke kernel: O(natm^2) per point, unmeasured at NAD+ size.
+
 ## GPU4PySCF, part 36: what the CPU tree gained since perf-2026-11-03, on the GPU (node1), 2026-11-21/22
 The user, after the read-only audit of 2026-11-21 (gpu4pyscf had not moved since part 35; the CPU tree had gained the
 two-level SCF, the solvent rewrites, the residual CPHF solver, RIJCOSX): "The GPU on node1 is now available so we can

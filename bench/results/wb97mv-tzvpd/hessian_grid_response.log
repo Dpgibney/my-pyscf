@@ -1,0 +1,46 @@
+# The grid response of the analytical DFT Hessian (Hessian.grid_response = True), pyscf perf working tree on de29d15f2,
+# laptop, 10 threads, 2026-11-23. Scripts: bench/diag/wb97mv/hess_grid_response_{fd,prod,freq,parts}.py.
+
+## Against central differences of the gradient with grid_response (Richardson extrapolation of 5e-4 and 1e-3 Bohr;
+## SCF conv_tol 1e-13, conv_tol_grad 1e-10; cphf_residual_tol 1e-8). HOCl, def2-SVP, coarse grids (30,110)/(20,50).
+## "FD 5e-4 vs 1e-3": the two FD steps against each other (the noise of the reference). Sum rule: max |sum_A H[A,B]|.
+## RKS
+svwn       max |H| 1.870; analytical - FD max: grid_response=False 1.03e+00, True 1.80e-08 (FD 5e-4 vs 1e-3: 7.5e-07); sum rule 1.1e-10
+pbe        max |H| 1.866; analytical - FD max: grid_response=False 1.68e+01, True 2.76e-08 (FD 5e-4 vs 1e-3: 8.0e-07); sum rule 1.3e-10
+b3lyp      max |H| 1.864; analytical - FD max: grid_response=False 1.46e+01, True 1.22e-08 (FD 5e-4 vs 1e-3: 7.9e-07); sum rule 1.3e-10
+tpss       max |H| 1.857; analytical - FD max: grid_response=False 1.86e+01, True 1.70e-08 (FD 5e-4 vs 1e-3: 8.0e-07); sum rule 1.4e-10
+m06l       max |H| 1.828; analytical - FD max: grid_response=False 1.64e+03, True 1.21e-08 (FD 5e-4 vs 1e-3: 2.0e-06); sum rule 1.4e-10
+wb97x      max |H| 1.875; analytical - FD max: grid_response=False 1.11e+01, True 1.06e-08 (FD 5e-4 vs 1e-3: 1.2e-06); sum rule 1.3e-10
+r2scan     max |H| 1.871; analytical - FD max: grid_response=False 1.73e+01, True 1.77e-08 (FD 5e-4 vs 1e-3: 5.9e-07); sum rule 1.3e-10
+wb97m-v    max |H| 1.877; analytical - FD max: grid_response=False 2.91e+01, True 9.78e-09 (FD 5e-4 vs 1e-3: 9.2e-07); sum rule 1.4e-10
+b97m-v     max |H| 1.858; analytical - FD max: grid_response=False 2.09e+01, True 1.41e-08 (FD 5e-4 vs 1e-3: 6.8e-07); sum rule 1.4e-10
+## UKS, CH2Cl radical (C 0 0 0; H 0 0.93 0.45; H 0.1 -0.93 0.5; Cl 0 0.1 -1.75), same settings
+svwn       max |H| 0.833; analytical - FD max: grid_response=False 1.03e+00, True 3.14e-08 (FD 5e-4 vs 1e-3: 3.3e-07); sum rule 1.6e-10
+b3lyp      max |H| 0.823; analytical - FD max: grid_response=False 1.46e+01, True 3.59e-08 (FD 5e-4 vs 1e-3: 3.4e-07); sum rule 1.7e-10
+m06l       max |H| 0.804; analytical - FD max: grid_response=False 1.64e+03, True 3.60e-08 (FD 5e-4 vs 1e-3: 7.8e-07); sum rule 1.6e-10
+wb97m-v    max |H| 0.825; analytical - FD max: grid_response=False 2.92e+01, True 7.01e-08 (FD 5e-4 vs 1e-3: 3.2e-07); sum rule 1.7e-10
+## UKS HOCl+ (doublet): pbe 1.1e-7, tpss 3.1e-7, b3lyp 2.0e-6, wb97x 2.7e-6, wb97m-v 2.4e-6 at FD noise 1-3e-6; svwn's
+## FD reference broke (its two steps differ by 17: the SCF changed solution at the displaced geometries).
+
+## Production settings: wB97M-V/def2-TZVPD, (99,590)/(50,194)
+HCl grid_response=False: H[Cl z, Cl z] 0.355399 (energy second difference 0.329178), translational sum +2.6e-02, 1.5 s
+HCl grid_response=True:  H[Cl z, Cl z] 0.329173 (energy second difference 0.329178), translational sum +6.3e-11, 4.3 s
+SN2 saddle point (ts_rijcosx.py, RIJCOSX geometry), SMD water, the exact-J/K analytical Hessian, cm-1:
+  grid_response=False: -543.7 205.9 206.5 258.2 977.4 978.0 1109.2 1369.4 1370.5 3194.2 3393.3 3394.0; 30 s
+  grid_response=True:  -546.3 197.2 197.8 217.0 977.4 977.9 1109.0 1369.4 1370.5 3194.2 3393.3 3394.0; 53 s
+  RIJCOSX FD Hessian:  -546.3 197.2 197.8 217.0 977.3 977.7 1108.8 1369.1 1370.4 3194.2 3393.5 3393.9
+Harmonic frequencies at geometries optimized with the grid-response gradient (hess_grid_response_freq.py), cm-1:
+water     with grid response: 1623.0 3822.7 3922.8; without - with: +0.1 +0.0 +0.0 (max 0.1)
+methanol  with grid response: 285.0 1057.4 1089.5 1169.0 1363.4 1472.9 1490.8 1501.2 3024.5 3075.7 3140.4 3857.9; without - with: max 0.3 (285.0)
+H2S       with grid response: 1207.9 2727.3 2739.2; without - with: +0.1 -0.0 -0.0 (max 0.1)
+CH3Cl     with grid response: 752.0 1028.0 1028.0 1380.0 1475.1 1475.2 3095.7 3192.2 3192.2; without - with: +3.7 (C-Cl stretch), others <= 0.1
+PH3       with grid response: 1012.7 1140.6 1140.6 2432.1 2437.4 2437.4; without - with: +0.2 +0.1 +0.1 +0.0 +0.0 +0.0 (max 0.2)
+
+## Cost: paracetamol (20 atoms, 199 AOs), wB97M-V/def2-SVP, (99,590)/(50,194): 642472 XC points, 131384 VV10 points
+## (hess_grid_response_parts.py, one process; the laptop drifts 10-20% between runs, so A/B of whole Hessians is noisy)
+grid_response=False: XC energy grid terms -,      VV10 energy 28-32 s, make_h1 88-89 s
+grid_response=True:  XC energy grid terms 27-30 s, VV10 energy 77-83 s, make_h1 104-111 s (max_memory 4000: the VV10
+                     pair terms not kept), 70 s with max_memory 12000 (kept from the energy terms)
+=> about +60 s on a ~350 s Hessian (+17%) when the VV10 pair terms fit in memory (6 x natm*3 x VV10 points doubles)
+Whole Hessian (verbose 5 timers, max_memory 4000): 335 -> 475 s with the first numpy version; 348 -> 499 s with the
+C kernels but the VV10 pair terms not kept (memory), CPHF 199 -> 240 s at the same 4 cycles / 224-226 vectors (drift).

@@ -1,0 +1,11 @@
+# NAD+ (C21H26N7O14P2-, charge -1) wB97M-V/def2-TZVPD in SMD water, energy and gradient: ORCA's RIJCOSX (def2/J),
+# VV10 self-consistent (SCNL) as PySCF's, TightSCF, DefGrid3 (Lebedev-590 for XC, its NL grid Lebedev-194).
+# 10 MPI ranks, 1600 MB each (PySCF: 10 threads, max_memory 16000). The PySCF run: bench/diag/wb97mv/prod_scf_grad.py.
+! wB97M-V def2-TZVPD RIJCOSX def2/J TightSCF SCNL DefGrid3 EnGrad CPCM(Water)
+%pal nprocs 10 end
+%maxcore 1600
+%cpcm
+  smd true
+  SMDsolvent "water"
+end
+* xyzfile -1 1 nad.xyz

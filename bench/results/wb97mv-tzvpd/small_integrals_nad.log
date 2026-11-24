@@ -1,0 +1,4 @@
+70 atoms, 1916 AOs
+bound   1e-13: J + K   436.3 s (100%), long-range K   383.1 s (100%); left out: dE +0.0e+00 Eh
+bound   1e-06: J + K   164.7 s ( 38%), long-range K    70.3 s ( 18%); left out: dE -1.3e-04 Eh
+bound   1e-04: J + K    66.3 s ( 15%), long-range K    12.2 s (  3%); left out: dE -5.3e-02 Eh
