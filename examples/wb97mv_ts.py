@@ -1,0 +1,109 @@
+#!/usr/bin/env python
+'''
+wB97M-V/def2-TZVP transition-state optimization with this workspace's PySCF: geomeTRIC's saddle-point search
+(transition=True) from an analytical Hessian, then the harmonic frequencies at the saddle point it finds, which
+should have exactly one imaginary mode, along the reaction coordinate.
+
+The optimizer, geomeTRIC, is not installed by scripts/cpu_setup.sh (examples/wb97mv_geomopt.py says how).
+Then, from any directory:
+
+    source /path/to/my-pyscf/scripts/pyscf-env.sh
+    python /path/to/my-pyscf/examples/wb97mv_ts.py
+
+Writes wb97mv_ts.out (the SCF, gradient and Hessian output) and wb97mv_ts.xyz (the saddle point) to the
+current directory, and prints the frequencies and the atoms that move in the imaginary mode.
+'''
+import numpy
+from pyscf import gto, dft, df, grad, hessian  # grad, hessian: give dft.RKS its Gradients() and Hessian()
+from pyscf.hessian import thermo
+from pyscf.geomopt import geometric_solver
+
+# A guess of the saddle point: here HCN <-> HNC, the H bridging C and N
+mol = gto.M(
+    atom='''
+    C  0.000  0.000  0.000
+    N  1.190  0.000  0.000
+    H  0.486  1.042  0.000
+    ''',                            # or atom='guess.xyz'
+    basis='def2-tzvp',
+    charge=0,
+    spin=0,
+    verbose=4,
+    output='wb97mv_ts.out',
+)
+
+# For larger molecules: RI-J and seminumerical K (RIJCOSX) in the optimization's gradients, with the start Hessian and
+# the frequencies still from exact J and K. On HCN <-> HNC and Cl- + CH3Cl (def2-TZVPD, SMD water) it found the exact
+# saddle point within 1e-4 and 4e-4 Angstrom, and the exact Hessian there gave the frequencies of RIJCOSX's own
+# finite-difference Hessian within 0.3 cm^-1.
+RIJCOSX = False
+
+
+def make_mf(mol, rijcosx=False):
+    '''One model for the optimization, the start Hessian and the frequencies: the saddle point is then a
+    stationary point of the surface whose Hessian is analyzed.'''
+    mf = dft.RKS(mol, xc='wb97m-v')     # exact J and K; dft.UKS for open shells (same options below)
+    # XC grid, as in examples/wb97mv_hessian.py (99 radial points are enough for P, S and Cl too with the Hessian's
+    # grid response)
+    mf.grids.atom_grid = (99, 590)
+    # VV10 grid of the energy, the gradient and the Hessian's VV10 derivative terms
+    mf.nlcgrids.atom_grid = (50, 194)
+    if rijcosx:
+        mf = mf.RIJCOSX(auxbasis=df.aug_etb(mol))   # RI-J in an even-tempered fitting basis
+    # Solvent: after the grids are set
+    # mf = mf.SMD(); mf.with_solvent.solvent = 'water'
+    # The SCF solution from 2-3 of this model's Fock builds (examples/wb97mv_hessian.py)
+    mf.two_level = True
+    # Grids of the Hessian's CPHF response only (0.02 and 0.01 cm^-1, examples/wb97mv_hessian.py)
+    mf.set_second_grids(2)
+    mf.set_second_nlcgrids(1)
+    return mf
+
+
+def analytical_hessian(mf):
+    '''The analytical Hessian of a converged mf (exact J and K), Eh/Bohr^2, [natm,natm,3,3]'''
+    hobj = mf.Hessian()
+    # The derivatives of the grid points and weights, which PySCF leaves out by default: without them the soft modes
+    # of the Cl- + CH3Cl saddle point were up to 41 cm^-1 off.
+    hobj.grid_response = True
+    # For larger molecules: seminumerical K in the CPHF response only (0.03 cm^-1, examples/wb97mv_hessian.py)
+    # hobj.sgx_response = True
+    return hobj.kernel()
+
+
+# The start Hessian at the guess. geomeTRIC steps uphill along its lowest mode (P-RFO) and updates the Hessian from
+# the gradients at every step (Bofill's Murtagh-Sargent/Powell update). Without one (hessian left out), geomeTRIC
+# makes its own at the first step from finite differences of the gradient: 6 gradients per atom.
+mf = make_mf(mol)
+mf.kernel()
+h0 = analytical_hessian(mf)
+
+# The saddle-point search (geomeTRIC's default thresholds, shown so that they can be edited)
+conv_params = {
+    'convergence_energy': 1e-6,     # Eh
+    'convergence_grms': 3e-4,       # Eh/Bohr
+    'convergence_gmax': 4.5e-4,     # Eh/Bohr
+    'convergence_drms': 1.2e-3,     # Angstrom
+    'convergence_dmax': 1.8e-3,     # Angstrom
+}
+mf_opt = make_mf(mol, rijcosx=True) if RIJCOSX else mf
+conv, mol_ts = geometric_solver.kernel(mf_opt, transition=True, hessian=h0, maxsteps=100, **conv_params)
+mol_ts.tofile('wb97mv_ts.xyz')
+
+# Frequencies at the saddle point
+mf_ts = make_mf(mol_ts)
+mf_ts.kernel()
+gradient = mf_ts.Gradients().kernel()
+h = analytical_hessian(mf_ts)
+res = thermo.harmonic_analysis(mol_ts, h, imaginary_freq=False)
+freq = res['freq_wavenumber']       # imaginary frequencies as negative numbers
+nimag = int((freq < 0).sum())
+disp = numpy.linalg.norm(res['norm_mode'][0], axis=1)   # the lowest mode, the displacement of each atom
+
+print('saddle-point search converged:', conv)
+print('E = %.10f Eh' % mf_ts.e_tot)
+print('largest gradient component %.2e Eh/Bohr' % abs(gradient).max())
+print('harmonic frequencies (cm^-1):', ' '.join('%.1f' % f for f in freq))
+print('%d imaginary mode(s)%s' % (nimag, '' if nimag == 1 else ': not a first-order saddle point'))
+print('atoms moving most in the lowest mode:',
+      ', '.join('%s%d %.2f' % (mol_ts.atom_symbol(i), i, disp[i]) for i in numpy.argsort(-disp)[:5]))

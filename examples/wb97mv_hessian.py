@@ -27,10 +27,10 @@ mol = gto.M(
 
 mf = dft.RKS(mol, xc='wb97m-v')     # exact J and K; dft.UKS for open shells (same options below)
 
-# XC grid. Measured without the grid response (hobj.grid_response below), second-row elements needed 150
-# radial points (H2PO4-: 2 cm^-1 between 99 and 150 points on phosphorus, nothing between 150 and 250). With it
-# the Hessian is the derivative of this grid's energy; 99 points on P, S and Cl have not been measured with it.
-mf.grids.atom_grid = {'default': (99, 590), 'P': (150, 590), 'S': (150, 590), 'Cl': (150, 590)}
+# XC grid. With the grid response (hobj.grid_response below), 99 radial points on P, S and Cl give the frequencies
+# of 150 and 250 within 0.08 cm^-1 (H2PO4-, H2S, CH3Cl). Without it they were up to 4 cm^-1 off, and those elements
+# needed {'default': (99, 590), 'P': (150, 590), 'S': (150, 590), 'Cl': (150, 590)}.
+mf.grids.atom_grid = (99, 590)
 # VV10 grid of the energy, the gradient and the Hessian's VV10 derivative terms
 mf.nlcgrids.atom_grid = (50, 194)
 
