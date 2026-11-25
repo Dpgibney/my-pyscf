@@ -8,7 +8,8 @@ CUDA modules is not charged to the job. Run it with PYTHONPATH set to the tree (
 --set nlcgrids.level=1), --gset NAME=VALUE one of the gradient object, --hset NAME=VALUE one of the Hessian object.
 --save PREFIX writes the energy, the gradient and the Hessian to PREFIX.npz, --compare PREFIX prints their largest
 differences from another run's (for the Hessian also that of the harmonic frequencies). --out FILE appends a JSON line.
-Usage: prod_parts.py [--mol caffeine|benzene|water|FILE.xyz] [--charge 0] [--basis def2-svp] [--xc wb97m-v] [--grid 99,590]
+--spin N (2S, not zero) runs the unrestricted model: UKS, its gradient and its Hessian.
+Usage: prod_parts.py [--mol caffeine|benzene|water|FILE.xyz] [--charge 0] [--spin 0] [--basis def2-svp] [--xc wb97m-v] [--grid 99,590]
                      [--nlcgrid 50,194] [--solvent smd|cpcm|iefpcm|none] [--tasks scf,grad,hess] [--conv-tol 1e-10]
                      [--set NAME=VALUE ...] [--gset NAME=VALUE ...] [--hset NAME=VALUE ...] [--label L] [--save PREFIX]
                      [--compare PREFIX] [--out FILE] [--verbose N]"""
@@ -28,9 +29,9 @@ from gpu_monitor import GpuMonitor  # noqa: E402
 import cupy  # noqa: E402
 from pyscf import gto  # noqa: E402
 import gpu4pyscf  # noqa: E402
-from gpu4pyscf.dft import rks, numint  # noqa: E402
-from gpu4pyscf.grad import rhf as rhf_grad, rks as rks_grad  # noqa: E402
-from gpu4pyscf.hessian import rhf as rhf_hess, rks as rks_hess  # noqa: E402
+from gpu4pyscf.dft import rks, uks, numint  # noqa: E402
+from gpu4pyscf.grad import rhf as rhf_grad, rks as rks_grad, uks as uks_grad  # noqa: E402
+from gpu4pyscf.hessian import rhf as rhf_hess, rks as rks_hess, uhf as uhf_hess, uks as uks_hess  # noqa: E402
 try:
     from gpu4pyscf.sgx import sgx as sgx_mod  # noqa: E402
 except ImportError:   # a tree before part 37 (v1.9.0)
@@ -41,6 +42,7 @@ from gpu4pyscf.solvent.hessian import pcm as pcm_hess, smd as smd_hess  # noqa: 
 ap = argparse.ArgumentParser()
 ap.add_argument('--mol', default='caffeine', help='caffeine, benzene, water, or an xyz file')
 ap.add_argument('--charge', type=int, default=0)
+ap.add_argument('--spin', type=int, default=0, help='2S; not zero: UKS')
 ap.add_argument('--basis', default='def2-svp')
 ap.add_argument('--xc', default='wb97m-v')
 ap.add_argument('--grid', default='99,590')
@@ -125,9 +127,9 @@ def set_attr(obj, spec):
     setattr(obj, last, value)
 
 
-def make_mf(atom, charge=0):
-    mol = gto.M(atom=atom, basis=args.basis, charge=charge, verbose=args.verbose)
-    mf = rks.RKS(mol, xc=args.xc)
+def make_mf(atom, charge=0, spin=0):
+    mol = gto.M(atom=atom, basis=args.basis, charge=charge, spin=spin, verbose=args.verbose)
+    mf = (uks.UKS if spin else rks.RKS)(mol, xc=args.xc)
     mf.grids.atom_grid = tuple(int(x) for x in args.grid.split(','))
     if args.nlcgrid != 'none':
         mf.nlcgrids.atom_grid = tuple(int(x) for x in args.nlcgrid.split(','))
@@ -149,7 +151,7 @@ def instrument(mf, g):
                  'get_init_guess'):
         parts.wrap(type(mf), name, 'scf.' + name)
     # by grid size: a two-level SCF evaluates these on the coarse grids and on the model's
-    for name in ('nr_rks', 'nr_nlc_vxc'):
+    for name in ('nr_rks', 'nr_uks', 'nr_nlc_vxc'):
         parts.wrap(type(mf._numint), name, 'numint.' + name,
                    keyfn=lambda ni, mol, grids, *a, **kw: '[%d]' % grids.size)
     parts.wrap(numint, '_vv10nlc', 'numint._vv10nlc')
@@ -168,6 +170,8 @@ def instrument(mf, g):
             parts.wrap(type(g), name, 'grad.' + name)
         for name in ('get_exc', 'get_exc_full_response', 'get_nlc_exc', 'get_nlc_exc_full_response'):
             parts.wrap(rks_grad, name, 'grad.' + name)
+            # the unrestricted gradient's own functions, and the names it imported from grad.rks
+            parts.wrap(uks_grad, name, 'grad.' + name)
         for name in ('grad_qv', 'grad_solver', 'grad_nuc'):
             parts.wrap(pcm_grad, name, 'solvent.' + name)
         parts.wrap(smd_grad, 'get_cds', 'solvent.grad_cds')
@@ -208,19 +212,29 @@ def instrument_hess(mf):
     """The parts of the analytical Hessian: the second derivatives of the energy at fixed orbitals
     (partial_hess_elec), the first-order Fock matrices (make_h1), the CPHF equations (solve_mo1, whose response of a
     set of trial densities is veff_resp_mo), the solvent's terms."""
-    for name, label in (('hess_elec', 'hess.hess_elec'), ('partial_hess_elec', 'hess.partial_hess_elec'),
-                        ('make_h1', 'hess.make_h1')):
-        parts.wrap(rks_hess.Hessian, name, label)
-    # the response of a set of trial densities: the model's own, and the cheap model's of the two-level CPHF
-    parts.wrap(rks_hess.Hessian, 'get_veff_resp_mo', 'hess.veff_resp_mo', _veff_resp_suffix)
-    parts.wrap(rks_hess.Hessian, 'get_jk_mo', 'hess.jk_mo', _cheap_suffix)
+    for cls in (rks_hess.Hessian, uks_hess.Hessian):
+        for name, label in (('hess_elec', 'hess.hess_elec'), ('partial_hess_elec', 'hess.partial_hess_elec'),
+                            ('make_h1', 'hess.make_h1')):
+            parts.wrap(cls, name, label)
+        # the response of a set of trial densities: the model's own, and the cheap model's of the two-level CPHF
+        parts.wrap(cls, 'get_veff_resp_mo', 'hess.veff_resp_mo', _veff_resp_suffix)
+        parts.wrap(cls, 'get_jk_mo', 'hess.jk_mo', _cheap_suffix)
+        if 'solve_mo1' in vars(cls):
+            parts.wrap(cls, 'solve_mo1', 'hess.solve_mo1')
     parts.wrap(rhf_hess.HessianBase, 'solve_mo1', 'hess.solve_mo1')
-    for name in ('_partial_ejk_ip2', '_hcore_energy', '_get_jk_ip1', 'krylov', '_cheap_start_and_trials'):
-        parts.wrap(rhf_hess, name, 'hess.' + name.lstrip('_'))
-    for name in ('_get_exc_deriv2', '_get_enlc_deriv2', '_get_vxc_deriv1', '_get_vnlc_deriv1'):
-        parts.wrap(rks_hess, name, 'hess.' + name.lstrip('_'))
-    for name in ('nr_rks_fxc_mo', 'nr_rks_fnlc_mo', 'get_nlc_response_ground_state'):
-        parts.wrap(rks_hess, name, 'hess.' + name.lstrip('_'), _cheap_suffix)
+    for mod in (rhf_hess, uhf_hess):
+        for name in ('_partial_ejk_ip2', '_hcore_energy', '_get_jk_ip1', 'krylov', '_cheap_start_and_trials'):
+            parts.wrap(mod, name, 'hess.' + name.lstrip('_'))
+    # (the unrestricted module has functions of its own under these names, and holds those it imported from
+    # hessian.rks under their names)
+    for mod in (rks_hess, uks_hess):
+        for name in ('_get_exc_deriv2', '_get_enlc_deriv2', '_get_vxc_deriv1', '_get_vnlc_deriv1'):
+            parts.wrap(mod, name, 'hess.' + name.lstrip('_'))
+        for name in ('nr_rks_fxc_mo', 'nr_uks_fxc_mo', 'nr_rks_fnlc_mo', 'nr_uks_fnlc_mo',
+                     'get_nlc_response_ground_state'):
+            parts.wrap(mod, name, 'hess.' + name.lstrip('_'), _cheap_suffix)
+    # the unrestricted XC response from AO density matrices
+    parts.wrap(type(mf._numint), 'nr_uks_fxc', 'numint.nr_uks_fxc', _cheap_suffix)
     if sgx_mod is not None:
         parts.wrap(sgx_mod.SGX, 'get_k', 'sgx.get_k', _cheap_suffix)
     parts.wrap(rhf_grad, 'get_grad_hcore', 'hess.grad_hcore')
@@ -251,8 +265,8 @@ def report(task, out):
     print(f"    {'(not in any timed part)':34s} {'':5s} {'':9s} {out['times'][task] - top:9.2f}", flush=True)
 
 
-def run(atom, timed, charge=0):
-    mf = make_mf(atom, charge)
+def run(atom, timed, charge=0, spin=0):
+    mf = make_mf(atom, charge, spin)
     g = None
     if 'grad' in tasks:
         g = mf.Gradients()
@@ -334,11 +348,13 @@ def run(atom, timed, charge=0):
 
 
 if not args.no_warmup:
-    run(WATER, False)
-mf, out = run(MOLS.get(args.mol, args.mol), True, args.charge)
+    # (the water cation for an open shell)
+    run(WATER, False, args.spin % 2, args.spin % 2)
+mf, out = run(MOLS.get(args.mol, args.mol), True, args.charge, args.spin)
 ngrids, nlc, nsurf = out['ngrids'], out['nlcgrids'], out['nsurf']
 
-record = {'label': args.label, 'tree': os.path.dirname(gpu4pyscf.__file__), 'mol': args.mol, 'basis': args.basis,
+record = {'label': args.label, 'tree': os.path.dirname(gpu4pyscf.__file__), 'mol': args.mol, 'spin': args.spin,
+          'basis': args.basis,
           'xc': args.xc, 'solvent': args.solvent, 'grid': args.grid, 'nlcgrid': args.nlcgrid, 'nao': int(mf.mol.nao),
           'ngrids': ngrids, 'nlcgrids': nlc, 'nsurf': nsurf, 'set': args.set, 'gset': args.gset, 'hset': args.hset,
           'E': out['e'],

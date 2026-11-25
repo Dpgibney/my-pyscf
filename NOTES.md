@@ -10217,6 +10217,220 @@ and without the solvent's response in the equations (an earlier run of the scrip
   which is where the solvent's response is switched on (`equilibrium_solvation`): seen, not touched.
 - GHF/GKS, PBC; the solvent's terms of SS(V)PE keep their dense matrices.
 
+## GPU4PySCF, part 41: the UKS transition-state workflow of the CPU audit on the GPU (node1), 2026-11-25
+The user, after the CPU audit of the 57-atom UKS transition-state Hessian (above, "A UKS transition-state Hessian at
+production size: the audit"): "Could you work on making sure that the GPU4PySCF also has these enhancements when
+running the same example UKS TS state calculation?" The GPU tree had been tuned on a closed-shell molecule only
+(parts 36-40), its UKS Hessian had never been profiled, and no transition-state search had been run on it.
+- **Workload:** the two small molecules of the CPU audit with the settings of `examples/wb97mv_ts.py`: a
+  methoxyphenoxyl radical (16 atoms, doublet, UKS; 161 functions in def2-SVP, 321 in def2-TZVP) and methoxyphenol
+  (17 atoms, RKS; 166 / 327); wB97M-V, XC (99,590) = 514,304 / 547,328 points, VV10 (50,194) = 105,216 / 111,872
+  points, SMD water (3933 / 4135 surface points), two-level SCF, `grid_response`, conv_tol 1e-10, the XC kernel of
+  the CPHF on GPU4PySCF's default `cphf_grids` (SG-1). The GTX 1650 Super (4 GB): the 57-atom molecule does not fit
+  it, so nothing here is measured at production size.
+- **Tools:** `bench/gpu/prod_parts.py --spin N` (UKS, with the parts of its Hessian timed as the RKS ones);
+  `bench/gpu/cpu_ref.py` and `cmp_cpu_gpu.py` (the CPU tree with the GPU runs' settings, and the comparison);
+  `bench/gpu/ts_example_variants.sh` and, for the CPU example, `bench/diag/wb97mv/uks_ts_audit/ts_example_variants.sh`
+  (now with `VARIANTS`); `bench/diag/wb97mv/uks_ts_audit/smd_rotation/`; node1 `scratch/p41_{a..g}.sh`.
+- **Data:** `bench/results/node1/p41_uks_ts.txt`, `p41_parts.jsonl`.
+- **Commits:** gpu4pyscf `perf` 61d3b569 (the UKS XC response), 809c26ce (the CPHF blocks), 3daec168 (the
+  solvent's limits), 1f518bcb (the geomeTRIC interface), merged into `exp/prim-screen` 0e673e0c; pushed on
+  2026-11-25 as tag `perf-2026-11-25` at the user's word ("Please commit and push"). Only the final state of the
+  four was tested.
+
+### The CPU audit's items on the GPU (tag perf-2026-11-23)
+| CPU audit | GPU tree |
+|---|---|
+| 1. the solvent's Hessian terms: memory growing with the threads, [n,n] matrices | no thread pool; the surface matrices as products since parts 36 and 40. **The stored integrals (p i\|g) of the solvent's response were limited per spin** (below) |
+| 2. the UKS CPHF on AO matrices of all perturbations | atoms in blocks sized by the device memory (upstream); K of both spins from one pass over the integrals; VV10 from the first-order orbitals (part 40). **The XC response built AO matrices for both spins** (`NumInt.nr_uks_fxc`; RKS has `nr_rks_fxc_mo`) |
+| 3. the UKS Fock derivative's kernel terms as AO matrices | in the MO basis for both spins (upstream) |
+| 4. the grid response's Python loop over atoms | upstream's grid-response XC terms contract on the device in a loop over the atoms for every block of grid points; VV10's are compiled kernels (part 40). Not looked at (below) |
+| 5. energy-type integral contractions screened with one density element | the kernels' bound has two (`_fill_ejk_tasks`) |
+| 6. the VV10 kernel applied twice | shared since part 40, RKS and UKS |
+| 7. UKS XC blocks sized for the AO values alone | fixed blocks of grid points; nothing sized by `max_memory` |
+| 8. one-electron second derivatives | 0.1 s |
+| 9. `sgx_response`, RI-J in the response, RIJCOSX searches | **none of the three**: the tree's seminumerical K serves the cheap model of the two-level SCF (and, as an option, of the two-level CPHF) and has no gradient; there is no RI-J beside the density-fitted models |
+
+Beside these: **no geomeTRIC interface that takes a Hessian** (PySCF 2.14's computes the method's own with its
+defaults; the array option is this workspace's CPU tree's), **no GPU version of the example**, and two things that only
+a larger job meets: **the CPHF equations refused to start unless 16 atoms fit at once**, and **their path for several
+blocks of atoms had never run** (every job on this card fits one block; no test forced more).
+
+### What was done
+1. **The UKS XC response of the CPHF in the MO basis** (`hessian.uks.nr_uks_fxc_mo`). The response densities of both
+   spins and the potentials times the occupied orbitals from the first-order orbitals that `hessian.uhf.gen_vind`
+   tags its densities with, as `hessian.rks.nr_rks_fxc_mo` does for RKS: GEMMs of nao_sub x nocc per density and
+   spin instead of nao_sub x nao_sub, and no [2,nset,nao,nao] potential matrices (3.9 GB for the 171 perturbations
+   of 1198 functions). The grid block's part moved into `hessian.rks._fxc_mo_add_block`, shared by the two (the
+   count of GEMMs that decides between the MO and the AO form of a block is the table `_FXC_MO_GEMMS`). A spin
+   without electrons is skipped. `hessian.uks.NR_UKS_FXC_MO = False` gives the old path.
+2. **The stored surface integrals of the two spins share their limits.** `solvent.hessian.pcm.surface_mo_integrals`
+   keeps (p i|g) on the device up to 10% of its free memory, else on the host up to half of `mol.max_memory`; for
+   unrestricted orbitals each spin had that share to itself: all of `max_memory` for the pair. Each spin now has
+   half of it, and beta's are not made where alpha's did not fit. (At 57 atoms, 1198 functions and 12,812 surface
+   points the pair is 32 GB (131 + 130 occupied orbitals): kept only if `mol.max_memory` is 64 GB or more,
+   otherwise the response contracts the surface integrals for every density, as before part 40.)
+3. **The CPHF equations in blocks of any size.** `solve_mo1` (RHF and UHF) sizes the atoms of a block by the free
+   device memory and stopped with "GPU memory insufficient" below 16 atoms (`ALIGNED**2`), also for a molecule of
+   fewer atoms: 11 GB free for UKS with 1198 functions. `hessian.rhf._cphf_atom_block`: all atoms, or a multiple of
+   16, or below that what fits (more blocks, each with its own responses: slower, not refused).
+4. **`gpu4pyscf.geomopt.geometric_solver`**: `kernel` and `optimize` of PySCF's geomeTRIC interface, with `hessian`
+   also an array ([natm,natm,3,3] or [3N,3N], host or device), written to the file geomeTRIC reads; anything else
+   goes to PySCF's solver as it is.
+5. **`examples/wb97mv_ts_gpu.py`**: the search of `examples/wb97mv_ts.py` on the GPU. Exact J and K everywhere
+   (no `RIJCOSX` and `SGX_RESPONSE` switches), UKS when `mol.spin`, the CPHF's XC kernel on `mf.cphf_grids` of
+   level 2 (GPU4PySCF's default is SG-1; the CPU example has `set_second_grids(2)`), `START_HESSIAN_BASIS`.
+6. The tools above.
+
+### Measured
+GTX 1650 Super; SMD water, two-level SCF, `grid_response`; "before" is tag perf-2026-11-23.
+
+**The UKS Hessian against the RKS one and against the CPU tree** (before any change):
+
+| | SCF | gradient | Hessian | against the CPU tree: E, gradient, Hessian, frequencies |
+|---|---|---|---|---|
+| radical, UKS, def2-SVP | 25.8 s | 3.6 s | 500.1 s | +2.3e-8 Eh, 5.8e-7, 6.7e-7 a.u., 0.002 cm^-1 |
+| closed shell, RKS, def2-SVP | 16.2 s | 3.3 s | 402.2 s | +2.5e-8 Eh, 3.7e-7, 3.5e-7 a.u., 0.002 cm^-1 |
+| radical, UKS, def2-TZVP | 78.9 s | 16.7 s | 1669.4 s | +2.6e-8 Eh, 6.4e-7, 1.4e-6 a.u., 0.001 cm^-1 |
+| closed shell, RKS, def2-TZVP | 42.4 s | 16.3 s | 1109.8 s | +2.3e-8 Eh, 1.8e-7, 2.4e-7 a.u., 0.001 cm^-1 |
+
+  The UKS Hessian is 1.24 times the RKS one of a molecule of the same size in def2-SVP and 1.50 times in
+  def2-TZVP (1.37 with the change below): the XC terms 1.5 to 1.7 times for two spin densities, the VV10 terms no
+  more, the Fock derivative's J and K twice (`_get_jk_ip1` takes one density a pass), a response's J and K 1.4
+  times (45 s against 32 s in def2-TZVP), 7 responses of the cheap model against 5. Only the XC response was out
+  of proportion: 29.1 s a response in def2-TZVP against 7.3 s for RKS. The two trees agree as closely for UKS as
+  for RKS. The laptop's 10 threads take 488.7 s for the def2-TZVP UKS Hessian (SCF 49.1 s, gradient 16.4 s) and
+  443.7 s for the RKS one: this card runs double precision at 1/32 of its single-precision rate.
+
+**The UKS XC response in the MO basis** (the radical; the Hessian and its CPHF equations):
+
+| | Hessian | CPHF | XC response of the 7 cheap-model and the 1 own response | against the Hessian before |
+|---|---|---|---|---|
+| def2-SVP, before | 500.1 s | 160.4 s | 67.9 + 12.7 s | |
+| def2-SVP, now | 468.1 s | 126.0 s | 38.5 + 7.1 s | 1.1e-10 a.u., 0.000 cm^-1 (E 6e-13, gradient 8e-11) |
+| def2-TZVP, before | 1669.4 s | 696.6 s | 203.5 + 37.4 s | |
+| def2-TZVP, now | 1515.7 s | 542.4 s | 72.5 + 13.2 s | 1.3e-9 a.u., 0.000 cm^-1 (E 2e-13, gradient 3e-10) |
+
+- A response of 48 perturbations of both spins takes 5.5 s (def2-SVP) and 10.4 s (def2-TZVP) where the AO form
+  took 9.7 and 29.1 s; the RKS one of 51 perturbations 4.0 s (def2-SVP). The closed-shell Hessian is unchanged by
+  the shared block function (402.2 -> 402.1 s, 3e-11 a.u.).
+- **Where the def2-TZVP UKS Hessian's time is now** (1515.7 s): J and K 791.8 s (second derivatives 252.6, Fock
+  derivative 159.9 in 4 passes, the 8 responses 379.3), XC 456.6 s (second derivatives 190.6, Fock derivative
+  180.3, response 85.7), VV10 221.2 s (89.3 + 65.1 + 66.8), the solvent's terms 38 s.
+
+**The seminumerical K in the cheap model of the two-level CPHF** (`cphf_two_level_parts = ('nlc', 'k')`; the
+radical, def2-TZVP, with the change above):
+
+| | Hessian | CPHF | J and K of the 7 cheap-model responses | against the Hessian before |
+|---|---|---|---|---|
+| the default, `('nlc',)` | 1515.7 s | 542.4 s | 318.4 s (14 passes over the integrals) | 1.3e-9 a.u., 0.000 cm^-1 |
+| `('nlc', 'k')` | 1365.0 s | 392.0 s | 113.2 s (J engine) + 55.0 s (K, level 1, single precision) | 6.1e-9 a.u., 0.000 cm^-1 |
+
+- Still one response of the model itself after the cheap model's solve, so the same result for 10% less. Part 40
+  found no gain in def2-SVP (the exact J and K of 72 densities took 8.6 s there, the J engine 8.3 s and this K
+  4.7 s). Left off by default: the K runs in single precision, which this card does 32 times faster than double;
+  on a card with fast double precision the exact kernels lose less. `examples/wb97mv_ts_gpu.py` has the line,
+  commented out.
+- What the CPHF's 392 s are then: the J engine for the cheap responses 113 s (16 s for 48 densities, twice the K
+  of 96), XC 86 s, VV10 66 s, the model's own J and K 61 s, the cheap K 55 s.
+
+**The example on both trees** (`bench/gpu/ts_example_variants.sh` on node1, `examples/wb97mv_ts_gpu.py`;
+`bench/diag/wb97mv/uks_ts_audit/ts_example_variants.sh` on the laptop, `examples/wb97mv_ts.py` with its switches
+off): steps of the search, frequencies at its end (cm^-1), largest gradient component there (Eh/Bohr).
+
+| | GPU | CPU |
+|---|---|---|
+| HCN <-> HNC, as it is | 12, -1114.6 2110.5 2664.8, 1.1e-5 | 14, -1114.6 2110.5 2664.7, 1.2e-5 |
+| start Hessian in def2-SVP | 13, -1114.6 2110.5 2664.8, 2.3e-6 | 13, -1114.6 2110.5 2664.8, 2.0e-6 |
+| SMD water | 8, -1118.3 2073.5 2578.2, 2.4e-5 | 8, -1118.3 2073.5 2578.3, 2.2e-5 |
+| SMD water, start Hessian in def2-SVP | 9, -1110.0 2073.7 2584.1, 1.2e-5 | 9, -1110.0 2073.6 2584.1, 1.2e-5 |
+| H + H2 (doublet, UKS), as it is | 5, -1039.8 902.5 902.5 2072.9, 5.7e-5 | 5, -1039.7 902.4 902.4 2072.9, 5.9e-5 |
+| start Hessian in def2-SVP | 10, -1038.4 902.2 902.2 2073.2, 4.2e-6 | 10, -1038.5 902.2 902.2 2073.1, 4.1e-6 |
+| SMD water | 6, -1040.7 882.0 882.0 2070.2, 1.3e-6 | 6, -1040.7 882.0 882.0 2070.2, 1.6e-6 |
+| SMD water, start Hessian in def2-SVP | 10, -1040.3 881.9 881.9 2070.3, 8.3e-6 | 10, -1040.3 881.9 881.9 2070.3, 7.8e-6 |
+
+  The same saddle points within 0.1 cm^-1, in the same number of steps but for the first. On this card a run takes
+  25 to 31 s for H + H2 and 99 to 224 s for HCN (the laptop: 9 to 35 s). The final example file, run again as it
+  is, with SMD, and with its optional line on (`cphf_two_level_parts = ('nlc', 'k')`), gives the same steps and
+  frequencies for both molecules (`p41_g`).
+
+### In SMD the frequencies depend on the molecule's orientation (CPU and GPU alike)
+The two CPU searches of HCN <-> HNC in SMD water above end 1.4e-4 A apart in their bond lengths and 2e-7 Eh apart in
+energy, and 8 and 6 cm^-1 apart in two frequencies. It is not the geometry (`smd_rotation/rot_smd.py`, CPU tree, the
+example's model at the first run's saddle point):
+
+| the same geometry | E (Eh) | frequencies (cm^-1) |
+|---|---|---|
+| SMD water, as the search left it | -93.360032016 | -1118.32 2073.45 2578.25 |
+| rotated (three random rotations) | -93.360024419, ...24556, ...25475 | -1111.31 2073.24 2583.00; -1110.54 2073.29 2580.79; -1113.16 2073.30 2581.37 |
+| shifted by (0.3, 0.2, 0.1) A | -93.360032016 | -1118.32 2073.45 2578.25 |
+| gas phase, the four orientations | within 1e-7 | -1096.48 +- 0.01, 2111.15 to 2111.20, 2588.52 to 2588.53 |
+
+- **It is the cavity's surface**: the Lebedev points of each atomic sphere are laid out in the laboratory frame and
+  switched off smoothly where another sphere covers them, so a rotation is another discretization: 7.6e-6 Eh in the
+  energy here, and a second derivative of that noise on a light atom's mode. The XC and VV10 grids do the same at
+  the 0.05 cm^-1 level.
+- **A finer surface does not remove it** (`rot_smd_leb.py`; the spread, max - min, over the four orientations):
+
+  | `with_solvent.lebedev_order` | surface points | energy | the three frequencies |
+  |---|---|---|---|
+  | 29 (PCM's default, 302 points a sphere) | 546 | 2.6e-5 Eh | 24.8, 0.7, 4.1 cm^-1 |
+  | 41 (SMD's default, 590) | 1018 | 7.6e-6 Eh | 7.8, 0.2, 4.7 cm^-1 |
+  | 53 (974) | 1632 | 6.2e-6 Eh | 11.7, 0.5, 3.4 cm^-1 |
+  | 65 (1454) | 2395 | 3.3e-6 Eh | 9.1, 0.4, 3.0 cm^-1 |
+
+- **What it means here:** at one geometry in one orientation the two trees agree to 0.002 cm^-1 with SMD (above),
+  and two searches from one guess follow the same steps; but frequencies of two SMD runs that end in different
+  orientations (another guess, another optimizer history) can differ by several cm^-1 on the modes of a hydrogen
+  near other atoms' spheres (the bridging H here), which is more than any approximation of the response in
+  these notes. Not looked at: larger molecules, other radii or switching widths.
+
+### Unit tests (node1, the final files)
+- 24 test files, 260 tests, all passed (`p41_f`): test_geometric_solver 2 (new: a saddle-point search from the
+  Hessian as the Hessian object returns it, as a device array and as a [3N,3N] host array, with the method's own
+  Hessian forbidden; the other options passed through), test_uks_hessian 13 (1 new: `nr_uks_fxc_mo` against the AO
+  form for LDA, GGA and meta-GGA with the blocks in the MO form, in the AO form and as counted, and through the
+  CPHF's response function), test_cphf_solvers 47 (10 new: the CPHF equations in blocks of 2 and 4 of 6 atoms for
+  RHF, UHF, RKS with SMD, density-fitted RKS and UKS with VV10, the Hessian within 7e-8 of the converged one; the
+  second-order term across blocks with loose residuals, with the two-level scheme and with the plain solver, which
+  needs it once there are several blocks: 1.3e-5 with it against 1.5e-4 and 1.1e-5 against 5.8e-5 without;
+  `_cphf_atom_block`), test_pcm_hessian 23 (the shared limits of the two spins, in the existing test), test_cphf
+  5, test_rhf_hessian 8, test_uhf_hessian 5, test_rks_hessian 12, the two grid-response files 17 + 16,
+  test_level_shift_hessian 4, test_large_exponent 7, test_vv10_hessian 16, the density-fitted Hessians 8 + 8 + 5 +
+  4 and test_df_hessian 21, test_smd_hessian 15, test_ir_intensity 2, test_raman_intensity 7,
+  test_polarizability 7, test_geomopt 4, test_df_geomopt 4.
+- On the way: the first test of the solver took the Hessian object's result for a device array (it is a host
+  array), and the block tests counted the cheap model's solves as blocks (both the tests'). A check of the two
+  forms of the response on the OH radical gave Hessians 2.9e-4 apart with wB97M-V and 1e-14 with PBE and r2SCAN:
+  each form had run its own SCF, and the two SCFs of that radical (the hole in one of two degenerate orbitals) had
+  ended in different states. On one SCF solution the forms agree to 4e-12 (OH, H2O+, NH2).
+
+### Not done
+- **Nothing at production size.** The card has 4 GB; the largest UKS Hessian run is the 16-atom radical in
+  def2-TZVP (1.2 GB at its peak). For the 57-atom doublet (1198 functions, 12,812 surface points), from the sizes of
+  the arrays: the CPHF equations take 1.4 atoms per GB of free device memory (blocks of 16 atoms from 11 GB on; the
+  path for several blocks is now tested, with forced blocks, not met by a real job); the solvent keeps the LU factors
+  of K (1.3 GB) on the device, and its integrals with the orbital products on the host if `mol.max_memory` allows 32
+  GB in half of it; the all-pairs VV10 kernels are 45 times the small radical's work.
+- **No RIJCOSX gradient, no `sgx_response`, no RI-J in the response.** The search and the Hessians use exact J and
+  K. In def2-TZVP they are half of the UKS Hessian on this card (792 of 1516 s), and after the cheap K of the table
+  above the J engine of the cheap model's responses is the largest part of the CPHF: a fitted J in the cheap model
+  (the two-level SCF has one, `two_level_auxbasis`) would be the counterpart of the CPU tree's RI-J response with
+  the result unchanged. Not built.
+- **The Fock derivative's J and K of the two spins in one pass**: `RYS_build_jk_ip1` contracts one density (the
+  general kernel and its eight unrolled ones); 160 of the 1516 s.
+- **The grid-response XC terms at many atoms.** Upstream's `_get_exc_deriv2_grid_response` and
+  `_get_vxc_deriv1_grid_response` contract, for every block of grid points, the terms of every atom in a loop (371 of
+  the def2-TZVP radical's 1516 s for the two). Their work per grid point grows with the atoms, the occupied orbitals
+  and the AOs near the block: for the 57-atom doublet of the order of 1e14 floating-point operations for the Fock
+  derivative, a minute on a card with fast double precision and half an hour on this one. An estimate from the
+  shapes; not measured, and no atom screening tried.
+- **A spin without electrons** (H2+): the UKS Hessian fails in a reshape, before this part and after.
+- **The solvent's Fock derivative builds its integrals once per spin** (`analytical_grad_vmat` is called for each):
+  3 of the 1516 s.
+- The cheap K by default where it pays (a rule by basis set or by the card's double-precision rate), and the closed
+  shell with it: one measurement, on one card.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
