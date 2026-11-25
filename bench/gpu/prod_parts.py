@@ -48,6 +48,10 @@ ap.add_argument('--xc', default='wb97m-v')
 ap.add_argument('--grid', default='99,590')
 ap.add_argument('--nlcgrid', default='50,194')
 ap.add_argument('--solvent', default='smd', choices=['smd', 'cpcm', 'iefpcm', 'none'])
+ap.add_argument('--model', default='exact', choices=['exact', 'cosx', 'rijcosx'],
+                help='cosx: mf.COSX(); rijcosx: mf.RIJCOSX(auxbasis=--auxbasis) (the seminumerical K of gpu4pyscf.sgx)')
+ap.add_argument('--auxbasis', default='aug_etb', help='J fitting basis of --model rijcosx')
+ap.add_argument('--sgx-dtype', default=None, choices=['double', 'float'], help='kernel_dtype of the model\'s SGX')
 ap.add_argument('--tasks', default='scf,grad')
 ap.add_argument('--conv-tol', type=float, default=1e-10)
 ap.add_argument('--set', action='append', default=[])
@@ -133,6 +137,12 @@ def make_mf(atom, charge=0, spin=0):
     mf.grids.atom_grid = tuple(int(x) for x in args.grid.split(','))
     if args.nlcgrid != 'none':
         mf.nlcgrids.atom_grid = tuple(int(x) for x in args.nlcgrid.split(','))
+    if args.model == 'cosx':
+        mf = mf.COSX()
+    elif args.model == 'rijcosx':
+        mf = mf.RIJCOSX(auxbasis=args.auxbasis)
+    if args.sgx_dtype is not None:
+        mf.with_sgx.kernel_dtype = args.sgx_dtype
     if args.solvent == 'smd':
         mf = mf.SMD()
         mf.with_solvent.solvent = 'water'
@@ -160,6 +170,10 @@ def instrument(mf, g):
         parts.wrap(sgx.SGX, 'build', 'sgx.build')
         parts.wrap(sgx.SGX, 'get_k', 'sgx.get_k')
         parts.wrap(sgx_jk, 'contract', 'sgx.contract')
+        if hasattr(sgx.SGX, 'get_k_grad'):
+            parts.wrap(sgx.SGX, 'get_k_grad', 'sgx.get_k_grad')
+            parts.wrap(sgx.SGX, '_dweights_dot', 'sgx.dweights')
+            parts.wrap(sgx_jk, 'contract_ip1', 'sgx.contract_ip1')
     except ImportError:
         pass
     if getattr(mf, 'with_solvent', None) is not None:
@@ -355,7 +369,7 @@ ngrids, nlc, nsurf = out['ngrids'], out['nlcgrids'], out['nsurf']
 
 record = {'label': args.label, 'tree': os.path.dirname(gpu4pyscf.__file__), 'mol': args.mol, 'spin': args.spin,
           'basis': args.basis,
-          'xc': args.xc, 'solvent': args.solvent, 'grid': args.grid, 'nlcgrid': args.nlcgrid, 'nao': int(mf.mol.nao),
+          'xc': args.xc, 'solvent': args.solvent, 'model': args.model, 'grid': args.grid, 'nlcgrid': args.nlcgrid, 'nao': int(mf.mol.nao),
           'ngrids': ngrids, 'nlcgrids': nlc, 'nsurf': nsurf, 'set': args.set, 'gset': args.gset, 'hset': args.hset,
           'E': out['e'],
           'converged': out['converged'], 'cycles': out['cycles'], 'failed': out['failed'],

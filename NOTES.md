@@ -10502,6 +10502,173 @@ example's model at the first run's saddle point):
 - The cheap K by default where it pays (a rule by basis set or by the card's double-precision rate), and the closed
   shell with it: one measurement, on one card.
 
+## GPU4PySCF, part 42: RIJCOSX gradients and an approximate CPHF response on the GPU (node1), 2026-11-25
+The user, after part 41: "You had previously mentioned that RIJCOSX gradients and an approximate (RI-J or
+seminumerical-K) response were lacking from gpu4pyscf. Could you work on those?" The GPU tree's seminumerical K
+(`gpu4pyscf.sgx`, part 37) served the cheap models of the two-level SCF and CPHF only: a COSX model had no gradient,
+and the CPHF response was exact or, in the cheap model, exact in the result. The CPU tree has both (`mf.RIJCOSX()` with
+analytical gradients, `hobj.sgx_response` with `sgx_response_auxbasis`), and `examples/wb97mv_ts.py` switches them
+on for larger molecules (`RIJCOSX`, `SGX_RESPONSE`).
+- **Workload:** the radical of part 41 (methoxyphenoxyl, 16 atoms, UKS, 321 functions in def2-TZVP), wB97M-V, XC
+  (99,590), VV10 (50,194), SMD water, two-level SCF; HCN <-> HNC and H + H2 (doublet) for the example; small molecules
+  for finite differences. The GTX 1650 Super.
+- **Tools:** node1 `scratch/p42/` (`ip1_check.py`, `kgrad_check.py`, `kgrad_split.py`, `kgrad_step.py`, `dw_check.py`,
+  `grad_fd.py`, `conv_tight.py`, `cycles.py`, `rx_bench.py`, `rij_check.py`, `hcn_resp_gpu.py`), `p42_{a,b,c}.sh`;
+  `bench/gpu/prod_parts.py --model cosx|rijcosx --sgx-dtype`; `bench/gpu/ts_example_variants.sh` (new variants).
+- **Data:** `bench/results/node1/p42_rijcosx.txt`, `p42_parts.jsonl`.
+- **Commits:** gpu4pyscf `perf` 350aa335 (the gradients, `mf.RIJCOSX`), a0b60aa7 (`sgx_response`), merged into
+  `exp/prim-screen` 985b0fb7; pyscf `perf` 8b430d696 (the LKO weight derivative); both tagged and pinned
+  `perf-2026-11-25c`, pushed on 2026-11-25 at the user's word ("Yes please commit and push and make a note file of
+  the bug so we can work on reporting that later"). The note for upstream:
+  `upstream/pyscf-lko-weight-derivative.md`
+  with `upstream/pyscf_lko_dw_repro.py`.
+
+### What was done
+1. **The derivative integrals of the seminumerical K from the existing kernels** (`sgx_jk.deriv_pair_data`,
+   `contract_ip1`). The derivative of a Cartesian Gaussian with respect to its centre is a sum of Gaussians of the
+   same exponent with one power more (coefficient 2a) and one less (coefficient -l_x), so sum_b (d_x a|b)_g F[b,g]
+   is the output of the K kernels for shells of l+1 and l-1 beside those of the molecule: one more index space of
+   "up" and "down" shells, about 3.4 times the Cartesian functions, no new kernel. Against libcint's int1e_grids_ip
+   to 1e-10 (double) and 3e-5 (single) of the largest element, through f functions; g functions (l+1 = 5) are beyond
+   the kernels (LMAX 4).
+2. **`SGX.get_k_grad(dm, omega, lr_factor, sr_factor, grid_response=True)`**: the derivative of sum_n tr(D_n K[D_n])
+   at fixed densities, [natm,3]: with f_g = D P^T X_g (X the AO values, P the symmetric overlap fit),
+   tr(D K[D]) = sum_g w_g f_g^T A_g f_g, and its derivative has the AO centres and the integrals' centres, the points
+   (which move with their atoms: in X and, by translational invariance, in A_g), the weights, and the overlap fit (the
+   overlap on the grid S_n and the analytical S: 2 tr(dP^T K D) = tr(dS C) - tr(dS_n C Q^T), C = S_n^-1 K D,
+   Q = S_n^-1 S). The integrals and their derivatives in the SGX object's kernel_dtype, the rest in double.
+3. **The weights' derivatives on the GPU, and a bug in PySCF's** (`sgx.lko_weight_derivs_dot`, a CUDA kernel, one
+   thread per point, contracted with the energy density on the fly). The SGX grids use the LKO partition (Becke's with
+   the distance of two atoms R replaced by a saturated f(R) = 5 (1 - exp(-sum_{m<=12} (R/5)^m / m))). PySCF's
+   `VXCgen_grid_lko_deriv` (`lib/dft/grid_basis.c`) takes the derivative of 1/f(R) as f'(R)/f(R)^3, which is the one
+   of 1/R; it is f'(R)/(f(R)^2 R). The two agree where f(R) = R: to 1e-5 at 2.5 Bohr, 1e-3 at 4 Bohr, not at all
+   from 5 Bohr on. Found by splitting the gradient: the AO-centre part agreed with finite differences to 1e-8, the
+   grid part was 0.04% off (0.1% without the overlap fit), and a fixed smooth function's quadrature,
+   sum_g w_g phi(r_g), showed it in the weights alone: 3.5e-6 against finite differences with PySCF's routine,
+   2.8e-10 with the corrected formula. It is the routine of the CPU tree's RIJCOSX gradients: fixed there too (below).
+4. **COSX gradients** (`sgx._COSXGradients`, `_COSX.Gradients()`): the gradient object of the method below the mixin
+   (its J from the J engine or density fitting, solvent, dispersion), with the exchange terms of
+   `jk_energy_per_atom` from `get_k_grad` (1/4 tr(D K[D]) of one density, 1/2 sum_s of two);
+   `sgx_grid_response = False` drops the grid's terms. A range-separated hybrid's K in one pass of the mixed-range
+   kernels: `_COSX.range_separated_mode = 'mix_inside_kernel'` (which the density-fitted SCF and gradient already
+   read), and `grad.rks._jk_energy_per_atom` takes both ranges in one call for a gradient object with
+   `_k_mixed_range`.
+5. **`mf.RIJCOSX(auxbasis='def2-universal-jfit')`** on the GPU SCF classes, as PySCF's: `density_fit(auxbasis,
+   only_dfj=True).COSX()`; 'aug_etb' for pyscf.df.aug_etb.
+6. **The approximate CPHF response** (`HessianBase.sgx_response`, `sgx_response_level` 1, `sgx_response_dtype`
+   'float', `sgx_response_auxbasis` None; RKS and UKS, Hartree-Fock raises): the K of every response of the CPHF
+   equations from an SGX object on the level-1 grid, J exact or RI-J (`df_jk.get_j` of all the densities), through the
+   path the two-level CPHF's cheap model had for its K (`_sgx_response_k`, `_response_j_mo`); the cheap model then
+   takes the same K. The SCF, the derivative integrals and the XC and VV10 responses stay exact.
+7. **`examples/wb97mv_ts_gpu.py`**: the CPU example's switches `RIJCOSX` and `SGX_RESPONSE`.
+
+### Measured
+GTX 1650 Super unless noted.
+
+**Against finite differences** (`kgrad_check.py`, `grad_fd.py`; water, methyl-water pairs, def2-SVP; steps of 1e-4
+Bohr):
+
+| what | largest deviation |
+|---|---|
+| derivative integrals (fixed points), the three operators | 1e-8 of 20 (`ip1_check.py`); libcint 1e-10 (unit test) |
+| weights of the SGX grid, PySCF's derivative / the corrected one | 3.5e-6 / 2.8e-10 |
+| d tr(D K[D]), RHF and UHF densities, with and without the overlap fit, full-range, long-range, short-range and mixed operators | 1.6e-9 to 1.1e-8 of 0.3 to 2.1, falling as h^2 (1.7e-7, 4.3e-8, 1.1e-8, 2.5e-9 for h = 4, 2, 1, 0.5e-4) |
+| the same with PySCF's weight derivative | a floor of 1.7e-7 whatever h |
+| SCF gradients at conv_tol 1e-12: RKS B3LYP COSX; RKS wB97M-V RIJCOSX SMD | 2.4e-8; 4.6e-8 Eh/Bohr |
+| UKS at conv_tol 1e-12: COSX wB97M-V; the exact model; RIJCOSX SMD two-level | 2.8e-7; 3.4e-7; 3.9e-7 (the SCF's convergence) |
+| UKS at conv_tol 1e-14: COSX B3LYP, COSX wB97X, exact wB97X, exact wB97M-V | 2.0e-9, 1.4e-9, 1.4e-9, 1.7e-9 |
+
+  COSX wB97M-V UKS at 1e-14 stayed at 3.3e-8: none of its 19 SCFs met the threshold in 50 cycles (130 cycles in a
+  longer run, where the exact model took 35; both sit at the energy's noise floor of about 5e-14 there until a step
+  happens to fall below 1e-14).
+
+**SCF cycles at conv_tol 1e-10** (the radical, def2-SVP, SMD; `cycles.py`): every model in double precision 19 cycles
+plain, 2 references and 20 cheap builds two-level (exact, density fitting, COSX, RIJCOSX); COSX in single precision
+the same; RIJCOSX in single precision not converged in 50 cycles plain, 32 cheap builds two-level (and not converged
+in def2-TZVP, below): a density-fitted SCF builds the whole potential at every cycle, so the single-precision error
+of K does not shrink with the changes of the density as in the incremental builds.
+
+**A step of the search** (the radical, def2-TZVP, SMD, two-level SCF; `rx_bench.py` at the default conv_tol, the
+profile `p42b` at 1e-10):
+
+| model | SCF | gradient | step | E - E(exact) | max \|dgrad\| |
+|---|---|---|---|---|---|
+| exact | 75.0 s | 17.9 s | 92.9 s | | |
+| COSX (J engine), double | 87.3 s | 15.3 s | 102.6 s | +5.2e-7 Eh | 5.0e-5 |
+| RIJCOSX (aug_etb), double, before the one-pass range separation | 89.4 s | 16.1 s | 105.5 s | -9.6e-6 Eh | 5.0e-5 |
+| RIJCOSX, double, one pass (`p42b`) | 79.9 s | 12.0 s | 91.9 s | -9.6e-6 Eh | 5.0e-5 |
+| RIJCOSX, single (`p42b`, conv_tol 1e-10) | 115.4 s, not converged | 6.4 s | | -4.2e-6 Eh | 5.0e-5 |
+
+  On this card a RIJCOSX step costs what an exact one does at 16 atoms: the exact model's two-level SCF already
+  builds its K seminumerically in every cheap cycle (in single precision, as changes of the density) and builds the
+  exact K twice (8.4 s of its 75 s; the SCF is XC-bound on the (99,590) grid), and the exact gradient's J and K are
+  12.3 s, the COSX gradient's 6.7 s (its derivative integrals 5.1 s; the index space of l+1 and l-1 shells is 3.4
+  times the functions). RIJCOSX is for molecules where the exact K of the references and of the gradient dominate a
+  step; at 57 atoms neither fits this card, so that is not measured.
+
+**The approximate response** (the radical's def2-TZVP Hessian, SMD, grid response; against the exact one):
+
+| response | Hessian | CPHF | max \|dH\| | max \|dfreq\| |
+|---|---|---|---|---|
+| exact (part 41's final code) | 1515.7 s | 542.4 s | | |
+| `sgx_response` (exact J, K level 1, single) | 1336.0 s | | 4.2e-6 | 0.007 cm^-1 |
+| `sgx_response` + `sgx_response_auxbasis = 'aug_etb'` | 1240.5 s | 267.2 s | 5.8e-6 | 0.016 cm^-1 |
+
+  HCN <-> HNC at the GPU example's saddle point (def2-TZVP, `hcn_resp_gpu.py`), against the CPU tree's
+  `hcn_resp.py`: `sgx_response` 6.4e-7 (CPU 5.2e-7), with RI-J 2.2e-6 (CPU 2.1e-6), frequencies within 0.01 cm^-1 in
+  both trees; single and double precision of the K the same to 1e-8. What is left of the 1240 s: the second
+  derivatives at fixed orbitals 533 s (the J and K integrals 253, XC 191, VV10 89) and the Fock derivatives 406 s
+  (XC 180, J and K 160, VV10 65), which the response does not touch.
+
+**The example with the new switches** (`bench/gpu/ts_example_variants.sh`, `VARIANTS="rijcosx sgx allon
+allon_smd"`; the CPU example's runs of the same switches, `bench/results/uks-ts-audit/ts_example_variants.log`):
+
+| | GPU | CPU |
+|---|---|---|
+| HCN, RIJCOSX | 9 steps, -1113.9 2110.5 2662.2, 1.6e-4 | 10 steps, -1114.5 2110.5 2664.6, 5.2e-5 |
+| HCN, SGX_RESPONSE | 12, -1114.6 2110.4 2664.8, 1.1e-5 | 14, -1114.6 2110.5 2664.7, 1.2e-5 |
+| HCN, all three | 13, -1114.6 2110.5 2664.8, 5.3e-6 | 11, -1114.8 2110.5 2665.7, 7.9e-5 |
+| HCN, all three, SMD | 9, -1109.8 2073.7 2584.2, 9.7e-6 | 9, -1109.8 2073.7 2584.1, 9.3e-6 |
+| H + H2, RIJCOSX | 5, -1039.9 902.5 902.5 2072.9, 5.7e-5 | 5, -1039.8 902.5 902.5 2072.9, 5.9e-5 |
+| H + H2, SGX_RESPONSE | 5, -1039.9 902.5 902.5 2072.9, 5.7e-5 | 5, -1039.9 902.4 902.4 2072.9, 5.9e-5 |
+| H + H2, all three | 10, -1038.7 902.2 902.2 2073.1, 3.2e-6 | 10, -1038.7 902.2 902.2 2073.1, 3.1e-6 |
+| H + H2, all three, SMD | 10, -1040.6 881.9 881.9 2070.3, 6.7e-6 | 10, -1040.6 881.9 881.9 2070.2, 6.8e-6 |
+
+  (steps, frequencies in cm^-1, largest component of the exact gradient at the end in Eh/Bohr.) The GPU's RIJCOSX
+  search of HCN stopped at step 8 with its gradient at 1.6e-4 (geomeTRIC's gmax threshold 4.5e-4); the exact
+  gradient there is the same, so the two surfaces agree and the 2.6 cm^-1 in the CH stretch is where that search
+  stopped. Run times 24 to 115 s (the CPU: 9 to 35 s).
+
+### The CPU tree
+- **The weight derivative**: `lib/dft/grid_basis.c` `VXCgen_grid_lko_deriv` with f'(R)/(f(R)^2 R); the reference of
+  `grad/test/test_rks.py::test_grid_response` had the same factor and evaluated f' at f(R) instead of R; corrected,
+  with a finite-difference check of the LKO weights beside the Becke one. The fixed-function quadrature check
+  (`dw_cpu.py`) goes from 3.5e-6 to 2.6e-10. It is in the gradients of every RIJCOSX and COSX model of the CPU tree
+  (and of DFT with `becke_lko` grids), by 1e-8 to 1e-7 Eh/Bohr on these molecules; upstream PySCF has it too.
+- One C file changed: rebuild with `scripts/cpu_setup.sh`.
+- Suites dft, scf, df, grad, hessian, tdscf, solvent, sgx, lib: 1282 passed, the 5 known failures.
+
+### Unit tests (node1, the final files)
+- 24 files, all passed (`p42_c`): test_sgx 28 (9 new: the derivative integrals against libcint for the three
+  operators, the LKO weight derivatives against finite differences, get_k_grad against finite differences for RHF
+  and UHF densities with and without the overlap fit and in single precision, COSX and RIJCOSX-with-SMD gradients
+  against finite differences and without the grid response), test_cphf_solvers 50 (2 new: `sgx_response` with and
+  without RI-J in both precisions, RKS and UKS; Hartree-Fock refused), test_int1e_grids 12, test_rks_hessian 12,
+  test_uks_hessian 13, test_vv10_hessian 16, the two grid-response Hessian files 17 + 16, test_rks_grad 15,
+  test_uks_grad 12, test_rhf_grad 7, test_uhf_grad 6, test_vv10_grid 20, test_grid_response 7, test_geomopt 4,
+  test_df_rks_grad 11, test_df_uks_grad 11, test_df_rks 12, test_df_geomopt 4, test_two_level 58, test_smd_grad 14,
+  test_pcm_grad 11, test_smd_hessian 16, test_geometric_solver 2.
+
+### Not done
+- **A COSX step that is cheaper than an exact one on this card.** The SCF is XC-bound and the exact two-level SCF
+  already takes its iterations' K from the seminumerical kernels in single precision; RIJCOSX's own K in single
+  precision would need incremental builds in the density-fitted SCF (it rebuilds the whole potential each cycle).
+- **Screening of the seminumerical K**: every shell pair is evaluated on every block of points (part 37); its cost
+  grows as the pairs times the points, so its gain over the exact K at 57 atoms is not known.
+- **Gradients with g functions** (the derivative needs l+1 = 5 beyond the kernels' LMAX 4: def2-QZVP and the like).
+- **Hessians of COSX models** (`_COSX.Hessian` still raises): the example uses exact Hessians.
+- `sgx_response` of Hartree-Fock Hessians.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

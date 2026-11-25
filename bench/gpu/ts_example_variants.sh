@@ -4,7 +4,8 @@
 # doublet (UKS). Prints the steps of each search, the frequencies at its end, the largest gradient component there
 # and the wall time. Run it in the GPU environment (source scripts/gpu-env.sh perf); VARIANTS selects variants
 # (cheapk, not in the default list: the example's optional line, the seminumerical K in the cheap model of the
-# two-level CPHF, switched on).
+# two-level CPHF, switched on; rijcosx, sgx, allon, allon_smd: the switches RIJCOSX and SGX_RESPONSE, all three with
+# START_HESSIAN_BASIS, and with SMD water, as the CPU script's).
 # The CPU side: bench/diag/wb97mv/uks_ts_audit/ts_example_variants.sh (default, svp; VARIANTS="smd svp_smd").
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 W="$(cd "$here/../.." && pwd)"
@@ -19,6 +20,7 @@ assert n == 1
 sys.stdout.write(s)"; }
 on() { sed -e "s/^$1 = .*/$1 = $2/"; }
 smd() { sed -e "s/^    # mf = mf.SMD(); mf.with_solvent.solvent = 'water'/    mf = mf.SMD(); mf.with_solvent.solvent = 'water'/"; }
+allon() { on RIJCOSX True | on SGX_RESPONSE True | on START_HESSIAN_BASIS "'def2-svp'"; }
 for mol in hcn h3; do
   for v in ${VARIANTS:-default svp smd svp_smd}; do
     d=${mol}_$v; rm -rf $d; mkdir $d; cd $d
@@ -26,6 +28,7 @@ for mol in hcn h3; do
       default) cat ;; svp) on START_HESSIAN_BASIS "'def2-svp'" ;; smd) smd ;;
       svp_smd) on START_HESSIAN_BASIS "'def2-svp'" | smd ;;
       cheapk) sed -e "s/^    # hobj.cphf_two_level_parts = /    hobj.cphf_two_level_parts = /" ;;
+      rijcosx) on RIJCOSX True ;; sgx) on SGX_RESPONSE True ;; allon) allon ;; allon_smd) allon | smd ;;
     esac > run.py
     [ $v != cheapk ] || grep -q "^    hobj.cphf_two_level_parts = ('nlc', 'k')" run.py || echo "cheapk: line not switched on"
     t0=$(date +%s)

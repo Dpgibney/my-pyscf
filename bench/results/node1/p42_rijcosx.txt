@@ -1,0 +1,389 @@
+GPU4PySCF part 42 (node1, GTX 1650 Super, 2026-11-25): RIJCOSX/COSX analytical gradients and the approximate CPHF
+response (sgx_response) on the GPU; the LKO weight-derivative bug of PySCF. NOTES.md, "GPU4PySCF, part 42". Scripts in
+scratch/p42 of the session (node1 ~/Chemistry/my-pyscf/scratch/p42); the profiles are bench/gpu/prod_parts.py's
+(inclusive and exclusive seconds of the parts; "vs FILE" against the exact model's saved run p41b_uks).
+
+== 1. Checks against finite differences (steps of 1e-4 Bohr unless noted; water + CH3 pair or water, def2-SVP)
+
+ip1_check.py (derivative integrals at fixed points, d(F^T A F)/dR, def2-TZVP):
+   full range:        max |analytic| 2.052e+01, max |analytic - FD| 2.55e-08
+   mixed (0.15/0.85): max |analytic| 1.316e+01, max |analytic - FD| 1.41e-08
+   long range:        max |analytic| 1.194e+01, max |analytic - FD| 1.31e-08
+
+kgrad_check.py with PySCF's LKO weight derivative (d tr(D K[D]) at fixed D):
+   spin 0 fit_ovlp True,  full range: max |grad| 2.1424e+00, max |grad - FD| 1.76e-07
+   spin 0 fit_ovlp False, full range: max |grad| 2.1428e+00, max |grad - FD| 8.15e-07
+   (all twelve cases 7.8e-9 to 8.2e-7)
+kgrad_step.py (the same, closed shell, overlap fit, full range) against the step h:
+   PySCF's derivative:    h 4e-4 2.68e-07, 2e-4 1.94e-07, 1e-4 1.76e-07, 5e-5 1.71e-07
+   corrected derivative:  h 4e-4 1.71e-07, 2e-4 4.28e-08, 1e-4 1.07e-08, 5e-5 2.50e-09
+kgrad_split.py (PySCF's derivative): the basis part (grid fixed) 9.7e-09 of 2.1; the grid part 1.69e-07 of 4.1e-04
+   (fit_ovlp False: 9.4e-09 and 8.13e-07 of 6.9e-04)
+dw_check.py (sum_g w_g phi(r_g) of a fixed phi): PySCF's derivative 3.46e-06, the corrected one 2.77e-10
+dw_cpu.py (the CPU tree, the same check): before the fix 3.46e-06, after 2.59e-10
+
+kgrad_check.py with the corrected derivative:
+   spin 0: 1.06e-08 (full), 3.55e-09 (mixed) with the overlap fit; 1.08e-08, 3.55e-09 without; 1.05e-08, 3.44e-09
+           with the grid screening of 1e-10
+   spin 1: 5.05e-09, 1.65e-09; 5.16e-09, 1.65e-09; 5.08e-09, 1.63e-09
+   long range / short range alone (grids_thrd 1e-10): spin 0 2.22e-09 / 8.25e-09, spin 1 1.03e-09 / 4.02e-09
+
+grad_fd.py (SCF gradients, grid_response on; water, def2-SVP, XC (60,194), VV10 (30,110)):
+   b3lyp            (RKS COSX, conv_tol 1e-12)               max |grad| 7.5752e-03, max |grad - FD| 2.35e-08
+   rij_smd          (RKS wB97M-V RIJCOSX SMD, 1e-12)          max |grad| 7.6683e-03, max |grad - FD| 4.60e-08
+   wb97mv_uks       (UKS COSX, 1e-12)                         max |grad| 3.9490e-02, max |grad - FD| 2.83e-07
+   rij_smd_2l_uks   (UKS RIJCOSX SMD two-level, 1e-12)        max |grad| 3.2523e-02, max |grad - FD| 3.89e-07
+   exact_uks        (UKS exact, 1e-12)                        max |grad| 3.9482e-02, max |grad - FD| 3.35e-07
+   exact_uks_tight  (UKS exact, 1e-14)                        max |grad| 3.9482e-02, max |grad - FD| 1.73e-09
+   wb97mv_uks_tight (UKS COSX, 1e-14; 0 of 19 SCFs met it)    max |grad| 3.9490e-02, max |grad - FD| 3.27e-08
+   b3lyp_uks_tight  (UKS COSX B3LYP, 1e-14)                   max |grad| 4.2115e-02, max |grad - FD| 1.98e-09
+   wb97x_uks_tight  (UKS COSX wB97X, 1e-14)                   max |grad| 3.9028e-02, max |grad - FD| 1.41e-09
+   exact_wb97x_uks_tight                                      max |grad| 3.9019e-02, max |grad - FD| 1.44e-09
+conv_tight.py (UKS wB97M-V at 1e-14, 300 cycles allowed): COSX 130 cycles, exact 35, COSX on (99,590) 129; the last
+   |dE| 3e-14 to 1e-13 in all three
+
+rij_check.py (RI-J of six random occupied-virtual densities, the GPU's df_jk.get_j against PySCF's df J, aug_etb):
+   6-31g*: |J_gpu - J_cpu| 9.6e-13; def2-tzvp: 2.3e-11
+
+== 2. SCF cycles at conv_tol 1e-10 (cycles.py; the radical, def2-SVP, UKS wB97M-V, SMD)
+exact          two_level False E -420.8775688891 converged True cycles  19 cheap builds   0   106.1 s
+exact          two_level True  E -420.8775688891 converged True cycles   2 cheap builds  20    26.1 s
+df             two_level False E -420.8776421534 converged True cycles  19 cheap builds   0    84.0 s
+df             two_level True  E -420.8776421534 converged True cycles   2 cheap builds  20    21.2 s
+cosx           two_level False E -420.8775975427 converged True cycles  19 cheap builds   0   106.2 s
+cosx           two_level True  E -420.8775975427 converged True cycles   2 cheap builds  20    32.3 s
+cosx_float     two_level False E -420.8775854267 converged True cycles  19 cheap builds   0    99.3 s
+cosx_float     two_level True  E -420.8775855116 converged True cycles   2 cheap builds  20    25.4 s
+rijcosx        two_level False E -420.8776698468 converged True cycles  19 cheap builds   0    95.0 s
+rijcosx        two_level True  E -420.8776698467 converged True cycles   2 cheap builds  20    34.7 s
+rijcosx_float  two_level False E -420.8776605170 converged False cycles  50 cheap builds   0   214.2 s
+rijcosx_float  two_level True  E -420.8776604879 converged True cycles   2 cheap builds  32    32.2 s
+
+== 3. A step of the search (rx_bench.py; the radical, UKS wB97M-V, (99,590)/(50,194), SMD, two-level, default conv_tol)
+def2-SVP:
+exact          E -420.8775688890  converged True cycles 2  SCF   25.6 s  gradient    4.9 s  max |grad| 1.08e-01
+cosx           E -420.8775975426  converged True cycles 2  SCF   30.8 s  gradient    5.7 s  dE -2.87e-05  max |dgrad| 3.59e-05
+rijcosx        E -420.8776698467  converged True cycles 2  SCF   33.2 s  gradient    5.5 s  dE -1.01e-04  max |dgrad| 3.61e-05
+rijcosx_float  E -420.8776604824  converged True cycles 2  SCF   32.1 s  gradient    3.5 s  dE -9.16e-05  max |dgrad| 3.62e-05
+def2-TZVP (before the one-pass range separation):
+exact          E -421.3605492665  converged True cycles 2  SCF   75.0 s  gradient   17.9 s  max |grad| 9.80e-02
+cosx           E -421.3605487477  converged True cycles 2  SCF   87.3 s  gradient   15.3 s  dE +5.19e-07  max |dgrad| 4.97e-05
+rijcosx        E -421.3605589042  converged True cycles 2  SCF   89.4 s  gradient   16.1 s  dE -9.64e-06  max |dgrad| 4.99e-05
+rijcosx_float  E -421.3605543475  converged True cycles 2  SCF   80.8 s  gradient    7.3 s  dE -5.08e-06  max |dgrad| 4.96e-05
+
+== 4. HCN <-> HNC at the GPU example's saddle point, def2-TZVP (hcn_resp_gpu.py): the approximate response
+exact response                  -1114.61   2110.45   2664.81   max |dH| 0.0e+00  max |dfreq| 0.00  [37.9 s]
+sgx_response                    -1114.61   2110.45   2664.81   max |dH| 6.4e-07  max |dfreq| 0.00  [30.0 s]
+sgx_response, float             -1114.61   2110.45   2664.81   max |dH| 6.4e-07  max |dfreq| 0.00  [29.6 s]
+sgx_response + RI-J aug_etb     -1114.62   2110.45   2664.80   max |dH| 2.2e-06  max |dfreq| 0.01  [30.4 s]
+sgx_response + RI-J, float      -1114.62   2110.45   2664.80   max |dH| 2.2e-06  max |dfreq| 0.01  [30.0 s]
+
+== 5. The first unit tests of the new code [p42_a.log]
+test_sgx: rc=0 28 passed in 44.89s
+test_cphf_solvers -k sgx_response: rc=0 3 passed, 47 deselected in 82.83s (0:01:22)
+    rks_b3lyp sgx_response: max |dH| against the exact response {(None, 'double'): np.float64(3.076773497867613e-06), (None, 'float'): np.float64(3.0775678301897536e-06), ('aug_etb', 'double'): np.flo
+    .uks_wb97mv sgx_response: max |dH| against the exact response {(None, 'double'): np.float64(3.6741642462922997e-06), (None, 'float'): np.float64(3.6839753533857156e-06), ('aug_etb', 'double'): np.
+P42A_DONE
+
+== 6. The radical's def2-TZVP Hessian with the approximate response, and the RIJCOSX step by its parts [p42_b.log]
+p42b_resp_k: bench/diag/wb97mv/uks_ts_audit/meophenoxyl.xyz def2-tzvp wb97m-v solvent=smd nao=321 grid=514304 nlcgrid=105216 surface=3933 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -421.360549266675  converged=True  cycles=2  pool peak 517 MiB
+--- scf: 78.69 s, SM clock [1875.0, 1890.0, 1905.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_uks[64000]                  21     25.07     25.07
+    numint._vv10nlc                       23      4.55      4.55
+    numint.nr_nlc_vxc[14336]              21      1.67      0.86
+    scf.get_j                             21     11.16     11.16
+    sgx.build                              1      0.11      0.11
+    sgx.contract                          42      3.58      3.58
+    sgx.get_k                             42      9.06      0.84
+    solvent.build                          1      1.31      1.31
+    solvent._get_v                        21      1.56      1.56
+    solvent.left_multiply_R               42      1.53      1.53
+    solvent.left_solve_K                  42      0.08      0.08
+    solvent._get_vmat                     21      1.82      1.82
+    solvent._get_vind                     23      6.31      0.01
+    scf.get_veff                          23     69.26      0.11
+    scf.get_hcore                          2      0.07      0.07
+    scf.get_ovlp                           3      0.03      0.03
+    scf.get_fock                          42      0.13      0.13
+    scf.eig                               20      0.61      0.61
+    scf.get_k                              2      8.41      8.41
+    numint.nr_uks[514304]                  2     16.12     16.12
+    numint.nr_nlc_vxc[105216]              2      4.29      0.55
+    (not in any timed part)                                 0.15
+pool peak 1235 MiB
+--- hess: 1336.00 s, SM clock [1845.0, 1875.0, 1890.0]
+    part                               calls    incl s    excl s
+    hess.partial_ejk_ip2                   2    250.66    250.66
+    hess.hcore_energy                      1      0.15      0.15
+    hess.get_exc_deriv2                    1    189.76    189.76
+    vv10.omega_derivative                  3      0.00      0.00
+    vv10.UWABCE                            3     11.11     11.11
+    vv10.EUW_with_weight1                  2     47.50     47.50
+    vv10.EUW_grid_response_offdiagonal     2     10.67     10.67
+    vv10.f_t                               2     72.10     72.10
+    vv10.D_B_in_double_grid_response_offdiagonal     1      6.45      6.45
+    hess.get_enlc_deriv2                   1     89.32     14.19
+    hess.partial_hess_elec                 1    529.90      0.01
+    hess.get_vxc_deriv1                    1    180.15    180.15
+    hess.get_vnlc_deriv1                   1     65.07     32.30
+    hess.grad_hcore                        2      0.56      0.56
+    hess.get_jk_ip1                        4    160.60    160.60
+    hess.make_h1                           1    406.41      0.02
+    solvent.mo_integrals                   2      3.62      3.62
+    solvent.left_solve_K                  26      0.52      0.52
+    solvent.get_dqsym_dx                   4      2.82      2.69
+    solvent.analytical_grad_vmat           2      8.57      5.76
+    hess.nr_uks_fxc_mo (cheap)             7     73.26     73.26
+    vv10.omega_derivative (cheap)          1      0.00      0.00
+    vv10.UWABCE (cheap)                    1      0.08      0.08
+    hess.get_nlc_response_ground_state (cheap)     7      0.13      0.05
+    vv10.f_t (cheap)                       7      4.46      4.46
+    hess.nr_rks_fnlc_mo (cheap)            7     16.57     12.11
+    hess.nr_uks_fnlc_mo (cheap)            7     16.58      0.00
+    sgx.build                              1      0.11      0.11
+    hess.jk_mo (cheap)                     7    114.12    114.12
+    sgx.contract                         624     53.55     53.55
+    sgx.get_k                              9     74.79     11.27
+    sgx.get_k (cheap)                      7     54.84      0.00
+    hess.veff_resp_mo (cheap)              7    260.36      1.32
+    solvent.left_multiply_R               16      0.20      0.20
+    solvent.response_mo (cheap)            7      4.18      3.73
+    hess.cheap_start_and_trials            1    264.95      0.41
+    hess.nr_uks_fxc_mo                     1     13.19     13.19
+    hess.get_nlc_response_ground_state     1      3.85      0.12
+    hess.nr_rks_fnlc_mo                    1     50.37     14.17
+    hess.nr_uks_fnlc_mo                    1     50.37      0.00
+    hess.jk_mo                             1     21.89     21.89
+    hess.veff_resp_mo                      1     99.45      0.19
+    solvent.response_mo                    1      0.68      0.60
+    hess.solve_mo1                         1    365.14      0.07
+    hess.hess_elec                         1   1313.69      0.06
+    solvent.analytical_hess_nuc            1      0.08      0.08
+    solvent.analytical_hess_qv             1     19.17     19.17
+    solvent.analytical_hess_solver         1      3.04      2.97
+    solvent.hess                           1     22.29      0.00
+    solvent.hess_cds                       1      0.02      0.02
+    (not in any timed part)                                 0.00
+vs scratch/p41b_uks: dE = 0.000e+00, max |dhess| = 4.243e-06 (max |hess| 6.707e-01), max |dfreq| = 0.007 cm^-1
+P42B resp k done
+p42b_resp_k_rij: bench/diag/wb97mv/uks_ts_audit/meophenoxyl.xyz def2-tzvp wb97m-v solvent=smd nao=321 grid=514304 nlcgrid=105216 surface=3933 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -421.360549266675  converged=True  cycles=2  pool peak 516 MiB
+--- scf: 79.41 s, SM clock [1860.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_uks[64000]                  21     25.33     25.33
+    numint._vv10nlc                       23      4.58      4.58
+    numint.nr_nlc_vxc[14336]              21      1.68      0.87
+    scf.get_j                             21     11.29     11.29
+    sgx.build                              1      0.11      0.11
+    sgx.contract                          42      3.59      3.59
+    sgx.get_k                             42      9.11      0.85
+    solvent.build                          1      1.33      1.33
+    solvent._get_v                        21      1.58      1.58
+    solvent.left_multiply_R               42      1.54      1.54
+    solvent.left_solve_K                  42      0.08      0.08
+    solvent._get_vmat                     21      1.83      1.83
+    solvent._get_vind                     23      6.37      0.01
+    scf.get_veff                          23     69.91      0.11
+    scf.get_hcore                          2      0.07      0.07
+    scf.get_ovlp                           3      0.03      0.03
+    scf.get_fock                          42      0.13      0.13
+    scf.eig                               20      0.61      0.61
+    scf.get_k                              2      8.48      8.48
+    numint.nr_uks[514304]                  2     16.25     16.25
+    numint.nr_nlc_vxc[105216]              2      4.32      0.55
+    (not in any timed part)                                 0.16
+pool peak 1276 MiB
+--- hess: 1240.45 s, SM clock [1845.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    hess.partial_ejk_ip2                   2    252.65    252.65
+    hess.hcore_energy                      1      0.15      0.15
+    hess.get_exc_deriv2                    1    190.68    190.68
+    vv10.omega_derivative                  3      0.00      0.00
+    vv10.UWABCE                            3     11.08     11.08
+    vv10.EUW_with_weight1                  2     47.50     47.50
+    vv10.EUW_grid_response_offdiagonal     2     10.67     10.67
+    vv10.f_t                               2     71.82     71.82
+    vv10.D_B_in_double_grid_response_offdiagonal     1      6.44      6.44
+    hess.get_enlc_deriv2                   1     89.31     14.18
+    hess.partial_hess_elec                 1    532.79      0.00
+    hess.get_vxc_deriv1                    1    180.37    180.37
+    hess.get_vnlc_deriv1                   1     65.06     32.28
+    hess.grad_hcore                        2      0.55      0.55
+    hess.get_jk_ip1                        4    159.89    159.89
+    hess.make_h1                           1    405.90      0.02
+    solvent.mo_integrals                   2      3.65      3.65
+    solvent.left_solve_K                  26      0.52      0.52
+    solvent.get_dqsym_dx                   4      2.80      2.68
+    solvent.analytical_grad_vmat           2      8.53      5.73
+    hess.nr_uks_fxc_mo (cheap)             7     72.66     72.66
+    vv10.omega_derivative (cheap)          1      0.00      0.00
+    vv10.UWABCE (cheap)                    1      0.07      0.07
+    hess.get_nlc_response_ground_state (cheap)     7      0.13      0.05
+    vv10.f_t (cheap)                       7      4.43      4.43
+    hess.nr_rks_fnlc_mo (cheap)            7     16.49     12.06
+    hess.nr_uks_fnlc_mo (cheap)            7     16.49      0.00
+    sgx.build                              1      0.11      0.11
+    sgx.contract                         624     53.52     53.52
+    sgx.get_k                              9     74.86     11.34
+    sgx.get_k (cheap)                      7     54.86      0.00
+    hess.veff_resp_mo (cheap)              7    179.01     34.76
+    solvent.left_multiply_R               16      0.20      0.20
+    solvent.response_mo (cheap)            7      4.15      3.69
+    hess.cheap_start_and_trials            1    183.55      0.40
+    hess.nr_uks_fxc_mo                     1     13.04     13.04
+    hess.get_nlc_response_ground_state     1      3.82      0.12
+    hess.nr_rks_fnlc_mo                    1     49.99     14.09
+    hess.nr_uks_fnlc_mo                    1     49.99      0.00
+    hess.veff_resp_mo                      1     82.93      6.08
+    solvent.response_mo                    1      0.67      0.60
+    hess.solve_mo1                         1    267.22      0.07
+    hess.hess_elec                         1   1218.14      0.06
+    solvent.analytical_hess_nuc            1      0.07      0.07
+    solvent.analytical_hess_qv             1     19.16     19.16
+    solvent.analytical_hess_solver         1      3.05      2.97
+    solvent.hess                           1     22.28      0.00
+    solvent.hess_cds                       1      0.02      0.02
+    (not in any timed part)                                 0.00
+vs scratch/p41b_uks: dE = 1.137e-13, max |dhess| = 5.794e-06 (max |hess| 6.707e-01), max |dfreq| = 0.016 cm^-1
+P42B resp k_rij done
+p42b_rijcosx_double: bench/diag/wb97mv/uks_ts_audit/meophenoxyl.xyz def2-tzvp wb97m-v solvent=smd nao=321 grid=514304 nlcgrid=105216 surface=3933 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -421.360558904347  converged=True  cycles=2  pool peak 518 MiB
+--- scf: 79.88 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_uks[64000]                  21     15.76     15.76
+    numint._vv10nlc                       23      4.58      4.58
+    numint.nr_nlc_vxc[14336]              21      1.68      0.87
+    scf.get_jk                            23     10.39     10.39
+    scf.get_j                             23     10.39      0.00
+    sgx.build                              1      0.11      0.11
+    sgx.contract                          46     26.12     26.12
+    sgx.get_k                             23     30.27      4.04
+    scf.get_k                             23     30.27      0.00
+    solvent.build                          1      1.32      1.32
+    solvent._get_v                        21      1.59      1.59
+    solvent.left_multiply_R               42      1.54      1.54
+    solvent.left_solve_K                  42      0.08      0.08
+    solvent._get_vmat                     21      1.83      1.83
+    solvent._get_vind                     23      6.38      0.01
+    scf.get_veff                          23     78.85      0.08
+    scf.get_hcore                          2      0.07      0.07
+    scf.get_ovlp                           3      0.03      0.03
+    scf.get_fock                          42      0.13      0.13
+    scf.eig                               20      0.61      0.61
+    numint.nr_uks[514304]                  2      9.96      9.96
+    numint.nr_nlc_vxc[105216]              2      4.32      0.55
+    (not in any timed part)                                 0.15
+pool peak 711 MiB
+--- grad: 12.01 s, SM clock [1875.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.02      0.02
+    grad.get_exc                           1      2.52      2.52
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.36      0.35
+    grad.jk_energy_per_atom                2      7.67      0.98
+    sgx.contract                           8      6.27      6.27
+    sgx.contract_ip1                       4      5.07      0.03
+    sgx.dweights                           1      0.01      0.01
+    sgx.get_k_grad                         1      6.69      0.38
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      0.96      0.96
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.39      0.39
+    solvent.grad_nuc                       1      0.00      0.00
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.09
+vs scratch/p41b_uks: dE = -9.638e-06, max |dgrad| = 4.990e-05 (max |grad| 9.801e-02)
+P42B rijcosx double done
+p42b_rijcosx_float: bench/diag/wb97mv/uks_ts_audit/meophenoxyl.xyz def2-tzvp wb97m-v solvent=smd nao=321 grid=514304 nlcgrid=105216 surface=3933 tree=~/Chemistry/my-pyscf/gpu4pyscf/gpu4pyscf
+E = -421.360553454218  converged=False  cycles=3  pool peak 489 MiB
+--- scf: 115.35 s, SM clock [1860.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    scf.get_init_guess                     1      0.03      0.03
+    numint.nr_uks[64000]                  51     38.29     38.29
+    numint._vv10nlc                       54      7.63      7.63
+    numint.nr_nlc_vxc[14336]              51      4.04      2.06
+    scf.get_jk                            54     24.26     24.26
+    scf.get_j                             54     24.26      0.00
+    sgx.build                              1      0.12      0.12
+    sgx.contract                         108      9.21      9.21
+    sgx.get_k                             54     11.50      2.17
+    scf.get_k                             54     11.50      0.00
+    solvent.build                          1      1.32      1.32
+    solvent._get_v                        51      3.80      3.80
+    solvent.left_multiply_R              102      3.75      3.75
+    solvent.left_solve_K                 102      0.20      0.20
+    solvent._get_vmat                     51      4.45      4.45
+    solvent._get_vind                     54     13.54      0.03
+    scf.get_veff                          54    113.03      0.10
+    scf.get_hcore                          2      0.07      0.07
+    scf.get_ovlp                           3      0.03      0.03
+    scf.get_fock                         103      0.35      0.35
+    scf.eig                               50      1.53      1.53
+    numint.nr_uks[514304]                  3     14.85     14.85
+    numint.nr_nlc_vxc[105216]              3      6.45      0.80
+    (not in any timed part)                                 0.31
+pool peak 682 MiB
+--- grad: 6.37 s, SM clock [1860.0, 1875.0, 1875.0]
+    part                               calls    incl s    excl s
+    grad.get_ovlp                          1      0.01      0.01
+    grad.get_exc                           1      2.52      2.52
+    numint._vv10nlc                        1      0.00      0.00
+    grad.get_nlc_exc                       1      0.35      0.35
+    grad.jk_energy_per_atom                2      2.04      0.98
+    sgx.contract                           8      0.65      0.65
+    sgx.contract_ip1                       4      0.55      0.02
+    sgx.dweights                           1      0.01      0.01
+    sgx.get_k_grad                         1      1.06      0.38
+    grad.grad_nuc                          1      0.00      0.00
+    solvent.grad_qv                        1      0.95      0.95
+    solvent.left_solve_K                   1      0.00      0.00
+    solvent.grad_solver                    1      0.39      0.39
+    solvent.grad_nuc                       1      0.00      0.00
+    solvent.grad_cds                       1      0.00      0.00
+    (not in any timed part)                                 0.09
+vs scratch/p41b_uks: dE = -4.188e-06, max |dgrad| = 4.992e-05 (max |grad| 9.801e-02)
+P42B rijcosx float done
+P42B ALL DONE
+
+== 7. examples/wb97mv_ts_gpu.py with the new switches, and the unit tests on the final files [p42_c.log]
+== examples/wb97mv_ts_gpu.py
+hcn_rijcosx  rc=0  9 steps  -1113.9 2110.5 2662.2              1.65e-04   1 imaginary mode(s)  [96 s]
+hcn_sgx      rc=0 12 steps  -1114.6 2110.4 2664.8              1.06e-05   1 imaginary mode(s)  [115 s]
+hcn_allon    rc=0 13 steps  -1114.6 2110.5 2664.8              5.34e-06   1 imaginary mode(s)  [67 s]
+hcn_allon_smd rc=0  9 steps  -1109.8 2073.7 2584.2              9.66e-06   1 imaginary mode(s)  [68 s]
+h3_rijcosx   rc=0  5 steps  -1039.9 902.5 902.5 2072.9         5.68e-05   1 imaginary mode(s)  [24 s]
+h3_sgx       rc=0  5 steps  -1039.9 902.5 902.5 2072.9         5.66e-05   1 imaginary mode(s)  [25 s]
+h3_allon     rc=0 10 steps  -1038.7 902.2 902.2 2073.1         3.15e-06   1 imaginary mode(s)  [26 s]
+h3_allon_smd rc=0 10 steps  -1040.6 881.9 881.9 2070.3         6.67e-06   1 imaginary mode(s)  [30 s]
+P42C_TS_DONE
+== unit tests
+sgx/tests/test_sgx.py: rc=0 28 passed in 44.69s
+sgx/tests/test_int1e_grids.py: rc=0 12 passed in 17.78s
+hessian/tests/test_cphf_solvers.py: rc=0 50 passed in 598.86s (0:09:58)
+hessian/tests/test_rks_hessian.py: rc=0 12 passed in 27.20s
+hessian/tests/test_uks_hessian.py: rc=0 13 passed in 21.30s
+hessian/tests/test_vv10_hessian.py: rc=0 16 passed in 265.29s (0:04:25)
+hessian/tests/test_rks_hessian_grid_response.py: rc=0 17 passed in 46.56s
+hessian/tests/test_uks_hessian_grid_response.py: rc=0 16 passed in 45.19s
+grad/tests/test_rks_grad.py: rc=0 15 passed in 81.07s (0:01:21)
+grad/tests/test_uks_grad.py: rc=0 12 passed in 84.13s (0:01:24)
+grad/tests/test_rhf_grad.py: rc=0 7 passed in 18.05s
+grad/tests/test_uhf_grad.py: rc=0 6 passed in 25.60s
+grad/tests/test_vv10_grid.py: rc=0 20 passed in 289.56s (0:04:49)
+grad/tests/test_grid_response.py: rc=0 7 passed in 44.75s
+grad/tests/test_geomopt.py: rc=0 4 passed in 75.20s (0:01:15)
+df/tests/test_df_rks_grad.py: rc=0 11 passed in 123.87s (0:02:03)
+df/tests/test_df_uks_grad.py: rc=0 11 passed in 81.32s (0:01:21)
+df/tests/test_df_rks.py: rc=0 12 passed in 9.92s
+df/tests/test_df_geomopt.py: rc=0 4 passed in 13.27s
+scf/tests/test_two_level.py: rc=0 58 passed in 289.14s (0:04:49)
+solvent/tests/test_smd_grad.py: rc=0 14 passed in 9.05s
+solvent/tests/test_pcm_grad.py: rc=0 11 passed in 8.30s
+solvent/tests/test_smd_hessian.py: rc=0 16 passed in 14.83s
+geomopt/tests/test_geometric_solver.py: rc=0 2 passed in 35.05s
+P42C_DONE
