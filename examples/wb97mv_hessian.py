@@ -65,7 +65,9 @@ hobj.grid_response = True
 # For larger molecules: seminumerical K (and direct J) in the CPHF response only, 0.03 cm^-1 on grid
 # level 1; with def2-TZVPD level 0 costs up to 1 cm^-1. The SCF and every derivative integral stay exact.
 # hobj.sgx_response = True
-# hobj.sgx_response_auxbasis = 'aug_etb'   # RI-J instead of direct J in the response: 0.1 cm^-1 more
+# RI-J instead of direct J in the response: 0.1 cm^-1 more. Direct J is a third of the response of a 57-atom
+# molecule with 1200 functions (16 of 46 min for each evaluation of its 171 perturbations; RI-J 1.5 min).
+# hobj.sgx_response_auxbasis = 'aug_etb'
 h = hobj.kernel()                   # Eh/Bohr^2, [natm,natm,3,3]
 
 freq = thermo.harmonic_analysis(mol, h, imaginary_freq=False)['freq_wavenumber']

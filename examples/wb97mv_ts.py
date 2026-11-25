@@ -12,6 +12,15 @@ Then, from any directory:
 
 Writes wb97mv_ts.out (the SCF, gradient and Hessian output) and wb97mv_ts.xyz (the saddle point) to the
 current directory, and prints the frequencies and the atoms that move in the imaginary mode.
+
+Larger molecules: the three switches below, all off. Measured on a 57-atom doublet (1198 basis functions, SMD
+water; 10 cores of a laptop at 2 GHz; NOTES.md, "A UKS transition-state Hessian at production size"):
+  - a step of the search (SCF and gradient) with RIJCOSX: 17 min;
+  - an analytical Hessian with SGX_RESPONSE: about 5 h (the sum of its parts, each timed alone), half of it the
+    CPHF equations, and 15-20 GB with max_memory 14000; over an hour more with the direct J that
+    hobj.sgx_response alone leaves in the response;
+  - PySCF's scratch files (the Hessian's Fock matrix derivatives, 4 GB there) go to $PYSCF_TMPDIR, by default /tmp:
+    point it to a directory on a disk where /tmp is held in memory (a tmpfs).
 '''
 import numpy
 from pyscf import gto, dft, df, grad, hessian  # grad, hessian: give dft.RKS its Gradients() and Hessian()
@@ -27,7 +36,7 @@ mol = gto.M(
     ''',                            # or atom='guess.xyz'
     basis='def2-tzvp',
     charge=0,
-    spin=0,
+    spin=0,                         # 2S: 1 for a doublet (unrestricted orbitals then)
     verbose=4,
     output='wb97mv_ts.out',
 )
@@ -37,12 +46,25 @@ mol = gto.M(
 # saddle point within 1e-4 and 4e-4 Angstrom, and the exact Hessian there gave the frequencies of RIJCOSX's own
 # finite-difference Hessian within 0.3 cm^-1.
 RIJCOSX = False
+# For larger molecules: seminumerical K and RI-J (the even-tempered fitting basis) in the CPHF response of the
+# Hessians, 0.03 and 0.1 cm^-1 in the frequencies (examples/wb97mv_hessian.py). The SCF and every derivative integral
+# stay exact. The 57-atom doublet: one evaluation of the response of its 171 nuclear perturbations, of which the
+# CPHF equations take 5 to 7, is 31 min (XC 12, K 10, VV10 7, J 1.5); with direct J, which hobj.sgx_response alone
+# leaves there, 46 min.
+SGX_RESPONSE = False
+# For larger molecules: the start Hessian in a smaller basis, e.g. 'def2-svp' (None: the basis above). It only steers
+# the search, which updates it from the gradients at every step; the frequencies at the end are those of the full
+# model. The Hessian of a 16-atom radical takes 207 s in def2-SVP against 443 s (the two-electron terms shrink with
+# the basis, the grid terms of XC and VV10 less). The search may then take other steps to the same saddle point:
+# 13 instead of 14 for HCN <-> HNC, 10 instead of 5 for H + H2.
+START_HESSIAN_BASIS = None
 
 
 def make_mf(mol, rijcosx=False):
     '''One model for the optimization, the start Hessian and the frequencies: the saddle point is then a
     stationary point of the surface whose Hessian is analyzed.'''
-    mf = dft.RKS(mol, xc='wb97m-v')     # exact J and K; dft.UKS for open shells (same options below)
+    # exact J and K; unrestricted orbitals for open shells (mol.spin), with the same options
+    mf = (dft.UKS if mol.spin else dft.RKS)(mol, xc='wb97m-v')
     # XC grid, as in examples/wb97mv_hessian.py (99 radial points are enough for P, S and Cl too with the Hessian's
     # grid response)
     mf.grids.atom_grid = (99, 590)
@@ -66,8 +88,9 @@ def analytical_hessian(mf):
     # The derivatives of the grid points and weights, which PySCF leaves out by default: without them the soft modes
     # of the Cl- + CH3Cl saddle point were up to 41 cm^-1 off.
     hobj.grid_response = True
-    # For larger molecules: seminumerical K in the CPHF response only (0.03 cm^-1, examples/wb97mv_hessian.py)
-    # hobj.sgx_response = True
+    if SGX_RESPONSE:
+        hobj.sgx_response = True                # seminumerical K in the CPHF response (and direct J)
+        hobj.sgx_response_auxbasis = 'aug_etb'  # RI-J there instead
     return hobj.kernel()
 
 
@@ -75,10 +98,19 @@ def analytical_hessian(mf):
 # the gradients at every step (Bofill's Murtagh-Sargent/Powell update). Without one (hessian left out), geomeTRIC
 # makes its own at the first step from finite differences of the gradient: 6 gradients per atom.
 mf = make_mf(mol)
-mf.kernel()
-h0 = analytical_hessian(mf)
+if START_HESSIAN_BASIS is None:
+    mf.kernel()
+    h0 = analytical_hessian(mf)
+else:
+    mol0 = mol.copy()
+    mol0.basis = START_HESSIAN_BASIS
+    mol0.build()
+    h0 = analytical_hessian(make_mf(mol0).run())
 
-# The saddle-point search (geomeTRIC's default thresholds, shown so that they can be edited)
+# The saddle-point search (geomeTRIC's default thresholds, shown so that they can be edited). The frequencies at the
+# end are those of where the search stops: with these thresholds, and with RIJCOSX gradients, they came out within
+# about 1 cm^-1 between the runs of this example with different switches (HCN <-> HNC, H + H2), while the
+# approximations of SGX_RESPONSE change them by 0.01 cm^-1 at one geometry.
 conv_params = {
     'convergence_energy': 1e-6,     # Eh
     'convergence_grms': 3e-4,       # Eh/Bohr
