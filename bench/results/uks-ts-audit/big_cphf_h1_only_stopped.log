@@ -1,0 +1,33 @@
+>>> [      0 s,   0.1 GB] pyscf __init__.py, 10 threads, max_memory 14000 MB; 57 atoms, 1198 AOs, (131, 130) electrons, UKS wb97m-v/def2-tzvp, solvent water
+reference 1  E= -2067.4800899735  |g|= 0.00207  (2 |g|^2/gap= 3.53e-05)
+reference 2  E= -2067.48009107128  E - predicted= 5.3e-10  |g|= 2.86e-06  (2 |g|^2/gap= 6.77e-11, 10 cheap builds)
+two-level SCF: 2 Fock builds of the model, 10 of the cheap one after its SCF of 14 cycles
+>>> [   1274 s,   3.8 GB] exact SCF: 1274.1 s, E = -2067.4800910713, converged True; XC grid 1822368 points, VV10 grid 373288, 12812 surface points
+    two-electron second derivatives, J and K: done in 2034 s
+hess_jk_energy: 1845526792 shell quartet orbits, 10086853263 integral evaluations (10729086825 cross-atom centre pairs), 1835244606 orbits batched
+>>> [   3315 s,   4.3 GB] hess_jk_energy: 2038.8 s (call 1, total 2038.8 s)
+    CPU time for two-electron blocks (hess_jk_energy)  20367.28 sec, wall time   2038.84 sec
+    CPU time for two-electron terms  20384.56 sec, wall time   2040.83 sec
+    CPU time for UHF partial hessian  20662.25 sec, wall time   2100.67 sec
+>>> [   3375 s,   4.0 GB] _partial_hess_ejk: 2100.7 s (call 1, total 2100.7 s)
+    two-electron second derivatives, K (long range): done in 1684 s
+hess_jk_energy: 1638321264 shell quartet orbits, 8929033219 integral evaluations (9515011896 cross-atom centre pairs), 1628591872 orbits batched
+>>> [   5064 s,   4.0 GB] hess_jk_energy: 1688.4 s (call 2, total 3727.3 s)
+    CPU time for two-electron blocks (hess_jk_energy)  16832.32 sec, wall time   1688.43 sec
+    CPU time for range-separated exchange  37496.16 sec, wall time   3789.51 sec
+>>> [   5299 s,   4.3 GB] uks._get_vxc_diag: 235.3 s (call 1, total 235.3 s)
+>>> [   6054 s,   2.9 GB] uks._get_vxc_deriv2_dm: 754.8 s (call 1, total 754.8 s)
+>>> [   7219 s,   2.9 GB] _get_exc_deriv2_grid_response: 1165.1 s (call 1, total 1165.1 s)
+    CPU time for grid response of the XC energy  14058.95 sec, wall time   2155.24 sec
+>>> [   7299 s,   2.9 GB] vv10 data: 79.6 s (call 1, total 79.6 s)
+>>> [   8046 s,   6.0 GB] _becke_weight_derivs: 12.1 s (call 145, total 79.7 s)
+>>> [   8553 s,   9.0 GB] vv10.weight1_pair: 507.2 s (call 1, total 507.2 s)
+>>> [   8791 s,  10.4 GB] vv10.grid_response_pair: 237.0 s (call 1, total 237.0 s)
+>>> [   8885 s,   8.5 GB] _vv10_grid_response_terms: 851.2 s (call 1, total 851.2 s)
+>>> [   8885 s,   5.9 GB] _get_enlc_deriv2: 1665.9 s (call 1, total 1665.9 s)
+    CPU time for UKS partial hessian  67656.16 sec, wall time   7610.62 sec
+>>> [   8885 s,   5.7 GB] partial_hess_elec: 7610.6 s (call 1, total 7610.6 s)
+>>> [  12218 s,  10.1 GB] uks._get_vxc_deriv1: 3333.1 s (call 1, total 3333.1 s)
+>>> [  13613 s,   9.5 GB] _get_vnlc_deriv1: 1394.4 s (call 1, total 1394.4 s)
+guard: RSS 23 GB >= 21 GB, killing 358206
+guard: peak RSS about 23 GB

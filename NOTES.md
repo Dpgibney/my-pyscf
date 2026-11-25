@@ -9059,6 +9059,254 @@ wB97M-V/def2-TZVP setup for transition state geometry optimizations".
   - exact: 30 s, 14 steps, -1114.6 / 2110.5 / 2664.7 cm-1, max |g| 1.2e-5 Eh/Bohr at the end;
   - RIJCOSX: 27 s, 10 steps, -1114.5 / 2110.5 / 2664.6 cm-1, exact max |g| 5.2e-5 there; bonds within 2e-4 A.
 
+## A UKS transition-state Hessian at production size: the audit (laptop), 2026-11-24/25
+The user: "I am running a system with 57 atoms with a spin of 1 and charge 0 at the wB97M-C/def2-tzvp level of
+theory giving 1212 basis functions. It is a UKS transition state optimization with mf.grids.atom_grid = (99,590)
+RIJCOSX with the aug_etb basis mf.nlcgrids.atom_grid = (50,194) SMD water solvent. mf.two_level = True.
+Mf.set_second_grids(2) mf.set_second_nlcgrids(1). The analytic hessian is being calculated with grid_response = True
+and sgx_response = True. Pretty much in line with the TS state example in the examples folder. However, this seems
+notable slower than it should be. Could you work on auditing this work flow? It is all on the CPU." (wB97M-V taken.)
+No Hessian had been run at that size (the tuning was on caffeine, closed shell, 494-614 functions), and the UKS
+paths of the Hessian had not had the work the RKS paths had.
+- **Workloads** (`examples/wb97mv_ts.py`'s settings: wB97M-V/def2-TZVP, XC (99,590), VV10 (50,194), SMD water,
+  `two_level`, response grids 2/1, `grid_response`, `sgx_response`; 10 threads):
+  - the FMNH radical with an HNCO beside it (`bench/diag/wb97mv/uks_ts_audit/fmnh_hnco.xyz`, an MMFF geometry):
+    C18H23N5O10P, 57 atoms, doublet, 1198 functions, 171 nuclear perturbations; 1,822,368 XC points, 373,288 VV10
+    points, 12,812 surface points, 74,952 points of the response's seminumerical K; `max_memory` 14000;
+  - a methoxyphenoxyl radical (16 atoms, 321 functions, UKS) and methoxyphenol (17 atoms, 327 functions, RKS).
+- **Tools** (`bench/diag/wb97mv/`): `ts_workflow_profile.py` (the example's steps timed by their parts; `--steps
+  cphf`: one call of the CPHF's response function from saved orbitals, and the RI-J of the same densities;
+  `--rx-profile`: a step of the search under cProfile); `uks_ts_audit/`: `mem_h1.py` (the resident memory of the
+  solvent's Hessian terms, with the lines the main thread is on at every new high), `dd_big.py`,
+  `dd_screen_check.py`, `tol_scan.py`, `h1jk_big.py` (the screening of the two-electron derivative integrals),
+  `xc_h1_big.py` (the XC and VV10 Fock derivatives by their parts), `solv_cmp.py` and `hess_ref.py` (the solvent's
+  terms and 18 small Hessians, to compare two trees).
+- **Data:** `bench/results/uks-ts-audit/`.
+- **Commits:** pyscf `perf` 5a663aecc (the solvent's terms), f6ecee1ef (the screening, the thresholds, the
+  one-electron blocks), 8b5cdf24c (the rest); tag and pin `perf-2026-11-25`, pushed on 2026-11-25 at the user's
+  word ("Please commit and push this").
+
+### What was wrong (tag perf-2026-11-24b)
+1. **The solvent's Fock derivative took memory that grew with the thread count.** `solvent/hessian/pcm.py`
+   contracts the derivatives of the surface matrices S and D by blocks of rows on a thread pool
+   (`_map_row_blocks`), which returned the list of every block's result. A block is `D1_BLOCK_MEMORY` / threads
+   rows, and for the transposed products each result was a dense [3,n,natm] array: n/10 arrays of 17.5 MB for
+   12,812 points and 57 atoms on 8 threads, 22.5 GB, and as many times more as there are more threads. Beside it
+   the function held K, R, D A and A S as [n,n] arrays (1.3 GB each; two of them never used) and one matrix
+   [3,nao,nao] per atom. The 57-atom run was at 23 GB when the guard stopped it, on its way to about 35.
+   The second derivatives' `_d2_contract` kept a [pairs,natm,natm,9] array per block of 3 rows the same way (6 GB),
+   the gradient's `_d1_antisym` an [n,3] array per block (0.4 GB). None of this showed at caffeine's 5525 points.
+2. **The UKS CPHF built the AO matrices of all 2 x 171 perturbed densities at once** (4 GB for each array of
+   them at 1198 functions), ran the seminumerical K on them twice per iteration (full range, then long range) and
+   took the VV10 response from AO matrices: `hessian.uhf.gen_vind` and `_gen_uhf_response` had the factored XC
+   response only.
+3. **The UKS Fock derivative built the kernel terms of XC and VV10 as AO matrices** for the 342 spin
+   perturbations, where RKS keeps them as products with the occupied orbitals (`_MAKE_H1_SPLIT`); the solvent's
+   wrapper fell back to AO matrices for every unrestricted model.
+4. **The grid response's "points move with their atom" term** of the XC and VV10 Fock derivatives was a Python
+   loop over the atoms of every grid block (`_grid_motion_vmat_`): half of the XC Fock derivative of the small
+   radical once item 3 was done.
+5. **The energy-type contractions of the two-electron derivative integrals were screened like Fock matrices**,
+   by the integral bound times one density element, although each integral meets two.
+6. **The VV10 kernel of the 3 natm density responses was applied twice**, in the energy's second derivative and in
+   the Fock derivative (the GPU tree shares it since part 40).
+7. **The UKS XC terms sized their grid blocks for the AO values alone** (RKS counts the other arrays of a block,
+   `_xc_block_memory`): a block of the meta-GGA pair term held 2.2 times its budget, 15.5 GB at 1198 functions
+   whatever `max_memory` said.
+8. **The one-electron second derivatives** contracted a [3,3,nao,nao] matrix for each pair of atoms.
+9. **Configuration.** `sgx_response = True` leaves the Coulomb response direct: a third of each response of the
+   CPHF at this size (below). The TS example did not show `sgx_response_auxbasis`.
+
+### What was done
+All exact (to rounding) except the two screening thresholds of item 5.
+1. **The solvent's terms** (`solvent/grad/pcm.py`, `solvent/hessian/pcm.py`). `_map_row_blocks(..., consume)`
+   hands each block's result to a function in the blocks' order, a few times the thread count at a time
+   (`_sum_row_blocks` adds them up); the transposed product returns a column [3,n] for each atom a block's rows
+   belong to (one or two) instead of the [3,n,natm] array that is zero elsewhere. K, R, D A and A S enter
+   `get_dqsym_dx_fix_vgrids`, `get_dqsym_dx_fix_K_R` and `analytical_hess_solver` as products with D, one S
+   and the factors of K (`_K_solve`, `_R_dot`); `analytical_grad_vmat` adds each atom's integrals to its
+   output as they are made.
+2. **The UKS CPHF response from the factors of the densities** (`scf/_response_functions.py`
+   `_gen_uhf_response.vind_mo`, `hessian/uhf.py` `gen_vind`): XC as before; SGX's K of both spins from one
+   evaluation of the integrals with the mixed-range operator (`sgx_jk._get_k_only_many` takes groups of densities
+   with orbitals of their own, the driver `SGXnr_direct_k_many_groups`); the VV10 response of the total density
+   from the factors of both spins (`get_vnlc_resp_mo(..., ao_out=True)`); J of the total density (one per
+   perturbation, not one per spin) by chunks. No AO matrix of a density or a response beyond a chunk.
+3. **The UKS Fock derivative in the split form** (`hessian/uks.py` `_make_h1_split`, `uhf.py` `hess_elec`,
+   `solve_mo1`; the solvent's `_make_h1_split` for unrestricted models): the kernel terms of XC and of VV10 (for
+   the total density, through the orbitals of both spins scaled by 1/sqrt 2) as products with the occupied
+   orbitals.
+4. **The points of each atom in one compiled pass** (`VXCfused_dot_terms_owner_mo`, `_FusedXC.dot_terms_owner_mo`):
+   out[A] += (v_A + v_A^T) Q for the gradient-type matrices v_A of the points of every atom A, the threads
+   taking atoms. RKS, UKS and VV10. The fused kernels also skip the sets whose potentials are zero on a group
+   of points.
+5. **The screening by two density elements** (`lib/vhf/hess_jk_energy.c`, `grad_jk_energy.c`;
+   `hessian.rhf.JK_ENERGY_DD_SCREEN`, `grad.rhf.JK_ENERGY_DD_SCREEN`, on): a shell quartet is computed if its
+   integral bound times 2 D_ij D_kl (Coulomb) or D_ik D_jl, D_il D_jk (exchange) is above the threshold.
+   `JK_ENERGY_TOL` 1e-14 -> 1e-13, `MAKE_H1_TOL` (the Fock derivative's J/K, a Fock-type bound) 1e-14 -> 1e-12.
+6. **The VV10 kernel terms of the density responses kept** for the Fock derivative when the energy term made
+   them with the grid response (`_VV10HessData._f_t_dA`), as the pair terms of the weights already were.
+7. **`rks_hess._xc_block_memory` in the UKS XC terms** (`uks._get_vxc_deriv1`, `_get_vxc_deriv2_dm`), with a
+   floor: below 2000 MB the fused kernels take few perturbations per pass and many passes.
+8. **The one-electron second derivatives from the blocks of each pair of atoms** (`rhf._hcore_deriv2_dm_`).
+9. **`examples/wb97mv_ts.py`** (the user: "ensure that the transition state example is updated with the latest
+   options/recommendations"): three switches for larger molecules, off, each with what was measured: `RIJCOSX`
+   (the search's gradients, as before), `SGX_RESPONSE` (seminumerical K and RI-J in the CPHF response of the
+   Hessians), `START_HESSIAN_BASIS` (the start Hessian in a smaller basis); unrestricted orbitals when `mol.spin`
+   is not zero; the 57-atom numbers and `PYSCF_TMPDIR` in its header. `wb97mv_hessian.py`: the cost of the direct J
+   beside `sgx_response_auxbasis`.
+
+### Measured
+**The 57-atom doublet by its parts** (seconds, 10 threads). "First two changes" is one run of the SCF and the
+Hessian with items 2 and 3 only, beside a 2-thread job (about 10% slower than alone), which the guard stopped at
+23 GB in the solvent's Fock derivative; "now" is each part run by itself from the saved orbitals. The tag's code
+was not run at this size: by the sizes of its arrays its CPHF and Fock derivative hold the AO matrices of 342
+densities (about 25 GB beside the rest) and its solvent term 35 GB, and from the small radical's ratios its
+Hessian would take about 11 h.
+
+| part | first two changes | now |
+|---|---|---|
+| exact two-level SCF (14 cheap cycles, 2 builds) | 1274 | |
+| two-electron second derivatives, J and full-range K | 2039 (1856 alone) | 943 |
+| the same, long-range K | 1688 | 506 |
+| one-electron terms | 60 | |
+| XC energy: diagonal, pair terms, grid response | 235 + 755 + 1165 | |
+| VV10 energy second derivatives | 1666 | 1491 |
+| XC Fock derivative | 3333 | 2119 |
+| VV10 Fock derivative | 1394 | 238 (870 where its pair terms are not kept, below) |
+| J/K Fock derivative (57 passes over the integrals of an atom's shells) | about 2400 (not timed by itself) | 20% less (two atoms) |
+| solvent's Fock derivative | above 23 GB, stopped | 125, 6.7 GB at its peak |
+| one response of the CPHF, 171 perturbations | | 2742 |
+| solvent's Hessian terms | | 173, 6.9 GB at their peak |
+
+- **The response of the CPHF** (`cphf_big.log`): direct J 942 s (three passes over the integrals: 84 + 84 + 3
+  densities fit in half of the memory left; a pass costs 120-210 s and each density 2.4 s more), XC on the level-2
+  grid 692 s, SGX's K of the 342 spin densities 613 s (65 s of integrals), VV10 on level 1 410 s, solvent 76 s.
+  For 18 perturbations: 503 s (J 210, K 123, VV10 87, XC 72).
+  - **RI-J (`sgx_response_auxbasis = 'aug_etb'`) of the same 171 total densities: 78 s** against 942 (in three
+    chunks, 25 s each); the norms of the J matrices agree to 3e-5. The measured cost in frequencies is 0.05-0.11
+    cm^-1 ("Approximations of the CPHF response" above).
+  - The small radical's CPHF takes 6 responses for 48 perturbations (48, 48, 48, 47, 27, 6 trial vectors:
+    4.7 responses of all), residuals 0.44, 0.12, 0.045, 0.0096, 0.0016, 2e-4, 8e-5. At that count the 57-atom
+    CPHF is about 3.6 h with direct J and 2.5 h with RI-J: half of the Hessian or more.
+  - Each term runs near the rate of this machine's matrix products (the XC response at about 180 Gflop/s); a
+    two-level CPHF as on the GPU would need a cheap model of all four terms, which at a third of the cost each
+    saves little here.
+- **The Hessian from these parts:** second derivatives at fixed orbitals 5150 s, Fock derivative 4400 s, solvent
+  terms 170 s, CPHF about 13,050 s with direct J (4 responses of 171 perturbations, one of 96 and one of 21) or
+  8800 s with RI-J: 6.3 h, or 5.2 h with RI-J. By kind of work, with direct J: XC 33%, the Coulomb response 20%,
+  VV10 16%, the exact derivative integrals 15%, the seminumerical K of the response 13%, the solvent 3%.
+  An estimated 15-20 GB at its peak (the XC Fock derivative, with `max_memory` 14000). Not run in one piece
+  with the final code.
+- **The VV10 terms** (`xc_h1_big.log`): the energy term 1491 s (the kernel of the 171 density responses 623 s, the
+  pair terms of the weights 442 + 205 s, the ground-state data 69 s). The Fock derivative reuses all three where
+  they fit in memory: 238 s (the potentials times the orbitals 177 s, the points of each atom 31 s). In the probe
+  with `max_memory` 8000 the pair terms did not fit beside the kept kernel terms and were made again (435 + 197 s:
+  870 s); with 14000 inside a Hessian both should be (6 and 2 arrays of 0.5 GB: the first run kept the pair
+  terms with 6.0 GB resident at that point, and the kernel terms add 1 GB).
+- **The two-density screening** (`dd_big.log`, `h1jk_big.log`, `dd_small.log`; J and full-range K second
+  derivatives of the 57 atoms):
+
+  | bound | threshold | time | shell quartet orbits | largest change of a block |
+  |---|---|---|---|---|
+  | one density element | 1e-14 (before) | 1856 s | 1.85e9 | |
+  | two | 1e-13 (now) | 943 s | 1.06e9 | 7.3e-10 (J 7.9e-10, K 7.8e-11) |
+  | two | 1e-12 | 767 s | 8.9e8 | 1.1e-8 |
+  | two | 1e-11 | 609 s | 7.2e8 | 9.1e-8 |
+
+  The Coulomb part sets the error: its neglected terms have one sign. The long-range pass at 1e-13: 506 s, 7.1e8
+  orbits (1.64e9 before). On the 16-atom radical the bound saves 16-22% at 1e-14 and changes the blocks by 8e-12;
+  the gradient's energy-type contraction takes 12.2 s instead of 15.3 (4.5e-11). `MAKE_H1_TOL` 1e-12: 26.0 and
+  52.2 s instead of 32.8 and 64.1 s for the two atoms, matrices within 1.3e-10. Both thresholds at 1e-12 with the
+  old bound moved the Hessians of the two small molecules by 1.5e-11 and 1.0e-11, at 1e-10 by 2.8e-9 (frequencies
+  below 5e-5 cm^-1; `tol_scan_*.log`).
+- **The XC Fock derivative, 2119 s** (`xc_h1_big.log`): the products of the 342 kernel potentials with the
+  occupied orbitals 1470 s (about 220 Gflop/s: their cost is that of 342 sets x 1.8 M points x the AOs on a
+  block x 131 orbitals), the points of each atom 206 s, the gradient-type terms about 330 s.
+- **The solvent's memory** (`mem_solvent_h1_*.log`, 8 threads): the Fock derivative stopped at 21-23 GB while the
+  list of block results grew by 0.6 GB every 50 ms; now 6.7 GB at its peak and 125 s. Its terms agree with the
+  tag's to 5e-15 for C-PCM, IEF-PCM, SS(V)PE and SMD (`solv_cmp.log`, 16 atoms, 6 threads).
+- **A step of the search** (`rx_big.log`; the RIJCOSX model with `two_level`, whose cheap model differs in the
+  grids only): the SCF from the exact model's density 789 s; a displaced geometry (0.02 Bohr rms per coordinate)
+  987 and 1042 s. The second, under cProfile: SCF 843 s (25 potential builds: 11 cycles of the cheap model, 2
+  builds of the model, 9 cheap builds between them; SGX's K 439 s, 14 s a build; XC 160 s; the solvent 141 s, 112 of
+  them the two passes over the surface integrals of every build; RI-J 67 s; VV10 43 s; the energy on SGX's larger
+  grid 42 s), gradient 199 s (K 99, XC 32, RI-J 20, VV10 15, solvent 30). No single term to fix: the count of
+  builds times a K-dominated build. A search of 50 steps is 14 h, more than its two Hessians.
+
+**The two small workflows end to end** (10 threads, `max_memory` 12000; `small_*_pushed.log`, `small_*_final.log`):
+
+| seconds | radical, tag | radical, now | closed shell, tag | closed shell, now |
+|---|---|---|---|---|
+| exact gradient | 19.2 | 17.5 | 23.1 | 17.8 |
+| **Hessian** | **627.8** | **442.9** | **400.0** | **349.0** |
+| second derivatives at fixed orbitals | 208.8 | 204.5 | 190.6 | 179.3 |
+| - of them the two-electron passes | 56.7 | 45.6 | 65.0 | 48.5 |
+| XC Fock derivative | 118.5 | 45.3 | 46.0 | 27.2 |
+| VV10 Fock derivative | 24.5 | 4.1 | 27.0 | 3.5 |
+| J/K Fock derivative | 35.8 | 35.3 | 30.5 | 29.9 |
+| CPHF | 227.8 (7 responses) | 142.3 (7) | 91.9 (5) | 97.0 (5) |
+| - K of the response | about 170 (two passes on AO matrices) | 32.3 | | 18.1 |
+
+The radical with RI-J in the response: 423.6 s; in def2-SVP (161 functions) 207.3 s.
+
+**`examples/wb97mv_ts.py` with its switches** (`ts_example_variants.log`; HCN <-> HNC, and H + H2 as a doublet;
+steps of the search with step 0):
+
+| | HCN: steps | frequencies, cm^-1 | H + H2: steps | frequencies, cm^-1 |
+|---|---|---|---|---|
+| as it is | 14 | -1114.6, 2110.5, 2664.7 | 5 | -1039.7, 902.4 (2), 2072.9 |
+| `SGX_RESPONSE` | 14 | -1114.6, 2110.5, 2664.7 | 5 | -1039.9, 902.4, 2072.9 |
+| `START_HESSIAN_BASIS = 'def2-svp'` | 13 | -1114.6, 2110.5, 2664.8 | 10 | -1038.5, 902.2, 2073.1 |
+| `RIJCOSX` | 10 | -1114.5, 2110.5, 2664.6 | 5 | -1039.8, 902.5, 2072.9 |
+| all three | 11 | -1114.8, 2110.5, 2665.7 | 10 | -1038.7, 902.2, 2073.1 |
+| all three, SMD water | 9 | -1109.8, 2073.7, 2584.1 | 10 | -1040.6, 881.9, 2070.3 |
+
+- Every run ends at a first-order saddle point. The frequencies differ by up to 1.2 cm^-1 between the runs: by
+  where each search stops (exact gradients of 2e-6 to 8e-5 Eh/Bohr there, within geomeTRIC's thresholds, and
+  RIJCOSX's saddle point is not the exact model's). At one geometry the response approximations change them by
+  0.01 cm^-1 (`hcn_resp.py`: seminumerical K 5e-7 in the Hessian, with RI-J 2e-6).
+- A def2-SVP start Hessian cost the H + H2 search five more steps (hydrogen's def2-SVP is 2s1p) and saved HCN one.
+
+### Validation
+- **Unit tests** (`tests.log`; `scripts/run_tests.sh pyscf hessian grad sgx solvent` and `... scf dft df tdscf`):
+  1119 pass. Five fail, in the tag's tree too: `test_smd_grad.py::test_grad_solvent` (1.17e-4 from its reference,
+  tolerance 1e-4) and four of `test_tdrks.py` that need xcfun. New: `test_hess_jk_energy_dd_screen`,
+  `test_jk_energy_per_atom_dd_screen`, `test_row_blocks_threads` (the solvent's block sums on several threads
+  against the whole arrays), `test_vnlc_deriv1_kept_kernel_terms`, `ManyDensities.test_get_k_mo_groups`,
+  `UKSKnownValues` (`test_h1_split`, `test_vind_mo_chunks`, `test_hcore_deriv2_blocks`,
+  `test_grid_motion_owner_mo`); `test_make_h1_screening` checks 1e-14 against no screening and the default to 9
+  digits.
+- **18 small Hessians against the tag's** (`cmp_final.log`: 9 UKS, 9 RKS; LDA to wB97M-V, SMD, grid response,
+  `sgx_response`, RI-J response, two-level SCF): within 4.3e-10 with the old screening and with the defaults.
+  Three RKS cases came out 2e-9 to 1e-7 off when run on 5 threads against the tag's 2: their SCFs end 1e-12 apart
+  in energy, and the Hessians follow; on 2 threads they agree to 3e-10.
+- **The 16-atom radical end to end**: the Hessian within 7.2e-10 of the tag's, frequencies within 1e-4 cm^-1.
+- **The solvent's terms** to 5e-15 (above); the UKS response from factors against the AO path to 3e-15 (exact J/K)
+  and 2.5e-11 (SGX) for PBE, B3LYP, HSE06, CAM-B3LYP, M06-L and wB97M-V (`test_vind.py` during the work).
+
+### Not done
+- **The Hessian of the 57 atoms in one piece with the final code**: the one run of this audit was stopped by the
+  guard, and the parts were then measured one at a time (the user: "I'm assuming that your running of each
+  individual part individually is accurate enough so no need to run the whole thing").
+- **The J/K Fock derivative** (about 30 min at 57 atoms): 57 passes, each over the quartets with a shell of one
+  atom; an orbit-based contraction with the derivatives on all four centres would compute 3/4 of the integrals.
+- **Direct J for many densities**: 2.4 s a density in its contraction (17 Gflop/s) and a third array per density
+  for D + D^T; RI-J is the way at this size.
+- **The kernel term of the XC Fock derivative on the response grid** (`second_grids`, roughly a quarter of the
+  points): most of its 1470 s; needs its own accuracy measurement. The same for SGX's K contraction with the
+  first-order densities screened by magnitude.
+- **The VV10 pair kernels** (the density responses' 623 s, the weights' pair terms 442 + 205 s, each response of
+  the CPHF 410 s) are matrix products at the machine's rate; the weight derivatives of Becke's partition are not
+  sparse (by a rough estimate 1e-3 of the weight from an atom 10 Bohr away).
+- **The search step's build count**: starting the two-level scheme with a build of the model at the last
+  geometry's density would trade 5 cheap builds for one of the model (about 5%); the solvent's surface integrals
+  through the fitting basis of RI-J would take them out of every build (11% of a step), with a gradient to match.
+- `PYSCF_TMPDIR`: the laptop's and node2's `/tmp` are tmpfs, so the Fock derivatives a Hessian moves "out of core"
+  (3.9 GB here) stay in RAM unless it points to a disk.
+- UKS without a solvent or with other functionals was validated on small molecules only; the hyb = 0 class
+  (long-range exchange only) has no test: libxc here has no such functional.
+
 ## GPU4PySCF, part 36: what the CPU tree gained since perf-2026-11-03, on the GPU (node1), 2026-11-21/22
 The user, after the read-only audit of 2026-11-21 (gpu4pyscf had not moved since part 35; the CPU tree had gained the
 two-level SCF, the solvent rewrites, the residual CPHF solver, RIJCOSX): "The GPU on node1 is now available so we can

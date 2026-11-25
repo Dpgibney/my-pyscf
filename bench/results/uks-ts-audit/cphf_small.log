@@ -1,0 +1,31 @@
+>>> [      0 s,   0.1 GB] pyscf __init__.py, 10 threads, max_memory 8000 MB; 16 atoms, 321 AOs, (33, 32) electrons, UKS wb97m-v/def2-tzvp, solvent water
+CPHF response with direct J and SGX K on grid level 1, 21704 points
+>>> [      2 s,   0.4 GB] CPHF response: 48 trial vectors of 20865 elements, sgx_response True, response auxbasis None
+>>> [     10 s,   1.0 GB] response of 6 perturbations: 8.2 s (|v| 58.925796)
+>>> [     10 s,   1.0 GB] parts of the response of 6 perturbations (wall time, nested parts overlap):
+            3.3 s      1 call(s)  get_vnlc_resp_mo
+            2.1 s      1 call(s)  response sgx_jk.get_k_mo (factors)
+            1.9 s      1 call(s)  response sgx_jk._get_k_only_many
+            1.7 s      1 call(s)  response get_j
+            1.7 s      1 call(s)  response get_jk
+            1.6 s      1 call(s)  vv10 data
+            0.9 s      1 call(s)  uks_fxc_mo
+            0.3 s      1 call(s)  solvent _B_dot_x
+            0.2 s      1 call(s)  cache_xc_kernel
+>>> [     17 s,   1.0 GB] uks_fxc_mo: 6.4 s (call 1, total 6.4 s)
+>>> [     28 s,   1.0 GB] get_vnlc_resp_mo: 6.7 s (call 1, total 6.7 s)
+>>> [     32 s,   1.0 GB] response of 48 perturbations: 21.8 s (|v| 434.870660)
+>>> [     32 s,   1.0 GB] parts of the response of 48 perturbations (wall time, nested parts overlap):
+            6.7 s      1 call(s)  get_vnlc_resp_mo
+            6.4 s      1 call(s)  uks_fxc_mo
+            4.9 s      1 call(s)  response sgx_jk.get_k_mo (factors)
+            4.9 s      1 call(s)  response sgx_jk._get_k_only_many
+            2.9 s      1 call(s)  response get_j
+            2.9 s      1 call(s)  response get_jk
+            0.8 s      1 call(s)  solvent _B_dot_x
+CPHF response with RI-J and SGX K on grid level 1, 21704 points
+    CPU time for df-vj (J-engine)      7.26 sec, wall time      0.48 sec
+>>> [     33 s,   1.1 GB] RI-J (aug_etb) of the total densities of 48 perturbations, 57 at a time: 0.6 s (|J| 238.212123)
+>>> [     36 s,   1.1 GB] the J of the response above of the total densities of 48 perturbations, 57 at a time: 3.1 s (|J| 238.237110)
+>>> [     36 s,   1.1 GB] total 36 s
+guard: peak RSS about 7 GB

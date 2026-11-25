@@ -1,0 +1,45 @@
+>>> [     0 s, now  0.18 GB, peak since last  0.18 GB] 57 atoms, 1198 AOs, 8 threads, max_memory 14000
+    rss  0.51 GB at pcm.py:278 get_D_S < smd.py:273 build < mem_h1.py:42 <module>
+    rss  1.03 GB at fromnumeric.py:83 _wrapreduction < fromnumeric.py:2463 sum < pcm.py:278 get_D_S < smd.py:273 build
+    rss  1.55 GB at fromnumeric.py:83 _wrapreduction < fromnumeric.py:2463 sum < pcm.py:278 get_D_S < smd.py:273 build
+>>> [     8 s, now  1.50 GB, peak since last  1.93 GB] solvent build: 12812 surface points
+    rss  2.12 GB at pcm.py:268 get_D_S < pcm.py:464 __missing__ < pcm.py:481 _make_K < pcm.py:470 __missing__
+    rss  2.63 GB at pcm.py:268 get_D_S < pcm.py:464 __missing__ < pcm.py:481 _make_K < pcm.py:470 __missing__
+    rss  3.22 GB at pcm.py:487 _make_K < pcm.py:470 __missing__ < pcm.py:529 _K_solve < pcm.py:804 _get_q
+    rss  3.73 GB at pcm.py:487 _make_K < pcm.py:470 __missing__ < pcm.py:529 _K_solve < pcm.py:804 _get_q
+    rss  4.24 GB at pcm.py:487 _make_K < pcm.py:470 __missing__ < pcm.py:529 _K_solve < pcm.py:804 _get_q
+>>> [    36 s, now  2.90 GB, peak since last  4.24 GB] solvent _get_vind
+    rss  4.75 GB at pcm.py:434 _int1e_grids_deriv < mem_h1.py:49 wrapped < pcm.py:1135 analytical_grad_vmat < mem_h1.py:55 <module>
+    rss  5.28 GB at distance.py:2929 cdist < pcm.py:269 get_D_S < pcm.py:464 __missing__ < pcm.py:886 get_dqsym_dx_fix_vgrids
+    rss  5.83 GB at pcm.py:268 get_D_S < pcm.py:464 __missing__ < pcm.py:886 get_dqsym_dx_fix_vgrids < mem_h1.py:49 wrapped
+    rss  6.34 GB at pcm.py:268 get_D_S < pcm.py:464 __missing__ < pcm.py:886 get_dqsym_dx_fix_vgrids < mem_h1.py:49 wrapped
+    rss  6.88 GB at distance.py:2929 cdist < pcm.py:269 get_D_S < pcm.py:464 __missing__ < pcm.py:481 _make_K
+    rss  7.44 GB at pcm.py:268 get_D_S < pcm.py:464 __missing__ < pcm.py:481 _make_K < pcm.py:470 __missing__
+    rss  7.99 GB at pcm.py:487 _make_K < pcm.py:470 __missing__ < pcm.py:887 get_dqsym_dx_fix_vgrids < mem_h1.py:49 wrapped
+    rss  8.50 GB at pcm.py:487 _make_K < pcm.py:470 __missing__ < pcm.py:887 get_dqsym_dx_fix_vgrids < mem_h1.py:49 wrapped
+    rss  9.01 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss  9.77 GB at pcm.py:916 get_dqsym_dx_fix_vgrids < mem_h1.py:49 wrapped < pcm.py:1096 <lambda> < pcm.py:1027 _hess_intermediate
+    rss 10.32 GB at pcm.py:916 get_dqsym_dx_fix_vgrids < mem_h1.py:49 wrapped < pcm.py:1096 <lambda> < pcm.py:1027 _hess_intermediate
+    rss 11.00 GB at pcm.py:922 get_dqsym_dx_fix_vgrids < mem_h1.py:49 wrapped < pcm.py:1096 <lambda> < pcm.py:1027 _hess_intermediate
+    rss 11.55 GB at pcm.py:922 get_dqsym_dx_fix_vgrids < mem_h1.py:49 wrapped < pcm.py:1096 <lambda> < pcm.py:1027 _hess_intermediate
+    rss 12.18 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 12.82 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 13.44 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 14.08 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 14.74 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 15.40 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 16.04 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 16.67 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 17.18 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 17.80 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 18.45 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 18.96 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 19.57 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 20.21 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 20.85 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 21.47 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 22.09 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 22.68 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+    rss 23.19 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+guard: RSS 21 GB >= 17 GB, killing 452418
+guard: peak RSS about 21 GB

@@ -1,0 +1,6 @@
+57 atoms, 1198 AOs, 10 threads; two-electron second derivatives, J and full-range K
+one density, tol 1e-14:  1855.9 s, 1.846e+09 orbits, 1.009e+10 integral evaluations; max |d ej| 0.0e+00, max |d ek| 0.0e+00, max |d (ej - ek)| 0.0e+00 (max |ej| 80.66, |ek| 2.05)
+two density, tol 1e-13:   943.2 s, 1.058e+09 orbits, 5.658e+09 integral evaluations; max |d ej| 7.9e-10, max |d ek| 7.8e-11, max |d (ej - ek)| 7.3e-10 (max |ej| 80.66, |ek| 2.05)
+two density, tol 1e-12:   766.6 s, 8.856e+08 orbits, 4.696e+09 integral evaluations; max |d ej| 1.1e-08, max |d ek| 8.2e-10, max |d (ej - ek)| 1.1e-08 (max |ej| 80.66, |ek| 2.05)
+two density, tol 1e-11:   608.7 s, 7.165e+08 orbits, 3.760e+09 integral evaluations; max |d ej| 9.4e-08, max |d ek| 1.1e-08, max |d (ej - ek)| 9.1e-08 (max |ej| 80.66, |ek| 2.05)
+guard: peak RSS about 0 GB

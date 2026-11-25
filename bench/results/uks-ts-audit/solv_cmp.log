@@ -1,0 +1,26 @@
+solv_cmp.py, methoxyphenoxyl radical (UKS PBE/def2-SVP, density fitting), 6 threads: the final code (tag perf-2026-11-25) against tag perf-2026-11-24b
+grad: the solvent gradient; vmat: analytical_grad_vmat; nuc, qv, solver: the three terms of the solvent Hessian
+C-PCM grad       max |tag| 1.537e-02  max |difference| 0.00e+00
+C-PCM vmat       max |tag| 9.645e-02  max |difference| 2.78e-17
+C-PCM nuc        max |tag| 1.989e-01  max |difference| 0.00e+00
+C-PCM qv         max |tag| 2.344e-01  max |difference| 3.55e-15
+C-PCM solver     max |tag| 2.448e-03  max |difference| 0.00e+00
+C-PCM e          max |tag| 4.205e+02  max |difference| 0.00e+00
+IEF-PCM grad     max |tag| 1.528e-02  max |difference| 0.00e+00
+IEF-PCM vmat     max |tag| 9.629e-02  max |difference| 2.78e-17
+IEF-PCM nuc      max |tag| 1.986e-01  max |difference| 2.78e-17
+IEF-PCM qv       max |tag| 2.340e-01  max |difference| 5.33e-15
+IEF-PCM solver   max |tag| 2.451e-03  max |difference| 6.07e-18
+IEF-PCM e        max |tag| 4.205e+02  max |difference| 0.00e+00
+SS(V)PE grad     max |tag| 1.506e-02  max |difference| 0.00e+00
+SS(V)PE vmat     max |tag| 9.119e-02  max |difference| 3.47e-17
+SS(V)PE nuc      max |tag| 1.944e-01  max |difference| 4.16e-17
+SS(V)PE qv       max |tag| 2.276e-01  max |difference| 3.58e-15
+SS(V)PE solver   max |tag| 2.941e-03  max |difference| 7.81e-18
+SS(V)PE e        max |tag| 4.205e+02  max |difference| 0.00e+00
+SMD grad         max |tag| 1.429e-02  max |difference| 0.00e+00
+SMD vmat         max |tag| 1.115e-01  max |difference| 5.55e-17
+SMD nuc          max |tag| 2.284e-01  max |difference| 8.33e-17
+SMD qv           max |tag| 2.699e-01  max |difference| 2.66e-15
+SMD solver       max |tag| 4.274e-03  max |difference| 1.97e-17
+SMD e            max |tag| 4.205e+02  max |difference| 0.00e+00

@@ -1,0 +1,7 @@
+57 atoms, 1198 AOs, 10 threads; AOs per atom: {6: 23, 31: 33, 37: 1}
+tol 1e-14: J/K of atom 0 (C, 31 AOs): 18.4 s + long-range K 14.4 s; max difference of the matrices from the first threshold 0.0e+00
+tol 1e-14: J/K of atom 30 (N, 31 AOs): 35.7 s + long-range K 28.4 s; max difference of the matrices from the first threshold 0.0e+00
+tol 1e-12: J/K of atom 0 (C, 31 AOs): 15.0 s + long-range K 11.0 s; max difference of the matrices from the first threshold 1.3e-10
+tol 1e-12: J/K of atom 30 (N, 31 AOs): 29.8 s + long-range K 22.4 s; max difference of the matrices from the first threshold 9.8e-11
+long-range K second derivatives, two density elements, tol 1e-13: 505.9 s, 7.105e+08 orbits, 3.742e+09 integral evaluations (max |ek| 0.58)
+guard: peak RSS about 1 GB

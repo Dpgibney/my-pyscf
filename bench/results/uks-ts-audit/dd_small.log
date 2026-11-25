@@ -1,0 +1,13 @@
+16 atoms, 321 AOs, 10 threads
+second derivatives, J + K         one density, tol 1e-14:    31.3 s, 2.581e+07 orbits, 1.212e+08 integral evaluations; max |d ej| 0.0e+00, max |d ek| 0.0e+00 (max |ej| 28.25, |ek| 1.13)
+second derivatives, J + K         two density, tol 1e-14:    26.3 s, 2.307e+07 orbits, 1.074e+08 integral evaluations; max |d ej| 7.8e-12, max |d ek| 4.3e-12 (max |ej| 28.25, |ek| 1.13)
+second derivatives, J + K         two density, tol 1e-12:    22.5 s, 2.053e+07 orbits, 9.470e+07 integral evaluations; max |d ej| 1.3e-09, max |d ek| 3.4e-10 (max |ej| 28.25, |ek| 1.13)
+second derivatives, J + K         two density, tol 1e-11:    20.3 s, 1.892e+07 orbits, 8.666e+07 integral evaluations; max |d ej| 3.0e-08, max |d ek| 5.1e-09 (max |ej| 28.25, |ek| 1.13)
+second derivatives, J + K         two density, tol 1e-10:    17.6 s, 1.698e+07 orbits, 7.704e+07 integral evaluations; max |d ej| 3.7e-07, max |d ek| 5.3e-08 (max |ej| 28.25, |ek| 1.13)
+second derivatives, long-range K  one density, tol 1e-14:    29.2 s, 2.497e+07 orbits, 1.171e+08 integral evaluations; max |d ej| 0.0e+00, max |d ek| 0.0e+00 (max |ej| 0.00, |ek| 0.37)
+second derivatives, long-range K  two density, tol 1e-14:    22.8 s, 2.125e+07 orbits, 9.836e+07 integral evaluations; max |d ej| 0.0e+00, max |d ek| 1.9e-11 (max |ej| 0.00, |ek| 0.37)
+second derivatives, long-range K  two density, tol 1e-12:    18.0 s, 1.780e+07 orbits, 8.117e+07 integral evaluations; max |d ej| 0.0e+00, max |d ek| 2.5e-09 (max |ej| 0.00, |ek| 0.37)
+second derivatives, long-range K  two density, tol 1e-11:    14.8 s, 1.544e+07 orbits, 6.951e+07 integral evaluations; max |d ej| 0.0e+00, max |d ek| 5.1e-08 (max |ej| 0.00, |ek| 0.37)
+second derivatives, long-range K  two density, tol 1e-10:    11.0 s, 1.252e+07 orbits, 5.528e+07 integral evaluations; max |d ej| 0.0e+00, max |d ek| 6.1e-07 (max |ej| 0.00, |ek| 0.37)
+gradient, J + K and long-range K, one density:    15.3 s; max |d de| 0.0e+00 (max |de| 19.91)
+gradient, J + K and long-range K, two density:    12.2 s; max |d de| 4.5e-11 (max |de| 19.91)

@@ -1,0 +1,82 @@
+>>> [      0 s,   0.1 GB] pyscf pyscf/pyscf/__init__.py, 10 threads, max_memory 12000 MB; 17 atoms, 327 AOs, (33, 33) electrons, RKS wb97m-v/def2-tzvp, solvent water
+reference 1  E= -422.006062478812  |g|= 0.00133  (2 |g|^2/gap= 1.01e-05)
+reference 2  E= -422.006062637519  E - predicted= -7.47e-11  |g|= 2.34e-06  (2 |g|^2/gap= 3.11e-11, 7 cheap builds)
+two-level SCF: 2 Fock builds of the model, 7 of the cheap one after its SCF of 10 cycles
+>>> [     37 s,  11.2 GB] exact SCF: 36.8 s, E = -422.0060626375, converged True; XC grid 547328 points, VV10 grid 111816, 4135 surface points
+>>> [     55 s,  11.5 GB] exact gradient: 17.8 s, max |g| 1.37e-02
+hess_jk_energy: 24239217 shell quartet orbits, 113467821 integral evaluations (133404625 cross-atom centre pairs), 23412517 orbits batched
+>>> [     81 s,  11.6 GB] hess_jk_energy: 26.0 s (call 1, total 26.0 s)
+    CPU time for two-electron blocks (hess_jk_energy)    260.09 sec, wall time     25.98 sec
+    CPU time for two-electron terms    260.56 sec, wall time     26.01 sec
+    CPU time for one-electron terms      3.31 sec, wall time      0.34 sec
+    CPU time for RHF partial hessian    263.87 sec, wall time     26.35 sec
+>>> [     81 s,  11.6 GB] _partial_hess_ejk: 26.3 s (call 1, total 26.3 s)
+hess_jk_energy: 22716386 shell quartet orbits, 105859651 integral evaluations (124814894 cross-atom centre pairs), 21904136 orbits batched
+>>> [    104 s,  11.6 GB] hess_jk_energy: 22.5 s (call 2, total 48.5 s)
+    CPU time for two-electron blocks (hess_jk_energy)    224.91 sec, wall time     22.54 sec
+    CPU time for range-separated exchange    488.80 sec, wall time     48.89 sec
+>>> [    110 s,  10.8 GB] rks._get_vxc_diag: 6.6 s (call 1, total 6.6 s)
+>>> [    130 s,  10.8 GB] rks._get_vxc_deriv2_dm: 20.2 s (call 1, total 20.2 s)
+>>> [    170 s,  10.9 GB] _get_exc_deriv2_grid_response: 39.5 s (call 1, total 39.5 s)
+    CPU time for grid response of the XC energy    424.80 sec, wall time     66.33 sec
+>>> [    177 s,  10.9 GB] vv10 data: 7.0 s (call 1, total 7.0 s)
+>>> [    212 s,  11.7 GB] vv10.weight1_pair: 12.8 s (call 1, total 12.8 s)
+>>> [    228 s,  11.8 GB] vv10.grid_response_pair: 16.2 s (call 1, total 16.2 s)
+>>> [    234 s,  11.7 GB] _vv10_grid_response_terms: 35.6 s (call 1, total 35.6 s)
+>>> [    234 s,  11.2 GB] _get_enlc_deriv2: 64.1 s (call 1, total 64.1 s)
+    CPU time for RKS partial hessian   1521.51 sec, wall time    179.31 sec
+>>> [    234 s,  11.2 GB] partial_hess_elec: 179.3 s (call 1, total 179.3 s)
+>>> [    261 s,  11.2 GB] rks._get_vxc_deriv1: 27.2 s (call 1, total 27.2 s)
+    CPU time for making H1   2129.49 sec, wall time    244.35 sec
+CPHF response with direct J and SGX K on grid level 1, 22928 points
+>>> [    317 s,  11.1 GB] get_vnlc_resp_mo: 9.6 s (call 1, total 9.6 s)
+CPHF cycle 0: max residual 0.263958, 51 of 51 perturbations left
+>>> [    336 s,  11.2 GB] get_vnlc_resp_mo: 7.1 s (call 2, total 16.8 s)
+CPHF cycle 1: max residual 0.0456538, 51 of 51 perturbations left
+>>> [    354 s,  11.2 GB] get_vnlc_resp_mo: 7.1 s (call 3, total 23.9 s)
+CPHF cycle 2: max residual 0.00710099, 51 of 51 perturbations left
+>>> [    373 s,  11.2 GB] get_vnlc_resp_mo: 7.1 s (call 4, total 31.0 s)
+CPHF cycle 3: max residual 0.000886794, 46 of 51 perturbations left
+>>> [    392 s,  11.2 GB] get_vnlc_resp_mo: 6.9 s (call 5, total 37.9 s)
+CPHF cycle 4: max residual 9.28272e-05, 0 of 51 perturbations left
+    CPU time for CPHF solver    980.11 sec, wall time     96.75 sec
+>>> [    396 s,  11.1 GB] cphf.solve_residual: 96.8 s (call 1, total 96.8 s)
+>>> [    396 s,  11.1 GB] solve_mo1: 97.0 s (call 1, total 97.0 s)
+    CPU time for solving MO1    983.80 sec, wall time     97.05 sec
+    CPU time for RHF hessian   3113.82 sec, wall time    341.43 sec
+>>> [    404 s,  11.2 GB] Hessian: 349.0 s (grid_response True, sgx_response True, response auxbasis None)
+>>> [    404 s,  11.2 GB] parts of the Hessian (wall time, nested parts overlap):
+          179.3 s      1 call(s)  partial_hess_elec
+           97.0 s      1 call(s)  solve_mo1
+           96.8 s      1 call(s)  cphf.solve_residual
+           64.1 s      1 call(s)  _get_enlc_deriv2
+           48.5 s      2 call(s)  hess_jk_energy
+           39.5 s      1 call(s)  _get_exc_deriv2_grid_response
+           37.9 s      5 call(s)  get_vnlc_resp_mo
+           35.6 s      1 call(s)  _vv10_grid_response_terms
+           29.9 s     34 call(s)  make_h1 _get_jk
+           27.2 s      1 call(s)  rks._get_vxc_deriv1
+           26.3 s      1 call(s)  _partial_hess_ejk
+           20.2 s      1 call(s)  rks._get_vxc_deriv2_dm
+           18.8 s      5 call(s)  rks_fxc_mo
+           18.1 s      5 call(s)  response sgx_jk.get_k_mo (factors)
+           18.0 s      5 call(s)  response sgx_jk._get_k_only_many
+           17.0 s      5 call(s)  response get_j
+           17.0 s      5 call(s)  response get_jk
+           16.2 s      2 call(s)  vv10.grid_response_pair
+           12.8 s      2 call(s)  vv10.weight1_pair
+            9.0 s      2 call(s)  vv10 data
+            6.6 s      1 call(s)  rks._get_vxc_diag
+            4.5 s      5 call(s)  solvent _B_dot_x
+            4.3 s      1 call(s)  solvent analytical_grad_vmat
+            4.3 s      1 call(s)  solvent analytical_hess_solver
+            3.5 s      1 call(s)  _get_vnlc_deriv1
+            3.2 s      1 call(s)  solvent analytical_hess_qv
+            1.9 s    116 call(s)  _becke_weight_derivs
+            0.1 s      1 call(s)  cache_xc_kernel
+            0.0 s      1 call(s)  solvent get_cds
+            0.0 s      1 call(s)  _hess_elec_mo1
+            0.0 s      1 call(s)  solvent analytical_hess_nuc
+>>> [    404 s,  11.2 GB] lowest frequencies (cm-1): 95.0 143.8 233.1 295.0 378.0 382.3 411.9 443.2
+>>> [    404 s,  11.2 GB] total 404 s
+guard: peak RSS about 11 GB

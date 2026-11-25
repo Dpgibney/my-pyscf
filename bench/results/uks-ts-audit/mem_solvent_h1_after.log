@@ -1,0 +1,32 @@
+>>> [     0 s, now  0.18 GB, peak since last  0.18 GB] 57 atoms, 1198 AOs, 8 threads, max_memory 14000
+    rss  0.65 GB at fromnumeric.py:83 _wrapreduction < fromnumeric.py:2463 sum < pcm.py:278 get_D_S < smd.py:273 build
+    rss  1.16 GB at fromnumeric.py:83 _wrapreduction < fromnumeric.py:2463 sum < pcm.py:278 get_D_S < smd.py:273 build
+    rss  1.67 GB at fromnumeric.py:83 _wrapreduction < fromnumeric.py:2463 sum < pcm.py:278 get_D_S < smd.py:273 build
+>>> [     8 s, now  1.50 GB, peak since last  1.93 GB] solvent build: 12812 surface points
+    rss  2.24 GB at pcm.py:268 get_D_S < pcm.py:464 __missing__ < pcm.py:481 _make_K < pcm.py:470 __missing__
+    rss  2.76 GB at pcm.py:268 get_D_S < pcm.py:464 __missing__ < pcm.py:481 _make_K < pcm.py:470 __missing__
+    rss  3.35 GB at pcm.py:487 _make_K < pcm.py:470 __missing__ < pcm.py:529 _K_solve < pcm.py:804 _get_q
+    rss  3.86 GB at pcm.py:487 _make_K < pcm.py:470 __missing__ < pcm.py:529 _K_solve < pcm.py:804 _get_q
+>>> [    37 s, now  2.90 GB, peak since last  4.25 GB] solvent _get_vind
+    rss  4.37 GB at pcm.py:434 _int1e_grids_deriv < mem_h1.py:49 wrapped < pcm.py:1149 analytical_grad_vmat < mem_h1.py:55 <module>
+    rss  4.87 GB at pcm.py:434 _int1e_grids_deriv < mem_h1.py:49 wrapped < pcm.py:1149 analytical_grad_vmat < mem_h1.py:55 <module>
+    rss  5.42 GB at pcm.py:268 get_D_S < pcm.py:464 __missing__ < pcm.py:924 get_dqsym_dx_fix_vgrids < mem_h1.py:49 wrapped
+    rss  5.96 GB at pcm.py:268 get_D_S < pcm.py:464 __missing__ < pcm.py:924 get_dqsym_dx_fix_vgrids < mem_h1.py:49 wrapped
+    rss  6.52 GB at threading.py:355 wait < _base.py:451 result < _base.py:317 _result_or_cancel < _base.py:619 result_iterator
+>>> [   103 s, now  5.20 GB, peak since last  6.70 GB]     get_dqsym_dx_fix_vgrids: 30.0 s
+>>> [   118 s, now  5.64 GB, peak since last  6.01 GB]     _int1e_grids_deriv: 14.7 s
+>>> [   118 s, now  5.27 GB, peak since last  5.27 GB]     _make_dv_parts: 14.8 s
+>>> [   119 s, now  5.32 GB, peak since last  5.32 GB]     get_dqsym_dx_fix_K_R: 16.0 s
+>>> [   127 s, now  5.71 GB, peak since last  5.71 GB]     _int1e_grids_dot: 7.8 s
+>>> [   135 s, now  5.71 GB, peak since last  5.71 GB]     _int1e_grids_dot: 7.9 s
+>>> [   143 s, now  5.71 GB, peak since last  5.71 GB]     _int1e_grids_dot: 8.8 s
+>>> [   151 s, now  5.71 GB, peak since last  5.71 GB]     _int1e_grids_dot: 7.9 s
+>>> [   160 s, now  5.71 GB, peak since last  5.71 GB]     _int1e_grids_dot: 8.2 s
+>>> [   162 s, now  5.32 GB, peak since last  5.32 GB]     _int1e_grids_dot: 2.6 s
+>>> [   162 s, now  5.32 GB, peak since last  5.32 GB] analytical_grad_vmat: 125.1 s, output 1.96 GB
+>>> [   162 s, now  3.36 GB, peak since last  3.36 GB] analytical_hess_nuc: 0.2 s
+>>> [   206 s, now  4.58 GB, peak since last  5.69 GB]     _int1e_grids_deriv: 43.2 s
+>>> [   263 s, now  5.81 GB, peak since last  6.92 GB]     _int1e_grids_deriv: 57.6 s
+>>> [   263 s, now  3.43 GB, peak since last  4.71 GB] analytical_hess_qv: 101.0 s
+>>> [   335 s, now  3.43 GB, peak since last  4.89 GB] analytical_hess_solver: 72.1 s
+guard: peak RSS about 6 GB

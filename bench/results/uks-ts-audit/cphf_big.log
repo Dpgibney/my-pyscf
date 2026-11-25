@@ -1,0 +1,60 @@
+>>> [      0 s,   0.1 GB] pyscf __init__.py, 10 threads, max_memory 14000 MB; 57 atoms, 1198 AOs, (131, 130) electrons, UKS wb97m-v/def2-tzvp, solvent water
+CPHF response with direct J and SGX K on grid level 1, 74952 points
+>>> [     40 s,   3.8 GB] CPHF response: 171 trial vectors of 312678 elements, sgx_response True, response auxbasis None
+>>> [    115 s,   6.1 GB] uks_fxc_mo: 72.2 s (call 1, total 72.2 s)
+>>> [    238 s,   6.4 GB] response sgx_jk._get_k_only_many: 121.8 s (call 1, total 121.8 s)
+>>> [    238 s,   6.4 GB] response sgx_jk.get_k_mo (factors): 123.2 s (call 1, total 123.2 s)
+>>> [    264 s,   6.4 GB] vv10 data: 25.7 s (call 1, total 25.7 s)
+>>> [    325 s,   6.4 GB] get_vnlc_resp_mo: 86.5 s (call 1, total 86.5 s)
+>>> [    535 s,   6.8 GB] response get_jk: 210.4 s (call 1, total 210.4 s)
+>>> [    535 s,   6.8 GB] response get_j: 210.4 s (call 1, total 210.4 s)
+>>> [    546 s,   6.4 GB] response of 18 perturbations: 503.1 s (|v| 1263.918287)
+>>> [    546 s,   6.4 GB] parts of the response of 18 perturbations (wall time, nested parts overlap):
+          210.4 s      1 call(s)  response get_j
+          210.4 s      1 call(s)  response get_jk
+          123.2 s      1 call(s)  response sgx_jk.get_k_mo (factors)
+          121.8 s      1 call(s)  response sgx_jk._get_k_only_many
+           86.5 s      1 call(s)  get_vnlc_resp_mo
+           72.2 s      1 call(s)  uks_fxc_mo
+           25.7 s      1 call(s)  vv10 data
+           10.1 s      1 call(s)  solvent _B_dot_x
+            2.1 s      1 call(s)  cache_xc_kernel
+>>> [   1239 s,   7.3 GB] uks_fxc_mo: 692.3 s (call 1, total 692.3 s)
+>>> [   1852 s,   7.7 GB] response sgx_jk._get_k_only_many: 613.4 s (call 1, total 613.4 s)
+>>> [   1852 s,   7.7 GB] response sgx_jk.get_k_mo (factors): 613.4 s (call 1, total 613.4 s)
+>>> [   2262 s,   8.1 GB] get_vnlc_resp_mo: 410.2 s (call 1, total 410.2 s)
+>>> [   2677 s,   9.1 GB] response get_jk: 413.3 s (call 1, total 413.3 s)
+>>> [   2677 s,   9.1 GB] response get_j: 413.3 s (call 1, total 413.3 s)
+>>> [   3088 s,   9.1 GB] response get_jk: 409.8 s (call 2, total 823.1 s)
+>>> [   3088 s,   9.1 GB] response get_j: 409.8 s (call 2, total 823.1 s)
+>>> [   3208 s,   7.4 GB] response get_jk: 119.3 s (call 3, total 942.4 s)
+>>> [   3208 s,   7.4 GB] response get_j: 119.3 s (call 3, total 942.4 s)
+>>> [   3287 s,   6.8 GB] response of 171 perturbations: 2741.6 s (|v| 1791.584305)
+>>> [   3287 s,   6.8 GB] parts of the response of 171 perturbations (wall time, nested parts overlap):
+          942.4 s      3 call(s)  response get_j
+          942.4 s      3 call(s)  response get_jk
+          692.3 s      1 call(s)  uks_fxc_mo
+          613.4 s      1 call(s)  response sgx_jk.get_k_mo (factors)
+          613.4 s      1 call(s)  response sgx_jk._get_k_only_many
+          410.2 s      1 call(s)  get_vnlc_resp_mo
+           76.4 s      4 call(s)  solvent _B_dot_x
+CPHF response with RI-J and SGX K on grid level 1, 74952 points
+    CPU time for df-vj (J-engine)    263.48 sec, wall time     26.94 sec
+>>> [   3319 s,   8.5 GB] response get_jk: 26.9 s (call 1, total 26.9 s)
+>>> [   3319 s,   8.5 GB] response get_j: 26.9 s (call 1, total 26.9 s)
+    CPU time for df-vj (J-engine)    251.71 sec, wall time     25.73 sec
+>>> [   3349 s,   8.5 GB] response get_jk: 25.7 s (call 2, total 52.7 s)
+>>> [   3349 s,   8.5 GB] response get_j: 25.7 s (call 2, total 52.7 s)
+    CPU time for df-vj (J-engine)    247.28 sec, wall time     25.29 sec
+>>> [   3378 s,   8.5 GB] response get_jk: 25.3 s (call 3, total 78.0 s)
+>>> [   3378 s,   8.5 GB] response get_j: 25.3 s (call 3, total 78.0 s)
+>>> [   3378 s,   7.9 GB] RI-J (aug_etb) of the total densities of 171 perturbations, 57 at a time: 90.4 s (|J| 1466.650849)
+>>> [   3720 s,   8.5 GB] response get_jk: 338.2 s (call 4, total 416.2 s)
+>>> [   3720 s,   8.5 GB] response get_j: 338.2 s (call 4, total 416.2 s)
+>>> [   4103 s,   8.5 GB] response get_jk: 375.9 s (call 5, total 792.1 s)
+>>> [   4103 s,   8.5 GB] response get_j: 375.9 s (call 5, total 792.1 s)
+>>> [   4447 s,   8.5 GB] response get_jk: 337.8 s (call 6, total 1129.9 s)
+>>> [   4447 s,   8.5 GB] response get_j: 337.8 s (call 6, total 1129.9 s)
+>>> [   4447 s,   7.9 GB] the J of the response above of the total densities of 171 perturbations, 57 at a time: 1068.7 s (|J| 1466.694972)
+>>> [   4447 s,   7.9 GB] total 4447 s
+guard: peak RSS about 16 GB

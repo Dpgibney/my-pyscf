@@ -1,0 +1,15 @@
+scripts/run_tests.sh pyscf hessian grad sgx solvent (2 workers):
+=========================== short test summary info ============================
+FAILED pyscf/pyscf/solvent/test/test_smd_grad.py::KnownValues::test_grad_solvent
+1 failed, 536 passed, 29 skipped, 10 warnings, 137 subtests passed in 800.19s (0:13:20)
+
+scripts/run_tests.sh pyscf scf dft df tdscf (2 workers):
+=========================== short test summary info ============================
+FAILED pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_custom_rsh
+FAILED pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tda_b3lyp_xcfun
+FAILED pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tda_lda_xcfun
+FAILED pyscf/pyscf/tdscf/test/test_tdrks.py::KnownValues::test_tddft_b3lyp_xcfun
+4 failed, 583 passed, 37 skipped, 114 warnings in 191.60s (0:03:11)
+
+The five failures are the tag's too: test_smd_grad.py::test_grad_solvent is 1.17e-4 from its reference (tolerance 1e-4),
+and the four of test_tdrks.py need xcfun, which is not built here.

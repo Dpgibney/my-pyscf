@@ -1,0 +1,54 @@
+hess_ref.py: 9 UKS (CH2Cl radical) and 9 RKS (a 7-atom cation) Hessians, def2-SVP, CPHF residual 1e-7: the final code (tag perf-2026-11-25) against tag
+perf-2026-11-24b (dE: the SCF energies, max |dH|: the Hessians). The tag's ran with 2 threads, these with 5.
+old screening of the two-electron derivative integrals
+  _uks  wb97mv                   dE +3.4e-13  max |dH| 1.9e-10
+  _uks  wb97mv_gr                dE -1.1e-13  max |dH| 2.7e-10
+  _uks  wb97mv_gr_sgx            dE +5.7e-13  max |dH| 8.9e-11
+  _uks  wb97mv_smd_gr_sgx        dE +2.3e-13  max |dH| 7.9e-11
+  _uks  wb97mv_smd_gr_sgx_aux    dE -1.1e-13  max |dH| 7.9e-11
+  _uks  b3lyp_gr_sgx             dE -5.7e-13  max |dH| 2.4e-10
+  _uks  pbe_gr                   dE +3.4e-13  max |dH| 5.6e-11
+  _uks  m06l_smd                 dE +0.0e+00  max |dH| 9.2e-11
+  _uks  svwn_gr                  dE -2.3e-13  max |dH| 1.1e-10
+  _rks  wb97mv                   dE +1.0e-12  max |dH| 4.3e-10
+  _rks  wb97mv_gr                dE -2.3e-13  max |dH| 2.8e-10
+  _rks  wb97mv_gr_sgx            dE -2.3e-13  max |dH| 2.9e-10
+  _rks  wb97mv_smd_gr_sgx        dE -8.0e-13  max |dH| 1.3e-08
+  _rks  wb97mv_smd_gr_sgx_aux    dE -6.8e-13  max |dH| 3.6e-10
+  _rks  b3lyp_gr_sgx             dE -1.9e-12  max |dH| 9.9e-08
+  _rks  pbe_gr                   dE -4.5e-13  max |dH| 2.6e-10
+  _rks  m06l_smd                 dE -1.1e-13  max |dH| 9.9e-11
+  _rks  svwn_gr                  dE -4.5e-13  max |dH| 2.0e-10
+defaults (two-density bound, 1e-13)
+  _uks  wb97mv                   dE -1.1e-13  max |dH| 2.0e-10
+  _uks  wb97mv_gr                dE +1.1e-13  max |dH| 1.9e-10
+  _uks  wb97mv_gr_sgx            dE +4.5e-13  max |dH| 1.3e-10
+  _uks  wb97mv_smd_gr_sgx        dE +4.5e-13  max |dH| 8.6e-11
+  _uks  wb97mv_smd_gr_sgx_aux    dE +1.1e-13  max |dH| 2.0e-10
+  _uks  b3lyp_gr_sgx             dE -5.7e-13  max |dH| 2.4e-10
+  _uks  pbe_gr                   dE +3.4e-13  max |dH| 5.7e-11
+  _uks  m06l_smd                 dE +0.0e+00  max |dH| 9.2e-11
+  _uks  svwn_gr                  dE -2.3e-13  max |dH| 1.1e-10
+  _rks  wb97mv                   dE +4.5e-13  max |dH| 4.1e-10
+  _rks  wb97mv_gr                dE +5.7e-13  max |dH| 2.3e-10
+  _rks  wb97mv_gr_sgx            dE +0.0e+00  max |dH| 2.1e-10
+  _rks  wb97mv_smd_gr_sgx        dE -3.4e-13  max |dH| 2.2e-09
+  _rks  wb97mv_smd_gr_sgx_aux    dE -6.8e-13  max |dH| 2.2e-09
+  _rks  b3lyp_gr_sgx             dE -1.9e-12  max |dH| 9.9e-08
+  _rks  pbe_gr                   dE -4.5e-13  max |dH| 2.6e-10
+  _rks  m06l_smd                 dE -1.1e-13  max |dH| 9.9e-11
+  _rks  svwn_gr                  dE -4.5e-13  max |dH| 2.0e-10
+
+The three RKS cases above 4.3e-10 again with 2 threads, as the tag's (their SCFs converge to energies 1e-12 apart with
+another thread count, which the Hessians follow at 1e-8 to 1e-7):
+old screening of the two-electron derivative integrals
+  _rks  wb97mv_smd_gr_sgx        dE +1.1e-13  max |dH| 3.0e-10
+  _rks  wb97mv_smd_gr_sgx_aux    dE +1.0e-12  max |dH| 2.1e-10
+  _rks  b3lyp_gr_sgx             dE +0.0e+00  max |dH| 1.1e-10
+defaults (two-density bound, 1e-13)
+  _rks  wb97mv_smd_gr_sgx        dE +3.4e-13  max |dH| 1.5e-10
+  _rks  wb97mv_smd_gr_sgx_aux    dE +1.4e-12  max |dH| 2.2e-10
+  _rks  b3lyp_gr_sgx             dE +0.0e+00  max |dH| 1.1e-10
+
+The 16-atom radical end to end (wB97M-V/def2-TZVP, SMD, grid_response, sgx_response): the final code's Hessian against
+the tag's: max |dH| 7.2e-10, frequencies within 1e-4 cm^-1.

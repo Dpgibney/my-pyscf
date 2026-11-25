@@ -1,0 +1,5 @@
+17 atoms, 327 AOs, E = -421.9950484991, 2 threads
+tol 1e-14: Hessian 1432.6 s (reference)
+tol 1e-12: Hessian 1408.6 s  max |dH| 1.0e-11  max |dfreq| 0.0000 cm-1
+tol 1e-11: Hessian 1020.7 s  max |dH| 1.6e-10  max |dfreq| 0.0000 cm-1
+tol 1e-10: Hessian  737.3 s  max |dH| 1.7e-09  max |dfreq| 0.0000 cm-1

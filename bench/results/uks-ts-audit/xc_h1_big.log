@@ -1,0 +1,45 @@
+>>> [     0 s,   0.1 GB] pyscf __init__.py; 57 atoms, 1198 AOs, 10 threads, max_memory 8000
+>>> [  2119 s,   4.9 GB] uks._get_vxc_deriv1: 2119.1 s; XC grid 1822368 points; |h1ao| 41.83138120 41.80081524, |h1occ| 23.10637086 23.08070921
+>>> [  2119 s,   4.9 GB] parts of uks._get_vxc_deriv1 (nested parts overlap):
+         1470.1 s     372 call(s)  fused.dot_ao_mo
+          205.8 s       2 call(s)  fused.dot_terms_owner_mo
+          203.8 s     620 call(s)  _d1_dot_
+          129.2 s     124 call(s)  _gga_grad_sum_
+          127.4 s     124 call(s)  _tau_grad_dot_
+           89.5 s    1116 call(s)  _dot_ao_dm
+           49.8 s    7068 call(s)  _make_dR_rho1
+           17.0 s     124 call(s)  eval_rho2
+            7.1 s      62 call(s)  ni.eval_ao
+            5.5 s     124 call(s)  _grid_response_wv_
+            5.1 s      62 call(s)  _becke_weight_derivs
+            0.9 s      62 call(s)  eval_xc_eff
+            0.0 s       1 call(s)  _becke_radii_table
+>>> [  3610 s,   1.6 GB] _get_enlc_deriv2: 1490.8 s; |d2e| 0.03613412
+>>> [  3610 s,   1.6 GB] parts of _get_enlc_deriv2 (nested parts overlap):
+          622.7 s       1 call(s)  vv10.f_t
+          441.8 s       1 call(s)  vv10.weight1_pair
+          205.2 s       1 call(s)  vv10.grid_response_pair
+           69.2 s       1 call(s)  vv10.__init__
+           13.7 s      28 call(s)  _vv10_drho_dA
+           11.1 s       1 call(s)  _vv10_dot_terms
+           11.1 s       6 call(s)  fused.dot_terms
+           10.6 s       1 call(s)  _becke_weight_derivs
+            9.4 s     112 call(s)  _dot_ao_dm
+            4.5 s      80 call(s)  ni.eval_ao
+            0.1 s      28 call(s)  _vv10_add_grid_response_
+            0.0 s       1 call(s)  _becke_radii_table
+>>> [  4480 s,   3.1 GB] _get_vnlc_deriv1: 869.9 s; VV10 grid 373288 points; |h1| 0.18790002, |occ_out| 0.03199527
+>>> [  4480 s,   3.1 GB] parts of _get_vnlc_deriv1 (nested parts overlap):
+          434.9 s       1 call(s)  vv10.weight1_pair
+          197.4 s       1 call(s)  vv10.grid_response_pair
+          177.1 s     138 call(s)  fused.dot_ao_mo
+           30.6 s       1 call(s)  fused.dot_terms_owner_mo
+           14.9 s      46 call(s)  _vv10_drho_dA
+           10.4 s     184 call(s)  _dot_ao_dm
+            9.4 s       1 call(s)  _vv10_dot_terms
+            9.4 s      46 call(s)  fused.dot_terms
+            1.5 s      46 call(s)  ni.eval_ao
+            1.0 s       1 call(s)  _becke_weight_derivs
+            0.1 s      46 call(s)  _vv10_add_grid_response_
+            0.0 s       1 call(s)  _becke_radii_table
+guard: peak RSS about 7 GB

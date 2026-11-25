@@ -1,0 +1,85 @@
+>>> [      0 s,   0.1 GB] pyscf __init__.py, 10 threads, max_memory 14000 MB; 57 atoms, 1198 AOs, (131, 130) electrons, UKS wb97m-v/def2-tzvp, solvent water
+reference 1  E= -2067.48017188002  |g|= 0.002  (2 |g|^2/gap= 3.32e-05)
+reference 2  E= -2067.48017284261  E - predicted= 3.98e-10  |g|= 3.67e-06  (2 |g|^2/gap= 1.11e-10, 8 cheap builds)
+two-level SCF: 2 Fock builds of the model, 8 of the cheap one after its SCF of 7 cycles
+>>> [    789 s,   5.0 GB] RIJCOSX SCF from the density of --load: 789.0 s, E = -2067.4801256871, converged True, 2 cycles
+reference 1  E= -2067.48017188002  |g|= 0.002  (2 |g|^2/gap= 3.32e-05)
+reference 2  E= -2067.48017284261  E - predicted= 3.98e-10  |g|= 3.65e-06  (2 |g|^2/gap= 1.1e-10, 8 cheap builds)
+two-level SCF: 2 Fock builds of the model, 8 of the cheap one after its SCF of 7 cycles
+>>> [   1688 s,   5.4 GB] RIJCOSX scanner, first call (SCF from its own density + gradient): 899.0 s
+reference 1  E= -2067.47873535978  |g|= 0.00201  (2 |g|^2/gap= 3.25e-05)
+reference 2  E= -2067.47873633769  E - predicted= 4.14e-10  |g|= 3.06e-06  (2 |g|^2/gap= 7.58e-11, 9 cheap builds)
+two-level SCF: 2 Fock builds of the model, 9 of the cheap one after its SCF of 11 cycles
+>>> [   2674 s,   5.6 GB] RIJCOSX scanner, displaced geometry (0.02 Bohr rms per coordinate): 986.5 s, E = -2067.4786911199, max |g| 8.58e-02
+reference 1  E= -2067.46939224919  |g|= 0.002  (2 |g|^2/gap= 3.29e-05)
+reference 2  E= -2067.46939321538  E - predicted= 2.44e-10  |g|= 2.54e-06  (2 |g|^2/gap= 5.32e-11, 10 cheap builds)
+two-level SCF: 2 Fock builds of the model, 10 of the cheap one after its SCF of 12 cycles
+>>> [   3717 s,   5.7 GB] RIJCOSX scanner, a second displaced geometry, profiled: 1042.5 s
+>>> [   3717 s,   5.7 GB] total 3717 s
+guard: peak RSS about 13 GB
+         1992112 function calls (1910616 primitive calls) in 1042.492 seconds
+
+   Ordered by: cumulative time
+   List reduced from 950 to 90 due to restriction <90>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000 1042.491 1042.491 grad/rhf.py:401(__call__)
+        1    0.000    0.000  843.109  843.109 scf/hf.py:1620(__call__)
+      2/1    0.000    0.000  843.103  843.103 <string>:1(kernel)
+      2/1    0.000    0.000  843.103  843.103 sgx/sgx.py:323(scf)
+      2/1    0.002    0.001  801.396  801.396 scf/hf.py:2222(scf)
+        1    0.078    0.078  801.177  801.177 scf/two_level.py:167(kernel)
+       25    0.000    0.000  786.269   31.451 solvent/_attach_solvent.py:135(get_veff)
+       25    0.000    0.000  650.062   26.002 sgx/sgx.py:264(get_veff)
+       25    0.223    0.009  650.043   26.002 dft/uks.py:30(get_veff)
+       26    0.000    0.000  485.775   18.684 sgx/sgx.py:205(get_jk_mixed_range)
+       26    0.000    0.000  485.774   18.684 sgx/sgx.py:215(get_jk)
+    77/26    0.060    0.001  485.412   18.670 sgx/sgx.py:796(get_jk)
+       31  439.000   14.161  439.009   14.162 sgx/sgx_jk.py:1785(k_part)
+       26    0.250    0.010  418.242   16.086 sgx/sgx_jk.py:1403(get_k_only)
+       11    0.000    0.000  413.476   37.589 scf/two_level.py:132(_veff)
+        1    0.022    0.022  369.455  369.455 scf/hf.py:49(kernel)
+        1    0.001    0.001  199.376  199.376 solvent/grad/pcm.py:501(kernel)
+        1    0.000    0.000  169.068  169.068 grad/rhf.py:532(kernel)
+        1    0.007    0.007  169.068  169.068 grad/uhf.py:30(grad_elec)
+        1    0.000    0.000  167.261  167.261 grad/rhf.py:320(_get_veff_jk_energy)
+        1    0.012    0.012  167.261  167.261 df/grad/uks.py:34(get_veff)
+       25    0.004    0.000  160.220    6.409 dft/numint.py:2196(nr_uks)
+       25    0.275    0.011  159.911    6.396 dft/numint.py:1510(nr_uks)
+       26    0.062    0.002  140.660    5.410 solvent/pcm.py:778(_get_vind)
+       25    0.001    0.000  136.207    5.448 solvent/ddcosmo.py:860(kernel)
+      183    0.013    0.000  133.915    0.732 dft/numint.py:1577(_dot_wv)
+      183  133.884    0.732  133.902    0.732 dft/numint.py:1191(dot)
+        1    0.000    0.000  119.856  119.856 sgx/grad/rhf.py:593(get_jk_mixed_range)
+      2/1    0.000    0.000  119.856  119.856 sgx/grad/rhf.py:519(get_jk)
+       52  110.950    2.134  112.113    2.156 solvent/pcm.py:291(_int1e_grids_dot)
+        1    0.006    0.006   99.347   99.347 sgx/grad/rhf.py:499(_get_jk)
+        1    0.054    0.054   99.341   99.341 sgx/grad/rhf.py:288(get_k_grad_only)
+       25    0.001    0.000   67.106    2.684 df/df_jk.py:687(get_j)
+       25    0.001    0.000   67.104    2.684 df/df_jk.py:673(_get_j_engine)
+       25    0.001    0.000   66.616    2.665 df/df_jk.py:641(get_j)
+       25    0.181    0.007   66.614    2.665 df/df_jk.py:606(get_j_many)
+       50   61.285    1.226   61.293    1.226 df/df_jk.py:577(drv_many)
+       26    0.001    0.000   56.806    2.185 solvent/pcm.py:811(_get_v)
+       26    0.017    0.001   55.326    2.128 solvent/pcm.py:819(_get_vmat)
+     6560    0.038    0.000   53.993    0.008 concurrent/futures/_base.py:612(result_iterator)
+     6400    0.073    0.000   50.953    0.008 concurrent/futures/_base.py:314(_result_or_cancel)
+        1    0.001    0.001   47.391   47.391 grad/uks.py:80(_get_vxc_de)
+     6400    0.079    0.000   46.611    0.007 concurrent/futures/_base.py:428(result)
+      217   44.532    0.205   44.555    0.205 dft/numint.py:1118(_rho_kernel)
+       25    0.020    0.001   42.834    1.713 dft/numint.py:2353(nr_nlc_vxc)
+        1    0.000    0.000   41.707   41.707 sgx/sgx.py:363(_sgx_energy_on_grid)
+        1    0.000    0.000   40.983   40.983 sgx/sgx.py:334(_sgx_exchange)
+       26   40.948    1.575   40.951    1.575 dft/numint.py:505(_vv10nlc)
+      189    0.006    0.000   38.342    0.203 dft/numint.py:1180(make_rho)
+       29   36.805    1.269   36.882    1.272 sgx/sgx_jk.py:99(_sgxdot_ao_dm_sparse)
+     7730    0.055    0.000   33.280    0.004 threading.py:323(wait)
+        1    0.017    0.017   32.318   32.318 dft/numint.py:1302(get_vxc_grad_q_uks)
+        1    0.000    0.000   30.300   30.300 solvent/smd.py:365(grad)
+       34   27.842    0.819   27.847    0.819 dft/numint.py:1233(dot_terms_q)
+       29   27.825    0.959   27.827    0.960 sgx/sgx_jk.py:180(_sgxdot_ao_gv_sparse)
+       26    0.001    0.000   22.221    0.855 solvent/pcm.py:801(_get_q)
+       53    0.001    0.000   21.000    0.396 solvent/pcm.py:514(_K_solve)
+        1    0.000    0.000   20.494   20.494 df/grad/rhf.py:779(get_jk)
+        1    0.000    0.000   20.494   20.494 df/grad/rhf.py:44(get_jk)
+        1    0.000    0.000   20.494   20.494 df/grad/rhf.py:451(get_j)
