@@ -3,11 +3,11 @@
 # gpu4pyscf lines; the CPU trees are built as on node2 (scripts/node2_run.sh, with the build_*.sh scripts).
 #
 # GPU (GPU4PySCF): the modified tree and the unmodified v1.9.0 it is compared against
-gpu4pyscf       https://github.com/Dpgibney/gpu4pyscf.git   perf-2026-11-25b
+gpu4pyscf       https://github.com/Dpgibney/gpu4pyscf.git   perf-2026-11-25c
 gpu4pyscf-base  https://github.com/Dpgibney/gpu4pyscf.git   v1.9.0
 #
 # CPU (PySCF): the modified tree and the PySCF master commit it is based on
-pyscf           https://github.com/Dpgibney/pyscf.git       perf-2026-11-25b
+pyscf           https://github.com/Dpgibney/pyscf.git       perf-2026-11-25c
 pyscf-base      https://github.com/pyscf/pyscf.git          44313dfb457b93358918c391fc66285fa44153ef
 qcint           https://github.com/Dpgibney/qcint.git       perf-2026-11-10
 libcint         https://github.com/sunqm/libcint.git        42ec76d6b57d8f0de8e515109c809f67e52040eb

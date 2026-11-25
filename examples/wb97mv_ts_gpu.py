@@ -12,9 +12,9 @@ Writes wb97mv_ts_gpu.out (the SCF, gradient and Hessian output) and wb97mv_ts_gp
 current directory, and prints the frequencies and the atoms that move in the imaginary mode.
 
 What differs from the CPU example:
-  - J and K are exact everywhere (the SCF, the gradients of the search, the Hessians): the GPU tree's seminumerical
-    K serves the cheap model of the two-level SCF and has no gradient, so there are no RIJCOSX and SGX_RESPONSE
-    switches;
+  - the switches RIJCOSX and SGX_RESPONSE are the CPU example's, on the GPU tree's seminumerical K (gpu4pyscf.sgx,
+    level-1 grid) and RI-J; RIJCOSX keeps its kernels in double precision (in single precision a density-fitted SCF
+    stalls at conv_tol 1e-10: its whole potential is rebuilt at every cycle);
   - the CPHF equations are solved on two levels by default (hobj.cphf_two_level): a cheap model whose VV10 response
     is on a coarse grid, then the model's own response for what is left. The result is the model's own;
   - the grid of the CPHF's XC response is mf.cphf_grids, by default SG-1 (50,194) in GPU4PySCF; here level 2, as
@@ -53,13 +53,21 @@ mol = gto.M(
     output='wb97mv_ts_gpu.out',
 )
 
+# For larger molecules: RI-J and seminumerical K (RIJCOSX) in the optimization's gradients, with the start Hessian and
+# the frequencies still from exact J and K (as examples/wb97mv_ts.py). On this workspace's GTX 1650 Super it saves
+# little at 16 atoms (see the notes below); it is for molecules whose exact J and K dominate a step.
+RIJCOSX = False
+# For larger molecules: seminumerical K and RI-J (the even-tempered fitting basis) in the CPHF response of the
+# Hessians (as examples/wb97mv_ts.py): HCN <-> HNC 2e-6 in the Hessian, 0.01 cm^-1 in the frequencies. The SCF and every
+# derivative integral stay exact.
+SGX_RESPONSE = False
 # For larger molecules: the start Hessian in a smaller basis, e.g. 'def2-svp' (None: the basis above). It only steers
 # the search, which updates it from the gradients at every step; the frequencies at the end are those of the full
 # model (see examples/wb97mv_ts.py for what it costs in steps).
 START_HESSIAN_BASIS = None
 
 
-def make_mf(mol):
+def make_mf(mol, rijcosx=False):
     '''One model for the optimization, the start Hessian and the frequencies: the saddle point is then a
     stationary point of the surface whose Hessian is analyzed.'''
     # exact J and K; unrestricted orbitals for open shells (mol.spin), with the same options
@@ -67,6 +75,8 @@ def make_mf(mol):
     # XC grid and VV10 grid, as in examples/wb97mv_ts.py
     mf.grids.atom_grid = (99, 590)
     mf.nlcgrids.atom_grid = (50, 194)
+    if rijcosx:
+        mf = mf.RIJCOSX(auxbasis='aug_etb')     # RI-J in an even-tempered fitting basis, K on the SGX grid
     # Solvent: after the grids are set
     # mf = mf.SMD(); mf.with_solvent.solvent = 'water'
     # The SCF solution from 2 of this model's Fock builds: the iterations run on a cheap model (seminumerical K,
@@ -83,6 +93,9 @@ def analytical_hessian(mf):
     hobj = mf.Hessian()
     # The derivatives of the grid points and weights (see examples/wb97mv_ts.py)
     hobj.grid_response = True
+    if SGX_RESPONSE:
+        hobj.sgx_response = True                # seminumerical K in the CPHF response (and the exact J)
+        hobj.sgx_response_auxbasis = 'aug_etb'  # RI-J there instead
     # Optional, the same Hessian: the seminumerical K also in the cheap model of the two-level CPHF. It took 10% off
     # the def2-TZVP Hessian of a 16-atom radical on a GTX 1650 Super (whose double precision is slow, and this K
     # runs in single precision); not measured on a card with fast double precision, and slower in def2-SVP.
@@ -109,7 +122,8 @@ conv_params = {
     'convergence_drms': 1.2e-3,     # Angstrom
     'convergence_dmax': 1.8e-3,     # Angstrom
 }
-conv, mol_ts = geometric_solver.kernel(mf, transition=True, hessian=h0, maxsteps=100, **conv_params)
+mf_opt = make_mf(mol, rijcosx=True) if RIJCOSX else mf
+conv, mol_ts = geometric_solver.kernel(mf_opt, transition=True, hessian=h0, maxsteps=100, **conv_params)
 mol_ts.tofile('wb97mv_ts_gpu.xyz')
 
 # Frequencies at the saddle point
