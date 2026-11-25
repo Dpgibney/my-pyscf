@@ -9307,6 +9307,77 @@ steps of the search with step 0):
 - UKS without a solvent or with other functionals was validated on small molecules only; the hyb = 0 class
   (long-range exchange only) has no test: libxc here has no such functional.
 
+## Progress lines of the analytical Hessian, and a quieter CDS term (laptop), 2026-11-25
+The user, with a 57-atom Hessian running: "Could you help me understand what is happening after the long range K
+derivatives are computed for the hessian? The output becomes sparse at that point", and then: "for the CPU hessian
+progress could we have something like the percentage done which is currently active for the integrals? Also I don't
+think that at verbose = 4 we need to have every finite displacement geometry printed for the CDS contribution".
+At `verbose = 4` only the two integral passes of the second derivatives wrote progress (`scf._vhf.oe_progress`);
+everything after them, hours at that size, wrote one line, the CPHF's summary. The SMD term at the end then wrote
+6 natm geometries of natm lines each (`Mole.set_geom_` writes every new geometry with `logger.info`) and its
+[natm,natm,3,3] array.
+- **`lib.logger.Progress(rec, label, total, unit)`**: lines in the integral drivers' form,
+  `    XC second derivatives, grid response: 45% of the grid after 31 s` and `...: done in 63 s`, with `Logger.info`.
+  Nothing before a loop has run for `logger.PROGRESS_AFTER` = 30 s, then one line at once and one at every
+  `PROGRESS_STEP` = 10 percent (both can be set in the PySCF configuration file): a short step prints nothing.
+  `blocks(ni.block_loop(...))` counts grid points, `ranges(...)` and `items(...)` chunks and items, and
+  `with Progress(rec, label, 0):` times a step without a count. `oe_progress` takes its two settings from there,
+  and the counter of another compiled library (`progress`, `unit`).
+- **Where** (RKS and UKS; `hobj.verbose` and `mf.verbose` at 4 or more):
+  - the XC second derivatives: diagonal terms, pair terms, grid response, each by the grid;
+  - the XC Fock matrix derivatives by the grid; the J and K Fock matrix derivatives by the atoms;
+  - VV10: the loops of the density derivatives, of the motion of the grid points and of the potentials by the VV10
+    grid, and the three compiled pair kernels (`VV10 pair kernel, 48 densities: 47% of the grid after 6 s`) through a
+    counter in `lib/dft/nr_numint.c` (`VXC_vv10nlc_hessian_progress`): these lines need the rebuilt libdft, and
+    are left out, without an error, with an older library;
+  - the CPHF equations: the line of a cycle (`CPHF cycle 1 after 40 s: max residual 0.117931, 48 of 48
+    perturbations left`) with `logger.info` once the solver has run for 30 s (it was a debug line), and inside a
+    response of many densities its terms: XC, Coulomb and the solvent by the densities, the seminumerical K by its
+    grid, the VV10 kernels as above, and a line `response of N densities, exchange: done in T s` for a term that
+    took 30 s or more;
+  - the solvent's Fock matrix derivatives and second derivatives when they end, the CDS finite differences by the
+    atoms.
+- **The CDS term** (`solvent/hessian/smd.py::get_cds`): the geometries of its finite differences at `verbose` 6
+  and above only, the array too, and one line with its largest element. The same for the geometries in the GPU
+  tree (`gpu4pyscf/solvent/hessian/smd.py`).
+- **The 16-atom radical's Hessian at `verbose = 4`** (def2-TZVP, SMD, the production settings; 394 s, 10 threads):
+
+  ```
+      XC second derivatives, pair terms: 91% of the grid after 30 s
+      XC second derivatives, pair terms: done in 32 s
+      XC second derivatives, grid response: 45% of the grid after 31 s
+      ...
+      XC second derivatives, grid response: done in 63 s
+      XC Fock matrix derivatives: 91% of the grid after 31 s
+      XC Fock matrix derivatives: done in 33 s
+      J and K Fock matrix derivatives: 81% of the atoms after 30 s
+      J and K Fock matrix derivatives: done in 32 s
+      CPHF cycle 1 after 40 s: max residual 0.117931, 48 of 48 perturbations left
+      ...
+      CPHF cycle 6 after 113 s: max residual 8.17125e-05, 0 of 48 perturbations left
+  CPHF: 6 cycles, 213 trial vectors, max residual 8.17e-05
+  Cavitation, Dispersion and Solvent structure contribution to the Hessian: largest element 3.385e-02
+  ```
+
+  With every line forced (`PROGRESS_AFTER = 0`) a 7-atom radical on the production grids shows the XC, J and K,
+  CPHF, solvent and CDS lines in their order, and the radical's VV10 terms those of their loops and of the three
+  pair kernels (`VV10 pair kernel, 48 densities: 15% of the grid after 2 s` ... `done in 12 s`).
+- **Nothing else changes**: the radical's Hessian with the exact response is the tag's to 3.5e-11 a.u. (energy
+  2e-13, gradient 2e-13), in 474 s (489 s before).
+- **Tests**: `lib/test/test_logger.py` (new, 4), `hessian/test/test_rks.py::test_progress_lines` (none for a small
+  molecule, the lines when forced, the same Hessian), `solvent/test/test_smd_hessian.py::test_cds_output`; the
+  suites dft, scf, df, grad, hessian, tdscf, solvent, sgx, lib: 1282 passed, the 5 known failures (4 xcfun tests of
+  test_tdrks, test_smd_grad's tolerance). GPU: test_smd_hessian 16 (1 new).
+- **Not covered:** a step's first 30 s; inside the compiled grid-motion term of the XC Fock derivative and inside
+  one atom's pass of the J and K Fock derivative; the direct J of a response beyond its chunks of densities (three
+  at 57 atoms); the gradient's CDS array, still written with `logger.info` (natm lines a gradient).
+- `scripts/gpu_setup.sh --python EXE` (or `PYTHON=`): the interpreter of the GPU venv, for machines whose python3
+  is 3.14, for which the pinned CuPy 13.4.1 has no wheel (the user's report); checked for syntax only.
+- **Commits:** pyscf `perf` cb615f9ea (`lib.logger.Progress`), 46248da91 (the Hessian's steps), 73321c396 (the CDS
+  term), tag and pin `perf-2026-11-25b`; gpu4pyscf `perf` a3f43c16, merged into `exp/prim-screen` a963519f, tag and
+  pin `perf-2026-11-25b`; pushed on 2026-11-25 at the user's word ("Please commit and push"). One C file changed
+  (`lib/dft/nr_numint.c`): rebuild with `cpu_setup.sh` for the VV10 kernels' lines.
+
 ## GPU4PySCF, part 36: what the CPU tree gained since perf-2026-11-03, on the GPU (node1), 2026-11-21/22
 The user, after the read-only audit of 2026-11-21 (gpu4pyscf had not moved since part 35; the CPU tree had gained the
 two-level SCF, the solvent rewrites, the residual CPHF solver, RIJCOSX): "The GPU on node1 is now available so we can
