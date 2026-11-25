@@ -3,11 +3,14 @@
 # a venv with the pinned packages (scripts/requirements-gpu.txt), and the two GPU4PySCF trees of scripts/pins.txt,
 # both built from source with the same toolchain: gpu4pyscf (the modified tree) and gpu4pyscf-base (v1.9.0).
 #     git clone https://github.com/Dpgibney/my-pyscf && cd my-pyscf && bash scripts/gpu_setup.sh
-# Needs nvcc from a CUDA 12 toolkit (e.g. `module load cuda/12.x`), cmake 3.18 or newer, gcc, git, and python3
-# (3.10-3.12) with venv. On clusters whose compute nodes have no internet, run it on a login node.
+# Needs nvcc from a CUDA 12 toolkit (e.g. `module load cuda/12.x`), cmake 3.18 or newer, gcc, git, and a Python
+# 3.10 to 3.13 with venv (the pinned CuPy 13.4.1 has no wheel for 3.14; 3.12 is what was tested). On clusters whose
+# compute nodes have no internet, run it on a login node.
 # Options:
 #   --arch 80[,90]   CUDA architectures to build for (default: the first GPU's, from nvidia-smi)
 #   --jobs N         parallel build jobs (default: nproc)
+#   --python EXE     the interpreter that makes the venv (default: $PYTHON, else python3), e.g. --python python3.12
+#                    An existing .venv-gpu is reused as it is: remove it to change its Python.
 # Rerunning is incremental: the venv, the clones and the builds are reused, and the clones are moved to the refs
 # of pins.txt. Then:
 #   bash scripts/gpu_bench.sh            unit tests, and the comparison against v1.9.0 (bench/results/<host>/)
@@ -16,15 +19,17 @@ set -euo pipefail
 WS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ARCH=""
 JOBS=$(nproc)
+PY="${PYTHON:-python3}"
 while [ $# -gt 0 ]; do
     case "$1" in
         --arch) ARCH="$2"; shift 2 ;;
         --jobs) JOBS="$2"; shift 2 ;;
+        --python) PY="$2"; shift 2 ;;
         *) echo "unknown argument $1" >&2; exit 1 ;;
     esac
 done
-for t in nvcc cmake git gcc python3 nvidia-smi; do
-    command -v $t > /dev/null || { echo "$t not found (nvcc: load or install a CUDA 12 toolkit)" >&2; exit 1; }
+for t in nvcc cmake git gcc "$PY" nvidia-smi; do
+    command -v "$t" > /dev/null || { echo "$t not found (nvcc: load or install a CUDA 12 toolkit)" >&2; exit 1; }
 done
 if [ -z "$ARCH" ]; then
     ARCH=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -n 1 | tr -d '. ')
@@ -35,7 +40,13 @@ echo "   building for $CUDA_ARCHS with nvcc $(nvcc --version | sed -n 's/.*relea
 
 echo "== venv: .venv-gpu (scripts/requirements-gpu.txt)"
 VENV="$WS/.venv-gpu"
-[ -x "$VENV/bin/python" ] || python3 -m venv "$VENV"
+[ -x "$VENV/bin/python" ] || "$PY" -m venv "$VENV"
+PYV="$("$VENV/bin/python" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+case "$PYV" in
+    3.10|3.11|3.12|3.13) echo "   Python $PYV" ;;
+    *) echo "   Python $PYV: the pinned packages are known for 3.10 to 3.13. If pip finds no cupy-cuda12x below," \
+            "remove $VENV and rerun with --python python3.12" >&2 ;;
+esac
 "$VENV/bin/python" -m pip install -q --upgrade pip
 "$VENV/bin/python" -m pip install -q -r "$WS/scripts/requirements-gpu.txt"
 SP="$("$VENV/bin/python" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"

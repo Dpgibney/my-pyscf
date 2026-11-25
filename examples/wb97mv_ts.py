@@ -37,7 +37,7 @@ mol = gto.M(
     basis='def2-tzvp',
     charge=0,
     spin=0,                         # 2S: 1 for a doublet (unrestricted orbitals then)
-    verbose=4,
+    verbose=4,                      # 4: with progress lines of the Hessian's steps that take over 30 s
     output='wb97mv_ts.out',
 )
 
