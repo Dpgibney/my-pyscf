@@ -59,7 +59,7 @@ C-Cl stretch 3.7 cm^-1 high and the soft modes of an SN2 saddle point up to 41 c
 cm^-1 or less). It costs about 17% of paracetamol's wB97M-V/def2-SVP Hessian and stays off by default, as upstream.
 With it, 99 radial points on P, S and Cl are within 0.08 cm^-1 of 150 and 250 (they were up to 4 cm^-1 off).
 `examples/wb97mv_ts.py` is a transition-state search with geomeTRIC from that Hessian (`geometric_solver.kernel`
-takes a Hessian array as `hessian`), with the frequencies at the saddle point.
+takes a Hessian array as `hessian`), with the frequencies and the free energy at the saddle point.
 Since `perf-2026-11-25` Hessians of open-shell molecules run at production size (`NOTES.md`, "A UKS
 transition-state Hessian at production size: the audit"; a 57-atom doublet in SMD water, wB97M-V/def2-TZVP, 1198
 functions, on the laptop's 10 cores). The solvent's Hessian terms kept an array for every task of their thread
@@ -153,13 +153,13 @@ unless 16 atoms fit at once (11 GB free for an open shell with 1200 functions); 
 the two spins share one memory limit. `gpu4pyscf.geomopt.geometric_solver` takes a Hessian array for geomeTRIC, and
 `examples/wb97mv_ts_gpu.py` is `examples/wb97mv_ts.py` on the GPU: on HCN <-> HNC and H + H2 (a doublet), in the gas
 phase and in SMD water, it finds the CPU example's saddle points within 0.1 cm^-1. The two trees' Hessians agree to
-0.002 cm^-1 for open and closed shells in def2-SVP and def2-TZVP. The GPU has exact J and K only there: no RIJCOSX
-gradient and no fitted or seminumerical response. An option with the same Hessian, `hobj.cphf_two_level_parts =
-('nlc', 'k')`, took another 10% off the def2-TZVP Hessian on this card (1365 s) and is off: its K runs in single
-precision, which this card favors. Nothing was run at the CPU audit's 57 atoms (the card has 4 GB). In SMD,
-frequencies depend on the molecule's orientation in both trees, through the points of the cavity's surface: a rigid
-rotation of the HCN saddle point moves them by up to 8 cm^-1 (0.05 cm^-1 in the gas phase), so compare them at one
-geometry in one orientation.
+0.002 cm^-1 for open and closed shells in def2-SVP and def2-TZVP. The GPU had exact J and K only there then, without
+a RIJCOSX gradient or an approximate response (part 42, below, added both). An option with the same Hessian,
+`hobj.cphf_two_level_parts = ('nlc', 'k')`, took another 10% off the def2-TZVP Hessian on this card (1365 s) and is
+off: its K runs in single precision, which this card favors. Nothing was run at the CPU audit's 57 atoms (the card has
+4 GB). In SMD, frequencies depend on the molecule's orientation in both trees, through the points of the cavity's
+surface: a rigid rotation of the HCN saddle point moves them by up to 8 cm^-1 (0.05 cm^-1 in the gas phase), so
+compare them at one geometry in one orientation.
 
 Since part 42 (`NOTES.md`, "GPU4PySCF, part 42") the GPU has the CPU tree's two approximations for larger molecules:
 analytical gradients of COSX and RIJCOSX models (`mf.RIJCOSX(auxbasis='aug_etb')`: RI-J and the seminumerical K of
@@ -174,6 +174,17 @@ single precision). It is meant for molecules whose exact K dominates a step, whi
 derivative of the LKO grid weights that both trees' COSX gradients use was wrong in PySCF (`VXCgen_grid_lko_deriv`:
 1/f(R)^3 for 1/(f(R)^2 R), about 1e-6 of the grid terms here); it is fixed in the CPU tree, and the GPU has a kernel of
 its own; `upstream/pyscf-lko-weight-derivative.md` has what is needed to report it (a reproducer on stock PySCF).
+
+Both transition-state examples now end with the free energy at the saddle point (`NOTES.md`, "The TS examples: the free
+energy, ..."): PySCF's thermochemistry of an ideal gas of rigid rotors and harmonic oscillators without the imaginary
+mode, Grimme's quasi-RRHO entropy (freq0 100 cm^-1, ORCA's default; the GPU example has the formula itself, as the GPU
+environment's PySCF 2.14 has no option for it), 1 atm or, with a solvent model, 1 mol/L, and the rotational symmetry
+number of the point group within 0.01 Bohr: PySCF's own 1e-5 Bohr found the D-infinity-h saddle point of H + H2 in one
+search of 16 (symmetry number 2, 0.41 kcal/mol in G). On ORCA 6.1.1's own frequencies G is ORCA's within 5e-7 Eh. Each
+SCF starts from the converged density of the one before it: the search's first from the start Hessian's (projected
+into the full basis with `START_HESSIAN_BASIS`), the one at the saddle point from the search's last. In 32 searches on
+both trees the steps and frequencies are unchanged, with 4 to 6 fewer cycles of the cheap model at the saddle
+point and the same electronic state throughout; the two Fock builds of the model in every two-level SCF stay.
 
 ```python
 mf = dft.RKS(mol, xc='b3lyp').RIJCOSX()   # instead of the exact J/K or mf.density_fit()
