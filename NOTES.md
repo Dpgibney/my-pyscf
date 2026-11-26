@@ -10669,6 +10669,148 @@ allon_smd"`; the CPU example's runs of the same switches, `bench/results/uks-ts-
 - **Hessians of COSX models** (`_COSX.Hessian` still raises): the example uses exact Hessians.
 - `sgx_response` of Hartree-Fock Hessians.
 
+## The TS examples: the free energy, and each SCF from the converged density of the one before (2026-11-25)
+The user, after part 42: "Is there an example of the full transition state optimization and free energy calculation
+with the GPU in the examples folder? Also can you have it take the converged 1RDM from earlier parts of the
+calculation and use that in later parts? I noticed this is missing from the CPU example". Neither example computed a
+free energy: both stopped at the harmonic frequencies. Both started the SCF at the saddle point from the default guess,
+and with `RIJCOSX` or `START_HESSIAN_BASIS` the search's first SCF too; only within the search did PySCF's scanner
+carry each geometry's density to the next.
+- **Files:** `examples/wb97mv_ts.py`, `examples/wb97mv_ts_gpu.py`; `bench/diag/thermo/check_thermo.py` (the
+  thermochemistry against ORCA's), `bench/diag/scf_work.py` (the SCF work of each run from its log);
+  `bench/gpu/ts_example_variants.sh` and `bench/diag/wb97mv/uks_ts_audit/ts_example_variants.sh` take `EXAMPLE` (the
+  script to run) and print G. Runs: node1 `scratch/p43_{old,new}`, the laptop `scratch/p43_cpu_{old,new}`,
+  `scratch/p43/p43_{gpu,cpu}.sh`; ORCA's reference in `scratch/orca/thermo_w2/` (raw output, not in git).
+
+### What the examples do now
+1. **The densities.** The start Hessian's SCF runs as before. The search's model starts from its converged orbitals:
+   in the default case it is the same object (as before); with `RIJCOSX` the RIJCOSX model is given the exact model's
+   orbitals, and with `START_HESSIAN_BASIS` the small basis's orbitals projected into the full basis
+   (`pyscf.scf.addons.project_mo_nr2nr`) and orthonormalized there (`lo.orth.vec_lowdin`), in `orbitals_in_basis`.
+   PySCF's SCF scanner starts its SCF from the orbitals its model holds (`make_rdm1()` when the basis is the same),
+   so its first SCF, at the guess, starts from them; the examples now build the gradient scanner themselves
+   (`mf_opt.Gradients().as_scanner()`) and pass it to `geometric_solver.kernel`, which takes a scanner as it is. After
+   the search the scanner's SCF holds the converged density of the last geometry, which is the returned `mol_ts`
+   (the engine moves one `Mole` through the search and returns it): the SCF at the saddle point is
+   `mf_ts.kernel(dm0=g_scanner.base.make_rdm1())`. Without `RIJCOSX` the search's last gradient is the model's own
+   there (`g_scanner.de`), so it is not computed again.
+   - Not done: handing the density over through `mf.init_guess`, which both trees accept as a density matrix
+     (`get_init_guess` returns a non-string key as it is): `dump_flags` writes `initial guess = <the array>` to the
+     output, which the user does not want at verbose 4.
+   - Not avoidable from the example: geomeTRIC's first step evaluates the guess again, so the search's first SCF
+     repeats the start Hessian's SCF from its converged density (two Fock builds of the model in the two-level SCF).
+2. **The free energy** (`thermochemistry`): `pyscf.hessian.thermo.thermo` (ideal gas, rigid rotor, harmonic
+   oscillator) at `TEMPERATURE` (298.15 K) from the frequencies of `harmonic_analysis`; the imaginary mode, as a
+   negative number, is left out by `thermo` itself (`freq.real > 0`), as transition-state theory has it. The
+   vibrational entropy by Grimme's quasi-RRHO, `QRRHO_FREQ0` = 100 cm^-1 (None: harmonic), as ORCA's default; G with
+   the harmonic entropy is printed as well. The standard state 1 atm, or 1 mol/L with a solvent model (an ideal gas at
+   the pressure c R T: G higher by R T ln 24.46 = 1.894 kcal/mol at 298.15 K), whose solvation free energy is for
+   1 mol/L in both phases. The full table goes to the .out file (`thermo.dump_thermo`).
+   - The CPU example calls the CPU tree's `thermo(qrrho=True, qrrho_freq0=...)` (upstream PySCF #3491, 2026-10-09).
+     The GPU environment has PySCF 2.14, whose `thermo` has no such option: the GPU example has the same formula in
+     `quasi_rrho_entropy` and corrects S and G of `thermo`'s RRHO with it.
+
+### Measured
+**The thermochemistry against ORCA 6.1.1** (`check_thermo.py`; ORCA's water dimer B3LYP/def2-SVP, which its TightOpt
+left at a Cs saddle point, -72.70 cm^-1, the other 11 modes from 129.15 cm^-1; ORCA's default thermochemistry:
+quasi-RRHO, freq0 100 cm^-1, the imaginary mode left out; the examples' functions taken from their files and fed
+ORCA's geometry, energy and frequencies from its .hess file):
+
+| term (Eh) | ORCA | the examples | difference |
+|---|---|---|---|
+| ZPE | 0.04581307 | 0.04581307 | -2.9e-9 |
+| thermal vibrational | 0.00222049 | 0.00222039 | -9.7e-8 |
+| thermal rotational, translational | 0.00141627 | 0.00141628 | +6.8e-9 |
+| kT (H - U) | 0.00094421 | 0.00094418 | -2.5e-8 |
+| T S_vib (quasi-RRHO) | 0.00399543 | 0.00399571 | +2.8e-7 |
+| T S_rot | 0.01003201 | 0.01003204 | +3.1e-8 |
+| T S_trans | 0.01742549 | 0.01742554 | +4.8e-8 |
+| G | -152.63545480 | -152.63545527 | -4.7e-7 (0.0003 kcal/mol) |
+
+  The two examples give the same numbers to every digit; the GPU example's `quasi_rrho_entropy` equals the CPU tree's
+  `thermo(qrrho=True)` to 2e-16 (relative) on modes from 1 to 3000 cm^-1 with freq0 50, 100 and 200 cm^-1, and its
+  harmonic limit (freq0 -> 0) equals thermo's RRHO entropy to 4e-16. The residual against ORCA is not one constant:
+  the thermal vibrational energy would need the reduced frequencies hc nu / kT scaled by -6.2e-5 and the entropy by
+  +8.0e-5, and ORCA's own kT of the enthalpy is 2.5e-8 above two thirds of its 3/2 kT. With the frequencies of the
+  output (0.01 cm^-1) instead of the .hess file G is 4.4e-7 off. The 1 mol/L state: +0.00301880 Eh = 1.8943 kcal/mol
+  at 298.15 K in both examples, R T ln(c R T / 1 atm).
+
+**The CPU example, old against new** (the laptop, 10 threads; `ts_example_variants.sh` with `EXAMPLE`, the eight
+variants of the GPU script on HCN <-> HNC and H + H2): the same steps in all 16 runs and the same frequencies to the
+0.1 cm^-1 printed (hcn_rijcosx's 2110.5 -> 2110.4: rounding); the largest gradient component at the end within 4e-7
+Eh/Bohr (the search's last gradient instead of one at a separately converged density). The SCF work (`scf_work.py`;
+Fock builds of the model + builds of the cheap model + cycles of its SCF):
+
+| run | the search's first SCF, old -> new | the SCF at the saddle point, old -> new | all SCFs, old -> new |
+|---|---|---|---|
+| hcn_default | 2+5+2 -> 2+5+2 | 2+5+8 -> 2+4+2 | 32+83+95 -> 32+82+89 |
+| hcn_rijcosx | 2+5+7 -> 2+5+2 | 2+5+8 -> 2+5+2 | 24+60+77 -> 24+60+66 |
+| hcn_svp | 2+5+7 -> 2+6+6 | 2+5+8 -> 2+4+2 | 30+77+87 -> 30+77+80 |
+| hcn_allon | 2+5+7 -> 2+6+6 | 2+5+8 -> 2+4+2 | 26+66+80 -> 26+66+73 |
+| h3_default | 2+4+2 -> 2+4+2 | 2+4+6 -> 2+3+2 | 14+30+33 -> 14+29+29 |
+| h3_rijcosx | 2+5+7 -> 2+4+2 | 2+4+6 -> 2+3+2 | 14+31+38 -> 14+29+29 |
+| h3_svp | 2+5+7 -> 2+5+4 | 2+4+6 -> 2+3+2 | 24+44+63 -> 24+44+56 |
+
+  (smd, svp_smd, sgx, allon_smd alike.) The wall times are the same (8 to 34 s a run): the two Fock builds of the
+  model that every two-level SCF takes are most of an SCF of these molecules, and they stay. The projected def2-SVP
+  orbitals start the def2-TZVP SCF about as well as PySCF's default guess for HCN (6 cycles of the cheap model
+  against 7) and better for H + H2 (4 against 7).
+
+**The GPU example, old against new** (node1, GTX 1650 Super; the same eight variants): the same steps in all 16 runs,
+the same frequencies to the 0.1 cm^-1 printed (three last digits move by 0.1), the largest gradient component within
+3e-6 Eh/Bohr. The SCF work:
+
+| run | the search's first SCF, old -> new | the SCF at the saddle point, old -> new | all SCFs, old -> new | wall |
+|---|---|---|---|---|
+| hcn_default | 2+4+1 -> 2+4+1 | 2+3+6 -> 2+4+1 | 28+60+49 -> 28+61+44 | 127 -> 127 s |
+| hcn_rijcosx | 2+3+6 -> 2+4+1 | 2+3+6 -> 2+4+1 | 22+45+48 -> 22+47+38 | 96 -> 96 s |
+| hcn_svp | 2+3+6 -> 2+4+5 | 2+3+6 -> 2+4+1 | 30+65+51 -> 30+67+45 | 106 -> 105 s |
+| h3_default | 2+2+1 -> 2+2+1 | 2+2+5 -> 2+2+1 | 14+21+23 -> 14+21+19 | 25 -> 25 s |
+| h3_rijcosx | 2+3+5 -> 2+2+1 | 2+2+5 -> 2+2+1 | 14+22+27 -> 14+21+19 | 24 -> 24 s |
+| h3_svp | 2+3+5 -> 2+3+3 | 2+2+5 -> 2+2+1 | 24+38+41 -> 24+38+35 | 27 -> 27 s |
+
+**The symmetry number.** The new runs' G showed one outlier: GPU h3_smd 6.5e-4 Eh (0.41 kcal/mol, R T ln 2) above the
+other SMD runs of H + H2 at the same frequencies. Its saddle point came out symmetric to 4.8e-6 Angstrom, D-infinity-h
+within PySCF's tolerance of symmetry (`symm.geom.TOLERANCE` 1e-5 Bohr, divided by sqrt(1 + natm) in `detect_symm`),
+symmetry number 2; the 15 others stopped 7e-5 to 2.2e-3 Angstrom from symmetric (geomeTRIC's dmax is 1.8e-3), C-
+infinity-v, 1. The saddle point is D-infinity-h: 2 is right, and PySCF's tolerance gives it by chance. The point groups
+of all 16 saddle points at other tolerances (the other molecules for false positives):
+
+| tolerance (Bohr) | 1e-5 | 1e-3 | 1e-2 | 2e-2 | 5e-2 |
+|---|---|---|---|---|---|
+| H + H2, 16 saddle points | 1 Dooh, 15 Coov | 11 Dooh, 5 Coov | 16 Dooh | 16 Dooh | 16 Dooh |
+| HCN <-> HNC | Cs | Cs | Cs | Cs | Cs |
+| ORCA's water dimer | C1 | Cs | Cs | Cs | Cs |
+| water, 0.002 Angstrom of noise | Cs | Cs | Cs | Cs | C2v |
+| CHFClBr | C1 | C1 | C1 | C1 | C1 |
+
+  The examples now take the point group within 0.01 Bohr (`lib.temporary_env(symm.geom, TOLERANCE=1e-2)` around
+  `thermo`, whose `rotational_symmetry_number` reads it), print it with its symmetry number beside G, and take
+  `SYMMETRY_NUMBER` in its place where it is set (the rotational entropy corrected by R ln(sigma_detected / sigma)).
+  The tolerance is not a guarantee (water with 0.002 Angstrom of noise stays Cs at 0.01 and 0.02), and a larger
+  molecule meets a smaller one (sqrt(1 + natm)): for a symmetric saddle point the printed group is to be checked. A
+  large molecule's transition state is almost always C1, where none of this matters.
+
+**The final examples** (the point group within 0.01 Bohr; `p43_final` on node1, `p43_cpu_final` on the laptop): the
+searches as before; every H + H2 saddle point D-infinity-h, symmetry number 2, every HCN one Cs, 1. G of one saddle
+point now agrees between the variants that find it: H + H2 within 6e-7 Eh in the gas phase (-1.64679014 to
+-1.64679081) and 3e-7 in SMD water (-1.64042287 to -1.64042308), HCN within 3e-7 except allon (2.4e-6, a saddle point
+1 cm^-1 apart in the CH stretch) and the GPU's rijcosx (6e-6, the search that stopped at 1.6e-4 Eh/Bohr, part 42). GPU
+against CPU for the same variant: 7e-9 to 2.2e-7 Eh (hcn_smd -93.36742301 both; h3_default -1.64679014 and
+-1.64679020). The thermochemistry check on node1's PySCF 2.14 gives the GPU example's numbers of the laptop to every
+digit. HCN <-> HNC at 298.15 K: in the gas phase, 1 atm, G - E = -0.010115 Eh (ZPE 0.010879, thermal enthalpy
+0.003777, -T S -0.024771); in SMD water, 1 mol/L, -0.007391 Eh (ZPE 0.010597, thermal enthalpy 0.003777, -T S
+-0.021766). Its quasi-RRHO entropy is the harmonic one within 1e-9 Eh: no real mode below 2000 cm^-1.
+- **Data:** `bench/results/node1/p43_ts_examples.txt` (the check against ORCA, the point groups, the four batches of
+  runs with their SCF work).
+
+### Not done
+- **The free energy of activation itself**: the examples give G of the saddle point; the reactant's minimum, with the
+  same model and thermochemistry, is a run of its own (no example has the minimum's free energy yet).
+- **Removing the first SCF of the search**: geomeTRIC evaluates the guess again at its first step, which the start
+  Hessian's SCF has converged; PySCF's engine has no way to hand it the energy and gradient of that SCF.
+- **Hindered rotors and other anharmonic corrections**: the quasi-RRHO entropy is the only treatment of the soft modes.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.
