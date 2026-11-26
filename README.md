@@ -59,7 +59,11 @@ C-Cl stretch 3.7 cm^-1 high and the soft modes of an SN2 saddle point up to 41 c
 cm^-1 or less). It costs about 17% of paracetamol's wB97M-V/def2-SVP Hessian and stays off by default, as upstream.
 With it, 99 radial points on P, S and Cl are within 0.08 cm^-1 of 150 and 250 (they were up to 4 cm^-1 off).
 `examples/wb97mv_ts.py` is a transition-state search with geomeTRIC from that Hessian (`geometric_solver.kernel`
-takes a Hessian array as `hessian`), with the frequencies and the free energy at the saddle point.
+takes a Hessian array as `hessian`), with the frequencies and the free energy at the saddle point. Both TS examples
+leave out the grid points that hold less than 1e-7 electrons together (`mf.small_rho_cutoff = 1e-7`, off by default):
+at 57 atoms 83% of the XC grid's points remain, an estimated 5% of the Hessian, and the imaginary and soft (34-56
+cm^-1) modes of two saddle points moved by 3e-4 cm^-1 at most (`NOTES.md`, "Pruning: low-density grid points and a
+VV10 pair cutoff").
 Since `perf-2026-11-25` Hessians of open-shell molecules run at production size (`NOTES.md`, "A UKS
 transition-state Hessian at production size: the audit"; a 57-atom doublet in SMD water, wB97M-V/def2-TZVP, 1198
 functions, on the laptop's 10 cores). The solvent's Hessian terms kept an array for every task of their thread

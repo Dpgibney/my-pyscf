@@ -109,6 +109,10 @@ def make_mf(mol, rijcosx=False):
     # XC grid and VV10 grid, as in examples/wb97mv_ts.py
     mf.grids.atom_grid = (99, 590)
     mf.nlcgrids.atom_grid = (50, 194)
+    # As in examples/wb97mv_ts.py: leave out the points of these two grids that together hold less than 1e-7
+    # electrons of the density the SCF starts from (GPU4PySCF's small_rho_cutoff, off by default). mf.cphf_grids
+    # stays whole, and so do the copies of the grids that the Hessian's grid-response terms make.
+    mf.small_rho_cutoff = 1e-7
     if rijcosx:
         mf = mf.RIJCOSX(auxbasis='aug_etb')     # RI-J in an even-tempered fitting basis, K on the SGX grid
     # Solvent: after the grids are set

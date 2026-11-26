@@ -101,6 +101,14 @@ def make_mf(mol, rijcosx=False):
     mf.grids.atom_grid = (99, 590)
     # VV10 grid of the energy, the gradient and the Hessian's VV10 derivative terms
     mf.nlcgrids.atom_grid = (50, 194)
+    # Leave out the points of these two grids that together hold less than 1e-7 electrons of the density the SCF
+    # starts from (PySCF's small_rho_cutoff, off by default: the points where rho w < 1e-7 / npoints); the response
+    # grids below stay whole. At 57 atoms 83% of the XC grid and 86% of the VV10 grid remain: about 5% off the
+    # Hessian and 4% off a step of the search, estimated from the times of their parts. 1e-7 moved the frequencies of
+    # a 16-atom radical by less than 5e-5 cm^-1, and the imaginary and soft (34-56 cm^-1) modes of two saddle points
+    # by up to 3e-4 cm^-1, less than the SCF's own convergence does (NOTES.md, "Pruning: low-density grid points and a
+    # VV10 pair cutoff").
+    mf.small_rho_cutoff = 1e-7
     if rijcosx:
         mf = mf.RIJCOSX(auxbasis=df.aug_etb(mol))   # RI-J in an even-tempered fitting basis
     # Solvent: after the grids are set
