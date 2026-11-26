@@ -1,0 +1,27 @@
+>>> [      0 s,   0.1 GB] pyscf /home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py, 10 threads, max_memory 12000 MB; 16 atoms, 321 AOs, (33, 32) electrons, UKS wB97M-V/def2-tzvp, solvent water
+two-level SCF: 2 Fock builds of the model, 8 of the cheap one after its SCF of 13 cycles
+>>> [     47 s,  11.2 GB] reference SCF: 46.6 s, E = -421.3753692736, converged True; XC grid 514104 points, VV10 grid 105136
+>>> [     63 s,  11.5 GB] reference gradient: 16.8 s, max |g| 1.04e-05
+two-level SCF: 2 Fock builds of the model, 6 of the cheap one after its SCF of 6 cycles
+>>> [    122 s,  12.0 GB] rho:0: SCF 41.9 s, E - E_ref +2.399e-11, gradient 17.1 s, max |dg| 1.07e-06; XC grid 514104 points (ref 514104), VV10 grid 105136 (ref 105136)
+>>> [    570 s,  12.4 GB] rho:0: Hessian 447.1 s; lowest frequencies (cm-1) 90.13 153.58 244.10 245.92 331.27 396.60; G -421.2798343297 Eh
+>>> [    570 s,  12.4 GB] rho:0: parts of the Hessian (wall time, nested parts overlap):
+          192.5 s      1 call(s)  partial_hess_elec
+          127.2 s      1 call(s)  solve_mo1
+          126.7 s      1 call(s)  cphf ucphf.solve_residual
+           58.0 s      1 call(s)  xc _get_exc_deriv2_grid_response
+           45.3 s      1 call(s)  xc uks._get_vxc_deriv1
+           45.0 s      2 call(s)  hess_jk_energy
+           43.7 s      7 call(s)  vv10 get_vnlc_resp_mo
+           43.2 s      1 call(s)  vv10 _get_enlc_deriv2
+           38.6 s      7 call(s)  xc uks_fxc_mo (response grid)
+           35.0 s      1 call(s)  vv10 _get_vnlc_deriv1
+           34.3 s      1 call(s)  xc uks._get_vxc_deriv2_dm
+           24.9 s      1 call(s)  _partial_hess_ejk
+           11.6 s      1 call(s)  xc uks._get_vxc_diag
+            8.5 s      2 call(s)  vv10 grid_response_pair (not cut)
+            6.6 s      2 call(s)  vv10 data (ground-state pair sums)
+           32.2 s      7 call(s)  VV10 f_t, 60015 points
+           30.8 s      2 call(s)  VV10 f_t, 98799 points
+           20.9 s      2 call(s)  VV10 weight1, 98799 points
+guard: peak RSS about 14 GB

@@ -1,0 +1,15 @@
+>>> [      0 s,   0.1 GB] pyscf /home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py, 10 threads, max_memory 12000 MB; 16 atoms, 321 AOs, (33, 32) electrons, UKS wB97M-V/def2-tzvp, solvent water
+Step    0 : Gradient = 3.662e-02/9.806e-02 (rms/max) Energy = -421.3605492931
+Step    1 : Displace = 9.558e-02/1.497e-01 (rms/max) Trust = 1.000e-01 (=) Grad = 2.142e-02/6.022e-02 (rms/max) E (change) = -421.3696056316 (-9.056e-03) Quality = 0.893
+Step    2 : Displace = 1.507e-01/2.542e-01 (rms/max) Trust = 1.414e-01 (+) Grad = 2.105e-02/5.425e-02 (rms/max) E (change) = -421.3704284421 (-8.228e-04) Quality = 0.074
+Step    3 : Displace = 6.733e-02/1.192e-01 (rms/max) Trust = 7.071e-02 (-) Grad = 3.686e-03/1.103e-02 (rms/max) E (change) = -421.3749953940 (-4.567e-03) Quality = 0.857
+Step    4 : Displace = 3.193e-02/7.028e-02 (rms/max) Trust = 1.000e-01 (+) Grad = 5.265e-03/1.271e-02 (rms/max) E (change) = -421.3748213058 (+1.741e-04) Quality = -0.277
+Step    5 : Displace = 1.407e-02/2.952e-02 (rms/max) Trust = 1.597e-02 (-) Grad = 1.072e-03/2.235e-03 (rms/max) E (change) = -421.3753391122 (-5.178e-04) Quality = 0.879
+Step    6 : Displace = 7.576e-03/1.159e-02 (rms/max) Trust = 2.258e-02 (+) Grad = 1.089e-03/2.680e-03 (rms/max) E (change) = -421.3753291074 (+1.000e-05) Quality = -0.179
+Step    7 : Displace = 4.136e-03/7.846e-03 (rms/max) Trust = 3.788e-03 (-) Grad = 2.769e-04/6.256e-04 (rms/max) E (change) = -421.3753672052 (-3.810e-05) Quality = 0.901
+Step    8 : Displace = 3.037e-03/4.945e-03 (rms/max) Trust = 5.357e-03 (+) Grad = 1.644e-04/4.403e-04 (rms/max) E (change) = -421.3753685358 (-1.331e-06) Quality = 0.454
+Step    9 : Displace = 1.223e-03/2.055e-03 (rms/max) Trust = 5.357e-03 (=) Grad = 1.537e-05/2.810e-05 (rms/max) E (change) = -421.3753692262 (-6.904e-07) Quality = 1.005
+Step   10 : Displace = 5.524e-05/9.903e-05 (rms/max) Trust = 7.576e-03 (+) Grad = 8.043e-06/1.430e-05 (rms/max) E (change) = -421.3753692735 (-4.739e-08) Quality = 2.093
+Converged! =D
+>>> [    601 s,   1.8 GB] minimum: 601 s
+guard: peak RSS about 10 GB

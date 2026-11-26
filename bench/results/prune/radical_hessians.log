@@ -1,0 +1,266 @@
+>>> [      0 s,   0.1 GB] pyscf /home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py, 10 threads, max_memory 12000 MB; 16 atoms, 321 AOs, (33, 32) electrons, UKS wB97M-V/def2-tzvp, solvent water
+two-level SCF: 2 Fock builds of the model, 8 of the cheap one after its SCF of 13 cycles
+>>> [     45 s,  11.2 GB] reference SCF: 44.9 s, E = -421.3753692736, converged True; XC grid 514104 points, VV10 grid 105136
+>>> [     61 s,  11.5 GB] reference gradient: 16.5 s, max |g| 1.04e-05
+>>> [    453 s,  11.4 GB] ref: Hessian 391.2 s; lowest frequencies (cm-1) 90.13 153.58 244.10 245.92 331.27 396.60; G -421.2798343387 Eh
+>>> [    453 s,  11.4 GB] ref: parts of the Hessian (wall time, nested parts overlap):
+          185.6 s      1 call(s)  partial_hess_elec
+          115.4 s      1 call(s)  solve_mo1
+          114.9 s      1 call(s)  cphf ucphf.solve_residual
+           57.7 s      1 call(s)  xc _get_exc_deriv2_grid_response
+           43.1 s      1 call(s)  xc uks._get_vxc_deriv1
+           42.4 s      2 call(s)  hess_jk_energy
+           40.7 s      7 call(s)  vv10 get_vnlc_resp_mo
+           40.3 s      1 call(s)  vv10 _get_enlc_deriv2
+           35.6 s      7 call(s)  xc uks_fxc_mo (response grid)
+           33.9 s      1 call(s)  xc uks._get_vxc_deriv2_dm
+           23.6 s      1 call(s)  _partial_hess_ejk
+           11.0 s      1 call(s)  xc uks._get_vxc_diag
+            6.0 s      2 call(s)  vv10 data (ground-state pair sums)
+            3.9 s      1 call(s)  vv10 _get_vnlc_deriv1
+            3.9 s      2 call(s)  vv10 grid_response_pair (not cut)
+           30.0 s      7 call(s)  VV10 f_t, 60015 points
+           14.3 s      1 call(s)  VV10 f_t, 98799 points
+            9.7 s      2 call(s)  VV10 weight1, 98799 points
+two-level SCF: 2 Fock builds of the model, 6 of the cheap one after its SCF of 6 cycles
+>>> [    505 s,  11.9 GB] rho:1e-7: SCF 35.8 s, E - E_ref +9.550e-11, gradient 16.8 s, max |dg| 1.07e-06; XC grid 440456 points (ref 514104), VV10 grid 91240 (ref 105136)
+>>> [    919 s,  12.1 GB] rho:1e-7: Hessian 413.5 s; lowest frequencies (cm-1) 90.13 153.58 244.10 245.92 331.27 396.60; G -421.2798343287 Eh
+>>> [    919 s,  12.1 GB] rho:1e-7: parts of the Hessian (wall time, nested parts overlap):
+          173.0 s      1 call(s)  partial_hess_elec
+          126.5 s      1 call(s)  solve_mo1
+          126.0 s      1 call(s)  cphf ucphf.solve_residual
+           51.5 s      1 call(s)  xc _get_exc_deriv2_grid_response
+           44.9 s      2 call(s)  hess_jk_energy
+           43.6 s      7 call(s)  vv10 get_vnlc_resp_mo
+           38.4 s      7 call(s)  xc uks_fxc_mo (response grid)
+           38.4 s      1 call(s)  xc uks._get_vxc_deriv1
+           35.2 s      1 call(s)  vv10 _get_enlc_deriv2
+           30.6 s      1 call(s)  xc uks._get_vxc_deriv2_dm
+           28.6 s      1 call(s)  vv10 _get_vnlc_deriv1
+           24.9 s      1 call(s)  _partial_hess_ejk
+           10.5 s      1 call(s)  xc uks._get_vxc_diag
+            7.1 s      2 call(s)  vv10 grid_response_pair (not cut)
+            5.7 s      2 call(s)  vv10 data (ground-state pair sums)
+           32.1 s      7 call(s)  VV10 f_t, 60015 points
+           24.9 s      2 call(s)  VV10 f_t, 89290 points
+           17.1 s      2 call(s)  VV10 weight1, 89290 points
+two-level SCF: 2 Fock builds of the model, 6 of the cheap one after its SCF of 6 cycles
+>>> [   1051 s,  12.0 GB] rho:1e-6: SCF 115.4 s, E - E_ref +9.567e-10, gradient 17.0 s, max |dg| 1.07e-06; XC grid 432696 points (ref 514104), VV10 grid 89008 (ref 105136)
+>>> [   1466 s,  11.9 GB] rho:1e-6: Hessian 414.3 s; lowest frequencies (cm-1) 90.13 153.58 244.10 245.92 331.27 396.61; G -421.2798343212 Eh
+>>> [   1466 s,  11.9 GB] rho:1e-6: parts of the Hessian (wall time, nested parts overlap):
+          173.3 s      1 call(s)  partial_hess_elec
+          127.0 s      1 call(s)  solve_mo1
+          126.5 s      1 call(s)  cphf ucphf.solve_residual
+           50.4 s      1 call(s)  xc _get_exc_deriv2_grid_response
+           45.0 s      2 call(s)  hess_jk_energy
+           43.8 s      7 call(s)  vv10 get_vnlc_resp_mo
+           38.5 s      7 call(s)  xc uks_fxc_mo (response grid)
+           37.9 s      1 call(s)  xc uks._get_vxc_deriv1
+           37.2 s      1 call(s)  vv10 _get_enlc_deriv2
+           30.1 s      1 call(s)  xc uks._get_vxc_deriv2_dm
+           29.0 s      1 call(s)  vv10 _get_vnlc_deriv1
+           25.0 s      1 call(s)  _partial_hess_ejk
+           10.3 s      1 call(s)  xc uks._get_vxc_diag
+            9.3 s      2 call(s)  vv10 grid_response_pair (not cut)
+            5.6 s      2 call(s)  vv10 data (ground-state pair sums)
+           32.3 s      7 call(s)  VV10 f_t, 60015 points
+           24.2 s      2 call(s)  VV10 f_t, 87488 points
+           16.5 s      2 call(s)  VV10 weight1, 87488 points
+two-level SCF: 2 Fock builds of the model, 6 of the cheap one after its SCF of 6 cycles
+>>> [   1593 s,  12.2 GB] rho:1e-5: SCF 110.1 s, E - E_ref +1.231e-08, gradient 16.9 s, max |dg| 1.07e-06; XC grid 423112 points (ref 514104), VV10 grid 86816 (ref 105136)
+>>> [   1999 s,  12.1 GB] rho:1e-5: Hessian 406.7 s; lowest frequencies (cm-1) 90.14 153.58 244.10 245.92 331.27 396.61; G -421.2798342495 Eh
+>>> [   1999 s,  12.1 GB] rho:1e-5: parts of the Hessian (wall time, nested parts overlap):
+          166.5 s      1 call(s)  partial_hess_elec
+          128.2 s      1 call(s)  solve_mo1
+          127.6 s      1 call(s)  cphf ucphf.solve_residual
+           48.1 s      1 call(s)  xc _get_exc_deriv2_grid_response
+           45.3 s      2 call(s)  hess_jk_energy
+           44.4 s      7 call(s)  vv10 get_vnlc_resp_mo
+           38.9 s      7 call(s)  xc uks_fxc_mo (response grid)
+           37.3 s      1 call(s)  xc uks._get_vxc_deriv1
+           33.0 s      1 call(s)  vv10 _get_enlc_deriv2
+           29.4 s      1 call(s)  xc uks._get_vxc_deriv2_dm
+           26.9 s      1 call(s)  vv10 _get_vnlc_deriv1
+           25.2 s      1 call(s)  _partial_hess_ejk
+           10.3 s      1 call(s)  xc uks._get_vxc_diag
+            6.6 s      2 call(s)  vv10 grid_response_pair (not cut)
+            5.5 s      2 call(s)  vv10 data (ground-state pair sums)
+           32.7 s      7 call(s)  VV10 f_t, 60015 points
+           23.4 s      2 call(s)  VV10 f_t, 85872 points
+           16.0 s      2 call(s)  VV10 weight1, 85872 points
+two-level SCF: 2 Fock builds of the model, 6 of the cheap one after its SCF of 6 cycles
+>>> [   2128 s,  12.3 GB] rho:1e-4: SCF 111.5 s, E - E_ref +2.723e-07, gradient 17.0 s, max |dg| 1.07e-06; XC grid 411640 points (ref 514104), VV10 grid 84680 (ref 105136)
+>>> [   2534 s,  12.4 GB] rho:1e-4: Hessian 406.6 s; lowest frequencies (cm-1) 90.14 153.59 244.13 245.93 331.28 396.61; G -421.2798334246 Eh
+>>> [   2534 s,  12.4 GB] rho:1e-4: parts of the Hessian (wall time, nested parts overlap):
+          167.2 s      1 call(s)  partial_hess_elec
+          129.1 s      1 call(s)  solve_mo1
+          128.5 s      1 call(s)  cphf ucphf.solve_residual
+           49.7 s      1 call(s)  xc _get_exc_deriv2_grid_response
+           45.9 s      2 call(s)  hess_jk_energy
+           44.6 s      7 call(s)  vv10 get_vnlc_resp_mo
+           39.6 s      7 call(s)  xc uks_fxc_mo (response grid)
+           36.4 s      1 call(s)  xc uks._get_vxc_deriv1
+           32.4 s      1 call(s)  vv10 _get_enlc_deriv2
+           28.8 s      1 call(s)  xc uks._get_vxc_deriv2_dm
+           26.1 s      1 call(s)  vv10 _get_vnlc_deriv1
+           25.5 s      1 call(s)  _partial_hess_ejk
+           10.1 s      1 call(s)  xc uks._get_vxc_diag
+            6.4 s      2 call(s)  vv10 grid_response_pair (not cut)
+            5.3 s      2 call(s)  vv10 data (ground-state pair sums)
+           32.8 s      7 call(s)  VV10 f_t, 60015 points
+           22.7 s      2 call(s)  VV10 f_t, 84055 points
+           15.4 s      2 call(s)  VV10 weight1, 84055 points
+two-level SCF: 2 Fock builds of the model, 6 of the cheap one after its SCF of 6 cycles
+>>> [   2665 s,  12.7 GB] rhoall:1e-6: SCF 113.0 s, E - E_ref +9.566e-10, gradient 17.2 s, max |dg| 1.07e-06; XC grid 432696 points (ref 514104), VV10 grid 89008 (ref 105136)
+>>> [   2665 s,  12.7 GB] rhoall:1e-6: second_grids 114960 points of 138480
+>>> [   2665 s,  12.7 GB] rhoall:1e-6: second_nlcgrids 54312 points of 63928
+>>> [   3071 s,  12.1 GB] rhoall:1e-6: Hessian 406.4 s; lowest frequencies (cm-1) 90.13 153.58 244.10 245.92 331.27 396.61; G -421.2798343212 Eh
+>>> [   3071 s,  12.1 GB] rhoall:1e-6: parts of the Hessian (wall time, nested parts overlap):
+          173.8 s      1 call(s)  partial_hess_elec
+          116.1 s      1 call(s)  solve_mo1
+          115.6 s      1 call(s)  cphf ucphf.solve_residual
+           50.9 s      1 call(s)  xc _get_exc_deriv2_grid_response
+           46.1 s      2 call(s)  hess_jk_energy
+           38.3 s      1 call(s)  xc uks._get_vxc_deriv1
+           36.6 s      7 call(s)  vv10 get_vnlc_resp_mo
+           35.5 s      1 call(s)  vv10 _get_enlc_deriv2
+           34.4 s      7 call(s)  xc uks_fxc_mo (response grid)
+           30.4 s      1 call(s)  xc uks._get_vxc_deriv2_dm
+           29.9 s      1 call(s)  vv10 _get_vnlc_deriv1
+           25.6 s      1 call(s)  _partial_hess_ejk
+           10.6 s      1 call(s)  xc uks._get_vxc_diag
+            9.0 s      2 call(s)  vv10 grid_response_pair (not cut)
+            5.3 s      2 call(s)  vv10 data (ground-state pair sums)
+           26.3 s      7 call(s)  VV10 f_t, 53514 points
+           24.8 s      2 call(s)  VV10 f_t, 87488 points
+           16.8 s      2 call(s)  VV10 weight1, 87488 points
+>>> [   3094 s,  12.1 GB] self-test on 98799 VV10 points: eval_f_t of the library in the tree's order bitwise equal: True; in the k-d order, relative to the largest element: f_t 2.8e-17, weight1 4.8e-15
+>>> [   3541 s,   3.1 GB] vv10:0: Hessian 446.5 s; lowest frequencies (cm-1) 90.13 153.58 244.10 245.92 331.27 396.60; G -421.2798343387 Eh
+>>> [   3541 s,   3.1 GB] vv10:0: parts of the Hessian (wall time, nested parts overlap):
+          231.6 s      1 call(s)  partial_hess_elec
+          121.2 s      1 call(s)  solve_mo1
+          120.7 s      1 call(s)  cphf ucphf.solve_residual
+           92.8 s      1 call(s)  xc _get_exc_deriv2_grid_response
+           47.6 s      2 call(s)  hess_jk_energy
+           45.4 s      1 call(s)  xc uks._get_vxc_deriv1
+           43.3 s      1 call(s)  vv10 _get_enlc_deriv2
+           43.0 s      7 call(s)  vv10 get_vnlc_resp_mo
+           38.9 s      7 call(s)  xc uks_fxc_mo (response grid)
+           35.3 s      1 call(s)  xc uks._get_vxc_deriv2_dm
+           26.4 s      1 call(s)  _partial_hess_ejk
+           12.4 s      1 call(s)  xc uks._get_vxc_diag
+            9.8 s      2 call(s)  vv10 data (ground-state pair sums)
+            4.3 s      2 call(s)  vv10 grid_response_pair (not cut)
+            3.6 s      1 call(s)  vv10 _get_vnlc_deriv1
+           33.1 s      7 call(s)  VV10 f_t, 60015 points, 1.000 of the block pairs
+           15.4 s      1 call(s)  VV10 f_t, 98799 points, 1.000 of the block pairs
+           10.5 s      1 call(s)  VV10 weight1, 98799 points, 1.000 of the block pairs
+>>> [   3956 s,   3.2 GB] vv10:16: Hessian 414.6 s; lowest frequencies (cm-1) 90.13 153.58 244.10 245.92 331.27 396.60; G -421.2798343387 Eh
+>>> [   3956 s,   3.2 GB] vv10:16: parts of the Hessian (wall time, nested parts overlap):
+          197.8 s      1 call(s)  partial_hess_elec
+          121.7 s      1 call(s)  solve_mo1
+          121.2 s      1 call(s)  cphf ucphf.solve_residual
+           62.6 s      1 call(s)  xc _get_exc_deriv2_grid_response
+           47.9 s      2 call(s)  hess_jk_energy
+           46.2 s      1 call(s)  xc uks._get_vxc_deriv1
+           43.0 s      7 call(s)  vv10 get_vnlc_resp_mo
+           40.0 s      1 call(s)  vv10 _get_enlc_deriv2
+           39.1 s      7 call(s)  xc uks_fxc_mo (response grid)
+           34.6 s      1 call(s)  xc uks._get_vxc_deriv2_dm
+           26.7 s      1 call(s)  _partial_hess_ejk
+           12.3 s      1 call(s)  xc uks._get_vxc_diag
+            4.5 s      2 call(s)  vv10 grid_response_pair (not cut)
+            3.7 s      1 call(s)  vv10 _get_vnlc_deriv1
+           33.1 s      7 call(s)  VV10 f_t, 60015 points, 1.000 of the block pairs
+           16.1 s      1 call(s)  VV10 f_t, 98799 points, 1.000 of the block pairs
+           11.0 s      1 call(s)  VV10 weight1, 98799 points, 1.000 of the block pairs
+>>> [   4378 s,   3.3 GB] vv10:12: Hessian 422.1 s; lowest frequencies (cm-1) 90.13 153.58 244.10 245.92 331.27 396.60; G -421.2798343387 Eh
+>>> [   4378 s,   3.3 GB] vv10:12: parts of the Hessian (wall time, nested parts overlap):
+          209.2 s      1 call(s)  partial_hess_elec
+          120.1 s      1 call(s)  solve_mo1
+          119.6 s      1 call(s)  cphf ucphf.solve_residual
+           75.9 s      1 call(s)  xc _get_exc_deriv2_grid_response
+           47.6 s      2 call(s)  hess_jk_energy
+           45.0 s      1 call(s)  xc uks._get_vxc_deriv1
+           42.4 s      7 call(s)  vv10 get_vnlc_resp_mo
+           38.8 s      1 call(s)  vv10 _get_enlc_deriv2
+           38.6 s      7 call(s)  xc uks_fxc_mo (response grid)
+           34.5 s      1 call(s)  xc uks._get_vxc_deriv2_dm
+           26.5 s      1 call(s)  _partial_hess_ejk
+           12.1 s      1 call(s)  xc uks._get_vxc_diag
+            4.3 s      2 call(s)  vv10 grid_response_pair (not cut)
+            3.6 s      1 call(s)  vv10 _get_vnlc_deriv1
+           32.7 s      7 call(s)  VV10 f_t, 60015 points, 1.000 of the block pairs
+           15.5 s      1 call(s)  VV10 f_t, 98799 points, 0.999 of the block pairs
+           10.5 s      1 call(s)  VV10 weight1, 98799 points, 0.999 of the block pairs
+>>> [   4788 s,   2.9 GB] vv10:9: Hessian 410.7 s; lowest frequencies (cm-1) 90.13 153.58 244.10 245.92 331.27 396.60; G -421.2798343388 Eh
+>>> [   4788 s,   2.9 GB] vv10:9: parts of the Hessian (wall time, nested parts overlap):
+          194.9 s      1 call(s)  partial_hess_elec
+          120.8 s      1 call(s)  solve_mo1
+          120.3 s      1 call(s)  cphf ucphf.solve_residual
+           61.5 s      1 call(s)  xc _get_exc_deriv2_grid_response
+           47.9 s      2 call(s)  hess_jk_energy
+           46.2 s      1 call(s)  xc uks._get_vxc_deriv1
+           42.5 s      7 call(s)  vv10 get_vnlc_resp_mo
+           39.0 s      7 call(s)  xc uks_fxc_mo (response grid)
+           38.3 s      1 call(s)  vv10 _get_enlc_deriv2
+           34.5 s      1 call(s)  xc uks._get_vxc_deriv2_dm
+           26.7 s      1 call(s)  _partial_hess_ejk
+           12.2 s      1 call(s)  xc uks._get_vxc_diag
+            4.5 s      2 call(s)  vv10 grid_response_pair (not cut)
+            3.7 s      1 call(s)  vv10 _get_vnlc_deriv1
+           32.7 s      7 call(s)  VV10 f_t, 60015 points, 0.983 of the block pairs
+           15.3 s      1 call(s)  VV10 f_t, 98799 points, 0.956 of the block pairs
+           10.5 s      1 call(s)  VV10 weight1, 98799 points, 0.956 of the block pairs
+>>> [   5193 s,   3.0 GB] vv10:6: Hessian 404.7 s; lowest frequencies (cm-1) 90.13 153.58 244.10 245.92 331.27 396.60; G -421.2798343416 Eh
+>>> [   5193 s,   3.0 GB] vv10:6: parts of the Hessian (wall time, nested parts overlap):
+          192.3 s      1 call(s)  partial_hess_elec
+          117.1 s      1 call(s)  solve_mo1
+          116.7 s      1 call(s)  cphf ucphf.solve_residual
+           63.9 s      1 call(s)  xc _get_exc_deriv2_grid_response
+           47.8 s      2 call(s)  hess_jk_energy
+           46.2 s      1 call(s)  xc uks._get_vxc_deriv1
+           39.1 s      7 call(s)  vv10 get_vnlc_resp_mo
+           38.8 s      7 call(s)  xc uks_fxc_mo (response grid)
+           34.6 s      1 call(s)  xc uks._get_vxc_deriv2_dm
+           33.6 s      1 call(s)  vv10 _get_enlc_deriv2
+           26.6 s      1 call(s)  _partial_hess_ejk
+           12.1 s      1 call(s)  xc uks._get_vxc_diag
+            4.4 s      2 call(s)  vv10 grid_response_pair (not cut)
+            3.7 s      1 call(s)  vv10 _get_vnlc_deriv1
+           29.3 s      7 call(s)  VV10 f_t, 60015 points, 0.883 of the block pairs
+           12.5 s      1 call(s)  VV10 f_t, 98799 points, 0.774 of the block pairs
+            8.5 s      1 call(s)  VV10 weight1, 98799 points, 0.774 of the block pairs
+>>> [   5609 s,   3.1 GB] ref2: Hessian 416.0 s; lowest frequencies (cm-1) 90.13 153.58 244.10 245.92 331.27 396.60; G -421.2798343387 Eh
+>>> [   5609 s,   3.1 GB] ref2: parts of the Hessian (wall time, nested parts overlap):
+          202.1 s      1 call(s)  partial_hess_elec
+          119.8 s      1 call(s)  solve_mo1
+          119.3 s      1 call(s)  cphf ucphf.solve_residual
+           67.6 s      1 call(s)  xc _get_exc_deriv2_grid_response
+           47.6 s      2 call(s)  hess_jk_energy
+           45.7 s      1 call(s)  xc uks._get_vxc_deriv1
+           42.2 s      7 call(s)  vv10 get_vnlc_resp_mo
+           39.8 s      1 call(s)  vv10 _get_enlc_deriv2
+           38.6 s      7 call(s)  xc uks_fxc_mo (response grid)
+           34.6 s      1 call(s)  xc uks._get_vxc_deriv2_dm
+           26.6 s      1 call(s)  _partial_hess_ejk
+           12.1 s      1 call(s)  xc uks._get_vxc_diag
+            4.4 s      2 call(s)  vv10 grid_response_pair (not cut)
+            3.6 s      1 call(s)  vv10 _get_vnlc_deriv1
+           32.5 s      7 call(s)  VV10 f_t, 60015 points
+           15.8 s      1 call(s)  VV10 f_t, 98799 points
+           10.7 s      2 call(s)  VV10 weight1, 98799 points
+>>> [   5609 s,   3.1 GB] against ref: E (Eh), the largest change of a frequency (cm-1) and of the lowest three, of a Hessian element (Eh/Bohr^2), of G (Eh and kcal/mol), and the Hessian's time
+   ref            dE +0.00e+00  max|df| 0.0000  lowest +0.0000 +0.0000 +0.0000  max|dH| 0.0e+00  dG +0.00e+00 (+0.0000 kcal/mol)  Hessian 391.2 s
+   rho:1e-7       dE +9.55e-11  max|df| 0.0023  lowest -0.0000 +0.0004 +0.0008  max|dH| 1.2e-06  dG +9.95e-09 (+0.0000 kcal/mol)  Hessian 413.5 s
+   rho:1e-6       dE +9.57e-10  max|df| 0.0023  lowest +0.0001 +0.0006 +0.0011  max|dH| 1.3e-06  dG +1.75e-08 (+0.0000 kcal/mol)  Hessian 414.3 s
+   rho:1e-5       dE +1.23e-08  max|df| 0.0036  lowest +0.0011 +0.0017 +0.0036  max|dH| 1.5e-06  dG +8.92e-08 (+0.0001 kcal/mol)  Hessian 406.7 s
+   rho:1e-4       dE +2.72e-07  max|df| 0.0272  lowest +0.0098 +0.0108 +0.0272  max|dH| 4.3e-06  dG +9.14e-07 (+0.0006 kcal/mol)  Hessian 406.6 s
+   rhoall:1e-6    dE +9.57e-10  max|df| 0.0023  lowest +0.0001 +0.0006 +0.0011  max|dH| 1.3e-06  dG +1.75e-08 (+0.0000 kcal/mol)  Hessian 406.4 s
+   vv10:0         dE +0.00e+00  max|df| 0.0000  lowest -0.0000 +0.0000 -0.0000  max|dH| 1.5e-12  dG +0.00e+00 (+0.0000 kcal/mol)  Hessian 446.5 s
+   vv10:16        dE +0.00e+00  max|df| 0.0000  lowest -0.0000 -0.0000 -0.0000  max|dH| 8.6e-13  dG +0.00e+00 (+0.0000 kcal/mol)  Hessian 414.6 s
+   vv10:12        dE +0.00e+00  max|df| 0.0000  lowest -0.0000 -0.0000 +0.0000  max|dH| 5.2e-10  dG +5.68e-14 (+0.0000 kcal/mol)  Hessian 422.1 s
+   vv10:9         dE +0.00e+00  max|df| 0.0000  lowest -0.0000 +0.0000 +0.0000  max|dH| 3.7e-07  dG -6.19e-11 (-0.0000 kcal/mol)  Hessian 410.7 s
+   vv10:6         dE +0.00e+00  max|df| 0.0012  lowest +0.0000 +0.0000 +0.0000  max|dH| 2.3e-06  dG -2.86e-09 (-0.0000 kcal/mol)  Hessian 404.7 s
+   ref2           dE +0.00e+00  max|df| 0.0000  lowest -0.0000 +0.0000 -0.0000  max|dH| 1.3e-12  dG +0.00e+00 (+0.0000 kcal/mol)  Hessian 416.0 s
+guard: peak RSS about 14 GB

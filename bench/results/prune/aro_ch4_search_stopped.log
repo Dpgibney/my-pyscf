@@ -1,0 +1,29 @@
+>>> [      0 s,   0.1 GB] pyscf /home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py, 10 threads, max_memory 12000 MB; 21 atoms, 376 AOs, (38, 37) electrons, UKS wB97M-V/def2-tzvp, solvent water
+>>> [    787 s,  11.2 GB] start Hessian: 786 s; lowest frequencies (cm-1) -574.7 -284.8 -22.3 61.6 135.7 149.8
+Step    0 : Gradient = 2.652e-02/8.036e-02 (rms/max) Energy = -461.7800550131
+Step    1 : Displace = 9.075e-03/2.515e-02 (rms/max) Trust = 1.000e-02 (=) Grad = 2.547e-02/7.839e-02 (rms/max) E (change) = -461.7792743615 (+7.807e-04) Quality = 0.997
+Step    2 : Displace = 1.348e-02/3.718e-02 (rms/max) Trust = 1.414e-02 (+) Grad = 2.418e-02/7.570e-02 (rms/max) E (change) = -461.7778223320 (+1.452e-03) Quality = 0.992
+Step    3 : Displace = 2.129e-02/5.568e-02 (rms/max) Trust = 2.000e-02 (+) Grad = 2.291e-02/7.295e-02 (rms/max) E (change) = -461.7751388480 (+2.683e-03) Quality = 0.993
+Step    4 : Displace = 2.833e-02/6.340e-02 (rms/max) Trust = 2.828e-02 (+) Grad = 2.274e-02/7.303e-02 (rms/max) E (change) = -461.7713992662 (+3.740e-03) Quality = 0.999
+Step    5 : Displace = 2.776e-02/1.108e-01 (rms/max) Trust = 3.000e-02 (+) Grad = 1.998e-02/6.593e-02 (rms/max) E (change) = -461.7857187960 (-1.432e-02) Quality = 0.966
+Step    6 : Displace = 3.002e-02/7.243e-02 (rms/max) Trust = 3.000e-02 (=) Grad = 1.780e-02/5.826e-02 (rms/max) E (change) = -461.7829539973 (+2.765e-03) Quality = 0.953
+Step    7 : Displace = 3.292e-02/8.528e-02 (rms/max) Trust = 3.000e-02 (=) Grad = 1.593e-02/5.178e-02 (rms/max) E (change) = -461.7785168222 (+4.437e-03) Quality = 0.980
+Step    8 : Displace = 3.016e-02/7.909e-02 (rms/max) Trust = 3.000e-02 (=) Grad = 1.454e-02/4.781e-02 (rms/max) E (change) = -461.7741866926 (+4.330e-03) Quality = 0.999
+Step    9 : Displace = 3.025e-02/7.754e-02 (rms/max) Trust = 3.000e-02 (=) Grad = 1.396e-02/4.548e-02 (rms/max) E (change) = -461.7700361343 (+4.151e-03) Quality = 0.998
+Step   10 : Displace = 3.074e-02/7.314e-02 (rms/max) Trust = 3.000e-02 (=) Grad = 1.288e-02/4.184e-02 (rms/max) E (change) = -461.7665990896 (+3.437e-03) Quality = 0.982
+Step   11 : Displace = 3.027e-02/6.524e-02 (rms/max) Trust = 3.000e-02 (=) Grad = 1.186e-02/3.765e-02 (rms/max) E (change) = -461.7638351322 (+2.764e-03) Quality = 0.965
+Step   12 : Displace = 3.010e-02/6.299e-02 (rms/max) Trust = 3.000e-02 (=) Grad = 1.035e-02/3.338e-02 (rms/max) E (change) = -461.7612363667 (+2.599e-03) Quality = 0.951
+Step   13 : Displace = 3.010e-02/6.715e-02 (rms/max) Trust = 3.000e-02 (=) Grad = 7.995e-03/2.541e-02 (rms/max) E (change) = -461.7592836888 (+1.953e-03) Quality = 0.956
+Step   14 : Displace = 3.095e-02/6.658e-02 (rms/max) Trust = 3.000e-02 (=) Grad = 9.251e-03/3.143e-02 (rms/max) E (change) = -461.7563630074 (+2.921e-03) Quality = 0.920
+Step   15 : Displace = 3.022e-02/7.507e-02 (rms/max) Trust = 3.000e-02 (=) Grad = 5.475e-03/1.691e-02 (rms/max) E (change) = -461.7599664523 (-3.603e-03) Quality = 0.962
+Step   16 : Displace = 3.297e-02/9.016e-02 (rms/max) Trust = 3.000e-02 (=) Grad = 3.425e-03/9.661e-03 (rms/max) E (change) = -461.7580959937 (+1.870e-03) Quality = -1.449
+Step   17 : Displace = 1.604e-02/4.292e-02 (rms/max) Trust = 1.500e-02 (x) Grad = 3.174e-03/8.048e-03 (rms/max) E (change) = -461.7592161314 (+7.503e-04) Quality = 0.275
+Step   18 : Displace = 7.514e-03/2.004e-02 (rms/max) Trust = 7.500e-03 (-) Grad = 3.038e-03/7.829e-03 (rms/max) E (change) = -461.7588259419 (+3.902e-04) Quality = 0.999
+Step   19 : Displace = 1.131e-02/2.912e-02 (rms/max) Trust = 1.061e-02 (+) Grad = 2.865e-03/7.589e-03 (rms/max) E (change) = -461.7582524814 (+5.735e-04) Quality = 0.999
+Step   20 : Displace = 1.604e-02/3.779e-02 (rms/max) Trust = 1.500e-02 (+) Grad = 2.709e-03/7.387e-03 (rms/max) E (change) = -461.7573953449 (+8.571e-04) Quality = 0.997
+Step   21 : Displace = 2.143e-02/5.643e-02 (rms/max) Trust = 2.121e-02 (+) Grad = 2.583e-03/7.168e-03 (rms/max) E (change) = -461.7564514158 (+9.439e-04) Quality = 0.995
+Step   22 : Displace = 3.034e-02/7.996e-02 (rms/max) Trust = 3.000e-02 (+) Grad = 2.422e-03/6.837e-03 (rms/max) E (change) = -461.7550806798 (+1.371e-03) Quality = 0.993
+Step   23 : Displace = 2.983e-02/7.828e-02 (rms/max) Trust = 3.000e-02 (=) Grad = 2.294e-03/6.474e-03 (rms/max) E (change) = -461.7537763624 (+1.304e-03) Quality = 0.999
+Step   24 : Displace = 2.958e-02/7.713e-02 (rms/max) Trust = 3.000e-02 (=) Grad = 2.136e-03/5.685e-03 (rms/max) E (change) = -461.7525779955 (+1.198e-03) Quality = 0.995
+Step   25 : Displace = 2.945e-02/8.278e-02 (rms/max) Trust = 3.000e-02 (=) Grad = 1.929e-03/4.892e-03 (rms/max) E (change) = -461.7515316755 (+1.046e-03) Quality = 0.991
+guard: peak RSS about 13 GB

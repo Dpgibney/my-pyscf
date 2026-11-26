@@ -1,0 +1,208 @@
+The TS examples with mf.small_rho_cutoff = 1e-7 (new) against the committed ones (old, workspace 72fb9b2),
+2026-11-26: bench/diag/wb97mv/uks_ts_audit/ts_example_variants.sh (CPU: the laptop, 10 threads) and
+bench/gpu/ts_example_variants.sh (GPU: node1's GTX 1650 Super), EXAMPLE= each version, VARIANTS="default svp smd
+svp_smd rijcosx sgx allon allon_smd", on HCN <-> HNC and H + H2 (a doublet); then bench/diag/scf_work.py on each set
+and bench/diag/prune/compare_runs.py OLD NEW (the steps of each search, E and G at the saddle point, the largest
+change of a frequency at the printed 0.1 cm^-1).
+
+== CPU (the laptop)
+== old (scratch/p45/wb97mv_ts_old.py) 12:50:44
+hcn_default      14 steps  -1114.6 2110.5 2664.7                        1.20e-05 Eh/Bohr     G -93.3712387382 [28 s]
+hcn_svp          13 steps  -1114.6 2110.5 2664.8                        1.99e-06 Eh/Bohr     G -93.3712385546 [23 s]
+hcn_smd           8 steps  -1118.3 2073.5 2578.3                        2.08e-05 Eh/Bohr     G -93.3674230038 [32 s]
+hcn_svp_smd       9 steps  -1110.0 2073.6 2584.1                        1.14e-05 Eh/Bohr     G -93.3674094142 [32 s]
+hcn_rijcosx      10 steps  -1114.5 2110.4 2664.6                        5.22e-05 Eh/Bohr     G -93.3712389982 [23 s]
+hcn_sgx          14 steps  -1114.6 2110.5 2664.7                        1.18e-05 Eh/Bohr     G -93.3712387508 [28 s]
+hcn_allon        11 steps  -1114.8 2110.5 2665.7                        7.96e-05 Eh/Bohr     G -93.3712362999 [22 s]
+hcn_allon_smd     9 steps  -1109.8 2073.7 2584.1                        9.29e-06 Eh/Bohr     G -93.3674092059 [33 s]
+h3_default        5 steps  -1039.7 902.4 902.4 2072.9                   5.89e-05 Eh/Bohr     G -1.6467902030 [9 s]
+h3_svp           10 steps  -1038.5 902.2 902.2 2073.1                   4.50e-06 Eh/Bohr     G -1.6467908121 [9 s]
+h3_smd            6 steps  -1040.7 882.0 882.0 2070.2                   1.62e-06 Eh/Bohr     G -1.6404229130 [18 s]
+h3_svp_smd       10 steps  -1040.3 881.9 881.9 2070.3                   7.85e-06 Eh/Bohr     G -1.6404230811 [22 s]
+h3_rijcosx        5 steps  -1039.8 902.5 902.5 2072.9                   5.88e-05 Eh/Bohr     G -1.6467901667 [8 s]
+h3_sgx            5 steps  -1039.9 902.4 902.4 2072.9                   5.89e-05 Eh/Bohr     G -1.6467902081 [9 s]
+h3_allon         10 steps  -1038.7 902.2 902.2 2073.1                   3.10e-06 Eh/Bohr     G -1.6467907781 [10 s]
+h3_allon_smd     10 steps  -1040.6 881.9 881.9 2070.3                   6.73e-06 Eh/Bohr     G -1.6404230447 [24 s]
+run                    steps SCFs  first      second     last       all         
+                                   (each: Fock builds of the model + of the cheap model + cycles of its SCF)
+ts_h3_allon               10   12  2+4+7      2+5+4      2+3+2      24+43+56    
+ts_h3_allon_smd           10   12  2+4+7      2+5+4      2+3+2      24+51+55    
+ts_h3_default              5    7  2+5+7      2+4+2      2+3+2      14+29+29    
+ts_h3_rijcosx              5    7  2+5+7      2+4+2      2+3+2      14+29+29    
+ts_h3_sgx                  5    7  2+5+7      2+4+2      2+3+2      14+29+29    
+ts_h3_smd                  6    8  2+4+7      2+4+2      2+3+2      16+35+32    
+ts_h3_svp                 10   12  2+4+7      2+5+4      2+3+2      24+44+56    
+ts_h3_svp_smd             10   12  2+4+7      2+5+4      2+3+2      24+51+55    
+ts_hcn_allon              11   13  2+5+7      2+6+6      2+4+2      26+66+73    
+ts_hcn_allon_smd           9   11  2+6+7      2+6+6      2+4+2      22+58+57    
+ts_hcn_default            14   16  2+5+7      2+5+2      2+4+2      32+82+89    
+ts_hcn_rijcosx            10   12  2+5+7      2+5+2      2+5+2      24+60+66    
+ts_hcn_sgx                14   16  2+5+7      2+5+2      2+4+2      32+82+89    
+ts_hcn_smd                 8   10  2+6+7      2+4+2      2+4+2      20+50+52    
+ts_hcn_svp                13   15  2+5+7      2+6+6      2+4+2      30+77+80    
+ts_hcn_svp_smd             9   11  2+6+7      2+6+6      2+4+2      22+58+57    
+== new (examples/wb97mv_ts.py) 12:56:14
+hcn_default      14 steps  -1114.6 2110.5 2664.7                        1.20e-05 Eh/Bohr     G -93.3712387381 [28 s]
+hcn_svp          13 steps  -1114.6 2110.5 2664.8                        1.99e-06 Eh/Bohr     G -93.3712385545 [23 s]
+hcn_smd           8 steps  -1118.3 2073.5 2578.3                        2.08e-05 Eh/Bohr     G -93.3674230062 [32 s]
+hcn_svp_smd       9 steps  -1110.0 2073.6 2584.1                        1.14e-05 Eh/Bohr     G -93.3674094141 [32 s]
+hcn_rijcosx      10 steps  -1114.5 2110.4 2664.6                        5.22e-05 Eh/Bohr     G -93.3712389974 [23 s]
+hcn_sgx          14 steps  -1114.6 2110.5 2664.7                        1.18e-05 Eh/Bohr     G -93.3712387506 [27 s]
+hcn_allon        11 steps  -1114.8 2110.5 2665.7                        7.96e-05 Eh/Bohr     G -93.3712362999 [23 s]
+hcn_allon_smd     9 steps  -1109.8 2073.7 2584.1                        9.29e-06 Eh/Bohr     G -93.3674092058 [33 s]
+h3_default        5 steps  -1039.7 902.4 902.4 2072.9                   5.89e-05 Eh/Bohr     G -1.6467902019 [8 s]
+h3_svp           10 steps  -1038.5 902.2 902.2 2073.1                   4.50e-06 Eh/Bohr     G -1.6467908109 [10 s]
+h3_smd            6 steps  -1040.7 882.0 882.0 2070.2                   1.62e-06 Eh/Bohr     G -1.6404229117 [18 s]
+h3_svp_smd       10 steps  -1040.3 881.9 881.9 2070.3                   7.85e-06 Eh/Bohr     G -1.6404230799 [21 s]
+h3_rijcosx        5 steps  -1039.8 902.5 902.5 2072.9                   5.88e-05 Eh/Bohr     G -1.6467901656 [8 s]
+h3_sgx            5 steps  -1039.9 902.4 902.4 2072.9                   5.89e-05 Eh/Bohr     G -1.6467902070 [8 s]
+h3_allon         10 steps  -1038.7 902.2 902.2 2073.1                   3.10e-06 Eh/Bohr     G -1.6467907770 [10 s]
+h3_allon_smd     10 steps  -1040.6 881.9 881.9 2070.3                   6.73e-06 Eh/Bohr     G -1.6404230435 [22 s]
+run                    steps SCFs  first      second     last       all         
+                                   (each: Fock builds of the model + of the cheap model + cycles of its SCF)
+ts_h3_allon               10   12  2+4+7      2+5+4      2+3+2      24+43+56    
+ts_h3_allon_smd           10   12  2+4+7      2+5+4      2+3+2      24+51+55    
+ts_h3_default              5    7  2+5+7      2+4+2      2+3+2      14+29+29    
+ts_h3_rijcosx              5    7  2+5+7      2+4+2      2+3+2      14+29+29    
+ts_h3_sgx                  5    7  2+5+7      2+4+2      2+3+2      14+29+29    
+ts_h3_smd                  6    8  2+4+7      2+4+2      2+3+2      16+35+32    
+ts_h3_svp                 10   12  2+4+7      2+5+4      2+3+2      24+44+56    
+ts_h3_svp_smd             10   12  2+4+7      2+5+4      2+3+2      24+51+55    
+ts_hcn_allon              11   13  2+5+7      2+6+6      2+4+2      26+66+73    
+ts_hcn_allon_smd           9   11  2+6+7      2+6+6      2+4+2      22+58+57    
+ts_hcn_default            14   16  2+5+7      2+5+2      2+4+2      32+82+89    
+ts_hcn_rijcosx            10   12  2+5+7      2+5+2      2+5+2      24+60+66    
+ts_hcn_sgx                14   16  2+5+7      2+5+2      2+4+2      32+82+89    
+ts_hcn_smd                 8   10  2+6+7      2+4+2      2+4+2      20+50+52    
+ts_hcn_svp                13   15  2+5+7      2+6+6      2+4+2      30+77+80    
+ts_hcn_svp_smd             9   11  2+6+7      2+6+6      2+4+2      22+58+57    
+P45_CPU_DONE 13:01:41
+
+-- compare_runs.py old new
+run            steps o/n   dE (Eh)      max |d freq| (cm^-1, 0.1)  dG (Eh)      dG (kcal/mol)
+ts_h3_allon    10 / 10     +0.00e+00    0.0                        +1.10e-09    +6.90e-07
+ts_h3_allon_smd 10 / 10     +0.00e+00    0.0                        +1.20e-09    +7.53e-07
+ts_h3_default   5 / 5      +0.00e+00    0.0                        +1.10e-09    +6.90e-07
+ts_h3_rijcosx   5 / 5      +0.00e+00    0.0                        +1.10e-09    +6.90e-07
+ts_h3_sgx       5 / 5      +0.00e+00    0.0                        +1.10e-09    +6.90e-07
+ts_h3_smd       6 / 6      +0.00e+00    0.0                        +1.30e-09    +8.16e-07
+ts_h3_svp      10 / 10     +1.00e-10    0.0                        +1.20e-09    +7.53e-07
+ts_h3_svp_smd  10 / 10     +0.00e+00    0.0                        +1.20e-09    +7.53e-07
+ts_hcn_allon   11 / 11     +1.00e-10    0.0                        +0.00e+00    +0.00e+00
+ts_hcn_allon_smd  9 / 9      +0.00e+00    0.0                        +1.00e-10    +6.28e-08
+ts_hcn_default 14 / 14     +0.00e+00    0.0                        +1.00e-10    +6.28e-08
+ts_hcn_rijcosx 10 / 10     +0.00e+00    0.0                        +8.00e-10    +5.02e-07
+ts_hcn_sgx     14 / 14     +0.00e+00    0.0                        +2.00e-10    +1.26e-07
+ts_hcn_smd      8 / 8      +1.00e-10    0.0                        -2.40e-09    -1.51e-06
+ts_hcn_svp     13 / 13     +1.00e-10    0.0                        +1.00e-10    +6.28e-08
+ts_hcn_svp_smd  9 / 9      +0.00e+00    0.0                        +1.00e-10    +6.28e-08
+
+-- count_points.py: the points at the new runs' saddle points (the converged density)
+ts_hcn_default/wb97mv_ts.xyz cutoff 0: XC grid 95144, VV10 grid 19576 points
+ts_hcn_default/wb97mv_ts.xyz cutoff 1e-07: XC grid 86200, VV10 grid 17800 points
+ts_h3_default/wb97mv_ts.xyz cutoff 0: XC grid 99672, VV10 grid 20032 points
+ts_h3_default/wb97mv_ts.xyz cutoff 1e-07: XC grid 92584, VV10 grid 18680 points
+ts_h3_smd/wb97mv_ts.xyz cutoff 0: XC grid 99672, VV10 grid 20032 points
+ts_h3_smd/wb97mv_ts.xyz cutoff 1e-07: XC grid 92576, VV10 grid 18680 points
+
+== GPU (node1, GTX 1650 Super; source scripts/node1-gpu-env.sh perf: the tree of exp/prim-screen 985b0fb7)
+== old (scratch/p45/wb97mv_ts_gpu_old.py) 12:51:19
+hcn_default  rc=0 12 steps  -1114.6 2110.4 2664.8              1.36e-05   1 imaginary mode(s) G -93.3712385196 [125 s]
+hcn_svp      rc=0 13 steps  -1114.6 2110.5 2664.8              2.35e-06   1 imaginary mode(s) G -93.3712385442 [104 s]
+hcn_smd      rc=0  8 steps  -1118.3 2073.5 2578.2              2.30e-05   1 imaginary mode(s) G -93.3674230112 [119 s]
+hcn_svp_smd  rc=0  9 steps  -1110.0 2073.7 2584.1              1.14e-05   1 imaginary mode(s) G -93.3674093496 [97 s]
+hcn_rijcosx  rc=0  9 steps  -1113.9 2110.5 2662.2              1.65e-04   1 imaginary mode(s) G -93.3712446953 [96 s]
+hcn_sgx      rc=0 12 steps  -1114.6 2110.4 2664.8              1.36e-05   1 imaginary mode(s) G -93.3712385290 [113 s]
+hcn_allon    rc=0 13 steps  -1114.6 2110.5 2664.8              7.56e-06   1 imaginary mode(s) G -93.3712385763 [66 s]
+hcn_allon_smd rc=0  9 steps  -1109.8 2073.7 2584.2              9.66e-06   1 imaginary mode(s) G -93.3674091505 [68 s]
+h3_default   rc=0  5 steps  -1039.8 902.5 902.5 2072.9         5.81e-05   1 imaginary mode(s) G -1.6467901410 [24 s]
+h3_svp       rc=0 10 steps  -1038.5 902.2 902.2 2073.2         4.62e-06   1 imaginary mode(s) G -1.6467907750 [27 s]
+h3_smd       rc=0  6 steps  -1040.7 882.0 882.0 2070.2         1.33e-06   1 imaginary mode(s) G -1.6404228717 [28 s]
+h3_svp_smd   rc=0 10 steps  -1040.3 881.9 881.9 2070.3         7.72e-06   1 imaginary mode(s) G -1.6404230544 [30 s]
+h3_rijcosx   rc=0  5 steps  -1039.9 902.5 902.5 2072.9         5.83e-05   1 imaginary mode(s) G -1.6467901059 [24 s]
+h3_sgx       rc=0  5 steps  -1040.0 902.5 902.5 2072.9         5.81e-05   1 imaginary mode(s) G -1.6467901461 [24 s]
+h3_allon     rc=0 10 steps  -1038.7 902.2 902.2 2073.1         3.15e-06   1 imaginary mode(s) G -1.6467907385 [27 s]
+h3_allon_smd rc=0 10 steps  -1040.6 881.9 881.9 2070.3         6.68e-06   1 imaginary mode(s) G -1.6404230118 [29 s]
+run                    steps SCFs  first      second     last       all         
+                                   (each: Fock builds of the model + of the cheap model + cycles of its SCF)
+h3_allon                  10   12  2+3+5      2+3+3      2+2+1      24+38+35    
+h3_allon_smd              10   12  2+3+5      2+3+3      2+2+1      24+38+36    
+h3_default                 5    7  2+3+5      2+2+1      2+2+1      14+21+19    
+h3_rijcosx                 5    7  2+3+5      2+2+1      2+2+1      14+21+19    
+h3_sgx                     5    7  2+3+5      2+2+1      2+2+1      14+21+19    
+h3_smd                     6    8  2+3+5      2+2+1      2+2+1      16+24+21    
+h3_svp                    10   12  2+3+5      2+3+3      2+2+1      24+38+35    
+h3_svp_smd                10   12  2+3+5      2+3+3      2+2+1      24+39+36    
+hcn_allon                 13   15  2+3+6      2+3+5      2+4+1      30+66+45    
+hcn_allon_smd              9   11  2+3+6      2+4+4      2+4+1      22+47+35    
+hcn_default               12   14  2+3+6      2+4+1      2+4+1      28+61+44    
+hcn_rijcosx                9   11  2+3+6      2+4+1      2+4+1      22+47+38    
+hcn_sgx                   12   14  2+3+6      2+4+1      2+4+1      28+61+44    
+hcn_smd                    8   10  2+4+6      2+4+1      2+4+1      20+41+32    
+hcn_svp                   13   15  2+3+6      2+4+5      2+4+1      30+67+45    
+hcn_svp_smd                9   11  2+3+6      2+4+4      2+4+1      22+47+35    
+== new (examples/wb97mv_ts_gpu.py) 13:08:00
+hcn_default  rc=0 12 steps  -1114.6 2110.4 2664.8              1.36e-05   1 imaginary mode(s) G -93.3712385194 [128 s]
+hcn_svp      rc=0 13 steps  -1114.6 2110.5 2664.8              2.35e-06   1 imaginary mode(s) G -93.3712385442 [106 s]
+hcn_smd      rc=0  8 steps  -1118.3 2073.5 2578.2              2.30e-05   1 imaginary mode(s) G -93.3674230110 [121 s]
+hcn_svp_smd  rc=0  9 steps  -1110.0 2073.7 2584.1              1.14e-05   1 imaginary mode(s) G -93.3674093496 [97 s]
+hcn_rijcosx  rc=0  9 steps  -1113.9 2110.5 2662.2              1.65e-04   1 imaginary mode(s) G -93.3712446951 [95 s]
+hcn_sgx      rc=0 12 steps  -1114.6 2110.4 2664.8              1.36e-05   1 imaginary mode(s) G -93.3712385290 [115 s]
+hcn_allon    rc=0 13 steps  -1114.6 2110.5 2664.8              7.56e-06   1 imaginary mode(s) G -93.3712385763 [66 s]
+hcn_allon_smd rc=0  9 steps  -1109.8 2073.7 2584.2              9.66e-06   1 imaginary mode(s) G -93.3674091505 [68 s]
+h3_default   rc=0  5 steps  -1039.8 902.5 902.5 2072.9         5.81e-05   1 imaginary mode(s) G -1.6467901410 [25 s]
+h3_svp       rc=0 10 steps  -1038.5 902.2 902.2 2073.2         4.62e-06   1 imaginary mode(s) G -1.6467907749 [27 s]
+h3_smd       rc=0  6 steps  -1040.7 882.0 882.0 2070.2         1.33e-06   1 imaginary mode(s) G -1.6404228717 [27 s]
+h3_svp_smd   rc=0 10 steps  -1040.3 881.9 881.9 2070.3         7.72e-06   1 imaginary mode(s) G -1.6404230544 [30 s]
+h3_rijcosx   rc=0  5 steps  -1039.9 902.5 902.5 2072.9         5.83e-05   1 imaginary mode(s) G -1.6467901059 [24 s]
+h3_sgx       rc=0  5 steps  -1040.0 902.5 902.5 2072.9         5.81e-05   1 imaginary mode(s) G -1.6467901461 [25 s]
+h3_allon     rc=0 10 steps  -1038.7 902.2 902.2 2073.1         3.15e-06   1 imaginary mode(s) G -1.6467907385 [26 s]
+h3_allon_smd rc=0 10 steps  -1040.6 881.9 881.9 2070.3         6.67e-06   1 imaginary mode(s) G -1.6404230118 [29 s]
+run                    steps SCFs  first      second     last       all         
+                                   (each: Fock builds of the model + of the cheap model + cycles of its SCF)
+h3_allon                  10   12  2+3+5      2+3+3      2+2+1      24+38+35    
+h3_allon_smd              10   12  2+3+5      2+3+3      2+2+1      24+38+36    
+h3_default                 5    7  2+3+5      2+2+1      2+2+1      14+21+19    
+h3_rijcosx                 5    7  2+3+5      2+2+1      2+2+1      14+21+19    
+h3_sgx                     5    7  2+3+5      2+2+1      2+2+1      14+21+19    
+h3_smd                     6    8  2+3+5      2+2+1      2+2+1      16+24+21    
+h3_svp                    10   12  2+3+5      2+3+3      2+2+1      24+38+35    
+h3_svp_smd                10   12  2+3+5      2+3+3      2+2+1      24+39+36    
+hcn_allon                 13   15  2+3+6      2+3+5      2+4+1      30+66+45    
+hcn_allon_smd              9   11  2+3+6      2+4+4      2+4+1      22+47+35    
+hcn_default               12   14  2+3+6      2+4+1      2+4+1      28+61+44    
+hcn_rijcosx                9   11  2+3+6      2+4+1      2+4+1      22+47+38    
+hcn_sgx                   12   14  2+3+6      2+4+1      2+4+1      28+61+44    
+hcn_smd                    8   10  2+4+6      2+4+1      2+4+1      20+41+32    
+hcn_svp                   13   15  2+3+6      2+4+5      2+4+1      30+67+45    
+hcn_svp_smd                9   11  2+3+6      2+4+4      2+4+1      22+47+35    
+P45_GPU_DONE 13:24:49
+
+-- compare_runs.py old new
+run            steps o/n   dE (Eh)      max |d freq| (cm^-1, 0.1)  dG (Eh)      dG (kcal/mol)
+h3_allon       10 / 10     +0.00e+00    0.0                        +0.00e+00    +0.00e+00
+h3_allon_smd   10 / 10     +0.00e+00    0.0                        +0.00e+00    +0.00e+00
+h3_default      5 / 5      +1.00e-10    0.0                        +0.00e+00    +0.00e+00
+h3_rijcosx      5 / 5      +0.00e+00    0.0                        +0.00e+00    +0.00e+00
+h3_sgx          5 / 5      +1.00e-10    0.0                        +0.00e+00    +0.00e+00
+h3_smd          6 / 6      +0.00e+00    0.0                        +0.00e+00    +0.00e+00
+h3_svp         10 / 10     +0.00e+00    0.0                        +1.00e-10    +6.28e-08
+h3_svp_smd     10 / 10     +1.00e-10    0.0                        +0.00e+00    +0.00e+00
+hcn_allon      13 / 13     +1.00e-10    0.0                        +0.00e+00    +0.00e+00
+hcn_allon_smd   9 / 9      +0.00e+00    0.0                        +0.00e+00    +0.00e+00
+hcn_default    12 / 12     +0.00e+00    0.0                        +2.00e-10    +1.26e-07
+hcn_rijcosx     9 / 9      +0.00e+00    0.0                        +2.00e-10    +1.26e-07
+hcn_sgx        12 / 12     +1.00e-10    0.0                        +0.00e+00    +0.00e+00
+hcn_smd         8 / 8      +1.00e-10    0.0                        +2.00e-10    +1.26e-07
+hcn_svp        13 / 13     +0.00e+00    0.0                        +0.00e+00    +0.00e+00
+hcn_svp_smd     9 / 9      +0.00e+00    0.0                        +0.00e+00    +0.00e+00
+
+-- count_points_gpu.py: the points after an SCF at the new runs' saddle points
+hcn_default two_level False cutoff 0      E -93.3611233590  XC grid 95232 (95016 nonzero)  VV10 grid 19712 (19546 nonzero)
+hcn_default two_level False cutoff 1e-07  E -93.3611233590  XC grid 86272 (86266 nonzero)  VV10 grid 17920 (17814 nonzero)
+hcn_default two_level True  cutoff 0      E -93.3611233590  XC grid 95232 (95016 nonzero)  VV10 grid 19712 (19546 nonzero)
+hcn_default two_level True  cutoff 1e-07  E -93.3611233590  XC grid 86272 (86196 nonzero)  VV10 grid 17920 (17808 nonzero)
+h3_default two_level False cutoff 0      E -1.6411560100  XC grid 99840 (99573 nonzero)  VV10 grid 20224 (19986 nonzero)
+h3_default two_level False cutoff 1e-07  E -1.6411560099  XC grid 92672 (92535 nonzero)  VV10 grid 18688 (18654 nonzero)
+h3_default two_level True  cutoff 0      E -1.6411560100  XC grid 99840 (99573 nonzero)  VV10 grid 20224 (19986 nonzero)
+h3_default two_level True  cutoff 1e-07  E -1.6411560099  XC grid 92672 (92583 nonzero)  VV10 grid 18688 (18678 nonzero)

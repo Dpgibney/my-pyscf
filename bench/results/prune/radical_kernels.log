@@ -1,0 +1,34 @@
+>>> [      0 s,   0.1 GB] pyscf /home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py, 10 threads, max_memory 12000 MB; 16 atoms, 321 AOs, (33, 32) electrons, UKS wB97M-V/def2-tzvp, solvent water
+>>> [      0 s,   0.1 GB] initial guess 0.1 s; nelec 64.996793
+>>> [      1 s,   0.2 GB] XC (99,590): 514104 points (0 s); rho >= 1e-8 (the VV10 kernels' mask): 481038; cutoff 1e-07: 441946 (0.860); cutoff 1e-06: 433696 (0.844)
+>>> [      1 s,   0.2 GB] VV10 (50,194): 105136 points (0 s); rho >= 1e-8 (the VV10 kernels' mask): 99156; cutoff 1e-07: 91386 (0.869), of them rho >= 1e-8: 89598; cutoff 1e-06: 89243 (0.849), of them rho >= 1e-8: 87775
+>>> [      1 s,   0.2 GB] response XC, level 2: 138480 points (0 s); rho >= 1e-8 (the VV10 kernels' mask): 129039; cutoff 1e-07: 117728 (0.850); cutoff 1e-06: 115208 (0.832)
+>>> [      1 s,   0.2 GB] response VV10, level 1: 63928 points (0 s); rho >= 1e-8 (the VV10 kernels' mask): 60191; cutoff 1e-07: 55506 (0.868), of them rho >= 1e-8: 54382; cutoff 1e-06: 54561 (0.853), of them rho >= 1e-8: 53695
+>>> [      1 s,   0.2 GB] cheap model XC, level 1: 63928 points (0 s); rho >= 1e-8 (the VV10 kernels' mask): 60191; cutoff 1e-07: 55506 (0.868); cutoff 1e-06: 54561 (0.853)
+>>> [      1 s,   0.2 GB] cheap model VV10, level 0: 14120 points (0 s); rho >= 1e-8 (the VV10 kernels' mask): 13757; cutoff 1e-07: 12977 (0.919), of them rho >= 1e-8: 12851; cutoff 1e-06: 12806 (0.907), of them rho >= 1e-8: 12757
+>>> [      4 s,   1.0 GB] XC potential on the grid   full (514104 points): 3.1 s, E_xc -40.7499802730, nelec 64.99679676
+>>> [      7 s,   1.6 GB] XC potential on the grid  1e-07 (441952 points): 2.7 s, E_xc -40.7499802730, nelec 64.99679676
+>>> [     10 s,   2.2 GB] XC potential on the grid  1e-06 (433696 points): 2.8 s, E_xc -40.7499802721, nelec 64.99679675
+>>> [     13 s,   2.3 GB] XC potential on the grid   full (514104 points): 3.0 s, E_xc -40.7499802730, nelec 64.99679676
+>>> [     15 s,   2.2 GB] XC potential on the grid  1e-06 (433696 points): 2.7 s, E_xc -40.7499802721, nelec 64.99679675
+>>> [     18 s,   2.3 GB] XC potential on the grid  1e-07 (441952 points): 2.7 s, E_xc -40.7499802730, nelec 64.99679676
+>>> [     18 s,   2.3 GB] XC potential, full: mean 3.0 s of [3.0553566380112898, 2.9783944910159335]
+>>> [     18 s,   2.3 GB] XC potential, 1e-07: mean 2.7 s of [2.7456883499980904, 2.68158414500067]
+>>> [     18 s,   2.3 GB] XC potential, 1e-06: mean 2.7 s of [2.7763588919769973, 2.6741060840140563]
+>>> [     23 s,   2.3 GB] VV10 (50,194): VV10 data of 99156 points (ground-state pair sums): 4.8 s
+>>> [     29 s,   2.3 GB] VV10 (50,194): eval_f_t of 16 densities, tree: 6.3 s
+>>> [     36 s,   2.4 GB] VV10 (50,194): eval_f_t of 16 densities, cutoff 0: 6.4 s, 1.000 of the block pairs; max |d f_rho_t| / max |f_rho_t| 4.31e-17, f_gamma_t 1.45e-17
+>>> [     42 s,   2.4 GB] VV10 (50,194): eval_f_t of 16 densities, cutoff 16: 6.3 s, 1.000 of the block pairs; max |d f_rho_t| / max |f_rho_t| 4.31e-17, f_gamma_t 1.45e-17
+>>> [     48 s,   2.4 GB] VV10 (50,194): eval_f_t of 16 densities, cutoff 12: 6.3 s, 0.999 of the block pairs; max |d f_rho_t| / max |f_rho_t| 8.14e-10, f_gamma_t 2.15e-11
+>>> [     54 s,   2.4 GB] VV10 (50,194): eval_f_t of 16 densities, cutoff 9: 6.1 s, 0.956 of the block pairs; max |d f_rho_t| / max |f_rho_t| 7.52e-09, f_gamma_t 2.04e-10
+>>> [     59 s,   2.4 GB] VV10 (50,194): eval_f_t of 16 densities, cutoff 6: 4.9 s, 0.773 of the block pairs; max |d f_rho_t| / max |f_rho_t| 3.46e-08, f_gamma_t 1.37e-09
+>>> [     66 s,   2.4 GB] VV10 (50,194): eval_f_t of 16 densities, tree: 6.3 s; max |d f_rho_t| / max |f_rho_t| 0.00e+00, f_gamma_t 0.00e+00
+>>> [     67 s,   2.2 GB] response VV10, level 1: VV10 data of 60191 points (ground-state pair sums): 1.8 s
+>>> [     70 s,   2.3 GB] response VV10, level 1: eval_f_t of 16 densities, tree: 2.3 s
+>>> [     72 s,   2.3 GB] response VV10, level 1: eval_f_t of 16 densities, cutoff 0: 2.4 s, 1.000 of the block pairs; max |d f_rho_t| / max |f_rho_t| 2.03e-17, f_gamma_t 7.11e-18
+>>> [     74 s,   2.3 GB] response VV10, level 1: eval_f_t of 16 densities, cutoff 16: 2.3 s, 1.000 of the block pairs; max |d f_rho_t| / max |f_rho_t| 2.03e-17, f_gamma_t 7.11e-18
+>>> [     77 s,   2.3 GB] response VV10, level 1: eval_f_t of 16 densities, cutoff 12: 2.3 s, 1.000 of the block pairs; max |d f_rho_t| / max |f_rho_t| 3.84e-10, f_gamma_t 5.28e-11
+>>> [     79 s,   2.3 GB] response VV10, level 1: eval_f_t of 16 densities, cutoff 9: 2.3 s, 0.984 of the block pairs; max |d f_rho_t| / max |f_rho_t| 4.85e-09, f_gamma_t 2.07e-10
+>>> [     81 s,   2.3 GB] response VV10, level 1: eval_f_t of 16 densities, cutoff 6: 2.1 s, 0.886 of the block pairs; max |d f_rho_t| / max |f_rho_t| 2.50e-08, f_gamma_t 1.27e-09
+>>> [     83 s,   2.3 GB] response VV10, level 1: eval_f_t of 16 densities, tree: 2.3 s; max |d f_rho_t| / max |f_rho_t| 0.00e+00, f_gamma_t 0.00e+00
+guard: peak RSS about 2 GB

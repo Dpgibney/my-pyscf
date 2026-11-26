@@ -1,0 +1,41 @@
+lowest frequencies of ref (cm-1): -1763.75 55.56 303.55 305.78 514.25 681.49 682.66 1118.90
+against ref: dE (Eh), the largest change of a frequency (cm-1, and the mode), the lowest three, the largest of a Hessian element (Eh/Bohr^2), dG (kcal/mol)
+  ref          dE +0.00e+00  max|df| 0.0000 (-1763.8)  lowest +0.0000 +0.0000 +0.0000  max|dH| 0.0e+00  dG +0.000000
+  rho:0        dE +2.52e-12  max|df| 0.0019 (  55.6)  lowest +0.0009 +0.0019 +0.0007  max|dH| 1.4e-07  dG +0.000010
+  rho:1e-7     dE +4.94e-11  max|df| 0.0022 (  55.6)  lowest +0.0009 +0.0022 +0.0007  max|dH| 1.4e-07  dG +0.000011
+  rho:1e-6     dE +1.48e-09  max|df| 0.0045 (  55.6)  lowest +0.0010 +0.0045 +0.0011  max|dH| 1.6e-07  dG +0.000025
+  rho:1e-5     dE +7.26e-09  max|df| 0.0300 (  55.6)  lowest +0.0027 +0.0300 +0.0055  max|dH| 4.0e-07  dG +0.000172
+  rho:1e-4     dE +1.19e-07  max|df| 0.2492 (  55.6)  lowest +0.0170 +0.2492 +0.0435  max|dH| 4.1e-06  dG +0.001495
+  vv10:9       dE +0.00e+00  max|df| 0.0000 (  55.6)  lowest +0.0000 -0.0000 +0.0000  max|dH| 2.1e-12  dG -0.000000
+  vv10:6       dE +0.00e+00  max|df| 0.0004 (3076.3)  lowest +0.0000 -0.0001 -0.0002  max|dH| 6.2e-08  dG -0.000001
+  vv10:4       dE +0.00e+00  max|df| 0.0322 (3076.3)  lowest -0.0006 -0.0015 +0.0006  max|dH| 3.0e-06  dG -0.000004
+against rho:0: dE (Eh), the largest change of a frequency (cm-1, and the mode), the lowest three, the largest of a Hessian element (Eh/Bohr^2), dG (kcal/mol)
+  ref          dE -2.52e-12  max|df| 0.0019 (  55.6)  lowest -0.0009 -0.0019 -0.0007  max|dH| 1.4e-07  dG -0.000010
+  rho:0        dE +0.00e+00  max|df| 0.0000 (-1763.8)  lowest +0.0000 +0.0000 +0.0000  max|dH| 0.0e+00  dG +0.000000
+  rho:1e-7     dE +4.69e-11  max|df| 0.0003 (  55.6)  lowest +0.0000 +0.0003 +0.0001  max|dH| 3.0e-09  dG +0.000002
+  rho:1e-6     dE +1.48e-09  max|df| 0.0026 (  55.6)  lowest +0.0001 +0.0026 +0.0004  max|dH| 3.2e-08  dG +0.000015
+  rho:1e-5     dE +7.26e-09  max|df| 0.0281 (  55.6)  lowest +0.0018 +0.0281 +0.0048  max|dH| 3.8e-07  dG +0.000162
+  rho:1e-4     dE +1.19e-07  max|df| 0.2473 (  55.6)  lowest +0.0161 +0.2473 +0.0428  max|dH| 4.1e-06  dG +0.001486
+  vv10:9       dE -2.52e-12  max|df| 0.0019 (  55.6)  lowest -0.0009 -0.0019 -0.0007  max|dH| 1.4e-07  dG -0.000010
+  vv10:6       dE -2.52e-12  max|df| 0.0020 (  55.6)  lowest -0.0009 -0.0020 -0.0009  max|dH| 1.4e-07  dG -0.000010
+  vv10:4       dE -2.52e-12  max|df| 0.0322 (3076.3)  lowest -0.0015 -0.0034 -0.0001  max|dH| 3.0e-06  dG -0.000013
+the imaginary and soft modes (< 200 cm-1) of ref: -1763.75 55.56; the change of each:
+  ref          +0.0000 +0.0000
+  rho:0        +0.0009 +0.0019
+  rho:1e-7     +0.0009 +0.0022
+  rho:1e-6     +0.0010 +0.0045
+  rho:1e-5     +0.0027 +0.0300
+  rho:1e-4     +0.0170 +0.2492
+  vv10:9       +0.0000 -0.0000
+  vv10:6       +0.0000 -0.0001
+  vv10:4       -0.0006 -0.0015
+time (s): the Hessian; XC on the SCF grid, on the response grid; VV10; the cut kernels; the untouched parts; XC on the SCF grid / untouched, relative to rho:0 (or ref); points; VV10 block pairs kept
+  ref             48.0  XC   27.4    1.0  VV10   12.0  kern   6.9  untouched    8.7  0.974  XC 295208 VV10 59752  pairs -
+  rho:0           48.6  XC   28.1    1.0  VV10   11.9  kern   6.8  untouched    8.6  1.000  XC 295208 VV10 59752  pairs -
+  rho:1e-7        44.2  XC   24.7    1.1  VV10   11.1  kern   6.2  untouched    8.3  0.912  XC 261136 VV10 53312  pairs -
+  rho:1e-6        43.5  XC   24.3    1.0  VV10   10.7  kern   6.1  untouched    8.6  0.874  XC 256648 VV10 52128  pairs -
+  rho:1e-5        42.5  XC   23.5    1.0  VV10   10.4  kern   6.0  untouched    8.6  0.837  XC 250968 VV10 50552  pairs -
+  rho:1e-4        41.5  XC   22.7    1.1  VV10   10.1  kern   5.9  untouched    8.6  0.812  XC 244144 VV10 49176  pairs -
+  vv10:9          47.0  XC   27.3    1.0  VV10   12.3  kern   7.5  untouched    8.2  1.023  XC 295208 VV10 59752  pairs 0.999
+  vv10:6          46.1  XC   28.6    1.0  VV10   10.1  kern   6.9  untouched    8.2  1.072  XC 295208 VV10 59752  pairs 0.989
+  vv10:4          45.0  XC   27.7    1.0  VV10    9.8  kern   6.5  untouched    8.4  1.019  XC 295208 VV10 59752  pairs 0.899

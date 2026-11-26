@@ -10811,6 +10811,169 @@ digit. HCN <-> HNC at 298.15 K: in the gas phase, 1 atm, G - E = -0.010115 Eh (Z
   Hessian's SCF has converged; PySCF's engine has no way to hand it the energy and gradient of that SCF.
 - **Hindered rotors and other anharmonic corrections**: the quasi-RRHO entropy is the only treatment of the soft modes.
 
+## Pruning: low-density grid points and a VV10 pair cutoff, measured on a Hessian (laptop), 2026-11-26
+The user, after the transition-state workflow: "Is any form of pruning being used or does that introduce unacceptably
+large errors?", then "Yes please do that" to measuring the two prunings not in use, on the 16-atom radical's Hessian
+(each one's frequency error and time saved) before anything goes near the 57-atom runs.
+- **In use already**: the angular pruning of every grid (PySCF's NWChem scheme, the default of both trees; ORCA-like
+  for the COSX grids). On caffeine, wB97M-V/def2-TZVPD at a fixed density, it moves E_xc on (99,590) by 5e-9 Eh with
+  55% of the points and E_nlc on (50,194) by 2e-8 with 68% (`bench/results/wb97mv-tzvpd/xc_grids.log`); Treutler's
+  pruning has 40 times the potential error, SG-1 on the VV10 grid 7 times (opt-in only, the user's decision of
+  2026-11-02). The integrals are screened (the Hessian's two-density bound at 1e-13).
+- **Not in use**: density-based pruning (`small_rho_cutoff`, 0 by default since upstream #3192 of 2026-04-20, whose
+  commit gives no reason) and any cutoff in the VV10 pair kernels, which take every pair of points.
+- **Files:** `bench/diag/prune/prune_check.py` (the variants of one Hessian; `--opt` the minimum first; `--big` the
+  grids of a molecule from its initial guess, an XC potential on the full and the pruned grids, and the VV10 kernel
+  with and without the cutoff), `vv10_cut.c` (the cutoff kernels), `summarize.py`. Data: `bench/results/prune/`.
+- **Workload:** the audit's 4-methoxyphenoxyl radical (16 atoms, 321 functions, doublet) at the model's minimum
+  (geomeTRIC, 10 steps, max gradient 1.4e-5; lowest mode 90.1 cm^-1), the model of `examples/wb97mv_ts.py`
+  (wB97M-V/def2-TZVP, (99,590), (50,194), SMD water, two_level, response grids 2/1), Hessian with `grid_response`
+  and `sgx_response` (RI-J in aug_etb); 10 threads, `max_memory` 12000. The 57-atom doublet of the audit
+  (`fmnh_hnco.xyz`) for the point counts and kernel times. Power profile 'balanced' (not benchmark-ready): compare
+  within a run.
+
+### The two prunings
+- **Low-density points** (`mf.small_rho_cutoff = c`): when the SCF builds its grids (at its first Fock build, from
+  that density), PySCF drops the points where |rho w| < c / npoints, so that at most c electrons go. That covers
+  the XC and VV10 grids of the SCF and of the two-level cheap model (a copy); the gradient and the Hessian then use
+  the same points, and the Hessian's grid response is that of the energy on them. The response grids
+  (`second_grids`, `second_nlcgrids`) are separate and stay whole; variant `rhoall` prunes them too, from the
+  converged density (in the script; no option does it).
+- **VV10 pair cutoff** (`vv10:R`): the Hessian's two pair kernels of many densities, `eval_f_t` (the density
+  responses of the energy term and of every CPHF iteration) and `eval_EUW_with_weight1` (the weight derivatives),
+  from a scratch library (`vv10_cut.c`, the tree's kernels except for the skip): a pair of blocks of 128 points is
+  left out when their bounding spheres are more than R Bohr apart, the same decision for (i, j) and (j, i). The
+  points go to the kernel in the order of a k-d split into blocks of 128 (compact blocks). The SCF, the gradient and
+  the other VV10 terms (ground-state sums, the points' motion) are exact. With every pair kept the library's kernel
+  is bitwise the tree's in the tree's order, and in the k-d order within 3e-17 (weight terms 5e-15); the Hessian of
+  `vv10:0` is the reference's within 1.5e-12.
+
+### Errors (the radical)
+The variants of the low-density cutoff start their SCF from the reference's density, the reference from the initial
+guess. The two converge to points 2e-11 Eh apart that differ by 0.0023 cm^-1 in a frequency (754 cm^-1) and 1.2e-6 in
+a Hessian element: the control `rho:0` (the variants' path, nothing pruned) shows exactly that, and is the base for
+the low-density rows below. A second reference at the end (`ref2`) is the first within 1.3e-12.
+
+| pruning | points kept: XC, VV10 kernels | dE (Eh) | largest frequency change | dG (kcal/mol) |
+|---|---|---|---|---|
+| low density 1e-7 | 0.857, 0.904 | +7e-11 | < 5e-5 cm^-1 | +1e-6 |
+| low density 1e-6 | 0.842, 0.886 | +9e-10 | 0.0003 | +5e-6 |
+| low density 1e-5 | 0.823, 0.869 | +1.2e-8 | 0.0029 | +5e-5 |
+| low density 1e-4 | 0.801, 0.851 | +2.7e-7 | 0.026 (the mode at 244 cm^-1) | +6e-4 |
+| 1e-6, response grids too (0.830 and 0.892 of their points) | | +9e-10 | 0.0003 | +5e-6 |
+| VV10 pairs beyond 12 Bohr (0.999 of the block pairs kept) | | 0 | < 5e-5 | 0 |
+| VV10 9 Bohr (0.956; 0.983 on the response grid) | | 0 | < 5e-5 (Hessian 3.7e-7) | 0 |
+| VV10 6 Bohr (0.774; 0.883) | | 0 | 0.0012 (1537 cm^-1) | -2e-6 |
+
+The gradient of every low-density variant is within 1.07e-6 Eh/Bohr of the reference's, and so is the control's:
+that too is the convergence point, not the pruning.
+
+### Time
+- **The radical's Hessians are a poor clock**: 391-447 s for the same work. Consecutive Hessians drifted by 5-10%,
+  and two artifacts of the script showed: the low-density variants' VV10 Fock derivative (3.9 -> 29 s) made its pair
+  data again because the reference SCF, kept alive beside each variant, left no room under `max_memory` for keeping
+  it (`hessian/rks.py`: kept if 6 arrays fit in half the free memory), and the XC grid response of `vv10:0` took 93 s
+  for 58 (a cache of the other variant's grids). Against parts no pruning touches (the two-electron terms, the CPHF
+  solver), the XC on the pruned grid took 0.88 (1e-7), 0.86, 0.83, 0.82 of the control's time, and the VV10 kernel
+  calls 0.81, 0.79, 0.76, 0.74 (the square of the points kept: 0.82, 0.78, 0.76, 0.72).
+- **The 57-atom grids** (initial guess's density; `fmnh_hnco_grids.log`): at 1e-7 the XC grid keeps 0.832 of
+  1,822,368 points (1e-6 0.819, 1e-5 0.803, 1e-4 0.785), the VV10 kernels 0.861 of 361,016 (0.848, 0.831, 0.814), the
+  response grids 0.824 (XC level 2) and 0.866 (VV10 level 1), the cheap model's 0.847 (XC level 1). One XC
+  potential, alternated (ABBA): full grid 49.4 and 49.8 s, 1e-7 42.7 and 42.9 s (0.863), 1e-6 0.853, 1e-5 0.841,
+  1e-4 0.827; E_xc moves by 1e-10, 7e-10, 2.7e-8, 1.7e-7 Eh.
+- **The VV10 kernel at 57 atoms** (`eval_f_t`, 16 densities; the tree before and after: 83.6 and 82.1 s on the SCF's
+  VV10 grid, 32.4 and 32.2 s on the response grid):
+
+  | cutoff | block pairs kept, time: SCF's VV10 grid | response grid | largest relative change of the result |
+  |---|---|---|---|
+  | none (the library) | 1.000, 83.2 s | 1.000, 32.5 s | 7e-18 |
+  | 16 Bohr | 0.944, 77.9 s | 0.972, 31.4 s | 8e-10, 1.5e-9 |
+  | 12 Bohr | 0.777, 64.0 s | 0.845, 27.4 s | 4.5e-9, 6.4e-9 |
+  | 9 Bohr | 0.557, 46.0 s | 0.640, 20.8 s | 2.4e-8, 3.2e-8 |
+  | 6 Bohr | 0.318, 26.3 s | 0.389, 12.6 s | 5.3e-8, 8.3e-8 |
+
+  The time is the fraction of pairs kept. The same measure on the radical (`radical_kernels.log`): 8e-10 at 12 Bohr,
+  7.5e-9 at 9, 3.5e-8 at 6, where its frequencies moved by at most 0.0012 cm^-1: the 57 atoms at 9 Bohr change the
+  kernel as much as the radical at 6.
+- **Projected on the 57-atom Hessian** (the audit's parts, about 18,500 s with the RI-J response): the low-density
+  cutoff at 1e-7 on the SCF's grids takes about 590 s from its XC terms (4300 s on that grid, 0.863), 350 s from the
+  VV10 pair terms on that grid (1340 s, 0.741 of the pairs) and 30 s from the Fock derivative: about 16 min (5%).
+  With the response grids pruned too, another 450 s from the CPHF's XC (3240 s) and 435 s from its VV10 (1920 s):
+  about 31 min (10%). A step of the search (RIJCOSX, about 1040 s; XC 192 s, VV10 58 s): about 42 s (4%); the SGX
+  grids are not pruned. The VV10 pair cutoff, alone: about 8 min at 12 Bohr, 17 at 9, 28 at 6 (the energy term's
+  623 + 442 s of these two kernels and the CPHF's, of which `eval_f_t` is about 80%); on the pruned grids three
+  quarters of that. The whole workflow (two Hessians, 30 steps, about 18 h): about 53 min from the low-density
+  cutoff on the SCF's grids, 83 min with the response grids, and 30 min more from VV10 pairs beyond 9 Bohr.
+
+### At two saddle points, with soft modes
+The user: "Could you perform some of this on a system with low frequencies and an imaginary one?" Two symmetric
+hydrogen exchanges, doublets, the same model, found with `prune_check.py --ts` (the example's search from the exact
+Hessian at a guess, tighter thresholds: max gradient 1e-4): CH3. + CH4 (9 atoms; imaginary mode -1763.8 cm^-1, the
+torsion of the two methyls 55.6 cm^-1) and CH3O. + HOCH3 (11 atoms; -2596.7 cm^-1, the torsion of the two molecules
+about the O...O axis 34.1 cm^-1, methyl torsions 146-180 cm^-1). A third, ArO. + CH4 (21 atoms), was stopped after
+23 steps: from a guess with O-H 1.10 and H-C 1.42 Angstrom the search moved the H onto O (1.00) and the methyl away
+(2.48) while the energy rose by 17 kcal/mol, no path to a saddle point of the ground state (`<S^2>` 0.765-0.769
+throughout); the guess was poor for so endothermic a reaction (`aro_ch4_search_stopped.log`).
+
+Changes against the control rho:0 (the SCF from ref's density, nothing pruned), cm^-1 and kcal/mol; the VV10 rows
+against ref (the same SCF):
+
+| | CH3. + CH4: imaginary, 55.6 torsion, dG | CH3O. + HOCH3: imaginary, 34.1 torsion, dG |
+|---|---|---|
+| ref against rho:0 (the SCF's convergence point) | 0.0009, 0.0019, 1e-5 | 0.018, 0.005, 5e-5 |
+| low density 1e-7 | 0.0000, 0.0003, 2e-6 | 0.0001, 0.0002, 3e-6 |
+| low density 1e-6 | 0.0001, 0.0026, 1.5e-5 | 0.0002, 0.0017, 2.4e-5 |
+| low density 1e-5 | 0.0018, 0.028, 1.6e-4 | 0.0013, 0.013, 1.9e-4 |
+| low density 1e-4 | 0.016, 0.25, 1.5e-3 | 0.010, 0.12, 1.8e-3 |
+| VV10 9 Bohr (0.999 of the block pairs kept in both) | 0, 0, 0 | 0, 0, 0 |
+| VV10 6 Bohr (0.989; 0.963) | 0.0000, 0.0001, 0 | 0.0001, 0.0008, 0 |
+| VV10 4 Bohr (0.899; 0.858) | 0.0006, 0.0015, 4e-6 | 0.0045, 0.0020, 1e-5 |
+
+The soft modes are the most sensitive to the low-density cutoff, about ten times the radical's modes (0.0026 against
+0.0003 cm^-1 at 1e-6), and the error grows tenfold per decade of the cutoff; at 1e-7 and 1e-6 it stays below what the
+SCF's own convergence point does to the same modes. The imaginary modes move less than the soft ones. The VV10
+cutoff at 4 Bohr, which leaves out 10-14% of the pairs of these small molecules, moves no imaginary or soft mode by
+more than 0.005 cm^-1 (a C-H stretch by 0.03). The XC on the pruned grids took 0.91 and 0.89 (1e-7) of the control's
+time against the untouched parts. Data: `ch3_ch4_*`, `meo_meoh_*` in `bench/results/prune/` (search logs, the
+Hessians, summaries, the guesses and saddle points).
+
+### In the examples
+The user: "Yes please do that" to "Should I commit and push it, and add the 1e-7 cutoff to both examples?". `make_mf`
+of `examples/wb97mv_ts.py` and of `examples/wb97mv_ts_gpu.py` sets `mf.small_rho_cutoff = 1e-7`. Every SCF of the
+workflow (the start Hessian's, the search's, the saddle point's) prunes its grids from the density it starts from:
+with the examples' reuse of densities, the converged one of the geometry before (the first SCF from its guess).
+- **GPU4PySCF's pruning** (read in the tree: `dft/rks.py`, `dft/uks.py`, `dft/gen_grid.py`): the same rule at the
+  same moment, from the total density for UKS. `prune_by_density_` keeps `atm_idx` and `quadrature_weights` with the
+  points, pads to the alignment and clears the cache of AO indices. The two-level cheap model prunes grids of its own
+  (reset copies), `mf.cphf_grids` stays whole, and the Hessian's grid-response terms work on whole copies that they
+  build again (`grids.copy()` then `build(sort_grids_of_each_atom=True)`): the GPU Hessian's grid response is then
+  that of the whole grid and its other XC terms those of the pruned points, a difference of the size of the pruning
+  (the CPU tree's grid response is on the pruned points). A latent bug there that the examples do not reach:
+  `rks.initialize_grids` sets `ground_state` only where it builds `mf.grids`, so with a cutoff an SCF whose VV10 grid
+  alone was reset (`mf.nlcgrids.atom_grid = ...` after a first run) would stop with an UnboundLocalError.
+- **PySCF's UKS prunes only from the two spins' densities**: its `initialize_grids` given their sum builds the grids
+  whole without a word (the first count of points below fell into it; the SCF passes the two spins).
+- **Old against new** (the committed examples against these, eight variants each on HCN <-> HNC and H + H2 with
+  `ts_example_variants.sh`, compared by `bench/diag/prune/compare_runs.py`; `bench/results/prune/examples_ab.txt`).
+  CPU (the laptop): the same steps, SCF work and frequencies (to the printed 0.1 cm^-1) in all 16 runs, E at the
+  saddle point within 1e-10 Eh, G within 2.4e-9 Eh (1.5e-6 kcal/mol); 8-33 s a run either way. At the saddle points
+  (`count_points.py`, the converged density) HCN keeps 0.906 of the XC grid's points and 0.909 of the VV10 grid's,
+  H + H2 0.929 and 0.933. GPU (node1): the same steps, SCF work and frequencies in all 16 runs, E within 1e-10 Eh, G
+  within 2e-10 Eh (unchanged in 10 runs), 24-128 s a run either way. That is less than the CPU's change, so the GPU's
+  points were counted after its SCFs (`count_points_gpu.py`): it prunes as much (HCN 0.908 and 0.911 of the nonzero
+  weights, H + H2 0.929 and 0.933, the two-level SCF alike). One difference: its Hessian's grid response stays on
+  whole grids (above).
+
+### Not done
+- **No 57-atom Hessian with either pruning**; the projections are from the parts measured in the audit.
+- **A cutoff in the tree**: `mf.small_rho_cutoff` is an existing option (the SCF's grids); pruning the response grids
+  and the VV10 block cutoff (two kernels in `lib/dft/nr_numint.c`, a sorted point order in `_VV10HessData`) would
+  be code, on the GPU too, where only the examples' runs above were made (nothing timed there).
+- **A larger complex**: the two saddle points have soft modes between their molecules, but are too small for a VV10
+  cutoff of 9-12 Bohr to leave anything out; at 57 atoms the kernel's error was measured, not its frequencies.
+- The SCF's own VV10 kernel (`VXC_vv10nlc_sym`, 43 s of a search step) and the points' motion (`grid_response_sorted`,
+  205 s of the 57-atom Hessian) without the cutoff.
+
 ## Next iterations (by measured remaining cost, after It9)
 The swarm review above re-ranks these after It13. Its proposed order is the current plan, and the items below are
 background.

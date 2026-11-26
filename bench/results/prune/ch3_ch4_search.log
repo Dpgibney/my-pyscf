@@ -1,0 +1,11 @@
+>>> [      0 s,   0.1 GB] pyscf /home/danny/Chemistry/my-pyscf/pyscf/pyscf/__init__.py, 10 threads, max_memory 12000 MB; 9 atoms, 104 AOs, (10, 9) electrons, UKS wB97M-V/def2-tzvp, solvent water
+>>> [     53 s,   1.4 GB] start Hessian: 53 s; lowest frequencies (cm-1) -1738.4 210.8 337.2 338.4 520.1 709.9
+Step    0 : Gradient = 2.611e-03/3.197e-03 (rms/max) Energy = -80.2749192222
+Step    1 : Displace = 1.001e-02/1.266e-02 (rms/max) Trust = 1.000e-02 (=) Grad = 6.263e-04/7.969e-04 (rms/max) E (change) = -80.2751084465 (-1.892e-04) Quality = 0.999
+Step    2 : Displace = 8.704e-03/1.098e-02 (rms/max) Trust = 1.414e-02 (+) Grad = 3.696e-05/9.499e-05 (rms/max) E (change) = -80.2751422782 (-3.383e-05) Quality = 0.969
+Step    3 : Displace = 8.617e-05/1.512e-04 (rms/max) Trust = 2.000e-02 (+) Grad = 9.472e-06/2.553e-05 (rms/max) E (change) = -80.2751424272 (-1.491e-07) Quality = 0.737
+Step    4 : Displace = 4.688e-05/6.258e-05 (rms/max) Trust = 2.000e-02 (=) Grad = 2.604e-06/5.496e-06 (rms/max) E (change) = -80.2751425340 (-1.068e-07) Quality = 0.764
+Step    5 : Displace = 6.455e-06/1.072e-05 (rms/max) Trust = 2.828e-02 (+) Grad = 2.605e-06/5.664e-06 (rms/max) E (change) = -80.2751426259 (-9.186e-08) Quality = 0.732
+Converged! =D
+>>> [     90 s,   1.7 GB] saddle point: converged True, 37 s
+guard: peak RSS about 4 GB
